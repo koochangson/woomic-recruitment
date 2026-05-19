@@ -302,6 +302,11 @@ textarea{resize:vertical;min-height:64px;}
     </div>
     <div class="ng">
       <div class="ng-label">채용 프로세스</div>
+      <button class="nb" onclick="nav('position',this)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="2"/><path d="M5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 7v4M6 9h4"/></svg>
+        모집단위 관리
+        <span class="nbb" id="nb-pos">0</span>
+      </button>
       <button class="nb" onclick="nav('tracker',this)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h10M2 12h6"/></svg>
         지원자 트래커
@@ -403,11 +408,30 @@ textarea{resize:vertical;min-height:64px;}
     </div>
 
     <!-- ② 지원자 트래커 ──────────────────────────────────── -->
-    <div id="sect-tracker" class="sect">
+    <!-- ── 모집단위 관리 섹션 ─────────────────────────────────── -->
+<div id="sect-position" class="sect">
+  <div class="tb">
+    <div class="tb-l">
+      <div class="tb-title">모집단위 관리</div>
+      <div class="tb-sub" id="pos-count-label">전체 0개 포지션</div>
+    </div>
+    <div class="tb-r">
+      <button class="btn btn-primary" onclick="openAddPosition()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 2v12M2 8h12"/></svg>
+        모집단위 추가
+      </button>
+    </div>
+  </div>
+
+  <!-- 모집단위 목록 -->
+  <div id="pos-list" style="display:flex;flex-direction:column;gap:12px;margin-top:16px"></div>
+</div>
+
+<div id="sect-tracker" class="sect">
       <!-- 6단계 필터 바 -->
       <div class="stage-bar" id="stage-filter-bar">
         <div class="stage-seg act" onclick="filterStage(-1,this)"><div class="ss-lbl">전체</div><div class="ss-cnt" id="sf-all">0</div></div>
-        <div class="stage-seg" onclick="filterStage(0,this)"><div class="ss-lbl">서류검토</div><div class="ss-cnt" id="sf-0">0</div></div>
+        <div class="stage-seg" onclick="filterStage(0,this)"><div class="ss-lbl">서류합격</div><div class="ss-cnt" id="sf-0">0</div></div>
         <div class="stage-seg" onclick="filterStage(1,this)"><div class="ss-lbl">1차면접</div><div class="ss-cnt" id="sf-1">0</div></div>
         <div class="stage-seg" onclick="filterStage(2,this)"><div class="ss-lbl">레퍼런스</div><div class="ss-cnt" id="sf-2">0</div></div>
         <div class="stage-seg" onclick="filterStage(3,this)"><div class="ss-lbl">2차면접</div><div class="ss-cnt" id="sf-3">0</div></div>
@@ -775,6 +799,12 @@ textarea{resize:vertical;min-height:64px;}
           <select id="nc-career"><option>경력직</option><option>신입</option><option>인턴</option></select>
         </div>
         <div class="fg"><label>접수일</label><input type="date" id="nc-date"/></div>
+        <div class="fg full">
+          <label>모집단위 연결</label>
+          <select id="nc-pos-id">
+            <option value="">선택 안함</option>
+          </select>
+        </div>
         <div class="fg full"><label>메모</label><textarea id="nc-memo" style="min-height:48px"></textarea></div>
       </div>
     </div>
@@ -835,6 +865,28 @@ textarea{resize:vertical;min-height:64px;}
         </div>
       </div>
 
+      <!-- 면접 후보 일정 입력 (1차/2차 면접 단계에서만 표시) -->
+      <div id="cs-int-schedule" style="display:none;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px">📅 면접 후보 일정 입력 (선택)</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
+            <input id="cs-int-slot1" type="datetime-local" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">2안</span>
+            <input id="cs-int-slot2" type="datetime-local" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">3안</span>
+            <input id="cs-int-slot3" type="datetime-local" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:6px 8px;background:var(--bbg);border-radius:var(--rsm)">
+          💡 입력 시 이메일 본문에 자동 포함 · 지원자 회신 후 면접 관리 탭에서 일정 확정
+        </div>
+      </div>
+
       <!-- 알림 미리보기 -->
       <div id="cs-preview-area" style="margin-top:12px">
         <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">알림 메시지 미리보기</div>
@@ -882,7 +934,7 @@ textarea{resize:vertical;min-height:64px;}
         <div class="fg"><label>단계 필터</label>
           <select id="bulk-stage" onchange="updateBulkPreview()">
             <option value="-1">전체</option>
-            <option value="0">서류검토</option><option value="1">1차면접</option>
+            <option value="0">서류합격</option><option value="1">1차면접</option>
             <option value="2">2차면접</option><option value="3">레퍼런스</option>
             <option value="4">처우협의</option><option value="5">최종합격</option>
           </select>
@@ -898,10 +950,7 @@ textarea{resize:vertical;min-height:64px;}
       <div class="notify-card">
         <div class="nc-header"><div class="nc-icon" style="background:var(--teams)"><svg viewBox="0 0 14 14"><path d="M7 1L13 3.5V7C13 9.8 10.3 12.3 7 13C3.7 12.3 1 9.8 1 7V3.5L7 1Z"/></svg></div>
           <div><div class="nc-title" style="color:var(--teams)">미리보기</div></div></div>
-        <div class="nc-body" id="bulk-preview" style="font-size:11.5px">선택 후 표시됩니다.</div>
-      </div>
-    </div>
-    <div class="modal-ft"
+        <div class="nc-body" id="
 >
       <button class="btn" onclick="closeModal('modal-bulk-notify')">취소</button>
       <button class="btn btn-teams" onclick="sendBulk()">일괄 발송</button>
@@ -933,13 +982,121 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
+
+<!-- ── 모집단위 추가/편집 모달 ──────────────────────────── -->
+<div class="overlay" id="modal-position">
+  <div class="modal" style="width:680px">
+    <div class="modal-hd">
+      <div class="modal-title" id="pos-modal-title">모집단위 추가</div>
+      <button class="mclose" onclick="closeModal('modal-position')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="fg" style="grid-column:1/-1">
+        <label>포지션명 *</label>
+        <input id="pos-title" placeholder="예: 현장소장, 구매팀 대리"/>
+      </div>
+      <div class="fg">
+        <label>채용형태</label>
+        <select id="pos-etype">
+          <option value="정규직">정규직</option>
+          <option value="전문직">전문직</option>
+          <option value="파견직">파견직</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>직군</label>
+        <select id="pos-role">
+          <option value="현장직">현장직</option>
+          <option value="사무직">사무직</option>
+          <option value="기술직">기술직</option>
+          <option value="관리직">관리직</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>모집인원</label>
+        <input id="pos-headcount" type="number" min="1" value="1" placeholder="명"/>
+      </div>
+      <div class="fg">
+        <label>부서</label>
+        <input id="pos-dept" placeholder="예: 현장지원1팀"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>1차 면접관 (이름·이메일 쌍, 쉼표 구분)</label>
+        <textarea id="pos-panel1" rows="2" placeholder="홍길동부장 hong@woomic.co.kr, 이팀장 lee@woomic.co.kr" style="font-size:12px;font-family:'DM Mono',monospace"></textarea>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">형식: 이름 이메일, 이름 이메일</div>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>2차 면접관 (이름·이메일 쌍, 쉼표 구분)</label>
+        <textarea id="pos-panel2" rows="2" placeholder="김임원 kim@woomic.co.kr, 박상무 park@woomic.co.kr" style="font-size:12px;font-family:'DM Mono',monospace"></textarea>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>면접 장소</label>
+        <input id="pos-loc" placeholder="예: 본사 3층 회의실 A"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>비고</label>
+        <input id="pos-memo" placeholder="추가 안내사항"/>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('modal-position')">취소</button>
+      <button class="btn btn-primary" onclick="savePosition()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 모집단위 상세 모달 ─────────────────────────────────── -->
+<div class="overlay" id="modal-pos-detail">
+  <div class="modal" style="width:760px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="pos-detail-title">모집단위 상세</div>
+      <button class="mclose" onclick="closeModal('modal-pos-detail')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="pos-detail-body" style="max-height:70vh;overflow-y:auto"></div>
+    <div class="modal-ft" id="pos-detail-ft">
+      <button class="btn" onclick="closeModal('modal-pos-detail')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 토스트 ─────────────────────────────────────────────── -->
 <div class="toast-wrap" id="toast-wrap"></div>
 
-<script>
+<script>// ══════════════════════════════════════════════════════════════
+// 전역 상태 변수
+// ══════════════════════════════════════════════════════════════
+let candidates      = [];
+let interviews      = [];
+let onboardings     = [];
+let notifyLog       = [];
+let refDetails      = {};
+let positions       = [];
+let editingPosId    = null;
+let pendingStageChange = null;
+let dashPipeFilter  = -1;
+let cfg             = {};
+
+
+// ═════════════════
 // ══════════════════════════════════════════════════════════════
 // 상수
 // ══════════════════════════════════════════════════════════════
-const STAGES = ['서류검토','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격'];
+const TITLES = {
+  dash:       '대시보드',
+  position:   '모집단위 관리',
+  tracker:    '지원자 트래커',
+  interview:  '면접 관리',
+  reference:  '레퍼런스 체크',
+  onboarding: '입사 안내',
+  notifylog:  '알림 발송 내역',
+  settings:   '알림 설정',
+};
+
+const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격'];
 const SBG    = ['bgray','bblue','bteal','bpurple','bamber','bgreen','bred'];
 const STAGE_GUIDES = {
   0: { msg:'서류 검토 단계로 이동합니다.', notify:false },
@@ -1038,7 +1195,7 @@ async function loadFromGS() {
     ref:        row.ref || '미시작',
     refD:       Number(row.refD)||0,
     refT:       Number(row.refT)||0,
-    receivedAt: row.receivedAt,
+    receivedAt: formatDate(row.receivedAt),
     memo:       row.memo,
     rejectedAt: row.rejectedAt||'',
     notified:   row.notified==='Y',
@@ -1092,10 +1249,349 @@ async function uploadAllToGS() {
   toast('Google Sheets 업로드 완료!','tok');
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// 모집단위 관리
+// ══════════════════════════════════════════════════════════════
+// positions, editingPosId: 전역 선언됨
+
+// ── 모집단위 렌더링 ───────────────────────────────────────────
+function renderPositions() {
+  const list = document.getElementById('pos-list');
+  const countLabel = document.getElementById('pos-count-label');
+  const nbPos = document.getElementById('nb-pos');
+  if(!list) return;
+
+  if(countLabel) countLabel.textContent = `전체 ${positions.length}개 포지션`;
+  if(nbPos) nbPos.textContent = positions.length;
+
+  if(!positions.length) {
+    list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--t3)">
+      <div style="font-size:40px;margin-bottom:12px">📋</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">등록된 모집단위가 없습니다</div>
+      <div style="font-size:13px">[+ 모집단위 추가] 버튼으로 포지션을 등록하세요</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = positions.map(pos => {
+    const posCandiates = candidates.filter(c => c.posId === pos.id);
+    const active = posCandiates.filter(c => c.stage < 6);
+    const passed = posCandiates.filter(c => c.stage === 5);
+    const int1Ready = active.filter(c => c.stage === 1);
+    const int2Ready = active.filter(c => c.stage === 3);
+
+    return `<div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:16px" onclick="openPosDetail(${pos.id})">
+        <div style="width:44px;height:44px;border-radius:10px;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--blue);flex-shrink:0">
+          ${pos.title.charAt(0)}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:15px;margin-bottom:4px">${pos.title}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'professional':'dispatch'}">${pos.etype}</span>
+            <span style="font-size:11px;color:var(--t3)">${pos.role} · ${pos.dept||'부서 미정'}</span>
+            <span style="font-size:11px;color:var(--t3)">모집 ${pos.headcount||1}명</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;flex-shrink:0">
+          <div style="text-align:center">
+            <div style="font-size:20px;font-weight:800;color:var(--blue)">${active.length}</div>
+            <div style="font-size:10px;color:var(--t3)">진행중</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:20px;font-weight:800;color:var(--green)">${passed.length}</div>
+            <div style="font-size:10px;color:var(--t3)">최종합격</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:20px;font-weight:800;color:var(--amber)">${pos.headcount||1}</div>
+            <div style="font-size:10px;color:var(--t3)">목표</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${int1Ready.length ? `<span style="background:#EBF3FD;color:var(--blue);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">1차 ${int1Ready.length}명</span>` : ''}
+          ${int2Ready.length ? `<span style="background:#FFF8EC;color:var(--amber);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">2차 ${int2Ready.length}명</span>` : ''}
+          ${passed.length >= (pos.headcount||1) ? `<span style="background:#EDFAF3;color:var(--green);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">목표달성</span>` : ''}
+        </div>
+      </div>
+
+      <!-- 빠른 액션 바 -->
+      <div style="border-top:1px solid var(--border);padding:10px 20px;display:flex;gap:8px;background:var(--s2)">
+        <button class="btn btn-sm" onclick="openPosDetail(${pos.id})">📊 상세 보기</button>
+        ${int1Ready.length ? `<button class="btn btn-sm" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${pos.id},1)">📧 1차 면접관 안내</button>` : ''}
+        ${int2Ready.length ? `<button class="btn btn-sm" style="background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${pos.id},2)">📧 2차 면접관 안내</button>` : ''}
+        <button class="btn btn-sm" onclick="editPosition(${pos.id})" style="margin-left:auto">✏ 수정</button>
+        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="deletePosition(${pos.id})">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 모집단위 상세 모달 ────────────────────────────────────────
+function openPosDetail(posId) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+
+  const posCands = candidates.filter(c => c.posId === posId);
+  const byStage = STAGES.map((s,i) => ({stage:s, idx:i, list:posCands.filter(c=>c.stage===i)}));
+  const active = byStage.filter(s => s.idx < 6 && s.list.length > 0);
+
+  document.getElementById('pos-detail-title').textContent = pos.title;
+
+  const body = document.getElementById('pos-detail-body');
+  body.innerHTML = `
+    <!-- 기본 정보 -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      <div class="card" style="padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--blue)">${posCands.filter(c=>c.stage<6).length}</div>
+        <div style="font-size:11px;color:var(--t3)">진행중</div>
+      </div>
+      <div class="card" style="padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--green)">${posCands.filter(c=>c.stage===5).length}</div>
+        <div style="font-size:11px;color:var(--t3)">최종합격</div>
+      </div>
+      <div class="card" style="padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--red)">${posCands.filter(c=>c.stage===6).length}</div>
+        <div style="font-size:11px;color:var(--t3)">불합격</div>
+      </div>
+      <div class="card" style="padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--amber)">${pos.headcount||1}</div>
+        <div style="font-size:11px;color:var(--t3)">목표인원</div>
+      </div>
+    </div>
+
+    <!-- 면접관 정보 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div class="card" style="padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">1차 면접관</div>
+        ${parsePanelists(pos.panel1).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${p.name} <span style="color:var(--t3);font-size:11px">${p.email}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
+        ${parsePanelists(pos.panel1).length ? `<button class="btn btn-sm" style="margin-top:8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${posId},1)">📧 1차 면접관 안내 발송</button>` : ''}
+      </div>
+      <div class="card" style="padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px">2차 면접관</div>
+        ${parsePanelists(pos.panel2).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${p.name} <span style="color:var(--t3);font-size:11px">${p.email}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
+        ${parsePanelists(pos.panel2).length ? `<button class="btn btn-sm" style="margin-top:8px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${posId},2)">📧 2차 면접관 안내 발송</button>` : ''}
+      </div>
+    </div>
+
+    <!-- 단계별 지원자 목록 -->
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px">지원자 현황</div>
+    ${STAGES.slice(0,6).map((stageName, stageIdx) => {
+      const stageCands = posCands.filter(c => c.stage === stageIdx);
+      if(!stageCands.length) return '';
+      return `<div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:700;color:var(--t2)">${stageName}</span>
+          <span style="background:var(--s3);padding:2px 8px;border-radius:20px;font-size:11px">${stageCands.length}명</span>
+          ${stageIdx===1||stageIdx===3 ? `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${stageCands.map(cand => `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${cand.name.charAt(0)}</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">${cand.name}</div>
+                <div style="font-size:11px;color:var(--t3)">${cand.email}</div>
+              </div>
+              <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');requestStageChange(${cand.id},${stageIdx===5?5:stageIdx+1})">단계 이동</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }).join('') || '<div style="color:var(--t3);font-size:13px;padding:20px 0">등록된 지원자가 없습니다. 지원자 트래커에서 이 포지션으로 연결하세요.</div>'}
+  `;
+
+  const ft = document.getElementById('pos-detail-ft');
+  ft.innerHTML = `
+    <button class="btn" onclick="closeModal('modal-pos-detail')">닫기</button>
+    <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');editPosition(${posId})">✏ 수정</button>
+  `;
+
+  openModal('modal-pos-detail');
+}
+
+// ── 면접관 이름·이메일 파싱 ──────────────────────────────────
+function parsePanelists(str) {
+  if(!str) return [];
+  return str.split(',').map(s => s.trim()).filter(Boolean).map(s => {
+    const parts = s.split(' ').filter(Boolean);
+    const email = parts.find(p => p.includes('@')) || '';
+    const name  = parts.filter(p => !p.includes('@')).join(' ');
+    return { name, email };
+  }).filter(p => p.name);
+}
+
+// ── 면접관 안내 발송 (Outlook + Teams) ──────────────────────
+function sendPanelNotice(posId, round) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+
+  const panelStr = round === 1 ? pos.panel1 : pos.panel2;
+  const panelists = parsePanelists(panelStr);
+  if(!panelists.length) { toast('면접관 정보가 없습니다. 모집단위를 수정하세요.', 'terr'); return; }
+
+  // 해당 단계 지원자 목록
+  const stageIdx = round === 1 ? 1 : 3;
+  const stageCands = candidates.filter(c => c.posId === posId && c.stage === stageIdx);
+
+  if(!stageCands.length) { toast(`${round}차 면접 대상 지원자가 없습니다.`, 'terr'); return; }
+
+  // 수신자 이메일 목록
+  const toEmails = panelists.map(p => p.email).filter(Boolean).join(';');
+  const panelNames = panelists.map(p => p.name).join(', ');
+  const candList = stageCands.map((c,i) => `${i+1}. ${c.name} (${c.career||'경력'}) — ${c.email}`).join('\n');
+
+  // 면접 일정 (등록된 면접이 있으면 포함)
+  const posInts = interviews.filter(int => int.posId === posId && int.type === `${round}차`);
+  const scheduleText = posInts.length
+    ? posInts.map(int => `📅 ${int.date} | 장소: ${int.loc||'미정'}`).join('\n')
+    : '📅 면접 일정: 별도 확정 후 안내';
+
+  const subject = `[우미건설] ${pos.title} ${round}차 면접 안내 — 면접관 배정`;
+  const body = `${panelNames} 면접관님,
+
+${pos.title} 포지션 ${round}차 면접 관련 안내드립니다.
+
+` +
+    `━━ 면접 일정 ━━
+${scheduleText}
+
+` +
+    `━━ 면접 대상 (${stageCands.length}명) ━━
+${candList}
+
+` +
+    `━━ 면접 장소 ━━
+${pos.loc||'추후 안내'}
+
+` +
+    `면접 관련 문의사항은 피플팀으로 연락해 주세요.
+우미건설 피플팀 드림`;
+
+  // Outlook 발송
+  const mailUrl = `mailto:${toEmails}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailUrl);
+
+  // Teams 딥링크 (개별 메시지)
+  setTimeout(() => {
+    panelists.forEach(p => {
+      if(p.email) {
+        const teamsMsg = encodeURIComponent(`[${pos.title} ${round}차 면접 안내]
+
+${p.name} 면접관님,
+
+${scheduleText}
+
+면접 대상 ${stageCands.length}명:
+${stageCands.map((c,i)=>`${i+1}. ${c.name}`).join(', ')}
+
+장소: ${pos.loc||'추후 안내'}
+
+세부 안내는 이메일 참고 부탁드립니다.`);
+        window.open(`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(p.email)}&message=${teamsMsg}`);
+      }
+    });
+    toast(`${panelists.length}명 면접관에게 Outlook + Teams 안내 발송 완료`, 'tok');
+    logNotify('outlook+teams', `${round}차 면접관 안내`, pos.title);
+    saveState();
+  }, 500);
+}
+
+// ── 일괄 단계 변경 ────────────────────────────────────────────
+function batchStageChange(posId, fromStage, toStage) {
+  const targets = candidates.filter(c => c.posId === posId && c.stage === fromStage);
+  if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+  if(!confirm(`${targets.length}명을 ${STAGES[toStage]} 단계로 이동하시겠습니까?`)) return;
+  targets.forEach(c => { c.stage = toStage; });
+  saveState();
+  if(GS_CONFIG.scriptUrl) targets.forEach(c => syncCandToGS(c));
+  updateMetrics(); renderDashboard(); renderTracker(); renderPositions();
+  toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
+}
+
+// ── 모집단위 추가/편집 모달 열기 ─────────────────────────────
+function openAddPosition() {
+  editingPosId = null;
+  document.getElementById('pos-modal-title').textContent = '모집단위 추가';
+  ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-memo','pos-dept'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  document.getElementById('pos-etype').value = '정규직';
+  document.getElementById('pos-role').value  = '현장직';
+  document.getElementById('pos-headcount').value = '1';
+  openModal('modal-position');
+}
+
+function editPosition(posId) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+  editingPosId = posId;
+  document.getElementById('pos-modal-title').textContent = '모집단위 수정';
+  document.getElementById('pos-title').value  = pos.title || '';
+  document.getElementById('pos-etype').value  = pos.etype || '정규직';
+  document.getElementById('pos-role').value   = pos.role  || '현장직';
+  document.getElementById('pos-headcount').value = pos.headcount || 1;
+  document.getElementById('pos-dept').value   = pos.dept   || '';
+  document.getElementById('pos-panel1').value = pos.panel1 || '';
+  document.getElementById('pos-panel2').value = pos.panel2 || '';
+  document.getElementById('pos-loc').value    = pos.loc    || '';
+  document.getElementById('pos-memo').value   = pos.memo   || '';
+  openModal('modal-position');
+}
+
+function savePosition() {
+  const title = document.getElementById('pos-title')?.value.trim();
+  if(!title) { toast('포지션명을 입력하세요.', 'terr'); return; }
+
+  const posData = {
+    id:        editingPosId || Date.now(),
+    title,
+    etype:     document.getElementById('pos-etype')?.value   || '정규직',
+    role:      document.getElementById('pos-role')?.value    || '현장직',
+    headcount: parseInt(document.getElementById('pos-headcount')?.value) || 1,
+    dept:      document.getElementById('pos-dept')?.value    || '',
+    panel1:    document.getElementById('pos-panel1')?.value  || '',
+    panel2:    document.getElementById('pos-panel2')?.value  || '',
+    loc:       document.getElementById('pos-loc')?.value     || '',
+    memo:      document.getElementById('pos-memo')?.value    || '',
+    createdAt: editingPosId ? (positions.find(p=>p.id===editingPosId)?.createdAt || today()) : today(),
+  };
+
+  if(editingPosId) {
+    const idx = positions.findIndex(p => p.id === editingPosId);
+    if(idx >= 0) positions[idx] = posData;
+    toast(`${title} 수정 완료`, 'tok');
+  } else {
+    positions.push(posData);
+    toast(`${title} 등록 완료`, 'tok');
+  }
+
+  closeModal('modal-position');
+  saveState();
+  renderPositions();
+}
+
+function deletePosition(posId) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+  const linked = candidates.filter(c => c.posId === posId).length;
+  if(linked > 0) {
+    if(!confirm(`이 모집단위에 연결된 지원자 ${linked}명이 있습니다. 삭제하면 연결이 해제됩니다. 계속할까요?`)) return;
+    candidates.forEach(c => { if(c.posId === posId) c.posId = null; });
+  }
+  positions = positions.filter(p => p.id !== posId);
+  saveState();
+  renderPositions();
+  toast(`${pos.title} 삭제 완료`, 'tok');
+}
+
 // ══════════════════════════════════════════════════════════════
 // 상태 (localStorage 연동)
 // ══════════════════════════════════════════════════════════════
 const LS_KEY = 'woomic_recruit_v4';
+
+
 
 // ── SharePoint 설정 ──────────────────────────────────────────
 // 설정 탭에서 입력하거나 아래에 직접 입력
@@ -1187,7 +1683,7 @@ function candToSP(cand) {
     Role:         cand.role,
     Dept:         cand.dept || '',
     Career:       cand.career,
-    Stage:        STAGES[cand.stage] || '서류검토',
+    Stage:        STAGES[cand.stage] || '서류합격',
     RefStatus:    cand.ref,
     RefDone:      cand.refD,
     RefTotal:     cand.refT,
@@ -1268,6 +1764,7 @@ async function loadStateWithSP() {
   const saved = loadState();
   if(saved && saved.candidates) {
     ({ candidates, interviews, onboardings, notifyLog, refDetails } = saved);
+    if(saved.positions) positions = saved.positions;
     return true;
   }
   return false;
@@ -1275,7 +1772,7 @@ async function loadStateWithSP() {
 
 function saveState() {
   try {
-    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails });
+    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, positions });
     localStorage.setItem(LS_KEY, data);
   } catch(e) {
     if(e.name === 'QuotaExceededError' || e.code === 22) {
@@ -1287,56 +1784,6 @@ function saveState() {
   }
 }
 
-function initSampleData() {
-  const raw = [
-    {name:'김민준',pos:'현장소장',email:'kimm@email.com',etype:'정규직',role:'현장직',dept:'현장지원1팀',career:'경력직',stage:1,ref:'진행중',refD:2,refT:3,intDate:'2026-05-13 14:00',notified:true},
-    {name:'박서연',pos:'구조설계사',email:'parksyy@email.com',etype:'전문직',role:'기술직',dept:'기술연구소',career:'경력직',stage:3,ref:'진행중',refD:1,refT:3,intDate:'2026-05-15 10:00',notified:true},
-    {name:'이준혁',pos:'토목BIM담당',email:'ljh@email.com',etype:'정규직',role:'기술직',dept:'기술연구소',career:'경력직',stage:0,ref:'미시작',refD:0,refT:0,intDate:'',notified:false},
-    {name:'최수아',pos:'HR담당자',email:'choisua@email.com',etype:'정규직',role:'사무직',dept:'피플팀',career:'경력직',stage:5,ref:'완료',refD:3,refT:3,intDate:'2026-05-01 11:00',notified:true},
-    {name:'정대현',pos:'안전관리자',email:'jdh@email.com',etype:'파견직',role:'현장직',dept:'안전환경팀',career:'경력직',stage:1,ref:'미시작',refD:0,refT:0,intDate:'2026-05-14 15:00',notified:true},
-    {name:'윤하은',pos:'건축설계사',email:'yhe@email.com',etype:'전문직',role:'기술직',dept:'건축팀',career:'경력직',stage:3,ref:'진행중',refD:1,refT:3,intDate:'2026-05-16 13:00',notified:false},
-    {name:'강태양',pos:'PM',email:'kty@email.com',etype:'정규직',role:'관리직',dept:'현장지원2팀',career:'경력직',stage:2,ref:'진행중',refD:0,refT:3,intDate:'',notified:true},
-    {name:'한재원',pos:'원가관리담당',email:'hjw@email.com',etype:'정규직',role:'사무직',dept:'관리팀',career:'경력직',stage:1,ref:'미시작',refD:0,refT:0,intDate:'2026-05-13 10:00',notified:false},
-    {name:'임세영',pos:'기계설비담당',email:'lsy@email.com',etype:'전문직',role:'기술직',dept:'설비팀',career:'경력직',stage:4,ref:'완료',refD:3,refT:3,intDate:'',notified:true},
-    {name:'노태경',pos:'토목시공담당',email:'ntk@email.com',etype:'파견직',role:'현장직',dept:'현장지원1팀',career:'경력직',stage:5,ref:'완료',refD:3,refT:3,intDate:'',notified:true},
-  ];
-  candidates = raw.map((r,i) => ({ ...r, id: Date.now()+i, receivedAt: `2026-05-${String(i+1).padStart(2,'0')}`, memo: '' }));
-  interviews = [
-    {id:1,candId:candidates[0].id,candName:'김민준',type:'1차',date:'2026-05-13 14:00',loc:'본사 3층 A실',panel:'김부장,이팀장',memo:'포트폴리오 지참',notified:true},
-    {id:2,candId:candidates[1].id,candName:'박서연',type:'2차',date:'2026-05-15 10:00',loc:'임원실',panel:'대표이사,전무',memo:'',notified:true},
-    {id:3,candId:candidates[4].id,candName:'정대현',type:'1차',date:'2026-05-14 15:00',loc:'본사 3층 B실',panel:'최팀장',memo:'',notified:false},
-  ];
-  onboardings = [
-    {id:1,candId:candidates[3].id,candName:'최수아',pos:'HR담당자',etype:'정규직',dept:'피플팀',joinDate:'2026-06-02',rank:'대리',loc:'서울 본사',notes:'건강검진 5/26',notified:true},
-  ];
-  notifyLog = [
-    {ch:'Teams',type:'1차면접안내',target:'김민준',to:'kimm@email.com',time:'09:30',date:'2026-05-12'},
-    {ch:'Teams',type:'2차면접안내',target:'박서연',to:'parksyy@email.com',time:'10:05',date:'2026-05-12'},
-    {ch:'Outlook',type:'합격안내',target:'최수아',to:'choisua@email.com',time:'11:20',date:'2026-05-11'},
-    {ch:'Teams',type:'레퍼런스리마인드',target:'김민준',to:'kimm@email.com',time:'14:00',date:'2026-05-10'},
-  ];
-}
-
-let candidates=[], interviews=[], onboardings=[], notifyLog=[], refDetails={};
-let stageFilter=-1, roleFilter='all', etypeFilter='all';
-let dashPipeFilter=-1; // 대시보드 파이프라인 필터
-let refMetricFilter=''; // 레퍼런스 탭 메트릭 필터
-let pendingStageChange = null;
-let selectedRefCandId = null;
-
-// 로컬스토리지에서 로드 또는 샘플 초기화
-const saved = loadState();
-if (saved && saved.candidates && saved.candidates.length > 0) {
-  ({ candidates, interviews, onboardings, notifyLog, refDetails } = saved);
-} else {
-  initSampleData();
-  saveState();
-}
-
-// ══════════════════════════════════════════════════════════════
-// 네비게이션
-// ══════════════════════════════════════════════════════════════
-const TITLES = { dash:'대시보드', tracker:'지원자 트래커', interview:'면접 관리', reference:'레퍼런스 체크', onboarding:'입사 안내', notifylog:'알림 발송 내역', settings:'알림 설정' };
 
 function nav(id, btn) {
   document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
@@ -1350,6 +1797,7 @@ function nav(id, btn) {
   if(id==='reference') { renderReference(); }
   if(id==='onboarding') { populateSel('ob-cand'); renderOnboarding(); }
   if(id==='notifylog') renderNotifyLog();
+  if(id==='position') renderPositions();
 }
 function navBtn(id) {
   // .nb 버튼만 필터링 (.nbb 배지 제외)
@@ -1393,6 +1841,24 @@ function rolePill(r) { return `<span class="role ${ROLE_CLS[r]||''}">${r}</span>
 function etypePill(e) { return `<span class="etype ${ETYPE_CLS[e]||''}">${e}</span>`; }
 function empty(msg) { return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-3-3v6m7 4H5a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v12a2 2 0 01-2 2z"/></svg>${msg}</div>`; }
 function now() { return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }
+
+// ── 날짜 형식 정규화 ─────────────────────────────────────────
+function formatDate(val) {
+  if(!val) return '';
+  // ISO 형식 (2026-05-18T15:00:00.000Z) → YYYY-MM-DD
+  if(typeof val === 'string' && val.includes('T')) {
+    return val.split('T')[0];
+  }
+  // Excel 날짜 숫자 (46160 등) → YYYY-MM-DD
+  if(typeof val === 'number' || (typeof val === 'string' && /^\d{5}$/.test(val))) {
+    const num = parseInt(val);
+    const date = new Date((num - 25569) * 86400 * 1000);
+    return date.toISOString().split('T')[0];
+  }
+  // 이미 YYYY-MM-DD 형식
+  return String(val).split('T')[0];
+}
+
 function today() { return new Date().toISOString().split('T')[0]; }
 
 function logNotify(ch, type, target, to) {
@@ -1829,6 +2295,31 @@ function renderDashboard() {
 // ══════════════════════════════════════════════════════════════
 // 단계 변경 확인 팝업 (핵심 기능)
 // ══════════════════════════════════════════════════════════════
+
+// ── 단계 전환 모달 미리보기 업데이트 ────────────────────────
+function getIntSlots() {
+  const slots = [];
+  ['cs-int-slot1','cs-int-slot2','cs-int-slot3'].forEach((id,i)=>{
+    const val = document.getElementById(id)?.value;
+    if(val) slots.push(`  ${i+1}안. ${val.replace('T',' ')}`);
+  });
+  return slots;
+}
+
+function updateCsPreview(c, newStage) {
+  const previewEl = document.getElementById('cs-preview-msg');
+  if(!previewEl) return;
+  let msg = buildStageNotifyMsg(c, newStage);
+  // 면접 후보 일정이 있으면 메시지에 포함
+  if(newStage===1||newStage===3) {
+    const slots = getIntSlots();
+    if(slots.length > 0) {
+      msg += '\n\n아래 일정 중 면접 가능한 날짜를 회신해 주세요:\n' + slots.join('\n');
+    }
+  }
+  previewEl.textContent = msg;
+}
+
 function requestStageChange(candId, newStage) {
   const c = candidates.find(x => x.id === candId);
   if(!c || newStage < 0 || newStage > 6) return;
@@ -1840,7 +2331,7 @@ function requestStageChange(candId, newStage) {
   // 지원자 정보 표시
   document.getElementById('cs-avatar').textContent = c.name.charAt(0);
   document.getElementById('cs-name').textContent = `${c.name} · ${c.pos}`;
-  document.getElementById('cs-pos').textContent = `${etypePill(c.etype)} ${c.dept||''}`;
+  document.getElementById('cs-pos').innerHTML = `${etypePill(c.etype)} ${c.dept||''}`;
   document.getElementById('cs-from').textContent = STAGES[c.stage];
   document.getElementById('cs-to').textContent = STAGES[newStage];
   document.getElementById('cs-from').style.color = STAGE_COLORS[c.stage];
@@ -1856,9 +2347,28 @@ function requestStageChange(candId, newStage) {
 
   // 미리보기 메시지 생성
   const preview = buildStageNotifyMsg(c, newStage);
-  const previewEl = document.getElementById('cs-preview-msg');
-  if(previewEl) previewEl.textContent = preview;
+  updateCsPreview(c, newStage);
 
+  // 면접 단계(1차/2차)일 때 일정 입력 섹션 표시
+  const intSched = document.getElementById('cs-int-schedule');
+  if(intSched) {
+    intSched.style.display = (newStage===1||newStage===3) ? '' : 'none';
+    // 입력값 초기화
+    ['cs-int-slot1','cs-int-slot2','cs-int-slot3'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+  }
+
+  // 1차/2차 면접 단계에서 면접 후보 일정 입력 섹션 표시
+  const intSchedule = document.getElementById('cs-int-schedule');
+  if(intSchedule) {
+    intSchedule.style.display = (newStage === 1 || newStage === 3) ? '' : 'none';
+    // 입력값 초기화
+    ['cs-int-slot1','cs-int-slot2','cs-int-slot3'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.value = '';
+    });
+  }
   openModal('modal-confirm-stage');
 }
 
@@ -1870,9 +2380,33 @@ function buildStageNotifyMsg(c, newStage) {
 아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.
 소중한 시간 내주셔서 감사드립니다.
 우미건설 피플팀 드림`,
-    1: `📅 [1차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n1차 실무면접 진행을 위해 연락드립니다.\n\n면접 일정은 별도 안내드릴 예정입니다.\n우미건설 피플팀 드림`,
+    1: (() => {
+      const s1 = document.getElementById('cs-int-slot1')?.value;
+      const s2 = document.getElementById('cs-int-slot2')?.value;
+      const s3 = document.getElementById('cs-int-slot3')?.value;
+      const slots = [s1,s2,s3].filter(Boolean).map((s,i) => {
+        const d = new Date(s);
+        return `  ${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+      });
+      const scheduleText = slots.length
+        ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
+        : '\n\n면접 일정은 별도 안내드릴 예정입니다.';
+      return `📅 [1차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n1차 실무면접 진행을 위해 연락드립니다.${scheduleText}\n\n우미건설 피플팀 드림`;
+    })(),
     2: `📝 [레퍼런스 체크 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n1차 면접을 통과하셨습니다. 수고 많으셨습니다.\n\n채용 절차의 일환으로 레퍼런스 체크를 진행합니다.\n아래 링크에서 추천인 정보를 입력해 주세요.\n[입력하기 →]\n\n우미건설 피플팀 드림`,
-    3: `📋 [2차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n레퍼런스 체크가 완료되었습니다. 감사합니다!\n\n2차 임원면접 일정을 곧 안내드리겠습니다.\n우미건설 피플팀 드림`,
+    3: (() => {
+      const s1 = document.getElementById('cs-int-slot1')?.value;
+      const s2 = document.getElementById('cs-int-slot2')?.value;
+      const s3 = document.getElementById('cs-int-slot3')?.value;
+      const slots = [s1,s2,s3].filter(Boolean).map((s,i) => {
+        const d = new Date(s);
+        return `  ${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+      });
+      const scheduleText = slots.length
+        ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
+        : '\n\n2차 임원면접 일정을 곧 안내드리겠습니다.';
+      return `📋 [2차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n레퍼런스 체크가 완료되었습니다. 감사합니다!${scheduleText}\n\n우미건설 피플팀 드림`;
+    })(),
     4: `💼 [처우 협의 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n채용 절차가 순조롭게 진행되고 있습니다.\n\n처우 협의를 위해 연락드리겠습니다.\n우미건설 피플팀 드림`,
     5: `🎉 [최종 합격 안내 - 우미건설]\n${c.name}님, 진심으로 축하드립니다!\n\n우미건설 ${c.pos} 포지션 최종 합격을 알려드립니다.\n입사 안내는 별도로 연락드리겠습니다.\n\n우미건설 피플팀 드림`,
   };
@@ -1908,6 +2442,14 @@ function confirmStageChange() {
       if(newStage === 6) {
         subject = `[우미건설] ${c.name}님 채용 결과 안내`;
         body = buildRejectEmail(c);
+      } else if(newStage === 1 || newStage === 3) {
+        const intType = newStage===1?'1차 실무':'2차 임원';
+        subject = `[우미건설] ${c.name}님 ${intType}면접 일정 안내`;
+        const slots = getIntSlots();
+        const slotsText = slots.length>0
+          ? '\n\n아래 일정 중 면접 가능한 날짜를 회신해 주세요:\n' + slots.join('\n')
+          : '\n\n면접 일정은 별도로 안내드리겠습니다.';
+        body = buildStageNotifyMsg(c, newStage) + slotsText;
       } else if(newStage === 2) {
         subject = `[우미건설] ${c.name}님 레퍼런스 체크 안내`;
         body = buildRefRequestEmail(c);
@@ -1921,6 +2463,59 @@ function confirmStageChange() {
     if(sendTeams || sendOutlook) {
       const ch = sendTeams && sendOutlook ? 'Teams + Outlook' : sendTeams ? 'Teams' : 'Outlook';
       toast(`${c.name}님 → ${STAGES[newStage]} / ${ch} 발송 (Outlook 전송 버튼 누르세요)`, sendTeams ? 'tteams' : 'toutlook');
+    }
+  }
+
+  // 면접 후보 일정 자동 등록 (1차/2차 면접 단계)
+  if(newStage===1||newStage===3) {
+    const slots = getIntSlots();
+    if(slots.length > 0) {
+      const intType = newStage===1?'1차':'2차';
+      // 첫 번째 후보 일정을 면접 정보로 등록
+      const firstSlot = document.getElementById('cs-int-slot1')?.value;
+      if(firstSlot) {
+        const itv = {
+          id: Date.now(), candId: c.id, candName: c.name,
+          type: intType,
+          date: firstSlot.replace('T',' '),
+          loc: '미정 (지원자 회신 후 확정)',
+          panel: '미정',
+          memo: slots.length>1 ? '후보 일정: ' + slots.join(' / ') : '',
+          notified: false,
+        };
+        c.intDate = itv.date;
+        interviews.push(itv);
+      }
+    }
+  }
+  // 1차/2차 면접 단계로 이동 시 입력된 후보 일정 자동 등록
+  if(newStage === 1 || newStage === 3) {
+    const slots = ['cs-int-slot1','cs-int-slot2','cs-int-slot3']
+      .map(id => document.getElementById(id)?.value)
+      .filter(Boolean);
+    if(slots.length > 0) {
+      // 첫 번째 후보 일정을 임시 면접으로 등록 (후보 포함)
+      const intType = newStage === 1 ? '1차' : '2차';
+      const d = new Date(slots[0]);
+      const dateStr = d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'-').replace('.','')
+        + ' ' + d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      const candidateSlots = slots.map((s,i) => {
+        const dd = new Date(s);
+        return `${['①','②','③'][i]} ${dd.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${dd.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+      }).join(' / ');
+      const newInt = {
+        id: Date.now(), candId: c.id, candName: c.name,
+        type: intType,
+        date: slots[0].replace('T',' ').slice(0,16),
+        loc: '미정 (지원자 확인 후 확정)',
+        panel: '미정',
+        memo: `후보일정: ${candidateSlots} — 지원자 회신 후 확정 필요`,
+        notified: false,
+        slots: slots,
+      };
+      interviews.push(newInt);
+      c.intDate = newInt.date;
+      toast(`면접 후보 일정 ${slots.length}개 등록 완료 (면접 관리 탭에서 확정)`, 'tok');
     }
   }
 
@@ -1962,6 +2557,12 @@ function editCandidate(id) {
   // 수정 모드 플래그
   document.getElementById('modal-add').dataset.editId = id;
   document.querySelector('#modal-add .modal-title').textContent = '지원자 정보 수정';
+  // 모집단위 드롭다운 채우기
+  const posSelectEl = document.getElementById('nc-pos-id');
+  if(posSelectEl) {
+    posSelectEl.innerHTML = '<option value="">선택 안함</option>' +
+      positions.map(p => `<option value="${p.id}">${p.title} (${p.etype})</option>`).join('');
+  }
   openModal('modal-add');
 }
 
@@ -2029,8 +2630,9 @@ function addCandidate() {
       career:    document.getElementById('nc-career').value,
       stage:     0,
       ref:       '미시작', refD:0, refT:0,
-      receivedAt: document.getElementById('nc-date').value || today(),
+      receivedAt: formatDate(document.getElementById('nc-date').value) || today(),
       memo:      document.getElementById('nc-memo').value,
+      posId:     parseInt(document.getElementById('nc-pos-id')?.value)||null,
       intDate:   '', notified: false,
     };
     candidates.push(newCand);
@@ -2918,7 +3520,22 @@ window.addEventListener('DOMContentLoaded', () => {
   // int 이벤트 리스너
   ['int-type','int-dt'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updateIntPreview);});
   ['int-loc','int-panel','int-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateIntPreview);});
-  const icEl=document.getElementById('int-cand');if(icEl)icEl.addEventListener('change',updateIntPreview);
+  const icEl2=document.getElementById('int-cand');if(icEl2)icEl2.addEventListener('change',updateIntPreview);
+
+  // 면접 후보 일정 변경 시 미리보기 업데이트
+  ['cs-int-slot1','cs-int-slot2','cs-int-slot3'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', () => {
+      if(pendingStageChange) {
+        const c = candidates.find(x => x.id === pendingStageChange.candId);
+        if(c) {
+          const preview = buildStageNotifyMsg(c, pendingStageChange.newStage);
+          const previewEl = document.getElementById('cs-preview-msg');
+          if(previewEl) previewEl.textContent = preview;
+        }
+      }
+    });
+  });
 
   // 설정 로드 (localStorage + GS 동기화)
   loadSettingsWithGS().then(() => {
@@ -2937,7 +3554,27 @@ window.addEventListener('DOMContentLoaded', () => {
   updateIntPreview();
   updateObPreview();
   updateBulkPreview();
+
+  document.querySelectorAll('.overlay').forEach(o => {
+    o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); });
+  });
+  // ESC 키로 모달 닫기
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape') {
+      const open = document.querySelector('.overlay.open');
+      if(open) open.classList.remove('open');
+    }
+  });
+  // ob 이벤트 리스너
+  ['ob-cand','ob-date','ob-etype'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updateObPreview);});
+  ['ob-dept','ob-rank','ob-loc','ob-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateObPreview);});
+  // int 이벤트 리스너
+  ['int-type','int-dt'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updateIntPreview);});
+  ['int-loc','int-panel','int-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateIntPreview);});
+  const icEl=document.getElementById('int-cand');if(icEl)icEl.addEventListener('change',updateIntPreview);
+
 });
+
 </script>
 </body>
 </html>
