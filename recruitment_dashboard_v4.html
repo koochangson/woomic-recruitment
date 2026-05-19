@@ -2716,6 +2716,62 @@ function sendBulk(){
 }
 
 
+
+// ── Google Sheets 설정 저장/로드 ─────────────────────────────
+async function saveSettingsToGS(cfg) {
+  if(!GS_CONFIG.scriptUrl) return;
+  // Settings 시트에 key-value 형태로 저장
+  const items = Object.entries(cfg).map(([key, val]) => ({id: key, value: val}));
+  for(const item of items) {
+    await gsUpsert('Settings', item);
+  }
+}
+
+async function loadSettingsFromGS() {
+  if(!GS_CONFIG.scriptUrl) return null;
+  try {
+    const data = await gsGetAll('Settings');
+    if(!data || !data.length) return null;
+    const cfg = {};
+    data.forEach(row => { if(row.id) cfg[row.id] = row.value; });
+    return cfg;
+  } catch(e) {
+    console.warn('GS 설정 로드 실패:', e);
+    return null;
+  }
+}
+
+async function loadSettingsWithGS() {
+  // 1. localStorage 먼저 로드
+  loadSettings();
+  // 2. GS URL이 있으면 GS에서도 로드 (GS 우선)
+  if(GS_CONFIG.scriptUrl) {
+    const gsCfg = await loadSettingsFromGS();
+    if(gsCfg) {
+      // localStorage에 저장
+      localStorage.setItem('woomic_settings', JSON.stringify(gsCfg));
+      // 화면에 적용
+      const set = (id, val) => { const el=document.getElementById(id); if(el&&val!==undefined) el.value=val; };
+      set('cfg-sign',            gsCfg.sign);
+      set('cfg-form-url',        gsCfg.formUrl);
+      set('cfg-ref-url',         gsCfg.refUrl);
+      set('cfg-flow-url',        gsCfg.flowUrl);
+      set('cfg-default-channel', gsCfg.channel);
+      set('cfg-ref-days',        gsCfg.refDays);
+      set('cfg-remind-days',     gsCfg.remindDays);
+      set('cfg-hr-email',        gsCfg.hrEmail);
+      set('cfg-sp-url',          gsCfg.spUrl);
+      set('cfg-gs-url',          gsCfg.gsUrl);
+      set('tpl-int1',            gsCfg.tplInt1);
+      set('tpl-int2',            gsCfg.tplInt2);
+      set('tpl-offer',           gsCfg.tplOffer);
+      if(gsCfg.spUrl) SP_CONFIG.siteUrl = gsCfg.spUrl;
+      if(gsCfg.gsUrl) GS_CONFIG.scriptUrl = gsCfg.gsUrl;
+      showSyncStatus('설정 로드 완료 (GS)', 'ok');
+    }
+  }
+}
+
 // ── SharePoint 연결 테스트 ───────────────────────────────────
 async function testSPConnection() {
   const urlEl = document.getElementById('cfg-sp-url');
@@ -2802,7 +2858,16 @@ function saveSettings() {
   };
   try {
     localStorage.setItem('woomic_settings', JSON.stringify(cfg));
-    toast('설정이 저장되었습니다. 새로고침 후에도 유지됩니다.','tok');
+    // GS Settings 시트에도 저장
+    if(GS_CONFIG.scriptUrl) {
+      saveSettingsToGS(cfg).then(()=>{
+        toast('설정이 저장되었습니다 (GS 동기화 완료).','tok');
+      }).catch(()=>{
+        toast('설정이 저장되었습니다 (localStorage만).','tok');
+      });
+    } else {
+      toast('설정이 저장되었습니다. 새로고침 후에도 유지됩니다.','tok');
+    }
   } catch(e) {
     toast('설정 저장 실패: 브라우저 저장공간 부족','terr');
   }
@@ -2855,13 +2920,15 @@ window.addEventListener('DOMContentLoaded', () => {
   ['int-loc','int-panel','int-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateIntPreview);});
   const icEl=document.getElementById('int-cand');if(icEl)icEl.addEventListener('change',updateIntPreview);
 
-  loadSettings(); // 저장된 설정 복원
-  // GS 연동 시 데이터 로드
-  if(GS_CONFIG.scriptUrl) {
-    loadFromGS().then(loaded => {
-      if(loaded) { updateMetrics(); renderDashboard(); renderTracker(); }
-    });
-  }
+  // 설정 로드 (localStorage + GS 동기화)
+  loadSettingsWithGS().then(() => {
+    // GS 연동 시 데이터 로드
+    if(GS_CONFIG.scriptUrl) {
+      loadFromGS().then(loaded => {
+        if(loaded) { updateMetrics(); renderDashboard(); renderTracker(); }
+      });
+    }
+  });
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   updateMetrics();
   renderDashboard();
