@@ -235,8 +235,8 @@ textarea{resize:vertical;min-height:64px;}
 .search-inp:focus{outline:none;border-color:var(--acc);}
 
 /* ── 모달 ──────────────────────────────────────────────── */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px;}
-.overlay.open{display:flex;}
+.overlay{display:none;position:fixed;top:0;right:0;bottom:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
+.overlay.open{display:flex;width:100vw;height:100vh;}
 .modal{background:var(--surface);border-radius:var(--rlg);padding:0;width:680px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shm);}
 .modal-hd{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .modal-title{font-size:15px;font-weight:700;}
@@ -279,7 +279,7 @@ textarea{resize:vertical;min-height:64px;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
-@media print{.sb,.topbar,.brow,.overlay{display:none!important;}.toast-wrap{display:none;}.main{margin-left:0;}.content{padding:0;}}
+@media print{.sb,.topbar,.brow{display:none!important;}.toast-wrap{display:none;}.main{margin-left:0;}.content{padding:0;}}
 </style>
 </head>
 <body>
@@ -714,6 +714,12 @@ textarea{resize:vertical;min-height:64px;}
             </div>
           </div>
 
+          <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid #147A48">
+            <label style="color:#147A48;font-weight:700">📨 입사 안내 수신 팀 목록</label>
+            <textarea id="cfg-notify-teams" rows="3" placeholder="팀명 이메일, 팀명 이메일 형식으로 입력&#10;예: IT팀 it@woomic.co.kr, 총무팀 general@woomic.co.kr, 경영지원팀 admin@woomic.co.kr" style="font-size:12px;font-family:'DM Mono',monospace"></textarea>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">입사 안내 발송 시 이 팀들에게 일괄 발송됩니다</div>
+          </div>
+
           <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid #34A853">
             <label style="color:#34A853;font-weight:700">📊 Google Sheets 연동 URL</label>
             <input id="cfg-gs-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
@@ -1052,21 +1058,20 @@ textarea{resize:vertical;min-height:64px;}
   <div class="modal" style="width:760px;max-height:90vh">
     <div class="modal-hd">
       <div class="modal-title" id="pos-detail-title">모집단위 상세</div>
-      <button class="mclose" onclick="closeModal('modal-pos-detail')">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
-      </button>
-    </div>
-    <div class="modal-body" id="pos-detail-body" style="max-height:70vh;overflow-y:auto"></div>
-    <div class="modal-ft" id="pos-detail-ft">
-      <button class="btn" onclick="closeModal('modal-pos-detail')">닫기</button>
-    </div>
-  </div>
+      <button class="mclose" onclick="closeModal('modal-
+
+
+
+
+
+</div>
 </div>
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
 <div class="toast-wrap" id="toast-wrap"></div>
 
-<script>// ══════════════════════════════════════════════════════════════
+<script>
+// ══════════════════════════════════════════════════════════════
 // 전역 상태 변수
 // ══════════════════════════════════════════════════════════════
 let candidates      = [];
@@ -1572,7 +1577,7 @@ function savePosition() {
   renderPositions();
 }
 
-function deletePosition(posId) {
+async function deletePosition(posId) {
   const pos = positions.find(p => p.id === posId);
   if(!pos) return;
   const linked = candidates.filter(c => c.posId === posId).length;
@@ -3145,6 +3150,136 @@ function updateObPreview(){
   const el=document.getElementById('ob-preview-teams');if(el)el.textContent=msg;
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// 입사 안내 발송
+// ══════════════════════════════════════════════════════════════
+
+// 유관 팀 이메일 파싱 (설정 탭의 cfg-notify-teams)
+function parseNotifyTeams() {
+  const raw = document.getElementById('cfg-notify-teams')?.value || '';
+  return raw.split(',').map(s => s.trim()).filter(Boolean).map(s => {
+    const parts = s.split(' ').filter(Boolean);
+    const email = parts.find(p => p.includes('@')) || '';
+    const name  = parts.filter(p => !p.includes('@')).join(' ');
+    return { name, email };
+  }).filter(t => t.email);
+}
+
+// 입사 안내 메일 + Teams 발송
+function sendJoinNotice(obId) {
+  const ob = onboardings.find(o => o.id === obId);
+  if(!ob) return;
+  const cand = candidates.find(c => c.id === ob.candId);
+  if(!cand) return;
+
+  const teams   = parseNotifyTeams();
+  const sign    = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
+  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
+
+  // 수신자: 유관 팀 이메일 + HR
+  const toEmails = [...teams.map(t => t.email), hrEmail]
+    .filter(Boolean).join(';');
+
+  const teamNames = teams.map(t => t.name).join(', ') || '유관 팀';
+
+  const subject = `[우미건설] ${cand.name}님 입사 안내 — ${ob.joinDate}`;
+
+  const body = [
+    `${teamNames} 담당자님,`,
+    ``,
+    `${sign}입니다.`,
+    `아래와 같이 신규 입사자를 안내드립니다.`,
+    ``,
+    `━━ 입사자 정보 ━━`,
+    `성명:     ${cand.name}`,
+    `직무:     ${cand.pos || ob.pos || '미정'}`,
+    `소속:     ${cand.dept || ob.dept || '미정'}`,
+    `입사일:   ${ob.joinDate}`,
+    `채용형태: ${cand.etype || '정규직'}`,
+    ob.rank ? `직급:     ${ob.rank}` : '',
+    ob.loc  ? `근무지:   ${ob.loc}`  : '',
+    ``,
+    `━━ 준비 요청 사항 ━━`,
+    `IT팀:     업무용 PC, 계정 생성, 이메일 발급`,
+    `총무팀:   출입카드, 주차 등록, 사무용품`,
+    `경영지원: 급여 계좌 등록, 4대보험 처리`,
+    ``,
+    ob.memo ? `특이사항: ${ob.memo}` : '',
+    ``,
+    `문의사항은 피플팀으로 연락 주세요.`,
+    ``,
+    `${sign} 드림`,
+    hrEmail ? `📧 ${hrEmail}` : '',
+  ].filter(l => l !== undefined).join('\n');
+
+  // Outlook 발송
+  const mailUrl = `mailto:${toEmails}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailUrl);
+
+  // Teams 딥링크 (유관 팀 개별 채팅)
+  setTimeout(() => {
+    teams.forEach(team => {
+      if(team.email) {
+        const msg = encodeURIComponent(
+          `[입사 안내] ${cand.name}님 ${ob.joinDate} 입사 예정입니다.\n` +
+          `직무: ${cand.pos || '미정'} / 소속: ${cand.dept || '미정'}\n` +
+          `세부 안내는 이메일 참고 부탁드립니다.`
+        );
+        window.open(`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(team.email)}&message=${msg}`);
+      }
+    });
+    toast(`입사 안내 발송 완료 — Outlook + Teams ${teams.length}팀`, 'tok');
+    logNotify('outlook+teams', '입사안내', cand.name);
+    saveState();
+  }, 600);
+}
+
+// 배치 부서장 면접 안내 (최종합격 후 부서장에게)
+function sendDeptNotice(candId) {
+  const cand = candidates.find(c => c.id === candId);
+  if(!cand) return;
+
+  const sign    = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
+  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
+
+  // 배치 부서 담당자 이메일 (설정에 없으면 입력 요청)
+  const deptEmail = prompt(`${cand.dept || '배치 부서'} 부서장 이메일을 입력하세요:`);
+  if(!deptEmail) return;
+
+  const subject = `[우미건설 피플팀] ${cand.name}님 채용 확정 안내`;
+  const body = [
+    `${cand.dept || ''} 부서장님,`,
+    ``,
+    `${sign}입니다.`,
+    `${cand.name}님(${cand.pos || ''})의 채용이 최종 확정되었습니다.`,
+    ``,
+    `━━ 채용 확정 정보 ━━`,
+    `성명:     ${cand.name}`,
+    `지원 직무: ${cand.pos || ''}`,
+    `채용형태: ${cand.etype || '정규직'}`,
+    `경력 구분: ${cand.career || ''}`,
+    ``,
+    `입사일 등 세부 일정은 확정 후 별도 안내드리겠습니다.`,
+    ``,
+    `${sign} 드림`,
+    hrEmail ? `📧 ${hrEmail}` : '',
+  ].join('\n');
+
+  const mailUrl = `mailto:${deptEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailUrl);
+
+  // Teams 딥링크
+  setTimeout(() => {
+    const msg = encodeURIComponent(
+      `[채용 확정] ${cand.name}님(${cand.pos || ''}) 최종 합격 확정되었습니다.\n` +
+      `입사일 등 세부 일정은 이메일 확인 부탁드립니다.`
+    );
+    window.open(`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(deptEmail)}&message=${msg}`);
+    toast(`부서장 안내 발송 완료`, 'tok');
+  }, 600);
+}
+
 function addOnboarding(){
   const cid=parseInt(document.getElementById('ob-cand').value);
   const c=candidates.find(x=>x.id===cid);
@@ -3343,10 +3478,11 @@ async function loadSettingsFromGS() {
   }
 }
 
-async function loadSettingsWithGS() {
   // 1. localStorage 먼저 로드
   loadSettings();
   // 2. GS URL이 있으면 GS에서도 로드 (GS 우선)
+async function loadSettingsWithGS() {
+  loadSettings();
   if(GS_CONFIG.scriptUrl) {
     const gsCfg = await loadSettingsFromGS();
     if(gsCfg) {
@@ -3367,6 +3503,30 @@ async function loadSettingsWithGS() {
       set('tpl-int1',            gsCfg.tplInt1);
       set('tpl-int2',            gsCfg.tplInt2);
       set('tpl-offer',           gsCfg.tplOffer);
+      if(gsCfg.spUrl) SP_CONFIG.siteUrl = gsCfg.spUrl;
+      if(gsCfg.gsUrl) GS_CONFIG.scriptUrl = gsCfg.gsUrl;
+      showSyncStatus('설정 로드 완료 (GS)', 'ok');
+    }
+  }
+}
+
+async function loadSettingsWithGS() {
+  loadSettings();
+  if(GS_CONFIG.scriptUrl) {
+    const gsCfg = await loadSettingsFromGS();
+    if(gsCfg) {
+      localStorage.setItem('woomic_settings', JSON.stringify(gsCfg));
+      const set = (id, val) => { const el=document.getElementById(id); if(el&&val!==undefined) el.value=val; };
+      set('cfg-sign',            gsCfg.sign);
+      set('cfg-form-url',        gsCfg.formUrl);
+      set('cfg-ref-url',         gsCfg.refUrl);
+      set('cfg-flow-url',        gsCfg.flowUrl);
+      set('cfg-default-channel', gsCfg.channel);
+      set('cfg-ref-days',        gsCfg.refDays);
+      set('cfg-remind-days',     gsCfg.remindDays);
+      set('cfg-hr-email',        gsCfg.hrEmail);
+      set('cfg-sp-url',          gsCfg.spUrl);
+      set('cfg-gs-url',          gsCfg.gsUrl);
       if(gsCfg.spUrl) SP_CONFIG.siteUrl = gsCfg.spUrl;
       if(gsCfg.gsUrl) GS_CONFIG.scriptUrl = gsCfg.gsUrl;
       showSyncStatus('설정 로드 완료 (GS)', 'ok');
@@ -3453,7 +3613,8 @@ function saveSettings() {
     remindDays: document.getElementById('cfg-remind-days')?.value || '3',
     hrEmail: document.getElementById('cfg-hr-email')?.value || '',
     spUrl:   document.getElementById('cfg-sp-url')?.value  || '',
-    gsUrl:   document.getElementById('cfg-gs-url')?.value  || '',
+    gsUrl:        document.getElementById('cfg-gs-url')?.value        || '',
+    notifyTeams:  document.getElementById('cfg-notify-teams')?.value || '',
     tplInt1: document.getElementById('tpl-int1')?.value || '',
     tplInt2: document.getElementById('tpl-int2')?.value || '',
     tplOffer:document.getElementById('tpl-offer')?.value || '',
@@ -3574,7 +3735,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const icEl=document.getElementById('int-cand');if(icEl)icEl.addEventListener('change',updateIntPreview);
 
 });
-
 </script>
 </body>
 </html>
