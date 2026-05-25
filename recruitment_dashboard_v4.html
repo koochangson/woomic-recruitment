@@ -1088,10 +1088,12 @@ let cfg             = {};
 // ── 트래커 필터/정렬 상태 ────────────────────────────────────
 let stageFilter     = -1;   // -1: 전체, 0~6: 특정 단계
 let roleFilter      = '';   // 직군 필터
+let etypeFilter     = '';   // 채용형태 필터
 let trackerSort     = 'stage'; // 정렬 기준
 let trackerSearch   = '';   // 검색어
 let showRejected    = false; // 불합격자 표시 여부
 let refFilter       = 'all'; // 레퍼런스 필터
+let refMetricFilter = '';   // 레퍼런스 메트릭 필터 (ready/ing/zero/done/pend)
 
 
 // ═════════════════
