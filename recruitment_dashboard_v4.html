@@ -3664,6 +3664,17 @@ function loadSettings() {
 // 초기화
 // ══════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
+  // ── 데이터 로드 (localStorage → GS 순서) ──────────────────
+  const saved = loadState();
+  if(saved && saved.candidates) {
+    candidates  = saved.candidates  || [];
+    interviews  = saved.interviews  || [];
+    onboardings = saved.onboardings || [];
+    notifyLog   = saved.notifyLog   || [];
+    refDetails  = saved.refDetails  || {};
+    positions   = saved.positions   || [];
+  }
+
   // overlay 클릭 시 모달 닫기
   document.querySelectorAll('.overlay').forEach(o => {
     o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); });
