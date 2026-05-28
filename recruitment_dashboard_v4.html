@@ -240,8 +240,8 @@ textarea{resize:vertical;min-height:64px;}
 .search-inp:focus{outline:none;border-color:var(--acc);}
 
 /* ── 모달 ──────────────────────────────────────────────── */
-.overlay{display:flex;position:fixed;top:0;right:0;bottom:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;visibility:hidden;opacity:0;pointer-events:none;}
-.overlay.open{visibility:visible;opacity:1;pointer-events:auto;}
+.overlay{display:none!important;position:fixed;top:0;right:0;bottom:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
+.overlay.open{display:flex!important;}
 .modal{background:var(--surface);border-radius:var(--rlg);padding:0;width:680px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shm);}
 .modal-hd{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .modal-title{font-size:15px;font-weight:700;}
