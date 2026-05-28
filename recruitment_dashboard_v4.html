@@ -1838,15 +1838,27 @@ function navBtn(id) {
 function openModal(id) {
   const el = document.getElementById(id);
   if(!el) { console.error('[openModal] element not found:', id); return; }
+  el.style.display = 'flex';
+  el.style.position = 'fixed';
+  el.style.top = '0';
+  el.style.left = '0';
+  el.style.width = '100vw';
+  el.style.height = '100vh';
+  el.style.background = 'rgba(0,0,0,.45)';
+  el.style.zIndex = '9999';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.style.padding = '20px';
+  el.style.boxSizing = 'border-box';
   el.classList.add('open');
-  console.log('[openModal] opened:', id, el.className);
+  console.log('[openModal] opened:', id);
 }
 function closeModal(id) {
   const el = document.getElementById(id);
   if(!el) return;
+  el.style.display = 'none';
   el.classList.remove('open');
 }
-// (overlay click handler는 DOMContentLoaded에서 등록)
 
 // ══════════════════════════════════════════════════════════════
 // 토스트
@@ -3707,13 +3719,15 @@ try {
 
   // overlay 클릭 시 모달 닫기
   document.querySelectorAll('.overlay').forEach(o => {
-    o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); });
+    o.addEventListener('click', e => {
+      if(e.target===o) { o.style.display='none'; o.classList.remove('open'); }
+    });
   });
   // ESC 키로 모달 닫기
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape') {
       const open = document.querySelector('.overlay.open');
-      if(open) open.classList.remove('open');
+      if(open) { open.style.display='none'; open.classList.remove('open'); }
     }
   });
   // ob 이벤트 리스너
