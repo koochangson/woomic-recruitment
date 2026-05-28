@@ -738,6 +738,15 @@ textarea{resize:vertical;min-height:64px;}
               어느 PC에서나 같은 데이터 접근 가능 · 완전 무료
             </div>
           </div>
+          <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #4A90D9">
+            <label style="color:#4A90D9;font-weight:700">👥 면접관 DB URL</label>
+            <input id="cfg-interviewer-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">면접관 DB Apps Script 배포 URL 입력</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+              <button class="btn btn-sm" onclick="testInterviewerConnection()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">👥 연결 테스트</button>
+              <div id="interviewer-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
+            </div>
+          </div>
         </div>
         <div class="div"></div>
         <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:10px">메시지 템플릿</div>
@@ -1036,13 +1045,26 @@ textarea{resize:vertical;min-height:64px;}
         <input id="pos-dept" placeholder="예: 현장지원1팀"/>
       </div>
       <div class="fg" style="grid-column:1/-1">
-        <label>1차 면접관 (이름·이메일 쌍, 쉼표 구분)</label>
-        <textarea id="pos-panel1" rows="2" placeholder="홍길동부장 hong@woomic.co.kr, 이팀장 lee@woomic.co.kr" style="font-size:12px;font-family:'DM Mono',monospace"></textarea>
-        <div style="font-size:11px;color:var(--t3);margin-top:4px">형식: 이름 이메일, 이름 이메일</div>
+        <label>1차 면접관</label>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <select id="pos-panel1-sel" style="flex:1" onchange="addPanelist(1)">
+            <option value="">— 면접관 선택 —</option>
+          </select>
+          <button class="btn btn-sm" onclick="loadInterviewerOptions()" style="white-space:nowrap;flex-shrink:0">🔄 목록 새로고침</button>
+        </div>
+        <div id="pos-panel1-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:28px"></div>
+        <input type="hidden" id="pos-panel1"/>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">선택 시 이메일 자동 연결 · 태그 클릭으로 제거</div>
       </div>
       <div class="fg" style="grid-column:1/-1">
-        <label>2차 면접관 (이름·이메일 쌍, 쉼표 구분)</label>
-        <textarea id="pos-panel2" rows="2" placeholder="김임원 kim@woomic.co.kr, 박상무 park@woomic.co.kr" style="font-size:12px;font-family:'DM Mono',monospace"></textarea>
+        <label>2차 면접관</label>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <select id="pos-panel2-sel" style="flex:1" onchange="addPanelist(2)">
+            <option value="">— 면접관 선택 —</option>
+          </select>
+        </div>
+        <div id="pos-panel2-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:28px"></div>
+        <input type="hidden" id="pos-panel2"/>
       </div>
       <div class="fg" style="grid-column:1/-1">
         <label>면접 장소</label>
@@ -1086,6 +1108,7 @@ let notifyLog       = [];
 let refDetails      = {};
 let positions       = [];
 let editingPosId    = null;
+let interviewers    = [];  // 면접관 DB 캐시
 let pendingStageChange = null;
 let dashPipeFilter  = -1;
 let cfg             = {};
@@ -1136,7 +1159,8 @@ const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','v
 // Google Sheets 연동
 // ══════════════════════════════════════════════════════════════
 const GS_CONFIG = {
-  scriptUrl: '', // Apps Script 배포 URL (설정 탭에서 입력)
+  scriptUrl:      '', // 지원자 DB Apps Script URL (설정 탭에서 입력)
+  interviewerUrl: '', // 면접관 DB Apps Script URL (설정 탭에서 입력)
 };
 
 async function gsFetch(action, sheet, data={}) {
@@ -1430,7 +1454,144 @@ function openPosDetail(posId) {
   openModal('modal-pos-detail');
 }
 
-// ── 면접관 이름·이메일 파싱 ──────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// 면접관 DB 연동
+// ══════════════════════════════════════════════════════════════
+
+// 면접관 목록 로드 (API → 전역 캐시 → 드롭다운 반영)
+async function loadInterviewers() {
+  const url = GS_CONFIG.interviewerUrl;
+  if (!url) return;
+  try {
+    const res  = await fetch(url + '?action=getInterviewers');
+    const data = await res.json();
+    if (data.success) {
+      interviewers = data.interviewers;
+      loadInterviewerOptions();
+    }
+  } catch(e) {
+    console.warn('[loadInterviewers] 실패:', e.message);
+  }
+}
+
+// 드롭다운 옵션 채우기 (캐시 기반, 빠른 호출용)
+function loadInterviewerOptions() {
+  [1, 2].forEach(round => {
+    const sel = document.getElementById('pos-panel' + round + '-sel');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— 면접관 선택 —</option>';
+    interviewers.forEach(iv => {
+      const opt  = document.createElement('option');
+      opt.value  = JSON.stringify({ id: iv.id, name: iv.name, email: iv.email, rank: iv.rank });
+      opt.text   = iv.label;
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+  });
+  // 캐시 없을 때 API 재호출
+  if (interviewers.length === 0 && GS_CONFIG.interviewerUrl) {
+    loadInterviewers();
+  }
+}
+
+// 드롭다운 선택 → 태그 추가
+function addPanelist(round) {
+  const sel = document.getElementById('pos-panel' + round + '-sel');
+  if (!sel || !sel.value) return;
+
+  let iv;
+  try { iv = JSON.parse(sel.value); } catch(e) { return; }
+
+  const tagsEl   = document.getElementById('pos-panel' + round + '-tags');
+  const hiddenEl = document.getElementById('pos-panel' + round);
+
+  // 중복 방지
+  const existing = getPanelistsFromHidden(round);
+  if (existing.some(p => p.email === iv.email)) {
+    sel.value = '';
+    toast(iv.name + '은(는) 이미 추가됐습니다.', 'tw');
+    return;
+  }
+
+  // 태그 생성
+  const tag = document.createElement('span');
+  tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
+  tag.innerHTML = `👤 ${iv.name} <span style="color:var(--t3);font-size:11px">${iv.rank}</span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+  tag.dataset.email = iv.email;
+  tag.dataset.name  = iv.name;
+  tagsEl.appendChild(tag);
+
+  // hidden input 업데이트
+  syncPanelistHidden(round);
+  sel.value = '';
+}
+
+// 태그 제거
+function removePanelist(btn, round) {
+  btn.closest('span').remove();
+  syncPanelistHidden(round);
+}
+
+// 태그 → hidden input (기존 parsePanelists 호환 형식: "이름 이메일, 이름 이메일")
+function syncPanelistHidden(round) {
+  const tagsEl   = document.getElementById('pos-panel' + round + '-tags');
+  const hiddenEl = document.getElementById('pos-panel' + round);
+  if (!tagsEl || !hiddenEl) return;
+  const parts = Array.from(tagsEl.querySelectorAll('span[data-email]'))
+    .map(t => t.dataset.name + ' ' + t.dataset.email);
+  hiddenEl.value = parts.join(', ');
+}
+
+// hidden input → 태그 복원 (editPosition 시 기존 데이터 복원)
+function restorePanelistTags(round, panelStr) {
+  const tagsEl   = document.getElementById('pos-panel' + round + '-tags');
+  const hiddenEl = document.getElementById('pos-panel' + round);
+  if (!tagsEl) return;
+  tagsEl.innerHTML = '';
+  if (!panelStr) return;
+  parsePanelists(panelStr).forEach(p => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
+    tag.innerHTML = `👤 ${p.name} <span style="color:var(--t3);font-size:11px"></span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+    tag.dataset.email = p.email;
+    tag.dataset.name  = p.name;
+    tagsEl.appendChild(tag);
+  });
+  if (hiddenEl) hiddenEl.value = panelStr;
+}
+
+// hidden input 현재값 파싱
+function getPanelistsFromHidden(round) {
+  const el = document.getElementById('pos-panel' + round);
+  return el ? parsePanelists(el.value) : [];
+}
+
+// 면접관 API 연결 테스트
+async function testInterviewerConnection() {
+  const url    = document.getElementById('cfg-interviewer-url')?.value?.trim();
+  const status = document.getElementById('interviewer-conn-status');
+  if (!url) { if(status) status.textContent = 'URL을 입력하세요.'; return; }
+  if(status) status.textContent = '테스트 중...';
+  try {
+    const res  = await fetch(url + '?action=getInterviewers');
+    const data = await res.json();
+    if (data.success) {
+      GS_CONFIG.interviewerUrl = url;
+      interviewers = data.interviewers;
+      loadInterviewerOptions();
+      if(status) status.textContent = `✅ 연결 성공 — 면접관 ${data.count}명 로드`;
+      saveConfig();
+      toast(`면접관 ${data.count}명 로드 완료`, 'tok');
+    } else {
+      if(status) status.textContent = '❌ 오류: ' + (data.error || '알 수 없는 오류');
+    }
+  } catch(e) {
+    if(status) status.textContent = '❌ 연결 실패: ' + e.message;
+  }
+}
+
+// ── (기존 함수 계속)
 function parsePanelists(str) {
   if(!str) return [];
   return str.split(',').map(s => s.trim()).filter(Boolean).map(s => {
@@ -1542,6 +1703,12 @@ function openAddPosition() {
     document.getElementById('pos-etype').value = '정규직';
     document.getElementById('pos-role').value  = '현장직';
     document.getElementById('pos-headcount').value = '1';
+    // 면접관 태그 초기화
+    const t1 = document.getElementById('pos-panel1-tags'); if(t1) t1.innerHTML = '';
+    const t2 = document.getElementById('pos-panel2-tags'); if(t2) t2.innerHTML = '';
+    const h1 = document.getElementById('pos-panel1'); if(h1) h1.value = '';
+    const h2 = document.getElementById('pos-panel2'); if(h2) h2.value = '';
+    loadInterviewerOptions();
     openModal('modal-position');
   } catch(err) {
     console.error('[openAddPosition] error:', err);
@@ -1559,8 +1726,9 @@ function editPosition(posId) {
   document.getElementById('pos-role').value   = pos.role  || '현장직';
   document.getElementById('pos-headcount').value = pos.headcount || 1;
   document.getElementById('pos-dept').value   = pos.dept   || '';
-  document.getElementById('pos-panel1').value = pos.panel1 || '';
-  document.getElementById('pos-panel2').value = pos.panel2 || '';
+  restorePanelistTags(1, pos.panel1 || '');
+  restorePanelistTags(2, pos.panel2 || '');
+  loadInterviewerOptions();
   document.getElementById('pos-loc').value    = pos.loc    || '';
   document.getElementById('pos-memo').value   = pos.memo   || '';
   openModal('modal-position');
@@ -3656,6 +3824,7 @@ function saveSettings() {
     hrEmail: document.getElementById('cfg-hr-email')?.value || '',
     spUrl:   document.getElementById('cfg-sp-url')?.value  || '',
     gsUrl:        document.getElementById('cfg-gs-url')?.value        || '',
+    interviewerUrl: document.getElementById('cfg-interviewer-url')?.value || '',
     notifyTeams:  document.getElementById('cfg-notify-teams')?.value || '',
     tplInt1: document.getElementById('tpl-int1')?.value || '',
     tplInt2: document.getElementById('tpl-int2')?.value || '',
@@ -3696,6 +3865,11 @@ function loadSettings() {
     if(cfg.spUrl) SP_CONFIG.siteUrl = cfg.spUrl; // SP 연동 복원
     set('cfg-gs-url', cfg.gsUrl);
     if(cfg.gsUrl) GS_CONFIG.scriptUrl = cfg.gsUrl; // GS 연동 복원
+    set('cfg-interviewer-url', cfg.interviewerUrl);
+    if(cfg.interviewerUrl) {
+      GS_CONFIG.interviewerUrl = cfg.interviewerUrl;
+      loadInterviewers();
+    }
     set('tpl-int1',             cfg.tplInt1);
     set('tpl-int2',             cfg.tplInt2);
     set('tpl-offer',            cfg.tplOffer);
