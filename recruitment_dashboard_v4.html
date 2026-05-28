@@ -961,7 +961,10 @@ textarea{resize:vertical;min-height:64px;}
       <div class="notify-card">
         <div class="nc-header"><div class="nc-icon" style="background:var(--teams)"><svg viewBox="0 0 14 14"><path d="M7 1L13 3.5V7C13 9.8 10.3 12.3 7 13C3.7 12.3 1 9.8 1 7V3.5L7 1Z"/></svg></div>
           <div><div class="nc-title" style="color:var(--teams)">미리보기</div></div></div>
-        <div class="nc-body" id="bulk-preview-msg">
+        <div class="nc-body" id="bulk-preview-msg"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
       <button class="btn" onclick="closeModal('modal-bulk-notify')">취소</button>
       <button class="btn btn-teams" onclick="sendBulk()">일괄 발송</button>
     </div>
@@ -1062,13 +1065,11 @@ textarea{resize:vertical;min-height:64px;}
   <div class="modal" style="width:760px;max-height:90vh">
     <div class="modal-hd">
       <div class="modal-title" id="pos-detail-title">모집단위 상세</div>
-      <button class="mclose" onclick="closeModal('modal-
-
-
-
-
-
-</div>
+      <button class="mclose" onclick="closeModal('modal-pos-detail')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body" id="pos-detail-body"></div>
+    <div class="modal-ft" id="pos-detail-ft"></div>
+  </div>
 </div>
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
