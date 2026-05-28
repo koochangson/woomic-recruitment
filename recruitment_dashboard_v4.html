@@ -58,6 +58,10 @@ html,body{height:100%;font-family:'Pretendard',-apple-system,sans-serif;backgrou
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .tb-title{font-size:15px;font-weight:700;}
 .tb-right{display:flex;align-items:center;gap:8px;}
+.tb{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.tb-l{display:flex;flex-direction:column;gap:2px;}
+.tb-sub{font-size:12px;color:var(--t3);}
+.tb-r{display:flex;align-items:center;gap:8px;}
 .content{flex:1;overflow-y:auto;padding:20px 24px;}
 
 /* ── 섹션 ──────────────────────────────────────────────── */
@@ -411,12 +415,12 @@ textarea{resize:vertical;min-height:64px;}
     <!-- ② 지원자 트래커 ──────────────────────────────────── -->
     <!-- ── 모집단위 관리 섹션 ─────────────────────────────────── -->
 <div id="sect-position" class="sect">
-  <div class="tb">
-    <div class="tb-l">
-      <div class="tb-title">모집단위 관리</div>
-      <div class="tb-sub" id="pos-count-label">전체 0개 포지션</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div>
+      <div style="font-size:15px;font-weight:700;">모집단위 관리</div>
+      <div style="font-size:12px;color:var(--t3);margin-top:2px;" id="pos-count-label">전체 0개 포지션</div>
     </div>
-    <div class="tb-r">
+    <div>
       <button class="btn btn-primary" onclick="openAddPosition()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 2v12M2 8h12"/></svg>
         모집단위 추가
@@ -425,7 +429,7 @@ textarea{resize:vertical;min-height:64px;}
   </div>
 
   <!-- 모집단위 목록 -->
-  <div id="pos-list" style="display:flex;flex-direction:column;gap:12px;margin-top:16px"></div>
+  <div id="pos-list" style="display:flex;flex-direction:column;gap:12px;"></div>
 </div>
 
 <div id="sect-tracker" class="sect">
@@ -1526,16 +1530,22 @@ function batchStageChange(posId, fromStage, toStage) {
 
 // ── 모집단위 추가/편집 모달 열기 ─────────────────────────────
 function openAddPosition() {
-  editingPosId = null;
-  document.getElementById('pos-modal-title').textContent = '모집단위 추가';
-  ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-memo','pos-dept'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.value = '';
-  });
-  document.getElementById('pos-etype').value = '정규직';
-  document.getElementById('pos-role').value  = '현장직';
-  document.getElementById('pos-headcount').value = '1';
-  openModal('modal-position');
+  console.log('[openAddPosition] called');
+  try {
+    editingPosId = null;
+    document.getElementById('pos-modal-title').textContent = '모집단위 추가';
+    ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-memo','pos-dept'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.value = '';
+    });
+    document.getElementById('pos-etype').value = '정규직';
+    document.getElementById('pos-role').value  = '현장직';
+    document.getElementById('pos-headcount').value = '1';
+    openModal('modal-position');
+  } catch(err) {
+    console.error('[openAddPosition] error:', err);
+    alert('오류: ' + err.message);
+  }
 }
 
 function editPosition(posId) {
@@ -1825,8 +1835,17 @@ function navBtn(id) {
 // ══════════════════════════════════════════════════════════════
 // 모달
 // ══════════════════════════════════════════════════════════════
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) {
+  const el = document.getElementById(id);
+  if(!el) { console.error('[openModal] element not found:', id); return; }
+  el.classList.add('open');
+  console.log('[openModal] opened:', id, el.className);
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('open');
+}
 // (overlay click handler는 DOMContentLoaded에서 등록)
 
 // ══════════════════════════════════════════════════════════════
@@ -3674,6 +3693,7 @@ function loadSettings() {
 // 초기화
 // ══════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
+try {
   // ── 데이터 로드 (localStorage → GS 순서) ──────────────────
   const saved = loadState();
   if(saved && saved.candidates) {
@@ -3737,6 +3757,10 @@ window.addEventListener('DOMContentLoaded', () => {
   updateObPreview();
   updateBulkPreview();
 
+} catch(initErr) {
+  console.error('[DOMContentLoaded] 초기화 에러:', initErr);
+  alert('대시보드 초기화 오류: ' + initErr.message + '\n\nF12 → Console 탭을 확인하세요.');
+}
 });
 </script>
 </body>
