@@ -393,7 +393,7 @@ textarea{resize:vertical;min-height:64px;}
 
       <!-- 파이프라인 시각화 (6단계) -->
       <div class="card" style="margin-bottom:12px">
-        <div class="ch"><div class="ch-l">채용 파이프라인 현황</div>
+        <div class="ch"><div class="ch-l">진행 중인 채용 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(절차 높은 순 · 최종합격·불합격 제외)</span></div>
           <button class="btn btn-xs btn-ghost" onclick="navBtn('tracker')">전체 보기 →</button>
         </div>
         <div class="pipe-flow" id="dash-pipe-flow"></div>
@@ -2469,11 +2469,11 @@ function renderDashPipeList() {
   const stageName  = isFiltered ? STAGES[dashPipeFilter] : '';
   const filtered   = isFiltered
     ? candidates.filter(c => c.stage === dashPipeFilter)
-    : candidates.filter(c => c.stage !== 6).slice().sort((a,b)=>b.stage-a.stage).slice(0,6);
+    : candidates.filter(c => c.stage <= 4).slice().sort((a,b)=>b.stage-a.stage);
 
   if(!filtered.length) {
     pl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--t3);font-size:12.5px">
-      ${isFiltered ? `<b>${stageName}</b> 단계에 해당하는 지원자가 없습니다.` : '등록된 지원자가 없습니다.'}
+      ${isFiltered ? `<b>${stageName}</b> 단계에 해당하는 지원자가 없습니다.` : '진행 중인 지원자가 없습니다.'}
     </div>`;
     return;
   }
