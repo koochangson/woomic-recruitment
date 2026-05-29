@@ -507,10 +507,6 @@ textarea{resize:vertical;min-height:64px;}
           </div>
           <div class="brow">
             <button class="btn btn-primary" onclick="addInterview()">등록</button>
-            <button class="btn btn-teams" onclick="sendIntNotify('teams')">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H2v10l3-2h9V2z"/></svg>
-              Teams 발송
-            </button>
             <button class="btn btn-outlook" onclick="sendIntNotify('outlook')">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12l-1 8H3L2 4z"/><path d="M6 4V3a2 2 0 014 0v1"/></svg>
               Outlook 발송
@@ -651,11 +647,7 @@ textarea{resize:vertical;min-height:64px;}
           </div>
           <div class="brow">
             <button class="btn btn-primary" onclick="addOnboarding()">등록</button>
-            <button class="btn btn-teams" onclick="sendObNotify('teams')">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H2v10l3-2h9V2z"/></svg>
-              Teams 합격 안내
-            </button>
-            <button class="btn btn-outlook" onclick="sendObNotify('outlook')">Outlook 발송</button>
+            <button class="btn btn-outlook" onclick="sendObNotify('outlook')">Outlook 합격 안내 발송</button>
           </div>
         </div>
         <div>
@@ -882,7 +874,7 @@ textarea{resize:vertical;min-height:64px;}
           지원자 알림 발송 (선택)
         </div>
         <div id="cs-external-notice" style="display:none;font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
-          ✉️ 외부 지원자 대상 단계입니다. Teams는 사용할 수 없으며 이메일(Outlook)로만 안내됩니다.
+          ✉️ 지원자는 외부인이므로 Teams는 사용할 수 없으며 이메일(Outlook)로만 안내됩니다.
         </div>
         <div class="no-checks">
           <label class="no-check teams-opt">
@@ -2906,7 +2898,7 @@ function openMetricDetail(type) {
     })));
     html += renderActionGroup('🟡 면접 알림 미발송', noNotify.map(i=>({
       name:i.candName, sub:`${i.type} 면접 · ${i.date}`,
-      btn:`<button class="btn btn-xs btn-teams" onclick="closeModal('modal-metric');sendIntById(${i.id},'teams')">Teams</button>`
+      btn:`<button class="btn btn-xs btn-outlook" onclick="closeModal('modal-metric');sendIntById(${i.id},'outlook')">Outlook 안내</button>`
     })));
   } else if(type === 'ref') {
     // 레퍼런스 — 응답 진행률 포함
@@ -3265,7 +3257,7 @@ function requestStageChange(candId, newStage) {
   const teamsCheck = document.getElementById('cs-notify-teams');
   const outlookCheck = document.getElementById('cs-notify-outlook');
   const teamsLabel = teamsCheck ? teamsCheck.closest('label') : null;
-  const externalOnly = (newStage === 1); // 1차 면접 = 외부 지원자에게 첫 안내
+  const externalOnly = true; // 지원자는 모두 외부인 → 이메일(Outlook)만 가능
   const extNotice = document.getElementById('cs-external-notice');
   if(extNotice) extNotice.style.display = externalOnly ? '' : 'none';
   if(teamsCheck && outlookCheck) {
@@ -3706,8 +3698,7 @@ function openDetail(id) {
       </div>`;
     }).join('') : '<div style="font-size:12px;color:var(--t3)">등록된 면접 일정이 없습니다.</div>'}
     <div style="display:flex;gap:6px;margin-top:14px">
-      <button class="btn btn-teams btn-sm" onclick="quickNotify(${c.id},'teams')">Teams 알림</button>
-      <button class="btn btn-outlook btn-sm" onclick="quickNotify(${c.id},'outlook')">Outlook 알림</button>
+      <button class="btn btn-outlook btn-sm" onclick="quickNotify(${c.id},'outlook')">✉ Outlook 안내</button>
       <button class="btn btn-sm" onclick="editCandidate(${c.id})">✏ 정보 수정</button>
       <button class="btn btn-sm btn-red" onclick="rejectCandidate(${c.id})">✗ 불합격</button>
     </div>`;
@@ -3809,8 +3800,7 @@ function renderIntTable() {
       <td style="font-size:12px;color:var(--t2)">${i.panel}</td>
       <td>${i.notified?'<span class="b bgreen">발송완료</span>':'<span class="b bgray">미발송</span>'}</td>
       <td style="display:flex;gap:4px">
-        <button class="btn btn-xs btn-teams" onclick="sendIntById(${i.id},'teams')">Teams</button>
-        <button class="btn btn-xs btn-outlook" onclick="sendIntById(${i.id},'outlook')">Outlook</button>
+        <button class="btn btn-xs btn-outlook" onclick="sendIntById(${i.id},'outlook')">Outlook 안내</button>
         <button class="btn btn-xs btn-green" onclick="openIntResult(${i.id})">결과입력</button>
         <button class="btn btn-xs btn-red" onclick="delInt(${i.id})">삭제</button>
       </td>
