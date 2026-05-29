@@ -1618,6 +1618,10 @@ function openPosDetail(posId) {
             btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>`;
             // 일정 확정 진행률 표시
             btns += `<span style="font-size:10px;color:${allConfirmed?'var(--green)':'var(--t3)'};font-weight:600">일정확정 ${confirmedCnt}/${stageCands.length}</span>`;
+            // 확정된 지원자가 있으면 지원자 일괄 안내 버튼
+            if(confirmedCnt > 0) {
+              btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendAllCandSchedule(${posId},${stageIdx})">✉ 지원자 일괄 안내 (${confirmedCnt}명)</button>`;
+            }
             // 전원 확정 + 면접관 등록 시 → 면접관 안내 버튼 강조
             if(allConfirmed && panelExists) {
               btns += `<button class="btn btn-sm" style="font-size:10px;padding:3px 10px;background:var(--green);color:#fff;border-color:var(--green);font-weight:700" onclick="sendPanelSchedule(${posId},${stageIdx})">📧 면접관에게 일정 일괄 안내</button>`;
@@ -1643,6 +1647,10 @@ function openPosDetail(posId) {
             const doneBtn = (round && st==='confirmed')
               ? `<button class="btn btn-sm" style="font-size:11px" onclick="markIntDoneFromPos(${itv.id},${posId})">완료처리</button>`
               : '';
+            // 확정된 일정이 있으면 지원자에게 확정 일정 안내(개인) 버튼
+            const candNoticeBtn = (round && itv && (st==='confirmed'||st==='done'))
+              ? `<button class="btn btn-sm" style="font-size:11px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendCandSchedule(${itv.id})">✉ 지원자 안내</button>`
+              : '';
             return `
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)">
               <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${cand.name.charAt(0)}</div>
@@ -1654,6 +1662,7 @@ function openPosDetail(posId) {
               <div style="display:flex;gap:5px;flex-shrink:0">
                 <button class="btn btn-sm" style="font-size:11px" onclick="closeModal('modal-pos-detail');openDetail(${cand.id})">상세</button>
                 ${confirmBtn}
+                ${candNoticeBtn}
                 ${doneBtn}
                 <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');requestStageChange(${cand.id},${stageIdx===5?5:stageIdx+1})">단계 이동</button>
               </div>
@@ -1951,7 +1960,67 @@ function applyBatchSchedule() {
   setTimeout(() => openPosDetail(posId), 300);
 }
 
-// 면접관에게 전체 면접 일정표 일괄 안내 (전원 확정 시) — 회사 표준 공문 양식
+// 확정된 지원자 전체에게 개인별 일정 안내 (순차 발송)
+function sendAllCandSchedule(posId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const stageCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  const confirmedItvs = stageCands
+    .map(c => interviews.find(i => i.candId === c.id && i.type === round && (i.status==='confirmed'||i.status==='done')))
+    .filter(Boolean);
+
+  if(!confirmedItvs.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  if(!confirm(`확정된 ${confirmedItvs.length}명에게 각각 면접 일정 안내 메일을 작성합니다.\n${confirmedItvs.length}개의 메일 작성창이 순서대로 열립니다. 진행할까요?`)) return;
+
+  // 순차로 메일창 열기 (브라우저 팝업 차단 방지를 위해 약간의 간격)
+  confirmedItvs.forEach((itv, idx) => {
+    setTimeout(() => sendCandSchedule(itv.id), idx * 600);
+  });
+  toast(`${confirmedItvs.length}명 안내 메일 작성창을 엽니다. 각 창에서 전송하세요.`, 'toutlook');
+}
+
+// 지원자에게 확정 면접 일정 개인 안내 (면접 30분 전 도착 안내 포함)
+function sendCandSchedule(intId) {
+  const itv = interviews.find(i => i.id === intId);
+  if(!itv) { toast('면접 정보를 찾을 수 없습니다.', 'terr'); return; }
+  const c = candidates.find(x => Number(x.id) === Number(itv.candId));
+  if(!c) { toast('지원자를 찾을 수 없습니다.', 'terr'); return; }
+  if(!itv.date || itv.date.indexOf('미정') !== -1) { toast('확정된 일정이 없습니다.', 'terr'); return; }
+
+  const roundLabel = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
+
+  // 면접 일시 파싱
+  const d = new Date(itv.date.replace(' ', 'T'));
+  const wk = ['일','월','화','수','목','금','토'][d.getDay()];
+  const dateLabel = `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}(${wk})`;
+  const timeLabel = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+
+  // 도착 권장 시각 = 면접 30분 전
+  const arrive = new Date(d.getTime() - 30*60000);
+  const arriveLabel = `${String(arrive.getHours()).padStart(2,'0')}:${String(arrive.getMinutes()).padStart(2,'0')}`;
+
+  const subject = `[우미건설] ${c.name}님 ${roundLabel} 일정 안내`;
+  const body =
+`안녕하세요 ${c.name}님,
+
+우미건설 ${c.pos} 포지션 ${roundLabel} 일정을 안내드립니다.
+
+■ 일시 : ${dateLabel} ${timeLabel}
+■ 장소 : ${itv.loc}
+■ 도착 : 면접 시작 30분 전인 ${arriveLabel}까지 도착해 주시기 바랍니다.
+
+원활한 면접 진행을 위해 신분증을 지참해 주세요.
+일정 변경이 필요하시면 회신 부탁드립니다.`;
+
+  const sent = openMailto(c.email, subject, body);
+  if(sent === false) return;
+
+  itv.candNotified = true;
+  c.notified = true;
+  logNotify('Outlook', `${itv.type}면접지원자안내`, c.name, c.email);
+  saveState();
+  toast(`${c.name}님에게 ${roundLabel} 일정 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
+}
+
 function sendPanelSchedule(posId, stageIdx) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
