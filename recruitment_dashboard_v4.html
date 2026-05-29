@@ -1141,7 +1141,7 @@ textarea{resize:vertical;min-height:64px;}
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-confirm-int')">취소</button>
+      <button class="btn" onclick="cancelInterviewConfirm()">취소</button>
       <button class="btn btn-primary" onclick="applyInterviewConfirm()">일정 확정</button>
     </div>
   </div>
@@ -1622,17 +1622,34 @@ function openPosDetail(posId) {
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${stageCands.map(cand => {
-            const itv = interviews.find(i => i.candId === cand.id && i.type === (stageIdx===1?'1차':stageIdx===3?'2차':''));
-            const timeInfo = itv ? `<div style="font-size:11px;color:var(--blue);font-family:'DM Mono',monospace;margin-top:2px">📅 ${itv.date}</div>` : '';
+            const round = stageIdx===1?'1차':stageIdx===3?'2차':'';
+            const itv = round ? interviews.find(i => i.candId === cand.id && i.type === round) : null;
+            const st = itv ? (itv.status||'pending') : null;
+            const stBadge = st==='done' ? '<span class="b bgreen" style="font-size:9px">면접완료</span>'
+              : st==='confirmed' ? '<span class="b bblue" style="font-size:9px">일정확정</span>'
+              : st==='pending' ? '<span class="b bamber" style="font-size:9px">회신대기</span>' : '';
+            const timeInfo = itv ? `<div style="font-size:11px;color:${st==='confirmed'||st==='done'?'var(--blue)':'var(--amber)'};font-family:'DM Mono',monospace;margin-top:2px">📅 ${itv.date} ${itv.loc&&itv.loc.indexOf('미정')===-1?'· '+itv.loc:''}</div>` : '';
+            // 면접 단계에서 확정 전이면 일정확정 버튼 노출
+            const confirmBtn = (round && itv && st!=='done')
+              ? `<button class="btn btn-sm" style="font-size:11px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="confirmInterviewFromPos(${itv.id},${posId})">${st==='confirmed'?'일정 수정':'📅 일정 확정'}</button>`
+              : '';
+            const doneBtn = (round && st==='confirmed')
+              ? `<button class="btn btn-sm" style="font-size:11px" onclick="markIntDoneFromPos(${itv.id},${posId})">완료처리</button>`
+              : '';
             return `
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)">
               <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${cand.name.charAt(0)}</div>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600">${cand.name}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">${cand.name} ${stBadge}</div>
                 <div style="font-size:11px;color:var(--t3)">${cand.email}</div>
                 ${timeInfo}
               </div>
-              <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');requestStageChange(${cand.id},${stageIdx===5?5:stageIdx+1})">단계 이동</button>
+              <div style="display:flex;gap:5px;flex-shrink:0">
+                <button class="btn btn-sm" style="font-size:11px" onclick="closeModal('modal-pos-detail');openDetail(${cand.id})">상세</button>
+                ${confirmBtn}
+                ${doneBtn}
+                <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');requestStageChange(${cand.id},${stageIdx===5?5:stageIdx+1})">단계 이동</button>
+              </div>
             </div>
           `;}).join('')}
         </div>
@@ -1673,6 +1690,7 @@ function openPosDetail(posId) {
 // 면접 일정 확정 / 완료 처리
 // ══════════════════════════════════════════════════════════════
 let confirmingIntId = null;
+let returnToPosId = null;
 
 // 중복 면접 정리: 같은 지원자+같은 type은 1건만 유지
 // 우선순위: done > confirmed > pending, 동일 상태면 최신(가장 큰 id)
@@ -1695,6 +1713,16 @@ function dedupeInterviews() {
     saveState();
   }
   return removed;
+}
+
+// 확정 취소 (모집단위에서 진입한 경우 복귀)
+function cancelInterviewConfirm() {
+  closeModal('modal-confirm-int');
+  if(returnToPosId != null) {
+    const pid = returnToPosId;
+    returnToPosId = null;
+    setTimeout(() => openPosDetail(pid), 300);
+  }
 }
 
 function confirmInterview(intId) {
@@ -1752,8 +1780,14 @@ function applyInterviewConfirm() {
   saveState();
   closeModal('modal-confirm-int');
   if(typeof renderIntTable === 'function') renderIntTable();
-  renderTracker(); updateMetrics();
+  renderTracker(); updateMetrics(); renderPositions();
   toast(`${itv.candName} ${itv.type} 면접 일정 확정 (${itv.date})`, 'tok');
+  // 모집단위 상세에서 진입한 경우 다시 열기
+  if(returnToPosId != null) {
+    const pid = returnToPosId;
+    returnToPosId = null;
+    setTimeout(() => openPosDetail(pid), 300);
+  }
 }
 
 function markInterviewDone(intId) {
@@ -1764,6 +1798,23 @@ function markInterviewDone(intId) {
   saveState();
   if(typeof renderIntTable === 'function') renderIntTable();
   closeModal('modal-detail');
+  toast(`${itv.candName} ${itv.type} 면접 완료 처리`, 'tok');
+}
+
+// 모집단위 상세에서 일정 확정 (확정 후 모집단위 상세로 복귀)
+function confirmInterviewFromPos(intId, posId) {
+  returnToPosId = posId;
+  closeModal('modal-pos-detail');
+  confirmInterview(intId);
+}
+function markIntDoneFromPos(intId, posId) {
+  const itv = interviews.find(i => i.id === intId);
+  if(!itv) return;
+  if(!confirm(`${itv.candName} ${itv.type} 면접을 완료 처리하시겠습니까?`)) return;
+  itv.status = 'done';
+  saveState();
+  if(typeof renderIntTable === 'function') renderIntTable();
+  openPosDetail(posId);
   toast(`${itv.candName} ${itv.type} 면접 완료 처리`, 'tok');
 }
 
