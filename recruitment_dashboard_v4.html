@@ -1497,7 +1497,7 @@ function renderPositions() {
 // 지원자를 모집단위에 연결
 function linkCandToPos(candId, posId) {
   const c = candidates.find(x => x.id === candId);
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!c || !pos) return;
   c.posId = posId;
   saveState();
@@ -1518,7 +1518,7 @@ function setPosFilter(f, btn) {
 
 // 채용 완료 처리
 function closePosition(posId) {
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const passed = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === 5).length;
   const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5).length;
@@ -1536,7 +1536,7 @@ function closePosition(posId) {
 
 // 진행중으로 복원
 function reopenPosition(posId) {
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   pos.status = 'active';
   delete pos.closedAt;
@@ -1547,7 +1547,7 @@ function reopenPosition(posId) {
 
 // ── 모집단위 상세 모달 ────────────────────────────────────────
 function openPosDetail(posId) {
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
 
   const posCands = candidates.filter(c => Number(c.posId) === Number(posId));
@@ -1822,7 +1822,7 @@ function markIntDoneFromPos(intId, posId) {
 let batchScheduleCtx = { posId: null, stageIdx: null };
 
 function openBatchSchedule(posId, stageIdx) {
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const round = stageIdx === 1 ? '1차' : '2차';
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
@@ -1897,7 +1897,7 @@ function applyBatchSchedule() {
   const loc  = document.getElementById('bs-loc')?.value || '미정';
   if(!date) { toast('면접 날짜를 선택하세요.', 'terr'); return; }
 
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   const round = stageIdx === 1 ? '1차' : '2차';
   const { slots } = computeBatchSlots();
   if(!slots.length) { toast('배치할 지원자가 없습니다.', 'terr'); return; }
@@ -1946,7 +1946,7 @@ function applyBatchSchedule() {
 
 // 면접관에게 전체 면접 일정표 일괄 안내 (전원 확정 시) — 회사 표준 공문 양식
 function sendPanelSchedule(posId, stageIdx) {
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const round = stageIdx === 1 ? '1차' : '2차';
   const panelists = stageIdx === 1 ? parsePanelists(pos.panel1) : parsePanelists(pos.panel2);
@@ -2212,7 +2212,7 @@ function parsePanelists(str) {
 // 면접관 참석 안내 — sendPanelSchedule로 통합 (round 1/2 → stageIdx 1/3 변환)
 function sendPanelNotice(posId, round) {
   const stageIdx = round === 1 ? 1 : 3;
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const roundLabel = round === 1 ? '1차' : '2차';
 
@@ -2275,7 +2275,7 @@ function openAddPosition() {
 }
 
 function editPosition(posId) {
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   editingPosId = posId;
   document.getElementById('pos-modal-title').textContent = '모집단위 수정';
@@ -2325,7 +2325,7 @@ function savePosition() {
 }
 
 async function deletePosition(posId) {
-  const pos = positions.find(p => p.id === posId);
+  const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const linked = candidates.filter(c => Number(c.posId) === Number(posId)).length;
   if(linked > 0) {
