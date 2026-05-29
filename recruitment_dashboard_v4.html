@@ -1569,10 +1569,27 @@ function openPosDetail(posId) {
       const stageCands = posCands.filter(c => c.stage === stageIdx);
       if(!stageCands.length) return '';
       return `<div style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
           <span style="font-size:12px;font-weight:700;color:var(--t2)">${stageName}</span>
           <span style="background:var(--s3);padding:2px 8px;border-radius:20px;font-size:11px">${stageCands.length}명</span>
-          ${stageIdx===1||stageIdx===3 ? `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},${stageIdx})">📅 일괄 일정 배치</button><button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>` : ''}
+          ${(()=>{
+            if(stageIdx!==1 && stageIdx!==3) return '';
+            const round = stageIdx===1?'1차':'2차';
+            const confirmedCnt = stageCands.filter(cd => interviews.some(i=>i.candId===cd.id && i.type===round && (i.status==='confirmed'||i.status==='done'))).length;
+            const allConfirmed = stageCands.length>0 && confirmedCnt===stageCands.length;
+            const panelExists = (stageIdx===1?parsePanelists(pos.panel1):parsePanelists(pos.panel2)).length>0;
+            let btns = `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},${stageIdx})">📅 일괄 일정 배치</button>`;
+            btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>`;
+            // 일정 확정 진행률 표시
+            btns += `<span style="font-size:10px;color:${allConfirmed?'var(--green)':'var(--t3)'};font-weight:600">일정확정 ${confirmedCnt}/${stageCands.length}</span>`;
+            // 전원 확정 + 면접관 등록 시 → 면접관 안내 버튼 강조
+            if(allConfirmed && panelExists) {
+              btns += `<button class="btn btn-sm" style="font-size:10px;padding:3px 10px;background:var(--green);color:#fff;border-color:var(--green);font-weight:700" onclick="sendPanelSchedule(${posId},${stageIdx})">📧 면접관에게 일정 일괄 안내</button>`;
+            } else if(panelExists && confirmedCnt>0) {
+              btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;opacity:.5" title="전원 일정 확정 후 활성화됩니다" disabled>📧 면접관 안내 (확정 대기)</button>`;
+            }
+            return btns;
+          })()}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${stageCands.map(cand => {
@@ -1607,6 +1624,29 @@ function openPosDetail(posId) {
 // 면접 일정 확정 / 완료 처리
 // ══════════════════════════════════════════════════════════════
 let confirmingIntId = null;
+
+// 중복 면접 정리: 같은 지원자+같은 type은 1건만 유지
+// 우선순위: done > confirmed > pending, 동일 상태면 최신(가장 큰 id)
+function dedupeInterviews() {
+  const rank = { done: 3, confirmed: 2, pending: 1 };
+  const best = {};   // key: candId|type → 면접객체
+  interviews.forEach(i => {
+    const key = i.candId + '|' + i.type;
+    const cur = best[key];
+    const iRank = rank[i.status || 'pending'] || 1;
+    if(!cur) { best[key] = i; return; }
+    const cRank = rank[cur.status || 'pending'] || 1;
+    if(iRank > cRank || (iRank === cRank && i.id > cur.id)) best[key] = i;
+  });
+  const cleaned = Object.values(best);
+  const removed = interviews.length - cleaned.length;
+  if(removed > 0) {
+    interviews.length = 0;
+    cleaned.forEach(i => interviews.push(i));
+    saveState();
+  }
+  return removed;
+}
 
 function confirmInterview(intId) {
   const itv = interviews.find(i => i.id === intId);
@@ -1800,6 +1840,89 @@ function applyBatchSchedule() {
   updateMetrics();
   if(typeof renderIntTable === 'function') renderIntTable();
   toast(`${round} 면접 ${slots.length}명 일괄 배치 완료 (신규 ${created} / 갱신 ${updated})`, 'tok');
+  // 상세 모달 다시 열어 면접관 안내 버튼 갱신
+  setTimeout(() => openPosDetail(posId), 300);
+}
+
+// 면접관에게 전체 면접 일정표 일괄 안내 (전원 확정 시) — 회사 표준 공문 양식
+function sendPanelSchedule(posId, stageIdx) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const panelists = stageIdx === 1 ? parsePanelists(pos.panel1) : parsePanelists(pos.panel2);
+  if(!panelists.length) { toast('등록된 면접관이 없습니다.', 'terr'); return; }
+
+  // 확정된 면접만 시간순 정렬
+  const stageCands = candidates.filter(c => c.posId === posId && c.stage === stageIdx);
+  const schedule = stageCands
+    .map(c => interviews.find(i => i.candId === c.id && i.type === round && (i.status==='confirmed'||i.status==='done')))
+    .filter(Boolean)
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if(!schedule.length) { toast('확정된 면접 일정이 없습니다.', 'terr'); return; }
+
+  const loc = schedule[0].loc;
+  // 날짜 포맷: 2026-06-05 → 6.5(금)
+  const d = new Date(schedule[0].date.replace(' ', 'T'));
+  const wk = ['일','월','화','수','목','금','토'][d.getDay()];
+  const dateLabel = `${d.getMonth()+1}.${d.getDate()}(${wk})`;
+
+  // 시간 범위 + 소요시간
+  const times = schedule.map(i => i.date.split(' ')[1]).filter(Boolean);
+  const startT = times[0];
+  // 마지막 면접 + 30분을 종료시각으로 추정
+  const lastD = new Date(schedule[schedule.length-1].date.replace(' ','T'));
+  lastD.setMinutes(lastD.getMinutes() + 30);
+  const endT = `${String(lastD.getHours()).padStart(2,'0')}:${String(lastD.getMinutes()).padStart(2,'0')}`;
+  const firstD = new Date(schedule[0].date.replace(' ','T'));
+  const durMin = Math.round((lastD - firstD) / 60000);
+
+  // 면접위원 명단 (이름 + 직급)
+  const panelNames = panelists.map(p => {
+    const iv = interviewers.find(x => x.email === p.email);
+    return iv ? `${iv.name} ${iv.rank}` : p.name;
+  }).join(', ');
+
+  const roundLabel = round === '1차' ? '1차 실무면접' : '2차 임원면접';
+
+  // 면접 순서 (개별 시간 안내용)
+  const orderText = schedule.map((i, idx) =>
+    `   ${idx+1}조. ${i.date.split(' ')[1]}  ${i.candName}`).join('\n');
+
+  const subject = `[우미건설] ${pos.title} ${roundLabel} 면접 안내 (${dateLabel})`;
+  const body =
+`면접위원님께,
+
+${pos.dept || pos.title} ${pos.etype} 채용 ${roundLabel}을 아래와 같이 실시하고자 하오니
+면접위원 분들께서는 참고해 주시기 바랍니다.
+
+                    - 아  래 -
+
+□ 면접일정 : ${dateLabel}
+□ 장    소 : ${loc}
+□ 대상 및 면접위원
+
+  구분    : ${dateLabel} / ${pos.title}(${pos.etype}) / 총 ${schedule.length}명
+  일정    : ${startT}~${endT} (${durMin}분)
+  면접위원 : ${panelNames}
+
+□ 면접 순서
+${orderText}
+
+ - 면접조서 및 이력서를 첨부해 드리오니 면접 당일 지참하여 참석 부탁드립니다.
+   (전자기기 사용을 추천드립니다.)
+ ※ 첨부 : 면접조서 ${schedule.length}부, 이력서 ${schedule.length}부
+
+ ⚠ 본 메일 발송 전 면접조서·이력서 파일을 첨부해 주세요.`;
+
+  const emails = panelists.map(p => p.email).filter(Boolean);
+  const sent = openMailto(emails.join(','), subject, body);
+  if(sent === false) return;
+
+  schedule.forEach(i => { i.notified = true; });
+  panelists.forEach(p => logNotify('Outlook', `${round}면접관일정안내`, p.name, p.email));
+  saveState();
+  toast(`면접위원 ${panelists.length}명에게 ${roundLabel} 안내 (Outlook 창에서 파일 첨부 후 전송)`, 'toutlook');
+  setTimeout(() => openPosDetail(posId), 300);
 }
 
 // ── (이하 기존 면접관 DB 연동) ──
@@ -3360,7 +3483,15 @@ function renderTracker() {
 function openDetail(id) {
   const c = candidates.find(x => x.id===id);
   if(!c) return;
-  const itv = interviews.filter(i => i.candId===id);
+  const itvAll = interviews.filter(i => i.candId===id);
+  // 같은 type(1차/2차)에 확정/완료 일정이 있으면 pending(회신대기)은 숨김
+  const itv = itvAll.filter(i => {
+    const st = i.status || 'pending';
+    if(st !== 'pending') return true;
+    // 같은 type에 confirmed/done이 있으면 이 pending은 제외
+    const hasConfirmed = itvAll.some(o => o.type === i.type && (o.status==='confirmed' || o.status==='done'));
+    return !hasConfirmed;
+  });
   const ob  = onboardings.find(o => o.candId===id);
   document.getElementById('detail-title').textContent = `${c.name} · ${c.pos}`;
   document.getElementById('detail-body').innerHTML = `
@@ -4328,6 +4459,9 @@ try {
     refDetails  = saved.refDetails  || {};
     positions   = saved.positions   || [];
   }
+  // 기존 중복 면접 데이터 정리 (같은 지원자+type 1건만)
+  const dups = dedupeInterviews();
+  if(dups > 0) console.log(`[init] 중복 면접 ${dups}건 정리 완료`);
 
   // overlay 클릭 시 모달 닫기
   document.querySelectorAll('.overlay').forEach(o => {
