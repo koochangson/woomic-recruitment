@@ -1496,14 +1496,21 @@ function renderPositions() {
 
 // 지원자를 모집단위에 연결
 function linkCandToPos(candId, posId) {
-  const c = candidates.find(x => x.id === candId);
+  const c = candidates.find(x => Number(x.id) === Number(candId));
   const pos = positions.find(p => Number(p.id) === Number(posId));
-  if(!c || !pos) return;
-  c.posId = posId;
+  if(!c) { toast('지원자를 찾을 수 없습니다 (id: '+candId+')', 'terr'); return; }
+  if(!pos) { toast('모집단위를 찾을 수 없습니다 (id: '+posId+')', 'terr'); return; }
+  c.posId = Number(posId);
   saveState();
-  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
-  renderPositions();
-  openPosDetail(posId);  // 상세 갱신
+  if(GS_CONFIG.scriptUrl) {
+    syncCandToGS(c).then(() => {
+      renderPositions();
+      openPosDetail(Number(posId));
+    });
+  } else {
+    renderPositions();
+    openPosDetail(Number(posId));
+  }
   toast(`${c.name}님을 '${pos.title}'에 연결했습니다.`, 'tok');
 }
 
