@@ -753,7 +753,9 @@ textarea{resize:vertical;min-height:64px;}
         <div class="fgrid" style="gap:10px">
           <div class="fg"><label>1차 면접 안내</label><textarea id="tpl-int1" style="min-height:80px;font-family:'DM Mono',monospace;font-size:11.5px">📅 [1차 면접 안내 - 우미건설]
 안녕하세요 {지원자명}님,
-1차 실무면접 일정을 안내드립니다.
+
+서류 전형에 합격하셨습니다. 진심으로 축하드립니다!
+이어서 1차 실무면접을 진행하고자 합니다.
 
 일시: {면접일시}
 장소: {장소}
@@ -870,6 +872,9 @@ textarea{resize:vertical;min-height:64px;}
         <div class="no-title">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v6M8 9v.5"/><circle cx="8" cy="8" r="7"/></svg>
           지원자 알림 발송 (선택)
+        </div>
+        <div id="cs-external-notice" style="display:none;font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
+          ✉️ 외부 지원자 대상 단계입니다. Teams는 사용할 수 없으며 이메일(Outlook)로만 안내됩니다.
         </div>
         <div class="no-checks">
           <label class="no-check teams-opt">
@@ -1097,6 +1102,40 @@ textarea{resize:vertical;min-height:64px;}
     </div>
     <div class="modal-body" id="pos-detail-body"></div>
     <div class="modal-ft" id="pos-detail-ft"></div>
+  </div>
+</div>
+
+<!-- ── 면접 일괄 일정 배치 모달 ──────────────────────────── -->
+<div class="overlay" id="modal-batch-schedule">
+  <div class="modal" style="width:640px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="bs-title">1차 면접 일괄 일정 배치</div>
+      <button class="mclose" onclick="closeModal('modal-batch-schedule')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
+        같은 모집단위 지원자 전원에게 시작 시간부터 설정한 간격으로 순차 배치합니다. 배치 후 개별 시간은 수정할 수 있습니다.
+      </div>
+      <div class="fgrid" style="gap:10px;margin-bottom:14px">
+        <div class="fg"><label>면접 날짜</label><input type="date" id="bs-date"/></div>
+        <div class="fg"><label>시작 시간</label><input type="time" id="bs-start" value="10:00"/></div>
+        <div class="fg"><label>면접 간격</label>
+          <select id="bs-interval">
+            <option value="20">20분</option>
+            <option value="30" selected>30분</option>
+            <option value="45">45분</option>
+            <option value="60">1시간</option>
+          </select>
+        </div>
+        <div class="fg"><label>면접 장소</label><input id="bs-loc" placeholder="예: 본사 3층 회의실 A"/></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">배치 미리보기</div>
+      <div id="bs-preview" style="border:1px solid var(--border);border-radius:var(--rsm);padding:10px;max-height:240px;overflow-y:auto;font-size:12.5px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('modal-batch-schedule')">취소</button>
+      <button class="btn btn-primary" onclick="applyBatchSchedule()">일괄 배치 적용</button>
+    </div>
   </div>
 </div>
 
@@ -1433,19 +1472,23 @@ function openPosDetail(posId) {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <span style="font-size:12px;font-weight:700;color:var(--t2)">${stageName}</span>
           <span style="background:var(--s3);padding:2px 8px;border-radius:20px;font-size:11px">${stageCands.length}명</span>
-          ${stageIdx===1||stageIdx===3 ? `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>` : ''}
+          ${stageIdx===1||stageIdx===3 ? `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},${stageIdx})">📅 일괄 일정 배치</button><button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${stageCands.map(cand => `
+          ${stageCands.map(cand => {
+            const itv = interviews.find(i => i.candId === cand.id && i.type === (stageIdx===1?'1차':stageIdx===3?'2차':''));
+            const timeInfo = itv ? `<div style="font-size:11px;color:var(--blue);font-family:'DM Mono',monospace;margin-top:2px">📅 ${itv.date}</div>` : '';
+            return `
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)">
               <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${cand.name.charAt(0)}</div>
               <div style="flex:1">
                 <div style="font-size:13px;font-weight:600">${cand.name}</div>
                 <div style="font-size:11px;color:var(--t3)">${cand.email}</div>
+                ${timeInfo}
               </div>
               <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');requestStageChange(${cand.id},${stageIdx===5?5:stageIdx+1})">단계 이동</button>
             </div>
-          `).join('')}
+          `;}).join('')}
         </div>
       </div>`;
     }).join('') || '<div style="color:var(--t3);font-size:13px;padding:20px 0">등록된 지원자가 없습니다. 지원자 트래커에서 이 포지션으로 연결하세요.</div>'}
@@ -1461,8 +1504,130 @@ function openPosDetail(posId) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 면접관 DB 연동
+// 면접 일괄 일정 배치 (모집단위 단위 순차 배치)
 // ══════════════════════════════════════════════════════════════
+let batchScheduleCtx = { posId: null, stageIdx: null };
+
+function openBatchSchedule(posId, stageIdx) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const targets = candidates.filter(c => c.posId === posId && c.stage === stageIdx);
+  if(targets.length === 0) {
+    toast(`${round} 면접 단계 지원자가 없습니다.`, 'terr');
+    return;
+  }
+  batchScheduleCtx = { posId, stageIdx };
+  document.getElementById('bs-title').textContent = `${round} 면접 일괄 일정 배치 — ${pos.title} (${targets.length}명)`;
+  // 기본값 설정
+  const dateEl = document.getElementById('bs-date');
+  if(dateEl && !dateEl.value) {
+    const d = new Date(); d.setDate(d.getDate() + 3); // 기본 3일 후
+    dateEl.value = d.toISOString().slice(0,10);
+  }
+  document.getElementById('bs-start').value = '10:00';
+  document.getElementById('bs-interval').value = '30';
+  document.getElementById('bs-loc').value = '';
+  // 모집단위 상세 모달 위에 겹쳐 표시되지 않도록 닫기
+  closeModal('modal-pos-detail');
+  renderBatchPreview();
+  // 입력 변경 시 미리보기 갱신
+  ['bs-date','bs-start','bs-interval','bs-loc'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) { el.oninput = renderBatchPreview; el.onchange = renderBatchPreview; }
+  });
+  openModal('modal-batch-schedule');
+}
+
+function computeBatchSlots() {
+  const { posId, stageIdx } = batchScheduleCtx;
+  const date     = document.getElementById('bs-date')?.value;
+  const start    = document.getElementById('bs-start')?.value || '10:00';
+  const interval = parseInt(document.getElementById('bs-interval')?.value || '30');
+  const targets  = candidates.filter(c => c.posId === posId && c.stage === stageIdx)
+    .slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+
+  if(!date) return { targets, slots: [] };
+
+  const [sh, sm] = start.split(':').map(Number);
+  const slots = targets.map((c, i) => {
+    const total = sh * 60 + sm + i * interval;
+    const hh = String(Math.floor(total / 60) % 24).padStart(2,'0');
+    const mm = String(total % 60).padStart(2,'0');
+    return { cand: c, time: `${hh}:${mm}`, datetime: `${date} ${hh}:${mm}` };
+  });
+  return { targets, slots };
+}
+
+function renderBatchPreview() {
+  const el = document.getElementById('bs-preview');
+  if(!el) return;
+  const { slots } = computeBatchSlots();
+  if(!slots.length) {
+    el.innerHTML = '<div style="color:var(--t3);padding:8px">면접 날짜를 선택하세요.</div>';
+    return;
+  }
+  const loc = document.getElementById('bs-loc')?.value || '미정';
+  el.innerHTML = slots.map((s,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border)">
+      <span style="width:20px;color:var(--t3);font-size:11px">${i+1}</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--blue);min-width:54px">${s.time}</span>
+      <span style="flex:1;font-weight:600">${s.cand.name}</span>
+      <span style="font-size:11px;color:var(--t3)">${s.cand.email}</span>
+    </div>`).join('') +
+    `<div style="padding:8px 4px 2px;font-size:11px;color:var(--t3)">📍 장소: ${loc} · 총 ${slots.length}명 · 종료 예정 ${slots[slots.length-1].time} 이후</div>`;
+}
+
+function applyBatchSchedule() {
+  const { posId, stageIdx } = batchScheduleCtx;
+  const date = document.getElementById('bs-date')?.value;
+  const loc  = document.getElementById('bs-loc')?.value || '미정';
+  if(!date) { toast('면접 날짜를 선택하세요.', 'terr'); return; }
+
+  const pos = positions.find(p => p.id === posId);
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const { slots } = computeBatchSlots();
+  if(!slots.length) { toast('배치할 지원자가 없습니다.', 'terr'); return; }
+
+  const panel = stageIdx === 1
+    ? parsePanelists(pos.panel1).map(p => p.name).join(', ')
+    : parsePanelists(pos.panel2).map(p => p.name).join(', ');
+
+  let created = 0, updated = 0;
+  slots.forEach(s => {
+    // 기존 면접 있으면 갱신, 없으면 생성
+    const existing = interviews.find(i => i.candId === s.cand.id && i.type === round);
+    if(existing) {
+      existing.date = s.datetime;
+      existing.loc  = loc;
+      existing.panel = panel || '미정';
+      existing.notified = false;
+      updated++;
+    } else {
+      interviews.push({
+        id: Date.now() + Math.floor(Math.random()*1000),
+        candId: s.cand.id, candName: s.cand.name,
+        type: round,
+        date: s.datetime,
+        loc: loc,
+        panel: panel || '미정',
+        memo: `모집단위 일괄 배치 (${pos.title})`,
+        notified: false,
+      });
+      created++;
+    }
+    s.cand.intDate = s.datetime;
+  });
+
+  saveState();
+  if(GS_CONFIG.scriptUrl) slots.forEach(s => syncCandToGS(s.cand));
+  closeModal('modal-batch-schedule');
+  updateMetrics();
+  if(typeof renderIntTable === 'function') renderIntTable();
+  toast(`${round} 면접 ${slots.length}명 일괄 배치 완료 (신규 ${created} / 갱신 ${updated})`, 'tok');
+}
+
+// ── (이하 기존 면접관 DB 연동) ──
 
 // 면접관 목록 로드 (API → 전역 캐시 → 드롭다운 반영)
 async function loadInterviewers() {
@@ -2302,7 +2467,7 @@ function openMetricDetail(type) {
       btn:`<button class="btn btn-xs btn-outlook" onclick="closeModal('modal-metric');remindRef(${c.id})">리마인드</button>`
     })));
     html += renderActionGroup('🟡 면접 알림 미발송', noNotify.map(i=>({
-      name:i.candName, sub:`${i.type}차 면접 · ${i.date}`,
+      name:i.candName, sub:`${i.type} 면접 · ${i.date}`,
       btn:`<button class="btn btn-xs btn-teams" onclick="closeModal('modal-metric');sendIntById(${i.id},'teams')">Teams</button>`
     })));
   } else if(type === 'ref') {
@@ -2559,7 +2724,7 @@ function renderDashboard() {
     const urgs = [];
     candidates.filter(c=>c.ref==='진행중'&&c.refD===0).forEach(c=>urgs.push({level:'red',msg:`${c.name}(${c.pos}) 레퍼런스 0/${c.refT} — 즉시 리마인드`}));
     candidates.filter(c=>c.stage===5&&!onboardings.find(o=>o.candId===c.id)).forEach(c=>urgs.push({level:'red',msg:`${c.name} 최종합격 — 입사 안내 미등록`}));
-    interviews.filter(i=>!i.notified).forEach(i=>urgs.push({level:'amber',msg:`${i.candName} ${i.type}차 면접 — 알림 미발송`}));
+    interviews.filter(i=>!i.notified).forEach(i=>urgs.push({level:'amber',msg:`${i.candName} ${i.type} 면접 — 알림 미발송`}));
     if(!urgs.length) du.innerHTML='<div style="font-size:12.5px;color:var(--green)">✓ 긴급 처리 항목이 없습니다.</div>';
     else du.innerHTML = urgs.map(u=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--rsm);margin-bottom:5px;background:${u.level==='red'?'var(--rbg)':'var(--abg)'};border:1px solid ${u.level==='red'?'var(--rbd)':'var(--abd)'}"><div style="width:6px;height:6px;border-radius:50%;background:var(--${u.level});flex-shrink:0"></div><div style="font-size:12px;flex:1">${u.msg}</div></div>`).join('');
   }
@@ -2596,13 +2761,7 @@ function updateCsPreview(c, newStage) {
   const previewEl = document.getElementById('cs-preview-msg');
   if(!previewEl) return;
   let msg = buildStageNotifyMsg(c, newStage);
-  // 면접 후보 일정이 있으면 메시지에 포함
-  if(newStage===1||newStage===3) {
-    const slots = getIntSlots();
-    if(slots.length > 0) {
-      msg += '\n\n아래 일정 중 면접 가능한 날짜를 회신해 주세요:\n' + slots.join('\n');
-    }
-  }
+  // buildStageNotifyMsg가 1차/2차 면접 일정을 이미 포함 (중복 추가 안 함)
   previewEl.textContent = msg;
 }
 
@@ -2630,6 +2789,35 @@ function requestStageChange(candId, newStage) {
   // 알림 옵션 표시/숨김
   const no = document.getElementById('cs-notify-opts');
   no.style.display = guide.notify ? '' : 'none';
+
+  // 외부인 대상 단계(1차 면접 안내)는 이메일만 가능 → Teams 비활성화
+  const teamsCheck = document.getElementById('cs-notify-teams');
+  const outlookCheck = document.getElementById('cs-notify-outlook');
+  const teamsLabel = teamsCheck ? teamsCheck.closest('label') : null;
+  const externalOnly = (newStage === 1); // 1차 면접 = 외부 지원자에게 첫 안내
+  const extNotice = document.getElementById('cs-external-notice');
+  if(extNotice) extNotice.style.display = externalOnly ? '' : 'none';
+  if(teamsCheck && outlookCheck) {
+    if(externalOnly) {
+      teamsCheck.checked = false;
+      teamsCheck.disabled = true;
+      outlookCheck.checked = true;
+      if(teamsLabel) {
+        teamsLabel.style.opacity = '0.4';
+        teamsLabel.style.pointerEvents = 'none';
+        teamsLabel.title = '외부 지원자 대상 — Teams 발송 불가';
+      }
+    } else {
+      teamsCheck.disabled = false;
+      teamsCheck.checked = true;
+      outlookCheck.checked = false;
+      if(teamsLabel) {
+        teamsLabel.style.opacity = '';
+        teamsLabel.style.pointerEvents = '';
+        teamsLabel.title = '';
+      }
+    }
+  }
 
   // 미리보기 메시지 생성
   const preview = buildStageNotifyMsg(c, newStage);
@@ -2677,7 +2865,7 @@ function buildStageNotifyMsg(c, newStage) {
       const scheduleText = slots.length
         ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
         : '\n\n면접 일정은 별도 안내드릴 예정입니다.';
-      return `📅 [1차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n1차 실무면접 진행을 위해 연락드립니다.${scheduleText}\n\n우미건설 피플팀 드림`;
+      return `📅 [1차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n\n우미건설 ${c.pos} 포지션 서류 전형에 합격하셨습니다. 진심으로 축하드립니다!\n\n이어서 1차 실무면접을 진행하고자 합니다.${scheduleText}\n\n우미건설 피플팀 드림`;
     })(),
     2: `📝 [레퍼런스 체크 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n1차 면접을 통과하셨습니다. 수고 많으셨습니다.\n\n채용 절차의 일환으로 레퍼런스 체크를 진행합니다.\n아래 링크에서 추천인 정보를 입력해 주세요.\n[입력하기 →]\n\n우미건설 피플팀 드림`,
     3: (() => {
@@ -2731,11 +2919,8 @@ function confirmStageChange() {
       } else if(newStage === 1 || newStage === 3) {
         const intType = newStage===1?'1차 실무':'2차 임원';
         subject = `[우미건설] ${c.name}님 ${intType}면접 일정 안내`;
-        const slots = getIntSlots();
-        const slotsText = slots.length>0
-          ? '\n\n아래 일정 중 면접 가능한 날짜를 회신해 주세요:\n' + slots.join('\n')
-          : '\n\n면접 일정은 별도로 안내드리겠습니다.';
-        body = buildStageNotifyMsg(c, newStage) + slotsText;
+        // buildStageNotifyMsg가 이미 일정 후보를 포함하므로 그대로 사용 (중복 방지)
+        body = buildStageNotifyMsg(c, newStage);
       } else if(newStage === 2) {
         subject = `[우미건설] ${c.name}님 레퍼런스 체크 안내`;
         body = buildRefRequestEmail(c);
@@ -2853,7 +3038,7 @@ function openIntResult(intId) {
   const itv = interviews.find(i=>i.id===intId);
   if(!itv) return;
   const score = prompt(
-    `[${itv.candName}] ${itv.type}차 면접 결과 입력
+    `[${itv.candName}] ${itv.type} 면접 결과 입력
 
 ` +
     `종합 평가 (합격/불합격/보류): `,
@@ -3037,7 +3222,7 @@ function openDetail(id) {
       ${STAGES.map((s,si)=>`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" onclick="closeModal('modal-detail');requestStageChange(${c.id},${si})">${s}</button>`).join('')}
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">면접 이력</div>
-    ${itv.length ? itv.map(i=>`<div style="font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">${i.type}차 면접 · ${i.date} · ${i.loc}</div>`).join('') : '<div style="font-size:12px;color:var(--t3)">면접 이력 없음</div>'}
+    ${itv.length ? itv.map(i=>`<div style="font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">${i.type} 면접 · ${i.date} · ${i.loc}</div>`).join('') : '<div style="font-size:12px;color:var(--t3)">면접 이력 없음</div>'}
     <div style="display:flex;gap:6px;margin-top:14px">
       <button class="btn btn-teams btn-sm" onclick="quickNotify(${c.id},'teams')">Teams 알림</button>
       <button class="btn btn-outlook btn-sm" onclick="quickNotify(${c.id},'outlook')">Outlook 알림</button>
@@ -3084,7 +3269,7 @@ function updateIntPreview() {
   const pt = document.getElementById('int-preview-teams');
   const po = document.getElementById('int-preview-outlook');
   if(pt) pt.textContent = msg;
-  if(po) po.textContent = `수신: ${name} <${cand?cand.email:''}>\n제목: [우미건설] ${type}차 면접 일정 안내\n\n${msg}`;
+  if(po) po.textContent = `수신: ${name} <${cand?cand.email:''}>\n제목: [우미건설] ${type} 면접 일정 안내\n\n${msg}`;
 }
 
 function addInterview() {
@@ -3105,7 +3290,7 @@ function addInterview() {
   cand.intDate = itv.date;
   interviews.push(itv);
   saveState(); renderIntTable(); updateMetrics(); populateSel('int-cand');
-  toast(`${cand.name}님 ${type}차 면접 등록 완료`, 'tok');
+  toast(`${cand.name}님 ${type} 면접 등록 완료`, 'tok');
 }
 
 function sendIntNotify(ch) {
@@ -3122,9 +3307,9 @@ function sendIntNotify(ch) {
     if(!sent) return;
   }
   itv.notified = true; cand.notified = true;
-  logNotify(ch==='teams'?'Teams':'Outlook', `${itv.type}차면접안내`, cand.name, cand.email);
+  logNotify(ch==='teams'?'Teams':'Outlook', `${itv.type}면접안내`, cand.name, cand.email);
   saveState(); renderIntTable(); renderDashboard(); updateMetrics();
-  toast(`${cand.name}님 ${itv.type}차 면접 ${ch==='teams'?'Teams':'Outlook'} 발송`, ch==='teams'?'tteams':'toutlook');
+  toast(`${cand.name}님 ${itv.type} 면접 ${ch==='teams'?'Teams':'Outlook'} 발송`, ch==='teams'?'tteams':'toutlook');
 }
 
 function renderIntTable() {
@@ -3136,7 +3321,7 @@ function renderIntTable() {
     <thead><tr><th>지원자</th><th>유형</th><th>일시</th><th>장소</th><th>면접관</th><th>결과</th><th>알림</th><th>액션</th></tr></thead>
     <tbody>${list.map(i=>`<tr>
       <td><div class="tname">${i.candName}</div></td>
-      <td><span class="b ${i.type==='1차'?'bblue':'bpurple'}">${i.type}차 ${i.type==='1차'?'실무':'임원'}면접</span></td>
+      <td><span class="b ${i.type==='1차'?'bblue':'bpurple'}">${i.type} ${i.type==='1차'?'실무':'임원'}면접</span></td>
       <td style="font-family:'DM Mono',monospace;font-size:11.5px">${i.date}</td>
       <td>${i.loc}</td>
       <td style="font-size:12px;color:var(--t2)">${i.panel}</td>
@@ -3163,7 +3348,7 @@ function sendIntById(id, ch) {
     if(!sent) return;
   }
   i.notified = true; if(c) c.notified = true;
-  logNotify(ch==='teams'?'Teams':'Outlook', `${i.type}차면접안내`, i.candName, c?.email||'');
+  logNotify(ch==='teams'?'Teams':'Outlook', `${i.type}면접안내`, i.candName, c?.email||'');
   saveState(); renderIntTable(); renderDashboard(); updateMetrics();
   toast(`${i.candName}님 ${ch==='teams'?'Teams':'Outlook'} 발송 (Outlook 창에서 전송하세요)`, ch==='teams'?'tteams':'toutlook');
 }
