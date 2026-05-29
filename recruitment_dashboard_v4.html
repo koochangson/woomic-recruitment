@@ -234,6 +234,7 @@ textarea{resize:vertical;min-height:64px;}
 /* ── 필터 바 ───────────────────────────────────────────── */
 .filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
 .fbtn{padding:5px 12px;border:1px solid var(--border2);border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--t2);transition:all .12s;font-family:'Pretendard',sans-serif;}
+.pos-tab-on{background:var(--blue)!important;color:#fff!important;border-color:var(--blue)!important;}
 .fbtn:hover{border-color:var(--acc);color:var(--acc);}
 .fbtn.fon{background:var(--acc);color:#fff;border-color:var(--acc);}
 .search-inp{padding:5px 10px;border:1px solid var(--border2);border-radius:20px;font-size:12px;font-family:'Pretendard',sans-serif;color:var(--text);background:var(--surface);width:180px;}
@@ -426,6 +427,13 @@ textarea{resize:vertical;min-height:64px;}
         모집단위 추가
       </button>
     </div>
+  </div>
+
+  <!-- 진행중/완료 필터 탭 -->
+  <div style="display:flex;gap:6px;margin-bottom:14px">
+    <button class="btn btn-sm pos-tab pos-tab-on" data-posfilter="active" onclick="setPosFilter('active',this)">진행중 <span id="pos-cnt-active" style="opacity:.7"></span></button>
+    <button class="btn btn-sm pos-tab" data-posfilter="done" onclick="setPosFilter('done',this)">완료 <span id="pos-cnt-done" style="opacity:.7"></span></button>
+    <button class="btn btn-sm pos-tab" data-posfilter="all" onclick="setPosFilter('all',this)">전체 <span id="pos-cnt-all" style="opacity:.7"></span></button>
   </div>
 
   <!-- 모집단위 목록 -->
@@ -1105,6 +1113,28 @@ textarea{resize:vertical;min-height:64px;}
   </div>
 </div>
 
+<!-- ── 면접 일정 확정 모달 ──────────────────────────────── -->
+<div class="overlay" id="modal-confirm-int">
+  <div class="modal" style="width:520px">
+    <div class="modal-hd">
+      <div class="modal-title">면접 일정 확정</div>
+      <button class="mclose" onclick="closeModal('modal-confirm-int')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="ci-cand-info" style="font-size:13px;font-weight:600;margin-bottom:14px"></div>
+      <div id="ci-slot-picker" style="margin-bottom:14px"></div>
+      <div class="fgrid" style="gap:10px">
+        <div class="fg full"><label>확정 일시</label><input type="datetime-local" id="ci-datetime"/></div>
+        <div class="fg full"><label>면접 장소</label><input id="ci-loc" placeholder="예: 본사 3층 회의실 A"/></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('modal-confirm-int')">취소</button>
+      <button class="btn btn-primary" onclick="applyInterviewConfirm()">일정 확정</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 면접 일괄 일정 배치 모달 ──────────────────────────── -->
 <div class="overlay" id="modal-batch-schedule">
   <div class="modal" style="width:640px;max-height:90vh">
@@ -1351,8 +1381,26 @@ function renderPositions() {
   const nbPos = document.getElementById('nb-pos');
   if(!list) return;
 
-  if(countLabel) countLabel.textContent = `전체 ${positions.length}개 포지션`;
-  if(nbPos) nbPos.textContent = positions.length;
+  // 상태 판정 헬퍼: 명시적 done이면 완료, 아니면 진행중
+  const isDone = (pos) => pos.status === 'done';
+
+  // 탭별 카운트
+  const activeCount = positions.filter(p => !isDone(p)).length;
+  const doneCount   = positions.filter(p =>  isDone(p)).length;
+  const setCnt = (id,v) => { const el=document.getElementById(id); if(el) el.textContent = `(${v})`; };
+  setCnt('pos-cnt-active', activeCount);
+  setCnt('pos-cnt-done',   doneCount);
+  setCnt('pos-cnt-all',    positions.length);
+
+  if(countLabel) countLabel.textContent = `진행중 ${activeCount}개 · 완료 ${doneCount}개 · 전체 ${positions.length}개`;
+  if(nbPos) nbPos.textContent = activeCount;  // 사이드바 배지는 진행중 기준
+
+  // 필터 적용
+  const filtered = positions.filter(p => {
+    if(posFilter === 'active') return !isDone(p);
+    if(posFilter === 'done')   return  isDone(p);
+    return true;
+  });
 
   if(!positions.length) {
     list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--t3)">
@@ -1362,21 +1410,32 @@ function renderPositions() {
     </div>`;
     return;
   }
+  if(!filtered.length) {
+    list.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:13px">
+      ${posFilter==='done' ? '완료된 모집단위가 없습니다.' : '진행중인 모집단위가 없습니다.'}
+    </div>`;
+    return;
+  }
 
-  list.innerHTML = positions.map(pos => {
+  list.innerHTML = filtered.map(pos => {
     const posCandiates = candidates.filter(c => c.posId === pos.id);
     const active = posCandiates.filter(c => c.stage < 6);
     const passed = posCandiates.filter(c => c.stage === 5);
     const int1Ready = active.filter(c => c.stage === 1);
     const int2Ready = active.filter(c => c.stage === 3);
+    const done = isDone(pos);
+    const targetMet = passed.length >= (pos.headcount||1);
 
-    return `<div class="card" style="padding:0;overflow:hidden">
+    return `<div class="card" style="padding:0;overflow:hidden${done?';opacity:.75':''}">
       <div style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:16px" onclick="openPosDetail(${pos.id})">
-        <div style="width:44px;height:44px;border-radius:10px;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--blue);flex-shrink:0">
+        <div style="width:44px;height:44px;border-radius:10px;background:${done?'var(--s3)':'var(--bbg)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:${done?'var(--t3)':'var(--blue)'};flex-shrink:0">
           ${pos.title.charAt(0)}
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:15px;margin-bottom:4px">${pos.title}</div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+            ${pos.title}
+            ${done ? '<span class="b bgreen" style="font-size:10px">완료</span>' : '<span class="b bblue" style="font-size:10px">진행중</span>'}
+          </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'professional':'dispatch'}">${pos.etype}</span>
             <span style="font-size:11px;color:var(--t3)">${pos.role} · ${pos.dept||'부서 미정'}</span>
@@ -1398,22 +1457,63 @@ function renderPositions() {
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          ${int1Ready.length ? `<span style="background:#EBF3FD;color:var(--blue);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">1차 ${int1Ready.length}명</span>` : ''}
-          ${int2Ready.length ? `<span style="background:#FFF8EC;color:var(--amber);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">2차 ${int2Ready.length}명</span>` : ''}
-          ${passed.length >= (pos.headcount||1) ? `<span style="background:#EDFAF3;color:var(--green);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">목표달성</span>` : ''}
+          ${!done && int1Ready.length ? `<span style="background:#EBF3FD;color:var(--blue);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">1차 ${int1Ready.length}명</span>` : ''}
+          ${!done && int2Ready.length ? `<span style="background:#FFF8EC;color:var(--amber);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">2차 ${int2Ready.length}명</span>` : ''}
+          ${!done && targetMet ? `<span style="background:#EDFAF3;color:var(--green);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">목표달성</span>` : ''}
         </div>
       </div>
 
       <!-- 빠른 액션 바 -->
       <div style="border-top:1px solid var(--border);padding:10px 20px;display:flex;gap:8px;background:var(--s2)">
         <button class="btn btn-sm" onclick="openPosDetail(${pos.id})">📊 상세 보기</button>
-        ${int1Ready.length ? `<button class="btn btn-sm" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${pos.id},1)">📧 1차 면접관 안내</button>` : ''}
-        ${int2Ready.length ? `<button class="btn btn-sm" style="background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${pos.id},2)">📧 2차 면접관 안내</button>` : ''}
-        <button class="btn btn-sm" onclick="editPosition(${pos.id})" style="margin-left:auto">✏ 수정</button>
+        ${!done && int1Ready.length ? `<button class="btn btn-sm" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${pos.id},1)">📧 1차 면접관 안내</button>` : ''}
+        ${!done && int2Ready.length ? `<button class="btn btn-sm" style="background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${pos.id},2)">📧 2차 면접관 안내</button>` : ''}
+        ${done
+          ? `<button class="btn btn-sm" onclick="reopenPosition(${pos.id})" style="margin-left:auto">↻ 진행중으로 복원</button>`
+          : `<button class="btn btn-sm" onclick="closePosition(${pos.id})" style="margin-left:auto;background:#EDFAF3;color:var(--green);border-color:#A8E0C0">✓ 채용 완료${targetMet?' (목표달성)':''}</button>`}
+        <button class="btn btn-sm" onclick="editPosition(${pos.id})">✏ 수정</button>
         <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="deletePosition(${pos.id})">삭제</button>
       </div>
     </div>`;
   }).join('');
+}
+
+// 모집단위 상태 필터
+let posFilter = 'active';
+function setPosFilter(f, btn) {
+  posFilter = f;
+  document.querySelectorAll('.pos-tab').forEach(b => b.classList.remove('pos-tab-on'));
+  if(btn) btn.classList.add('pos-tab-on');
+  renderPositions();
+}
+
+// 채용 완료 처리
+function closePosition(posId) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+  const passed = candidates.filter(c => c.posId === posId && c.stage === 5).length;
+  const active = candidates.filter(c => c.posId === posId && c.stage < 5).length;
+  let msg = `'${pos.title}' 모집을 완료 처리하시겠습니까?`;
+  if(active > 0) msg += `\n\n⚠ 아직 진행중인 지원자가 ${active}명 있습니다.`;
+  if(passed < (pos.headcount||1)) msg += `\n⚠ 최종합격 ${passed}명 / 목표 ${pos.headcount||1}명 (미달)`;
+  if(!confirm(msg)) return;
+  pos.status = 'done';
+  pos.closedAt = new Date().toISOString().slice(0,10);
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
+  renderPositions();
+  toast(`'${pos.title}' 채용 완료 처리`, 'tok');
+}
+
+// 진행중으로 복원
+function reopenPosition(posId) {
+  const pos = positions.find(p => p.id === posId);
+  if(!pos) return;
+  pos.status = 'active';
+  delete pos.closedAt;
+  saveState();
+  renderPositions();
+  toast(`'${pos.title}' 진행중으로 복원`, 'tok');
 }
 
 // ── 모집단위 상세 모달 ────────────────────────────────────────
@@ -1504,8 +1604,81 @@ function openPosDetail(posId) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 면접 일괄 일정 배치 (모집단위 단위 순차 배치)
+// 면접 일정 확정 / 완료 처리
 // ══════════════════════════════════════════════════════════════
+let confirmingIntId = null;
+
+function confirmInterview(intId) {
+  const itv = interviews.find(i => i.id === intId);
+  if(!itv) return;
+  confirmingIntId = intId;
+
+  document.getElementById('ci-cand-info').textContent = `${itv.candName} · ${itv.type} 면접`;
+
+  // 후보 일정이 있으면 선택 버튼 제공
+  const picker = document.getElementById('ci-slot-picker');
+  if(itv.slots && itv.slots.length > 0) {
+    picker.innerHTML = '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">후보 일정 중 선택:</div>' +
+      itv.slots.map(s => {
+        const d = new Date(s);
+        const label = d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'}) + ' ' +
+                      d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        return `<button class="btn btn-sm" style="margin:0 6px 6px 0" onclick="document.getElementById('ci-datetime').value='${s.slice(0,16)}'">${label}</button>`;
+      }).join('');
+  } else {
+    picker.innerHTML = '';
+  }
+
+  // 기존 확정 일시/장소 채우기
+  const dt = document.getElementById('ci-datetime');
+  if(itv.date && itv.date.indexOf('미정') === -1) {
+    dt.value = itv.date.replace(' ', 'T').slice(0,16);
+  } else {
+    dt.value = '';
+  }
+  const locEl = document.getElementById('ci-loc');
+  locEl.value = (itv.loc && itv.loc.indexOf('미정') === -1) ? itv.loc : '';
+
+  closeModal('modal-detail');
+  openModal('modal-confirm-int');
+}
+
+function applyInterviewConfirm() {
+  const itv = interviews.find(i => i.id === confirmingIntId);
+  if(!itv) return;
+  const dt  = document.getElementById('ci-datetime').value;
+  const loc = document.getElementById('ci-loc').value.trim();
+  if(!dt)  { toast('확정 일시를 선택하세요.', 'terr'); return; }
+  if(!loc) { toast('면접 장소를 입력하세요.', 'terr'); return; }
+
+  itv.date = dt.replace('T', ' ');
+  itv.loc  = loc;
+  itv.status = 'confirmed';
+  itv.memo = '일정 확정됨';
+
+  // 지원자 intDate 동기화
+  const c = candidates.find(x => x.id === itv.candId);
+  if(c) { c.intDate = itv.date; if(GS_CONFIG.scriptUrl) syncCandToGS(c); }
+
+  saveState();
+  closeModal('modal-confirm-int');
+  if(typeof renderIntTable === 'function') renderIntTable();
+  renderTracker(); updateMetrics();
+  toast(`${itv.candName} ${itv.type} 면접 일정 확정 (${itv.date})`, 'tok');
+}
+
+function markInterviewDone(intId) {
+  const itv = interviews.find(i => i.id === intId);
+  if(!itv) return;
+  if(!confirm(`${itv.candName} ${itv.type} 면접을 완료 처리하시겠습니까?`)) return;
+  itv.status = 'done';
+  saveState();
+  if(typeof renderIntTable === 'function') renderIntTable();
+  closeModal('modal-detail');
+  toast(`${itv.candName} ${itv.type} 면접 완료 처리`, 'tok');
+}
+
+// ── (이하 면접 일괄 배치) ──
 let batchScheduleCtx = { posId: null, stageIdx: null };
 
 function openBatchSchedule(posId, stageIdx) {
@@ -1601,6 +1774,7 @@ function applyBatchSchedule() {
       existing.date = s.datetime;
       existing.loc  = loc;
       existing.panel = panel || '미정';
+      existing.status = 'confirmed';
       existing.notified = false;
       updated++;
     } else {
@@ -1612,6 +1786,7 @@ function applyBatchSchedule() {
         loc: loc,
         panel: panel || '미정',
         memo: `모집단위 일괄 배치 (${pos.title})`,
+        status: 'confirmed',
         notified: false,
       });
       created++;
@@ -2937,56 +3112,42 @@ function confirmStageChange() {
     }
   }
 
-  // 면접 후보 일정 자동 등록 (1차/2차 면접 단계)
-  if(newStage===1||newStage===3) {
-    const slots = getIntSlots();
-    if(slots.length > 0) {
-      const intType = newStage===1?'1차':'2차';
-      // 첫 번째 후보 일정을 면접 정보로 등록
-      const firstSlot = document.getElementById('cs-int-slot1')?.value;
-      if(firstSlot) {
-        const itv = {
-          id: Date.now(), candId: c.id, candName: c.name,
-          type: intType,
-          date: firstSlot.replace('T',' '),
-          loc: '미정 (지원자 회신 후 확정)',
-          panel: '미정',
-          memo: slots.length>1 ? '후보 일정: ' + slots.join(' / ') : '',
-          notified: false,
-        };
-        c.intDate = itv.date;
-        interviews.push(itv);
-      }
-    }
-  }
-  // 1차/2차 면접 단계로 이동 시 입력된 후보 일정 자동 등록
+  // 면접 후보 일정 자동 등록 (1차/2차 면접 단계) — 같은 type 면접 1건만 유지(갱신)
   if(newStage === 1 || newStage === 3) {
     const slots = ['cs-int-slot1','cs-int-slot2','cs-int-slot3']
       .map(id => document.getElementById(id)?.value)
       .filter(Boolean);
     if(slots.length > 0) {
-      // 첫 번째 후보 일정을 임시 면접으로 등록 (후보 포함)
       const intType = newStage === 1 ? '1차' : '2차';
-      const d = new Date(slots[0]);
-      const dateStr = d.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'-').replace('.','')
-        + ' ' + d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       const candidateSlots = slots.map((s,i) => {
         const dd = new Date(s);
         return `${['①','②','③'][i]} ${dd.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${dd.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
       }).join(' / ');
-      const newInt = {
-        id: Date.now(), candId: c.id, candName: c.name,
-        type: intType,
-        date: slots[0].replace('T',' ').slice(0,16),
-        loc: '미정 (지원자 확인 후 확정)',
-        panel: '미정',
-        memo: `후보일정: ${candidateSlots} — 지원자 회신 후 확정 필요`,
-        notified: false,
-        slots: slots,
-      };
-      interviews.push(newInt);
-      c.intDate = newInt.date;
-      toast(`면접 후보 일정 ${slots.length}개 등록 완료 (면접 관리 탭에서 확정)`, 'tok');
+      const firstDate = slots[0].replace('T',' ').slice(0,16);
+
+      // 기존 같은 type 면접이 있으면 갱신, 없으면 새로 생성 (중복 방지)
+      let itv = interviews.find(i => i.candId === c.id && i.type === intType);
+      if(itv) {
+        itv.date = firstDate;
+        itv.memo = `후보일정: ${candidateSlots} — 지원자 회신 후 확정 필요`;
+        itv.slots = slots;
+        itv.status = 'pending';
+        itv.notified = false;
+      } else {
+        interviews.push({
+          id: Date.now(), candId: c.id, candName: c.name,
+          type: intType,
+          date: firstDate,
+          loc: '미정 (지원자 회신 후 확정)',
+          panel: '미정',
+          memo: `후보일정: ${candidateSlots} — 지원자 회신 후 확정 필요`,
+          notified: false,
+          status: 'pending',     // pending(예정/회신대기) → confirmed(확정) → done(완료)
+          slots: slots,
+        });
+      }
+      c.intDate = firstDate;
+      toast(`면접 후보 일정 ${slots.length}개 등록 (면접 관리 탭에서 확정하세요)`, 'tok');
     }
   }
 
@@ -3151,7 +3312,12 @@ function renderTracker() {
   const showRejected = document.getElementById('show-rejected')?.checked || false;
   const sortBy = document.getElementById('sort-by')?.value || 'stage-desc';
   let list = candidates.filter(c => {
-    if(!showRejected && c.stage === 6) return false;
+    // 기본 목록(전체 보기)에서는 최종합격(5)·불합격(6) 제외
+    // 단, 해당 단계 카드를 직접 선택한 경우(stageFilter가 5 또는 6)는 조회 허용
+    if(stageFilter === -1) {
+      if(c.stage === 5) return false;            // 최종합격 제외
+      if(c.stage === 6 && !showRejected) return false; // 불합격 제외(체크박스로 표시 가능)
+    }
     const stOk  = stageFilter===-1 || c.stage===stageFilter;
     const roOk  = roleFilter==='all' || c.role===roleFilter;
     const etOk  = etypeFilter==='all' || c.etype===etypeFilter;
@@ -3221,8 +3387,27 @@ function openDetail(id) {
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
       ${STAGES.map((s,si)=>`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" onclick="closeModal('modal-detail');requestStageChange(${c.id},${si})">${s}</button>`).join('')}
     </div>
-    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">면접 이력</div>
-    ${itv.length ? itv.map(i=>`<div style="font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">${i.type} 면접 · ${i.date} · ${i.loc}</div>`).join('') : '<div style="font-size:12px;color:var(--t3)">면접 이력 없음</div>'}
+    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">면접 일정</div>
+    ${itv.length ? itv.map(i=>{
+      const st = i.status || 'pending';
+      const stBadge = st==='done' ? '<span class="b bgreen" style="font-size:10px">면접완료</span>'
+        : st==='confirmed' ? '<span class="b bblue" style="font-size:10px">일정확정</span>'
+        : '<span class="b bamber" style="font-size:10px">회신대기</span>';
+      const candidates_note = (st==='pending' && i.memo) ? `<div style="font-size:11px;color:var(--t3);margin-top:2px">${i.memo}</div>` : '';
+      return `<div style="padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+          <span style="font-weight:600">${i.type} 면접</span>
+          <span style="font-family:'DM Mono',monospace;color:var(--blue)">${i.date}</span>
+          ${stBadge}
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">📍 ${i.loc} · 면접관: ${i.panel}</div>
+        ${candidates_note}
+        <div style="display:flex;gap:5px;margin-top:6px">
+          ${st!=='done' ? `<button class="btn btn-xs btn-primary" onclick="confirmInterview(${i.id})">${st==='confirmed'?'일정 수정':'일정 확정'}</button>` : ''}
+          ${st==='confirmed' ? `<button class="btn btn-xs" onclick="markInterviewDone(${i.id})">면접 완료 처리</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') : '<div style="font-size:12px;color:var(--t3)">등록된 면접 일정이 없습니다.</div>'}
     <div style="display:flex;gap:6px;margin-top:14px">
       <button class="btn btn-teams btn-sm" onclick="quickNotify(${c.id},'teams')">Teams 알림</button>
       <button class="btn btn-outlook btn-sm" onclick="quickNotify(${c.id},'outlook')">Outlook 알림</button>
