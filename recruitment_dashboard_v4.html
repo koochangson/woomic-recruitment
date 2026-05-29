@@ -487,7 +487,7 @@ textarea{resize:vertical;min-height:64px;}
     <div id="sect-interview" class="sect">
       <div class="alert ai">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 7v4M8 5v.5"/></svg>
-        면접 등록 후 <strong>지원자에게 Teams 또는 Outlook으로 자동 안내</strong>가 발송됩니다. (Standard Plan: 수동 발송 버튼 방식)
+        <span><strong>면접 안내는 2가지로 운영됩니다.</strong> ① <strong>지원자 참석 안내</strong> — 이 탭/단계변경에서 지원자 본인에게 발송 (외부 지원자는 이메일만) · ② <strong>면접관 참석 안내</strong> — 모집단위 상세에서 일정 전원 확정 후 면접위원에게 일괄 발송(공문 양식·이력서 첨부). 모두 수동 발송 버튼 방식입니다.</span>
       </div>
       <div class="grid g23">
         <div class="card">
@@ -500,7 +500,7 @@ textarea{resize:vertical;min-height:64px;}
                 <option value="2차">2차 임원면접</option>
               </select>
             </div>
-            <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" onchange="updateIntPreview()"/></div>
+            <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" onchange="snapTo10(this);updateIntPreview()"/></div>
             <div class="fg full"><label>장소 / 방식</label><input id="int-loc" placeholder="본사 3층 A실 / Teams 화상" oninput="updateIntPreview()"/></div>
             <div class="fg full"><label>면접관</label><input id="int-panel" placeholder="김부장, 이팀장" oninput="updateIntPreview()"/></div>
             <div class="fg full"><label>지원자 안내 메모</label><textarea id="int-memo" placeholder="포트폴리오 지참, 기술 테스트 포함 등" oninput="updateIntPreview()"></textarea></div>
@@ -904,15 +904,15 @@ textarea{resize:vertical;min-height:64px;}
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
-            <input id="cs-int-slot1" type="datetime-local" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+            <input id="cs-int-slot1" type="datetime-local" step="600" onchange="snapTo10(this)" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">2안</span>
-            <input id="cs-int-slot2" type="datetime-local" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+            <input id="cs-int-slot2" type="datetime-local" step="600" onchange="snapTo10(this)" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">3안</span>
-            <input id="cs-int-slot3" type="datetime-local" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+            <input id="cs-int-slot3" type="datetime-local" step="600" onchange="snapTo10(this)" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
           </div>
         </div>
         <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:6px 8px;background:var(--bbg);border-radius:var(--rsm)">
@@ -1124,7 +1124,7 @@ textarea{resize:vertical;min-height:64px;}
       <div id="ci-cand-info" style="font-size:13px;font-weight:600;margin-bottom:14px"></div>
       <div id="ci-slot-picker" style="margin-bottom:14px"></div>
       <div class="fgrid" style="gap:10px">
-        <div class="fg full"><label>확정 일시</label><input type="datetime-local" id="ci-datetime"/></div>
+        <div class="fg full"><label>확정 일시</label><input type="datetime-local" id="ci-datetime" step="600" onchange="snapTo10(this)"/></div>
         <div class="fg full"><label>면접 장소</label><input id="ci-loc" placeholder="예: 본사 3층 회의실 A"/></div>
       </div>
     </div>
@@ -1148,12 +1148,12 @@ textarea{resize:vertical;min-height:64px;}
       </div>
       <div class="fgrid" style="gap:10px;margin-bottom:14px">
         <div class="fg"><label>면접 날짜</label><input type="date" id="bs-date"/></div>
-        <div class="fg"><label>시작 시간</label><input type="time" id="bs-start" value="10:00"/></div>
+        <div class="fg"><label>시작 시간</label><input type="time" id="bs-start" step="600" value="10:00" onchange="snapTo10(this)"/></div>
         <div class="fg"><label>면접 간격</label>
           <select id="bs-interval">
             <option value="20">20분</option>
             <option value="30" selected>30분</option>
-            <option value="45">45분</option>
+            <option value="40">40분</option>
             <option value="60">1시간</option>
           </select>
         </div>
@@ -1292,6 +1292,8 @@ async function syncCandToGS(cand) {
     memo:       cand.memo||'',
     rejectedAt: cand.rejectedAt||'',
     notified:   cand.notified?'Y':'N',
+    posId:      cand.posId != null ? cand.posId : '',
+    intDate:    cand.intDate || '',
   });
   showSyncStatus('GS 동기화 완료', 'ok');
 }
@@ -1318,6 +1320,8 @@ async function loadFromGS() {
     memo:       row.memo,
     rejectedAt: row.rejectedAt||'',
     notified:   row.notified==='Y',
+    posId:      (row.posId !== '' && row.posId != null) ? Number(row.posId) : null,
+    intDate:    row.intDate || '',
   }));
   saveState();
   showSyncStatus('GS 로드 완료 (' + candidates.length + '명)', 'ok');
@@ -1478,7 +1482,20 @@ function renderPositions() {
   }).join('');
 }
 
-// 모집단위 상태 필터
+// 지원자를 모집단위에 연결
+function linkCandToPos(candId, posId) {
+  const c = candidates.find(x => x.id === candId);
+  const pos = positions.find(p => p.id === posId);
+  if(!c || !pos) return;
+  c.posId = posId;
+  saveState();
+  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+  renderPositions();
+  openPosDetail(posId);  // 상세 갱신
+  toast(`${c.name}님을 '${pos.title}'에 연결했습니다.`, 'tok');
+}
+
+// ── 모집단위 상태 필터 ──
 let posFilter = 'active';
 function setPosFilter(f, btn) {
   posFilter = f;
@@ -1608,7 +1625,27 @@ function openPosDetail(posId) {
           `;}).join('')}
         </div>
       </div>`;
-    }).join('') || '<div style="color:var(--t3);font-size:13px;padding:20px 0">등록된 지원자가 없습니다. 지원자 트래커에서 이 포지션으로 연결하세요.</div>'}
+    }).join('') || '<div style="color:var(--t3);font-size:13px;padding:20px 0">이 모집단위에 연결된 지원자가 없습니다. 아래에서 지원자를 연결하세요.</div>'}
+
+    <!-- 지원자 연결 (미연결 지원자) -->
+    ${(()=>{
+      const unlinked = candidates.filter(c => (c.posId == null || c.posId === '') && c.stage < 6);
+      if(!unlinked.length) return '';
+      return `<div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border)">
+        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">📎 미연결 지원자를 이 모집단위에 연결</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${unlinked.map(c => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
+              <div style="flex:1">
+                <span style="font-size:13px;font-weight:600">${c.name}</span>
+                <span style="font-size:11px;color:var(--t3)">· ${c.pos} · ${STAGES[c.stage]}</span>
+              </div>
+              <button class="btn btn-xs btn-primary" onclick="linkCandToPos(${c.id},${posId})">+ 연결</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    })()}
   `;
 
   const ft = document.getElementById('pos-detail-ft');
@@ -2109,79 +2146,29 @@ function parsePanelists(str) {
 }
 
 // ── 면접관 안내 발송 (Outlook + Teams) ──────────────────────
+// 면접관 참석 안내 — sendPanelSchedule로 통합 (round 1/2 → stageIdx 1/3 변환)
 function sendPanelNotice(posId, round) {
+  const stageIdx = round === 1 ? 1 : 3;
   const pos = positions.find(p => p.id === posId);
   if(!pos) return;
+  const roundLabel = round === 1 ? '1차' : '2차';
 
-  const panelStr = round === 1 ? pos.panel1 : pos.panel2;
-  const panelists = parsePanelists(panelStr);
-  if(!panelists.length) { toast('면접관 정보가 없습니다. 모집단위를 수정하세요.', 'terr'); return; }
-
-  // 해당 단계 지원자 목록
-  const stageIdx = round === 1 ? 1 : 3;
+  // 확정된 면접 일정이 있는지 확인
   const stageCands = candidates.filter(c => c.posId === posId && c.stage === stageIdx);
+  const confirmed = stageCands.filter(c =>
+    interviews.some(i => i.candId === c.id && i.type === roundLabel && (i.status==='confirmed'||i.status==='done'))
+  );
 
-  if(!stageCands.length) { toast(`${round}차 면접 대상 지원자가 없습니다.`, 'terr'); return; }
-
-  // 수신자 이메일 목록
-  const toEmails = panelists.map(p => p.email).filter(Boolean).join(';');
-  const panelNames = panelists.map(p => p.name).join(', ');
-  const candList = stageCands.map((c,i) => `${i+1}. ${c.name} (${c.career||'경력'}) — ${c.email}`).join('\n');
-
-  // 면접 일정 (등록된 면접이 있으면 포함)
-  const posInts = interviews.filter(int => int.posId === posId && int.type === `${round}차`);
-  const scheduleText = posInts.length
-    ? posInts.map(int => `📅 ${int.date} | 장소: ${int.loc||'미정'}`).join('\n')
-    : '📅 면접 일정: 별도 확정 후 안내';
-
-  const subject = `[우미건설] ${pos.title} ${round}차 면접 안내 — 면접관 배정`;
-  const body = `${panelNames} 면접관님,
-
-${pos.title} 포지션 ${round}차 면접 관련 안내드립니다.
-
-` +
-    `━━ 면접 일정 ━━
-${scheduleText}
-
-` +
-    `━━ 면접 대상 (${stageCands.length}명) ━━
-${candList}
-
-` +
-    `━━ 면접 장소 ━━
-${pos.loc||'추후 안내'}
-
-` +
-    `면접 관련 문의사항은 피플팀으로 연락해 주세요.
-우미건설 피플팀 드림`;
-
-  // Outlook 발송
-  const mailUrl = `mailto:${toEmails}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.open(mailUrl);
-
-  // Teams 딥링크 (개별 메시지)
-  setTimeout(() => {
-    panelists.forEach(p => {
-      if(p.email) {
-        const teamsMsg = encodeURIComponent(`[${pos.title} ${round}차 면접 안내]
-
-${p.name} 면접관님,
-
-${scheduleText}
-
-면접 대상 ${stageCands.length}명:
-${stageCands.map((c,i)=>`${i+1}. ${c.name}`).join(', ')}
-
-장소: ${pos.loc||'추후 안내'}
-
-세부 안내는 이메일 참고 부탁드립니다.`);
-        window.open(`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(p.email)}&message=${teamsMsg}`);
-      }
-    });
-    toast(`${panelists.length}명 면접관에게 Outlook + Teams 안내 발송 완료`, 'tok');
-    logNotify('outlook+teams', `${round}차 면접관 안내`, pos.title);
-    saveState();
-  }, 500);
+  if(stageCands.length === 0) { toast(`${roundLabel} 면접 대상 지원자가 없습니다.`, 'terr'); return; }
+  if(confirmed.length === 0) {
+    toast(`확정된 면접 일정이 없습니다. 먼저 지원자 일정을 확정하세요.`, 'terr');
+    return;
+  }
+  if(confirmed.length < stageCands.length) {
+    if(!confirm(`${stageCands.length}명 중 ${confirmed.length}명만 일정이 확정됐습니다.\n확정된 ${confirmed.length}명 기준으로 면접관에게 안내하시겠습니까?`)) return;
+  }
+  // 통합 함수 호출 (공문 양식 + 첨부 안내)
+  sendPanelSchedule(posId, stageIdx);
 }
 
 // ── 일괄 단계 변경 ────────────────────────────────────────────
@@ -2512,6 +2499,24 @@ function navBtn(id) {
 // ══════════════════════════════════════════════════════════════
 // 모달
 // ══════════════════════════════════════════════════════════════
+// 시간 입력을 10분 단위로 보정 (정시 00분 기준)
+function snapTo10(el) {
+  if(!el || !el.value) return;
+  const v = el.value;
+  // datetime-local: "2026-06-05T14:23" / time: "14:23"
+  const isDT = v.indexOf('T') !== -1;
+  const timePart = isDT ? v.split('T')[1] : v;
+  if(!timePart) return;
+  let [h, m] = timePart.split(':').map(Number);
+  if(isNaN(h) || isNaN(m)) return;
+  // 가장 가까운 10분으로 반올림
+  let snapped = Math.round(m / 10) * 10;
+  if(snapped === 60) { snapped = 0; h = (h + 1) % 24; }
+  const hh = String(h).padStart(2,'0');
+  const mm = String(snapped).padStart(2,'0');
+  el.value = isDT ? `${v.split('T')[0]}T${hh}:${mm}` : `${hh}:${mm}`;
+}
+
 function openModal(id) {
   const el = document.getElementById(id);
   if(!el) { console.error('[openModal] element not found:', id); return; }
@@ -3362,6 +3367,7 @@ function addCandidate() {
       existing.dept   = document.getElementById('nc-dept').value;
       existing.career = document.getElementById('nc-career').value;
       existing.memo   = document.getElementById('nc-memo').value;
+      existing.posId  = parseInt(document.getElementById('nc-pos-id')?.value) || null;
     }
     delete modal.dataset.editId;
     document.querySelector('#modal-add .modal-title').textContent = '신규 지원자 등록';
