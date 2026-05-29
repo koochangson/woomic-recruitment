@@ -367,7 +367,7 @@ textarea{resize:vertical;min-height:64px;}
       <span class="b bblue" id="tb-date" style="font-size:11px;font-weight:500"></span>
     </div>
     <div class="tb-right">
-      <button class="btn btn-sm" onclick="openModal('modal-add')">
+      <button class="btn btn-sm" onclick="openAddCand()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
         지원자 추가
       </button>
@@ -465,7 +465,7 @@ textarea{resize:vertical;min-height:64px;}
         <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);cursor:pointer">
           <input type="checkbox" id="show-rejected" onchange="renderTracker()" style="width:auto;margin:0"> 불합격 포함
         </label>
-        <button class="btn btn-sm btn-primary" onclick="openModal('modal-add')" style="margin-left:auto">+ 지원자 추가</button>
+        <button class="btn btn-sm btn-primary" onclick="openAddCand()" style="margin-left:auto">+ 지원자 추가</button>
       </div>
       <div class="cl-wrap">
         <div class="cl-header">
@@ -2074,6 +2074,32 @@ function closeModal(id) {
   el.classList.remove('open');
 }
 
+// 신규 지원자 등록 모달 열기 (모집단위 드롭다운 자동 채움)
+function openAddCand() {
+  const modal = document.getElementById('modal-add');
+  if(!modal) return;
+  // 수정 모드 플래그 제거
+  delete modal.dataset.editId;
+  document.querySelector('#modal-add .modal-title').textContent = '신규 지원자 등록';
+  // 입력 필드 초기화
+  ['nc-name','nc-pos','nc-email','nc-dept','nc-memo','nc-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  // 모집단위 드롭다운 채우기
+  populatePosSelect();
+  openModal('modal-add');
+}
+
+// nc-pos-id 드롭다운에 모집단위 목록 채우기
+function populatePosSelect(selectedId) {
+  const sel = document.getElementById('nc-pos-id');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">선택 안함</option>' +
+    positions.map(p => `<option value="${p.id}">${p.title} (${p.etype})</option>`).join('');
+  if(selectedId !== undefined && selectedId !== null) sel.value = selectedId;
+}
+
 // ══════════════════════════════════════════════════════════════
 // 토스트
 // ══════════════════════════════════════════════════════════════
@@ -2818,11 +2844,7 @@ function editCandidate(id) {
   document.getElementById('modal-add').dataset.editId = id;
   document.querySelector('#modal-add .modal-title').textContent = '지원자 정보 수정';
   // 모집단위 드롭다운 채우기
-  const posSelectEl = document.getElementById('nc-pos-id');
-  if(posSelectEl) {
-    posSelectEl.innerHTML = '<option value="">선택 안함</option>' +
-      positions.map(p => `<option value="${p.id}">${p.title} (${p.etype})</option>`).join('');
-  }
+  populatePosSelect(c.posId);
   openModal('modal-add');
 }
 
