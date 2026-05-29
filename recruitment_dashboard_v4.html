@@ -1968,20 +1968,21 @@ function sendPanelSchedule(posId, stageIdx) {
   if(!schedule.length) { toast('확정된 면접 일정이 없습니다.', 'terr'); return; }
 
   const loc = schedule[0].loc;
-  // 날짜 포맷: 2026-06-05 → 6.5(금)
+  // 날짜 포맷: 2026-06-05 → 2026. 6. 5(금)
   const d = new Date(schedule[0].date.replace(' ', 'T'));
   const wk = ['일','월','화','수','목','금','토'][d.getDay()];
-  const dateLabel = `${d.getMonth()+1}.${d.getDate()}(${wk})`;
+  const dateLabel = `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}(${wk})`;
 
-  // 시간 범위 + 소요시간
+  // 시간 범위
   const times = schedule.map(i => i.date.split(' ')[1]).filter(Boolean);
   const startT = times[0];
   // 마지막 면접 + 30분을 종료시각으로 추정
   const lastD = new Date(schedule[schedule.length-1].date.replace(' ','T'));
   lastD.setMinutes(lastD.getMinutes() + 30);
   const endT = `${String(lastD.getHours()).padStart(2,'0')}:${String(lastD.getMinutes()).padStart(2,'0')}`;
-  const firstD = new Date(schedule[0].date.replace(' ','T'));
-  const durMin = Math.round((lastD - firstD) / 60000);
+
+  // 면접일정 = 날짜 + 시간범위
+  const scheduleLabel = `${dateLabel} ${startT}~${endT}`;
 
   // 면접위원 명단 (이름 + 직급)
   const panelNames = panelists.map(p => {
@@ -1991,11 +1992,11 @@ function sendPanelSchedule(posId, stageIdx) {
 
   const roundLabel = round === '1차' ? '1차 실무면접' : '2차 임원면접';
 
-  // 면접 순서 (개별 시간 안내용)
-  const orderText = schedule.map((i, idx) =>
-    `   ${idx+1}조. ${i.date.split(' ')[1]}  ${i.candName}`).join('\n');
+  // 면접 대상 (순서 + 시간 + 이름)
+  const targetText = schedule.map((i, idx) =>
+    `   ${idx+1}. ${i.date.split(' ')[1]}  ${i.candName} (${pos.title})`).join('\n');
 
-  const subject = `[우미건설] ${pos.title} ${roundLabel} 면접 안내 (${dateLabel})`;
+  const subject = `[우미건설] ${pos.title} ${roundLabel} 면접 안내 (${scheduleLabel})`;
   const body =
 `면접위원님께,
 
@@ -2004,16 +2005,11 @@ ${pos.dept || pos.title} ${pos.etype} 채용 ${roundLabel}을 아래와 같이 �
 
                     - 아  래 -
 
-□ 면접일정 : ${dateLabel}
+□ 면접일정 : ${scheduleLabel}
 □ 장    소 : ${loc}
-□ 대상 및 면접위원
-
-  구분    : ${dateLabel} / ${pos.title}(${pos.etype}) / 총 ${schedule.length}명
-  일정    : ${startT}~${endT} (${durMin}분)
-  면접위원 : ${panelNames}
-
-□ 면접 순서
-${orderText}
+□ 면접대상 (총 ${schedule.length}명)
+${targetText}
+□ 면접위원 : ${panelNames}
 
  - 면접조서 및 이력서를 첨부해 드리오니 면접 당일 지참하여 참석 부탁드립니다.
    (전자기기 사용을 추천드립니다.)
