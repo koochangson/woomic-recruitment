@@ -3897,22 +3897,36 @@ function renderReference() {
   if(!wrap)return;
   if(!tableList.length){wrap.innerHTML=empty('조건에 맞는 지원자가 없습니다.');return;}
   wrap.innerHTML=`<div class="tw"><table>
-    <thead><tr><th>지원자</th><th>채용형태</th><th>단계</th><th>상태</th><th>응답</th><th>액션</th></tr></thead>
+    <thead><tr><th>지원자</th><th>채용형태</th><th>단계</th><th>상태</th><th>추천인 접수</th><th>응답 수집</th><th>액션</th></tr></thead>
     <tbody>${tableList.map(c=>{
       const rb=c.ref==='완료'?'bgreen':c.ref==='진행중'?(c.refD===0?'bred':'bamber'):'bgray';
       const pct3=c.refT>0?Math.round(c.refD/c.refT*100):0;
+      // 추천인 접수(등록) 현황 계산
+      const refs = refDetails[c.id] || [];
+      const registered = refs.filter(r => r.status==='등록' || r.status==='응답').length;
+      const regTotal = c.refT || refs.length || 0;
+      const regPct = regTotal>0 ? Math.round(registered/regTotal*100) : 0;
+      // 접수 상태 뱃지
+      const regBadge = c.ref==='미시작' ? '<span class="b bgray" style="font-size:10px">대기</span>'
+        : registered===0 ? '<span class="b bred" style="font-size:10px">미접수</span>'
+        : registered<regTotal ? `<span class="b bamber" style="font-size:10px">접수중 ${registered}/${regTotal}</span>`
+        : `<span class="b bblue" style="font-size:10px">접수완료 ${registered}/${regTotal}</span>`;
       return`<tr>
         <td><div class="tname">${c.name}</div><div class="tsub">${c.email}</div></td>
         <td>${etypePill(c.etype)}</td>
         <td>${badge(c.stage)}</td>
         <td><span class="b ${rb}">${c.ref==='진행중'&&c.refD===0?'⚠ 전무응답':c.ref}</span></td>
-        <td style="min-width:120px">
-          <div style="font-size:11px;color:var(--t3);margin-bottom:3px">${c.refD}/${c.refT} · ${pct3}%</div>
+        <td style="min-width:110px">${regBadge}
+          <div class="prog" style="height:3px;margin-top:4px"><div class="pf-bar pfa" style="width:${regPct}%"></div></div>
+        </td>
+        <td style="min-width:110px">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:3px">${c.refD}/${c.refT} 응답 · ${pct3}%</div>
           <div class="prog"><div class="pf-bar ${c.ref==='완료'?'pfg':c.refD===0?'pfr':'pfa'}" style="width:${pct3}%"></div></div>
         </td>
-        <td style="display:flex;gap:4px">
+        <td style="display:flex;gap:4px;flex-wrap:wrap">
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" onclick="startRef(${c.id})">시작</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-teams" onclick="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" onclick="markOneResponse(${c.id})">+1</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs" onclick="markRefRegistered(${c.id})">+접수</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" onclick="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" onclick="markOneResponse(${c.id})">+응답</button>`:''}
           ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" onclick="completeRef(${c.id})">완료</button>`:''}
         </td>
       </tr>`;
@@ -3967,11 +3981,23 @@ function markRefResponse(candId,ri){
 function markOneResponse(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
   ensureRefDetails(c);
-  const pend=refDetails[id].find(r=>r.status==='대기');
-  if(pend){pend.status='응답';c.refD++;}
+  // 응답 처리: 등록된(또는 대기) 추천인 중 아직 미응답인 첫 번째를 응답으로
+  const target=refDetails[id].find(r=>r.status==='등록') || refDetails[id].find(r=>r.status==='대기');
+  if(target){target.status='응답';c.refD++;}
   if(c.refD>=c.refT)c.ref='완료';
   saveState();renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   toast(`${c.name} +1응답 (${c.refD}/${c.refT})`,'tok');
+}
+// 추천인 접수(등록) 처리: 대기 상태 추천인 1명을 등록으로
+function markRefRegistered(id){
+  const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
+  ensureRefDetails(c);
+  const pend=refDetails[id].find(r=>r.status==='대기');
+  if(!pend){toast('모든 추천인이 이미 접수됐습니다.','tw');return;}
+  pend.status='등록';
+  saveState();renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
+  const registered=refDetails[id].filter(r=>r.status==='등록'||r.status==='응답').length;
+  toast(`${c.name} 추천인 접수 (${registered}/${c.refT})`,'tok');
 }
 function startRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
