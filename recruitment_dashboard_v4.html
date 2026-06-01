@@ -738,13 +738,14 @@ textarea{resize:vertical;min-height:64px;}
               어느 PC에서나 같은 데이터 접근 가능 · 완전 무료
             </div>
           </div>
-          <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #4A90D9">
-            <label style="color:#4A90D9;font-weight:700">👥 면접관 DB URL</label>
-            <input id="cfg-interviewer-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
-            <div style="font-size:11px;color:var(--t3);margin-top:4px">면접관 DB Apps Script 배포 URL 입력</div>
+          <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #1D9E75">
+            <label style="color:#1D9E75;font-weight:700">📋 레퍼런스 자동화 URL</label>
+            <input id="cfg-ref-auto-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">레퍼런스 자동화 Apps Script 배포 URL (구글폼 연동)</div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-              <button class="btn btn-sm" onclick="testInterviewerConnection()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">👥 연결 테스트</button>
-              <div id="interviewer-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
+              <button class="btn btn-sm" onclick="testRefAutoConnection()" style="background:#1D9E75;color:#fff;border-color:#1D9E75">📋 연결 테스트</button>
+              <button class="btn btn-sm" onclick="syncRefFromGS()">↻ 레퍼런스 상태 가져오기</button>
+              <div id="ref-auto-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
             </div>
           </div>
         </div>
@@ -1240,6 +1241,7 @@ const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','v
 const GS_CONFIG = {
   scriptUrl:      '', // 지원자 DB Apps Script URL (설정 탭에서 입력)
   interviewerUrl: '', // 면접관 DB Apps Script URL (설정 탭에서 입력)
+  refAutoUrl:     '', // 레퍼런스 자동화 Apps Script URL (설정 탭에서 입력)
 };
 
 async function gsFetch(action, sheet, data={}) {
@@ -2260,6 +2262,68 @@ async function testInterviewerConnection() {
     if(status) status.textContent = '❌ 연결 실패: ' + e.message;
   }
 }
+
+// ── 레퍼런스 자동화 (구글폼 + Apps Script) 연동 ──────────────
+async function testRefAutoConnection() {
+  const url    = document.getElementById('cfg-ref-auto-url')?.value?.trim();
+  const status = document.getElementById('ref-auto-conn-status');
+  if (!url) { if(status) status.textContent = 'URL을 입력하세요.'; return; }
+  if(status) status.textContent = '테스트 중...';
+  try {
+    const res  = await fetch(url + '?action=getRefStatus');
+    const data = await res.json();
+    if (data && Array.isArray(data.data)) {
+      GS_CONFIG.refAutoUrl = url;
+      if(status) status.textContent = `✅ 연결 성공 — 레퍼런스 ${data.data.length}건 확인`;
+      saveSettings();
+      toast(`레퍼런스 자동화 연결 성공 (${data.data.length}건)`, 'tok');
+    } else {
+      if(status) status.textContent = '❌ 오류: ' + (data.error || '응답 형식 확인 필요');
+    }
+  } catch(e) {
+    if(status) status.textContent = '❌ 연결 실패: ' + e.message;
+  }
+}
+
+// 구글시트(레퍼런스상태)에서 접수/응답 현황을 가져와 candidates에 반영
+async function syncRefFromGS() {
+  const url = GS_CONFIG.refAutoUrl || document.getElementById('cfg-ref-auto-url')?.value?.trim();
+  const status = document.getElementById('ref-auto-conn-status');
+  if(!url) { toast('레퍼런스 자동화 URL을 먼저 입력하세요.', 'terr'); return; }
+  if(status) status.textContent = '가져오는 중...';
+  try {
+    const res = await fetch(url + '?action=getRefStatus');
+    const data = await res.json();
+    if(!data || !Array.isArray(data.data)) { if(status) status.textContent='❌ 응답 오류'; return; }
+
+    let matched = 0;
+    data.data.forEach(rs => {
+      // 이름 + 이메일로 지원자 매칭
+      const c = candidates.find(x =>
+        x.name === rs.candName && (x.email||'').toLowerCase() === (rs.candEmail||'').toLowerCase());
+      if(!c) return;
+      matched++;
+      // 접수/응답 수 반영
+      c.refT = rs.total || 3;
+      c.refD = rs.responded || 0;
+      c.ref  = rs.responded >= (rs.total||3) ? '완료' : (rs.registered>0 ? '진행중' : c.ref);
+      // 추천인 상세 동기화
+      refDetails[c.id] = (rs.refs||[]).map(r => ({
+        name: r.refName, email: r.refEmail, relation: r.rel,
+        status: r.status === '응답' ? '응답' : (r.status === '등록' ? '등록' : '대기'),
+        remindCnt: r.remindCnt || 0,
+      }));
+    });
+    saveState();
+    renderReference();
+    updateMetrics();
+    if(status) status.textContent = `✅ ${matched}명 레퍼런스 현황 동기화`;
+    toast(`레퍼런스 ${matched}명 동기화 완료`, 'tok');
+  } catch(e) {
+    if(status) status.textContent = '❌ 실패: ' + e.message;
+  }
+}
+
 
 // ── (기존 함수 계속)
 function parsePanelists(str) {
@@ -4575,6 +4639,7 @@ function saveSettings() {
     spUrl:   document.getElementById('cfg-sp-url')?.value  || '',
     gsUrl:        document.getElementById('cfg-gs-url')?.value        || '',
     interviewerUrl: document.getElementById('cfg-interviewer-url')?.value || '',
+    refAutoUrl: document.getElementById('cfg-ref-auto-url')?.value || '',
     notifyTeams:  document.getElementById('cfg-notify-teams')?.value || '',
     tplInt1: document.getElementById('tpl-int1')?.value || '',
     tplInt2: document.getElementById('tpl-int2')?.value || '',
@@ -4620,6 +4685,8 @@ function loadSettings() {
       GS_CONFIG.interviewerUrl = cfg.interviewerUrl;
       loadInterviewers();
     }
+    set('cfg-ref-auto-url', cfg.refAutoUrl);
+    if(cfg.refAutoUrl) GS_CONFIG.refAutoUrl = cfg.refAutoUrl;
     set('tpl-int1',             cfg.tplInt1);
     set('tpl-int2',             cfg.tplInt2);
     set('tpl-offer',            cfg.tplOffer);
