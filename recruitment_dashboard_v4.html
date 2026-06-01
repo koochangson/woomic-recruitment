@@ -1237,10 +1237,21 @@ const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','v
 // ══════════════════════════════════════════════════════════════
 // Google Sheets 연동
 // ══════════════════════════════════════════════════════════════
+// ┌──────────────────────────────────────────────────────────┐
+// │ ★ 고정 URL 설정 (회사 PC가 종료 시 브라우저 데이터를 지워도   │
+// │   여기 박아둔 값으로 항상 자동 연결됩니다)                    │
+// │   URL이 바뀌면 아래 3줄만 교체하세요.                         │
+// └──────────────────────────────────────────────────────────┘
+const FIXED_URLS = {
+  scriptUrl:      'https://script.google.com/macros/s/AKfycbyKKpGjU6W8mjdzVYCinYUH46hNpkxdYSf8r6CbnMQMnAcaOhcT85V5X96S5_SRoOh8jA/exec', // 지원자 DB
+  interviewerUrl: 'https://script.google.com/macros/s/AKfycbxfjDh7tw6iVUI1uoC3WdBTEBl4M0FAMk6LPAb7jK5CWenYgD4Mpnd87e3ldDQ08_w3/exec', // 면접관 DB
+  refAutoUrl:     'https://script.google.com/macros/s/AKfycbzCJNhQ0JMuCVYetPvJ_q6aE5JRhfWBBfvvrXVmm3Z81tUh8DgtCfzO-oXqQI6bY3az/exec', // 레퍼런스 자동화
+};
+
 const GS_CONFIG = {
-  scriptUrl:      '', // 지원자 DB Apps Script URL (설정 탭에서 입력)
-  interviewerUrl: '', // 면접관 DB Apps Script URL (설정 탭에서 입력)
-  refAutoUrl:     '', // 레퍼런스 자동화 Apps Script URL (설정 탭에서 입력)
+  scriptUrl:      FIXED_URLS.scriptUrl,
+  interviewerUrl: FIXED_URLS.interviewerUrl,
+  refAutoUrl:     FIXED_URLS.refAutoUrl,
 };
 
 async function gsFetch(action, sheet, data={}) {
@@ -1301,6 +1312,47 @@ async function syncCandToGS(cand) {
     intDate:    cand.intDate || '',
   });
   showSyncStatus('GS 동기화 완료', 'ok');
+}
+
+// ── 면접(Interviews) GS 동기화 ──────────────────────────────
+async function syncIntToGS(itv) {
+  if(!GS_CONFIG.scriptUrl) return;
+  await gsUpsert('Interviews', {
+    id:        itv.id,
+    candId:    itv.candId != null ? itv.candId : '',
+    candName:  itv.candName || '',
+    type:      itv.type || '',
+    date:      itv.date || '',
+    loc:       itv.loc || '',
+    panel:     itv.panel || '',
+    memo:      itv.memo || '',
+    notified:  itv.notified ? 'Y' : 'N',
+    status:    itv.status || 'pending',
+  });
+}
+async function deleteIntFromGS(id) {
+  if(!GS_CONFIG.scriptUrl) return;
+  await gsDelete('Interviews', id);
+}
+async function loadInterviewsFromGS() {
+  if(!GS_CONFIG.scriptUrl) return false;
+  try {
+    const data = await gsGetAll('Interviews');
+    if(!data || !data.length) return false;
+    interviews = data.map(row => ({
+      id:       Number(row.id),
+      candId:   row.candId !== '' && row.candId != null ? Number(row.candId) : null,
+      candName: row.candName,
+      type:     row.type,
+      date:     row.date,
+      loc:      row.loc,
+      panel:    row.panel,
+      memo:     row.memo,
+      notified: row.notified === 'Y',
+      status:   row.status || 'pending',
+    }));
+    return true;
+  } catch(e) { console.warn('면접 로드 실패', e); return false; }
 }
 
 async function loadFromGS() {
@@ -1785,6 +1837,7 @@ function applyInterviewConfirm() {
   // 지원자 intDate 동기화
   const c = candidates.find(x => x.id === itv.candId);
   if(c) { c.intDate = itv.date; if(GS_CONFIG.scriptUrl) syncCandToGS(c); }
+  if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
 
   saveState();
   closeModal('modal-confirm-int');
@@ -1804,6 +1857,7 @@ function markInterviewDone(intId) {
   if(!itv) return;
   if(!confirm(`${itv.candName} ${itv.type} 면접을 완료 처리하시겠습니까?`)) return;
   itv.status = 'done';
+  if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
   saveState();
   if(typeof renderIntTable === 'function') renderIntTable();
   closeModal('modal-detail');
@@ -1821,6 +1875,7 @@ function markIntDoneFromPos(intId, posId) {
   if(!itv) return;
   if(!confirm(`${itv.candName} ${itv.type} 면접을 완료 처리하시겠습니까?`)) return;
   itv.status = 'done';
+  if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
   saveState();
   if(typeof renderIntTable === 'function') renderIntTable();
   openPosDetail(posId);
@@ -1944,7 +1999,14 @@ function applyBatchSchedule() {
   });
 
   saveState();
-  if(GS_CONFIG.scriptUrl) slots.forEach(s => syncCandToGS(s.cand));
+  if(GS_CONFIG.scriptUrl) {
+    slots.forEach(s => syncCandToGS(s.cand));
+    // 이번 배치로 생성/갱신된 면접 동기화
+    slots.forEach(s => {
+      const itv = interviews.find(i => i.candId === s.cand.id && i.type === round);
+      if(itv) syncIntToGS(itv);
+    });
+  }
   closeModal('modal-batch-schedule');
   updateMetrics();
   if(typeof renderIntTable === 'function') renderIntTable();
@@ -3490,6 +3552,11 @@ function confirmStageChange() {
         });
       }
       c.intDate = firstDate;
+      // 생성/갱신된 면접 GS 저장
+      if(GS_CONFIG.scriptUrl) {
+        const savedItv = interviews.find(i => i.candId === c.id && i.type === intType);
+        if(savedItv) syncIntToGS(savedItv);
+      }
       toast(`면접 후보 일정 ${slots.length}개 등록 (면접 관리 탭에서 확정하세요)`, 'tok');
     }
   }
@@ -3822,9 +3889,11 @@ function addInterview() {
     panel:document.getElementById('int-panel').value||'미정',
     memo: document.getElementById('int-memo').value,
     notified: false,
+    status: 'confirmed',
   };
   cand.intDate = itv.date;
   interviews.push(itv);
+  if(GS_CONFIG.scriptUrl) { syncIntToGS(itv); syncCandToGS(cand); }
   saveState(); renderIntTable(); updateMetrics(); populateSel('int-cand');
   toast(`${cand.name}님 ${type} 면접 등록 완료`, 'tok');
 }
@@ -3843,6 +3912,7 @@ function sendIntNotify(ch) {
     if(!sent) return;
   }
   itv.notified = true; cand.notified = true;
+  if(GS_CONFIG.scriptUrl) { syncIntToGS(itv); syncCandToGS(cand); }
   logNotify(ch==='teams'?'Teams':'Outlook', `${itv.type}면접안내`, cand.name, cand.email);
   saveState(); renderIntTable(); renderDashboard(); updateMetrics();
   toast(`${cand.name}님 ${itv.type} 면접 ${ch==='teams'?'Teams':'Outlook'} 발송`, ch==='teams'?'tteams':'toutlook');
@@ -3883,11 +3953,12 @@ function sendIntById(id, ch) {
     if(!sent) return;
   }
   i.notified = true; if(c) c.notified = true;
+  if(GS_CONFIG.scriptUrl) { syncIntToGS(i); if(c) syncCandToGS(c); }
   logNotify(ch==='teams'?'Teams':'Outlook', `${i.type}면접안내`, i.candName, c?.email||'');
   saveState(); renderIntTable(); renderDashboard(); updateMetrics();
   toast(`${i.candName}님 ${ch==='teams'?'Teams':'Outlook'} 발송 (Outlook 창에서 전송하세요)`, ch==='teams'?'tteams':'toutlook');
 }
-function delInt(id) { interviews=interviews.filter(i=>i.id!==id); saveState(); renderIntTable(); updateMetrics(); }
+function delInt(id) { if(GS_CONFIG.scriptUrl) deleteIntFromGS(id); interviews=interviews.filter(i=>i.id!==id); saveState(); renderIntTable(); updateMetrics(); }
 
 // ══════════════════════════════════════════════════════════════
 // 레퍼런스 체크
@@ -4728,14 +4799,28 @@ try {
     });
   });
 
+  // 고정 URL을 설정 입력창에 표시 (회사 PC 데이터 삭제 대비)
+  const showFixed = (id, val) => { const el=document.getElementById(id); if(el && val && !el.value) el.value = val; };
+  showFixed('cfg-gs-url',          FIXED_URLS.scriptUrl);
+  showFixed('cfg-interviewer-url', FIXED_URLS.interviewerUrl);
+  showFixed('cfg-ref-auto-url',    FIXED_URLS.refAutoUrl);
+
   // 설정 로드 (localStorage + GS 동기화)
   loadSettingsWithGS().then(() => {
-    // GS 연동 시 데이터 로드
+    // 고정 URL은 GS 설정 로드 후에도 유지 (빈 값으로 덮어쓰지 않도록 재적용)
+    if(FIXED_URLS.scriptUrl)      GS_CONFIG.scriptUrl      = FIXED_URLS.scriptUrl;
+    if(FIXED_URLS.interviewerUrl) GS_CONFIG.interviewerUrl = FIXED_URLS.interviewerUrl;
+    if(FIXED_URLS.refAutoUrl)     GS_CONFIG.refAutoUrl     = FIXED_URLS.refAutoUrl;
+    // 지원자 데이터 로드
     if(GS_CONFIG.scriptUrl) {
       loadFromGS().then(loaded => {
         if(loaded) { updateMetrics(); renderDashboard(); renderTracker(); }
       });
     }
+    // 면접관 DB 자동 로드
+    if(GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function') loadInterviewers();
+    // 레퍼런스 상태 자동 동기화
+    if(GS_CONFIG.refAutoUrl && typeof syncRefFromGS === 'function') syncRefFromGS();
   });
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   updateMetrics();
