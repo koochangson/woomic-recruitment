@@ -4501,18 +4501,14 @@ async function loadSettingsFromGS() {
   }
 }
 
-  // 1. localStorage 먼저 로드
-  loadSettings();
-  // 2. GS URL이 있으면 GS에서도 로드 (GS 우선)
+// localStorage 먼저 로드 → GS URL이 있으면 GS에서 덮어쓰기 (GS 우선)
 async function loadSettingsWithGS() {
   loadSettings();
   if(GS_CONFIG.scriptUrl) {
     const gsCfg = await loadSettingsFromGS();
     if(gsCfg) {
-      // localStorage에 저장
       localStorage.setItem('woomic_settings', JSON.stringify(gsCfg));
-      // 화면에 적용
-      const set = (id, val) => { const el=document.getElementById(id); if(el&&val!==undefined) el.value=val; };
+      const set = (id, val) => { const el=document.getElementById(id); if(el&&val!==undefined&&val!=='') el.value=val; };
       set('cfg-sign',            gsCfg.sign);
       set('cfg-form-url',        gsCfg.formUrl);
       set('cfg-ref-url',         gsCfg.refUrl);
@@ -4523,39 +4519,21 @@ async function loadSettingsWithGS() {
       set('cfg-hr-email',        gsCfg.hrEmail);
       set('cfg-sp-url',          gsCfg.spUrl);
       set('cfg-gs-url',          gsCfg.gsUrl);
+      set('cfg-interviewer-url', gsCfg.interviewerUrl);
+      set('cfg-ref-auto-url',    gsCfg.refAutoUrl);
+      set('cfg-notify-teams',    gsCfg.notifyTeams);
       set('tpl-int1',            gsCfg.tplInt1);
       set('tpl-int2',            gsCfg.tplInt2);
       set('tpl-offer',           gsCfg.tplOffer);
-      if(gsCfg.spUrl) SP_CONFIG.siteUrl = gsCfg.spUrl;
-      if(gsCfg.gsUrl) GS_CONFIG.scriptUrl = gsCfg.gsUrl;
+      if(gsCfg.spUrl)          SP_CONFIG.siteUrl = gsCfg.spUrl;
+      if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
+      if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
+      if(gsCfg.refAutoUrl)     GS_CONFIG.refAutoUrl = gsCfg.refAutoUrl;
       showSyncStatus('설정 로드 완료 (GS)', 'ok');
     }
   }
 }
 
-async function loadSettingsWithGS() {
-  loadSettings();
-  if(GS_CONFIG.scriptUrl) {
-    const gsCfg = await loadSettingsFromGS();
-    if(gsCfg) {
-      localStorage.setItem('woomic_settings', JSON.stringify(gsCfg));
-      const set = (id, val) => { const el=document.getElementById(id); if(el&&val!==undefined) el.value=val; };
-      set('cfg-sign',            gsCfg.sign);
-      set('cfg-form-url',        gsCfg.formUrl);
-      set('cfg-ref-url',         gsCfg.refUrl);
-      set('cfg-flow-url',        gsCfg.flowUrl);
-      set('cfg-default-channel', gsCfg.channel);
-      set('cfg-ref-days',        gsCfg.refDays);
-      set('cfg-remind-days',     gsCfg.remindDays);
-      set('cfg-hr-email',        gsCfg.hrEmail);
-      set('cfg-sp-url',          gsCfg.spUrl);
-      set('cfg-gs-url',          gsCfg.gsUrl);
-      if(gsCfg.spUrl) SP_CONFIG.siteUrl = gsCfg.spUrl;
-      if(gsCfg.gsUrl) GS_CONFIG.scriptUrl = gsCfg.gsUrl;
-      showSyncStatus('설정 로드 완료 (GS)', 'ok');
-    }
-  }
-}
 
 // ── SharePoint 연결 테스트 ───────────────────────────────────
 async function testSPConnection() {
@@ -4686,6 +4664,7 @@ function loadSettings() {
     }
     set('cfg-ref-auto-url', cfg.refAutoUrl);
     if(cfg.refAutoUrl) GS_CONFIG.refAutoUrl = cfg.refAutoUrl;
+    set('cfg-notify-teams',     cfg.notifyTeams);
     set('tpl-int1',             cfg.tplInt1);
     set('tpl-int2',             cfg.tplInt2);
     set('tpl-offer',            cfg.tplOffer);
