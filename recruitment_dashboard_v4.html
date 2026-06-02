@@ -842,7 +842,7 @@ textarea{resize:vertical;min-height:64px;}
   <div class="modal confirm-modal">
     <div class="modal-hd">
       <div class="modal-title" id="cs-title">단계 전환 확인</div>
-      <button class="mclose" onclick="closeModal('modal-confirm-stage')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" onclick="cancelStageChange()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <!-- 지원자 정보 -->
@@ -931,7 +931,7 @@ textarea{resize:vertical;min-height:64px;}
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-confirm-stage')">취소</button>
+      <button class="btn" onclick="cancelStageChange()">취소</button>
       <button class="btn btn-primary" id="cs-confirm-btn" onclick="confirmStageChange()">단계 변경 확인</button>
     </div>
   </div>
@@ -1539,6 +1539,28 @@ function renderPositions() {
   }).join('');
 }
 
+// 모집단위 상세에서 합격 처리 (다음 단계로 + 복귀)
+function passFromPos(candId, posId, stageIdx) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) return;
+  const nextStage = stageIdx + 1;  // 다음 단계
+  const stageName = STAGES[nextStage] || '';
+  if(!confirm(`${c.name}님을 '${STAGES[stageIdx]}' → '${stageName}'(으)로 합격 처리하시겠습니까?`)) return;
+  returnToPosId = posId;
+  closeModal('modal-pos-detail');
+  requestStageChange(candId, nextStage);  // 합격 안내 메일 + 단계 이동 (모달에서 확정)
+}
+
+// 모집단위 상세에서 불합격 처리 (전형 종료 + 복귀)
+function rejectFromPos(candId, posId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) return;
+  if(!confirm(`${c.name}님을 불합격 처리하시겠습니까?\n전형이 종료되며, 불합격 안내를 발송할 수 있습니다.`)) return;
+  returnToPosId = posId;
+  closeModal('modal-pos-detail');
+  requestStageChange(candId, 6);  // 불합격 단계 (전형 종료)
+}
+
 // 지원자를 모집단위에 연결
 function linkCandToPos(candId, posId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
@@ -1731,7 +1753,8 @@ function openPosDetail(posId) {
                 ${candNoticeBtn}
                 ${doneBtn}
                 ${refBtns}
-                <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');requestStageChange(${cand.id},${stageIdx===5?5:stageIdx+1})">단계 이동</button>
+                ${stageIdx < 5 ? `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">✓ ${stageIdx===4?'최종합격':'합격'}</button>` : ''}
+                ${stageIdx < 5 ? `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>` : ''}
               </div>
             </div>
           `;}).join('')}
@@ -3511,6 +3534,17 @@ function buildStageNotifyMsg(c, newStage) {
   return msgs[newStage] || `${c.name}님, ${STAGES[newStage]} 단계로 안내드립니다.\n우미건설 피플팀 드림`;
 }
 
+// 단계 변경 취소 (모집단위에서 진입한 경우 복귀)
+function cancelStageChange() {
+  closeModal('modal-confirm-stage');
+  pendingStageChange = null;
+  if(returnToPosId != null) {
+    const pid = returnToPosId;
+    returnToPosId = null;
+    setTimeout(() => openPosDetail(Number(pid)), 300);
+  }
+}
+
 function confirmStageChange() {
   if(!pendingStageChange) return;
   const { candId, newStage } = pendingStageChange;
@@ -3609,9 +3643,15 @@ function confirmStageChange() {
   if(GS_CONFIG.scriptUrl) syncCandToGS(c);
   closeModal('modal-confirm-stage');
   pendingStageChange = null;
-  renderTracker(); renderDashboard(); updateMetrics();
+  renderTracker(); renderDashboard(); updateMetrics(); renderPositions();
   toast(`${c.name} → ${STAGES[newStage]}`, 'tok');
   syncCandToSP(c).then(()=>saveState());
+  // 모집단위 상세에서 진입한 경우 복귀
+  if(returnToPosId != null) {
+    const pid = returnToPosId;
+    returnToPosId = null;
+    setTimeout(() => openPosDetail(Number(pid)), 300);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
