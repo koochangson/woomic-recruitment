@@ -300,19 +300,19 @@ textarea{resize:vertical;min-height:64px;}
   </div>
   <nav class="sb-nav">
     <div class="ng">
-      <div class="ng-label">Overview</div>
-      <button class="nb on" onclick="nav('dash',this)">
+      <div class="ng-label">메인</div>
+      <button class="nb on" onclick="nav('position',this)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="2"/><path d="M5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 7v4M6 9h4"/></svg>
+        모집단위 관리
+        <span class="nbb" id="nb-pos">0</span>
+      </button>
+      <button class="nb" onclick="nav('dash',this)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
         대시보드
       </button>
     </div>
     <div class="ng">
-      <div class="ng-label">채용 프로세스</div>
-      <button class="nb" onclick="nav('position',this)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="2"/><path d="M5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 7v4M6 9h4"/></svg>
-        모집단위 관리
-        <span class="nbb" id="nb-pos">0</span>
-      </button>
+      <div class="ng-label">전체 조회</div>
       <button class="nb" onclick="nav('tracker',this)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h10M2 12h6"/></svg>
         지원자 트래커
@@ -349,22 +349,22 @@ textarea{resize:vertical;min-height:64px;}
     </div>
   </nav>
 
-  <!-- Microsoft Standard 표시 -->
+  <!-- 연동 표시 -->
   <div class="sb-std">
-    <div class="sb-std-title">Microsoft Standard 기준</div>
+    <div class="sb-std-title">구글 기반 연동</div>
+    <div class="sb-std-row"><div class="sb-std-dot" style="background:#217346"></div><div class="sb-std-text">Google Sheets — 데이터 저장</div></div>
+    <div class="sb-std-row"><div class="sb-std-dot" style="background:#4285F4"></div><div class="sb-std-text">Google Forms — 레퍼런스 접수</div></div>
     <div class="sb-std-row"><div class="sb-std-dot" style="background:#0078D4"></div><div class="sb-std-text">Outlook — 이메일 발송</div></div>
-    <div class="sb-std-row"><div class="sb-std-dot" style="background:#5558AD"></div><div class="sb-std-text">Teams — 메신저 알림</div></div>
-    <div class="sb-std-row"><div class="sb-std-dot" style="background:#217346"></div><div class="sb-std-text">Excel — 데이터 저장</div></div>
-    <div class="sb-std-row"><div class="sb-std-dot" style="background:#0066FF"></div><div class="sb-std-text">Power Automate — 자동화</div></div>
+    <div class="sb-std-row"><div class="sb-std-dot" style="background:#EA4335"></div><div class="sb-std-text">Apps Script — 자동화</div></div>
   </div>
-  <div class="sb-foot">Standard Plan 기준 설계</div>
+  <div class="sb-foot">모집단위 베이스 운영</div>
 </aside>
 
 <!-- ── 메인 ─────────────────────────────────────────────── -->
 <div class="main">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
-      <div class="tb-title" id="tb-title">대시보드</div>
+      <div class="tb-title" id="tb-title">모집단위 관리</div>
       <span class="b bblue" id="tb-date" style="font-size:11px;font-weight:500"></span>
     </div>
     <div class="tb-right">
@@ -382,7 +382,7 @@ textarea{resize:vertical;min-height:64px;}
   <div class="content">
 
     <!-- ① 대시보드 ──────────────────────────────────────── -->
-    <div id="sect-dash" class="sect on">
+    <div id="sect-dash" class="sect">
       <div class="mrow g6" style="margin-bottom:14px">
         <div class="mc c-blue" onclick="openMetricDetail('total')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">전체 진행</div><div class="mc-val" id="m-total">0</div><div class="mc-sub">지원자 수 ↗</div></div>
         <div class="mc c-amber" onclick="openMetricDetail('int1')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">1차 면접</div><div class="mc-val" id="m-int1">0</div><div class="mc-sub">예정·진행 ↗</div></div>
@@ -415,7 +415,7 @@ textarea{resize:vertical;min-height:64px;}
 
     <!-- ② 지원자 트래커 ──────────────────────────────────── -->
     <!-- ── 모집단위 관리 섹션 ─────────────────────────────────── -->
-<div id="sect-position" class="sect">
+<div id="sect-position" class="sect on">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <div>
       <div style="font-size:15px;font-weight:700;">모집단위 관리</div>
@@ -1645,7 +1645,10 @@ function openPosDetail(posId) {
     </div>
 
     <!-- 단계별 지원자 목록 -->
-    <div style="font-size:13px;font-weight:700;margin-bottom:12px">지원자 현황</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:13px;font-weight:700">지원자 현황</span>
+      <button class="btn btn-sm btn-primary" onclick="addCandToPos(${posId})">+ 지원자 추가</button>
+    </div>
     ${STAGES.slice(0,6).map((stageName, stageIdx) => {
       const stageCands = posCands.filter(c => c.stage === stageIdx);
       if(!stageCands.length) return '';
@@ -1696,19 +1699,38 @@ function openPosDetail(posId) {
             const candNoticeBtn = (round && itv && (st==='confirmed'||st==='done'))
               ? `<button class="btn btn-sm" style="font-size:11px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendCandSchedule(${itv.id})">✉ 지원자 안내</button>`
               : '';
+            // 레퍼런스 단계(stageIdx===2) 전용 정보/버튼
+            let refInfo = '', refBtns = '';
+            if(stageIdx === 2) {
+              const refs = refDetails[cand.id] || [];
+              const reg = refs.filter(r=>r.status==='등록'||r.status==='응답').length;
+              const resp = refs.filter(r=>r.status==='응답').length;
+              const tot = cand.refT || refs.length || 3;
+              const refBadge = cand.ref==='완료' ? '<span class="b bgreen" style="font-size:9px">완료</span>'
+                : reg===0 ? '<span class="b bgray" style="font-size:9px">미접수</span>'
+                : resp>=tot ? '<span class="b bgreen" style="font-size:9px">응답완료</span>'
+                : `<span class="b bamber" style="font-size:9px">접수 ${reg} · 응답 ${resp}/${tot}</span>`;
+              refInfo = `<div style="font-size:11px;color:var(--teal);margin-top:2px">📋 ${refBadge}</div>`;
+              if(cand.ref==='미시작') {
+                refBtns = `<button class="btn btn-sm" style="font-size:11px;background:#E9F7F2;color:var(--teal);border-color:#A8E0C0" onclick="sendRefRequest(${cand.id})">📋 추천인 요청</button>`;
+              } else {
+                refBtns = `<button class="btn btn-sm" style="font-size:11px" onclick="syncRefFromGS()">↻ 상태 갱신</button>`;
+              }
+            }
             return `
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)">
               <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${cand.name.charAt(0)}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">${cand.name} ${stBadge}</div>
                 <div style="font-size:11px;color:var(--t3)">${cand.email}</div>
-                ${timeInfo}
+                ${timeInfo}${refInfo}
               </div>
-              <div style="display:flex;gap:5px;flex-shrink:0">
+              <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
                 <button class="btn btn-sm" style="font-size:11px" onclick="closeModal('modal-pos-detail');openDetail(${cand.id})">상세</button>
                 ${confirmBtn}
                 ${candNoticeBtn}
                 ${doneBtn}
+                ${refBtns}
                 <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');requestStageChange(${cand.id},${stageIdx===5?5:stageIdx+1})">단계 이동</button>
               </div>
             </div>
@@ -2743,7 +2765,7 @@ function nav(id, btn) {
 function navBtn(id) {
   // .nb 버튼만 필터링 (.nbb 배지 제외)
   const btns = Array.from(document.querySelectorAll('.nb'));
-  const map = { dash:0, position:1, tracker:2, interview:3, reference:4, onboarding:5, notifylog:6, settings:7 };
+  const map = { position:0, dash:1, tracker:2, interview:3, reference:4, onboarding:5, notifylog:6, settings:7 };
   const btn = btns[map[id]];
   if(btn) nav(id, btn);
 }
@@ -2795,6 +2817,28 @@ function closeModal(id) {
 }
 
 // 신규 지원자 등록 모달 열기 (모집단위 드롭다운 자동 채움)
+// 모집단위 상세에서 신규 지원자 바로 추가 (모집단위 정보 자동 채움)
+function addCandToPos(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const modal = document.getElementById('modal-add');
+  if(!modal) return;
+  delete modal.dataset.editId;
+  modal.dataset.returnPosId = posId;   // 저장 후 복귀용
+  document.querySelector('#modal-add .modal-title').textContent = `신규 지원자 등록 — ${pos.title}`;
+  // 입력 초기화 후 모집단위 정보 자동 채움
+  const setv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  setv('nc-name','');  setv('nc-email',''); setv('nc-memo',''); setv('nc-date','');
+  setv('nc-pos', pos.title);
+  setv('nc-dept', pos.dept || '');
+  // 직군/채용형태 select가 있으면 모집단위 값으로
+  const roleEl = document.getElementById('nc-role'); if(roleEl) roleEl.value = pos.role || roleEl.value;
+  const etypeEl = document.getElementById('nc-etype'); if(etypeEl) etypeEl.value = pos.etype || etypeEl.value;
+  populatePosSelect(posId);            // 이 모집단위 선택 고정
+  closeModal('modal-pos-detail');
+  openModal('modal-add');
+}
+
 function openAddCand() {
   const modal = document.getElementById('modal-add');
   if(!modal) return;
@@ -3677,13 +3721,18 @@ function addCandidate() {
     candidates.push(newCand);
     saveState();
     closeModal('modal-add');
-    updateMetrics(); renderDashboard(); renderTracker();
+    updateMetrics(); renderDashboard(); renderTracker(); renderPositions();
     populateSel('int-cand'); populateSel('ob-cand');
     toast(`${name}님 등록 완료`, 'tok');
-    if(GS_CONFIG.scriptUrl) syncCandToGS(candidates[candidates.length-1]);
-    if(GS_CONFIG.scriptUrl) syncCandToGS(candidates[candidates.length-1]);
-    // SP 비동기 동기화 (실패해도 localStorage는 유지)
+    if(GS_CONFIG.scriptUrl) syncCandToGS(newCand);
     syncCandToSP(newCand).then(()=>saveState());
+    // 모집단위 상세에서 추가한 경우 → 모집단위 상세로 복귀
+    const rp = modal.dataset.returnPosId;
+    if(rp) {
+      delete modal.dataset.returnPosId;
+      document.querySelector('#modal-add .modal-title').textContent = '신규 지원자 등록';
+      setTimeout(() => openPosDetail(Number(rp)), 300);
+    }
   }
   ['nc-name','nc-pos','nc-email','nc-dept','nc-memo'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
 }
@@ -4143,6 +4192,14 @@ function startRef(id){
   logNotify('Outlook','레퍼런스발송',c.name,c.email);
   saveState();renderReference();updateMetrics();
   toast(`${c.name}님 레퍼런스 안내 Outlook이 열렸습니다.`,'toutlook');
+}
+// 모집단위 상세에서 추천인 접수 요청 (startRef + 모집단위 복귀)
+function sendRefRequest(id){
+  const c=candidates.find(x=>x.id===id);if(!c)return;
+  const pid=c.posId;
+  startRef(id);
+  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+  if(pid!=null) setTimeout(()=>openPosDetail(Number(pid)),300);
 }
 function startAllEligible(){
   const el=candidates.filter(c=>c.stage>=2&&c.ref==='미시작');
@@ -4825,6 +4882,7 @@ try {
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   updateMetrics();
   renderDashboard();
+  renderPositions();
   populateSel('int-cand');
   populateSel('ob-cand');
   updateIntPreview();
