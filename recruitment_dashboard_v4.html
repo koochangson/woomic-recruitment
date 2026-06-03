@@ -372,10 +372,7 @@ textarea{resize:vertical;min-height:64px;}
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
         지원자 추가
       </button>
-      <button class="btn btn-sm btn-teams" onclick="openModal('modal-bulk-notify')">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H2v10l3-2h9V2z"/></svg>
-        일괄 알림
-      </button>
+      
     </div>
   </div>
 
@@ -390,6 +387,14 @@ textarea{resize:vertical;min-height:64px;}
         <div class="mc c-teal" onclick="openMetricDetail('ref')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">레퍼런스</div><div class="mc-val" id="m-ref">0</div><div class="mc-sub">진행 중 ↗</div></div>
         <div class="mc c-green" onclick="openMetricDetail('pass')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">최종 합격</div><div class="mc-val" id="m-pass">0</div><div class="mc-sub">입사 대기 포함 ↗</div></div>
         <div class="mc c-red" onclick="openMetricDetail('action')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">처리 필요</div><div class="mc-val" id="m-action">0</div><div class="mc-sub">즉시 처리 ↗</div></div>
+      </div>
+
+      <!-- 모집단위 칸반보드 -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="ch"><div class="ch-l">모집단위별 진행 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(단계별 인원 · 칸반)</span></div>
+          <button class="btn btn-xs btn-ghost" onclick="nav('position')">모집단위 관리 →</button>
+        </div>
+        <div id="dash-kanban" style="overflow-x:auto"></div>
       </div>
 
       <!-- 파이프라인 시각화 (6단계) -->
@@ -515,16 +520,6 @@ textarea{resize:vertical;min-height:64px;}
         </div>
         <!-- 미리보기 -->
         <div>
-          <div class="card" style="margin-bottom:10px">
-            <div class="ch"><div class="ch-l">Teams 미리보기</div></div>
-            <div class="notify-card">
-              <div class="nc-header">
-                <div class="nc-icon" style="background:var(--teams)"><svg viewBox="0 0 14 14"><path d="M7 1L13 3.5V7C13 9.8 10.3 12.3 7 13C3.7 12.3 1 9.8 1 7V3.5L7 1Z"/></svg></div>
-                <div><div class="nc-title" style="color:var(--teams)">Microsoft Teams</div><div class="nc-sub">지원자 본인 발송</div></div>
-              </div>
-              <div class="nc-body" id="int-preview-teams">면접 정보를 입력하면 미리보기가 표시됩니다.</div>
-            </div>
-          </div>
           <div class="card">
             <div class="ch"><div class="ch-l">Outlook 미리보기</div></div>
             <div class="notify-card">
@@ -568,12 +563,12 @@ textarea{resize:vertical;min-height:64px;}
       <div class="grid g32">
         <div class="card" style="padding:0;overflow:hidden">
           <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-            <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">미응답 우선순위</div>
-            <div style="display:flex;gap:6px">
+            <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">레퍼런스 진행 현황</div>
+            <div style="display:flex;gap:6px;align-items:center">
               <select id="ref-sort" onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
-                <option value="urgency">긴급도순</option><option value="rate">응답률순</option><option value="name">이름순</option>
+                <option value="name">이름순</option><option value="rate">응답률순</option>
               </select>
-              <button class="btn btn-xs btn-teams" onclick="remindAllRef()">전체 리마인드</button>
+              <button class="btn btn-xs" onclick="syncRefFromGS()" style="background:#E9F7F2;color:var(--teal);border-color:#A8E0C0">↻ 구글시트 동기화</button>
             </div>
           </div>
           <div id="ref-urgency-list" style="max-height:480px;overflow-y:auto"></div>
@@ -636,6 +631,7 @@ textarea{resize:vertical;min-height:64px;}
             <div class="fg full"><label>최종 합격자</label><select id="ob-cand" onchange="updateObPreview()"><option value="">-- 선택 --</option></select></div>
             <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" onchange="updateObPreview()"/></div>
             <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" oninput="updateObPreview()"/></div>
+            <div class="fg"><label>부서장 이메일 (입사 통보)</label><input id="ob-dept-lead" placeholder="teamlead@wm.co.kr" type="email"/></div>
             <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" oninput="updateObPreview()"/></div>
             <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" oninput="updateObPreview()"/></div>
             <div class="fg"><label>채용형태</label>
@@ -652,11 +648,11 @@ textarea{resize:vertical;min-height:64px;}
         </div>
         <div>
           <div class="card" style="margin-bottom:10px">
-            <div class="ch"><div class="ch-l">Teams 미리보기</div></div>
+            <div class="ch"><div class="ch-l">Outlook 미리보기</div></div>
             <div class="notify-card">
-              <div class="nc-header"><div class="nc-icon" style="background:var(--teams)"><svg viewBox="0 0 14 14"><path d="M7 1L13 3.5V7C13 9.8 10.3 12.3 7 13C3.7 12.3 1 9.8 1 7V3.5L7 1Z"/></svg></div>
-                <div><div class="nc-title" style="color:var(--teams)">Microsoft Teams</div><div class="nc-sub">지원자 본인</div></div></div>
-              <div class="nc-body" id="ob-preview-teams">입사 정보를 입력하면 미리보기가 표시됩니다.</div>
+              <div class="nc-header"><div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
+                <div><div class="nc-title" style="color:var(--outlook)">Outlook 이메일</div><div class="nc-sub">지원자 본인</div></div></div>
+              <div class="nc-body" id="ob-preview-outlook">입사 정보를 입력하면 미리보기가 표시됩니다.</div>
             <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:0 14px">📧 [Outlook 발송] 버튼 클릭 시 Outlook이 열립니다. 내용 확인 후 전송 버튼을 누르세요.</div>
             </div>
           </div>
@@ -678,7 +674,7 @@ textarea{resize:vertical;min-height:64px;}
         <div class="ch">
           <div class="ch-l">알림 발송 전체 내역</div>
           <select id="log-filter" onchange="renderNotifyLog()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
-            <option value="">전체</option><option value="Teams">Teams</option><option value="Outlook">Outlook</option>
+            <option value="">전체</option><option value="Outlook">Outlook</option>
           </select>
         </div>
         <div id="notify-log-table"></div>
@@ -693,10 +689,11 @@ textarea{resize:vertical;min-height:64px;}
           <span>Google Sheets 연동: 지원자 추가·수정·단계변경 시 자동으로 Google Sheets에 저장됩니다. 아래 URL 입력 후 연결 테스트를 완료하세요.</span>
         </div>
         <div class="fgrid f2" style="gap:12px;margin-bottom:14px">
-          <div class="fg"><label>기본 알림 채널</label>
+          <div class="fg"><label>알림 채널</label>
             <select id="cfg-default-channel">
-              <option value="teams">Teams 우선</option><option value="outlook">Outlook 우선</option><option value="both">Teams + Outlook 동시</option>
+              <option value="outlook" selected>이메일 (Outlook)</option>
             </select>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">지원자는 외부인이므로 이메일로만 발송됩니다</div>
           </div>
           <div class="fg"><label>레퍼런스 응답 기한 (일)</label>
             <select id="cfg-ref-days"><option value="5">5일</option><option value="7" selected>7일</option><option value="10">10일</option></select>
@@ -708,14 +705,11 @@ textarea{resize:vertical;min-height:64px;}
           <div class="fg"><label>HR 담당자 이메일 *</label><input id="cfg-hr-email" placeholder="hr@company.co.kr" type="email"/></div>
           <div class="fg full"><label>📋 추천인 접수 구글폼 (A) URL</label><input id="cfg-form-url" placeholder="https://forms.gle/... (지원자가 추천인 정보 입력)"/></div>
           <div class="fg full"><label>📋 레퍼런스 결과 설문 구글폼 (B) URL</label><input id="cfg-ref-url" placeholder="https://forms.gle/... (추천인이 응답)"/></div>
-          <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid var(--sp,#0078D4)">
-            <label style="color:var(--sp,#0078D4);font-weight:700">🔗 SharePoint 사이트 URL (선택)</label>
-            <input id="cfg-sp-url" placeholder="https://woomic.sharepoint.com/sites/people" style="font-family:'DM Mono',monospace;font-size:12px"/>
-            <div style="font-size:11px;color:var(--t3);margin-top:4px">끝에 슬래시 없이 입력 · /sites/이름 까지만</div>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-              <button class="btn btn-sm" onclick="testSPConnection()" style="background:#0078D4;color:#fff;border-color:#0078D4">🔗 연결 테스트</button>
-              <div id="sp-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
-            </div>
+
+          <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid #10A37F">
+            <label style="color:#10A37F;font-weight:700">🤖 ChatGPT (OpenAI) API 키</label>
+            <input id="cfg-openai-key" type="password" placeholder="sk-..." style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">레퍼런스 AI 요약에 사용 · platform.openai.com에서 발급</div>
           </div>
 
           <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid #147A48">
@@ -735,6 +729,16 @@ textarea{resize:vertical;min-height:64px;}
             <div style="font-size:11px;color:var(--t3);margin-top:8px;padding:8px;background:var(--s2);border-radius:var(--rsm)">
               연동 시: 지원자 추가/수정/단계변경 → Google Sheets 자동 저장<br>
               어느 PC에서나 같은 데이터 접근 가능 · 완전 무료
+            </div>
+          </div>
+          <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #4A90D9">
+            <label style="color:#4A90D9;font-weight:700">👥 면접관 DB URL</label>
+            <input id="cfg-interviewer-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">면접관 DB Apps Script 배포 URL</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+              <button class="btn btn-sm" onclick="testInterviewerConnection()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">👥 연결 테스트</button>
+              <button class="btn btn-sm" onclick="loadInterviewers()">🔄 면접관 새로고침</button>
+              <div id="interviewer-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
             </div>
           </div>
           <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #1D9E75">
@@ -772,14 +776,15 @@ textarea{resize:vertical;min-height:64px;}
 {메모}
 
 우미건설 피플팀 드림</textarea></div>
-          <div class="fg"><label>최종 합격 안내</label><textarea id="tpl-offer" style="min-height:80px;font-family:'DM Mono',monospace;font-size:11.5px">🎉 [최종 합격 안내 - 우미건설]
-{지원자명}님, 진심으로 축하드립니다!
+          <div class="fg"><label>입사 안내 (최종합격 → 입사 단계)</label><textarea id="tpl-onboard" style="min-height:80px;font-family:'DM Mono',monospace;font-size:11.5px">🎉 [입사 안내 - 우미건설]
+{지원자명}님, 최종 합격을 진심으로 축하드립니다!
 
-입사 예정일: {입사일}
-배치 부서: {부서}  직책: {직책}
-채용형태: {채용형태}  근무지: {근무지}
+{포지션} 포지션으로 입사하시게 되어 환영합니다.
+입사 절차와 준비 서류를 안내드립니다.
 
-{준비사항}
+■ 입사 예정일: 별도 협의
+■ 준비 서류: 신분증 사본, 통장 사본, 자격증 사본 등
+■ 문의: 우미건설 피플팀
 
 우미건설 피플팀 드림</textarea></div>
         </div>
@@ -873,18 +878,12 @@ textarea{resize:vertical;min-height:64px;}
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v6M8 9v.5"/><circle cx="8" cy="8" r="7"/></svg>
           지원자 알림 발송 (선택)
         </div>
-        <div id="cs-external-notice" style="display:none;font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
-          ✉️ 지원자는 외부인이므로 Teams는 사용할 수 없으며 이메일(Outlook)로만 안내됩니다.
+        <div id="cs-external-notice" style="font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
+          ✉️ 지원자 안내는 이메일(Outlook)로 발송됩니다.
         </div>
-        <div class="no-checks">
-          <label class="no-check teams-opt">
-            <input type="checkbox" id="cs-notify-teams" checked>
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" style="color:var(--teams)"><path d="M14 2H2v10l3-2h9V2z"/></svg>
-            Teams 메시지
-          </label>
+        <div class="no-checks" style="display:none">
           <label class="no-check outlook-opt">
-            <input type="checkbox" id="cs-notify-outlook">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" style="color:var(--outlook)"><path d="M2 4h12l-1 8H3L2 4z"/></svg>
+            <input type="checkbox" id="cs-notify-outlook" checked>
             Outlook 이메일
           </label>
         </div>
@@ -972,27 +971,27 @@ textarea{resize:vertical;min-height:64px;}
           <select id="bulk-stage" onchange="updateBulkPreview()">
             <option value="-1">전체</option>
             <option value="0">서류합격</option><option value="1">1차면접</option>
-            <option value="2">2차면접</option><option value="3">레퍼런스</option>
-            <option value="4">처우협의</option><option value="5">최종합격</option>
+            <option value="2">레퍼런스</option><option value="3">2차면접</option>
+            <option value="4">처우협의</option><option value="5">최종합격</option><option value="7">입사</option>
           </select>
         </div>
         <div class="fg"><label>발송 채널</label>
           <select id="bulk-channel">
-            <option value="teams">Teams</option><option value="outlook">Outlook</option><option value="both">Teams + Outlook</option>
+            <option value="outlook" selected>Outlook (이메일)</option>
           </select>
         </div>
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">발송 대상</div>
       <div id="bulk-targets" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rsm);padding:8px;margin-bottom:12px;font-size:12px"></div>
       <div class="notify-card">
-        <div class="nc-header"><div class="nc-icon" style="background:var(--teams)"><svg viewBox="0 0 14 14"><path d="M7 1L13 3.5V7C13 9.8 10.3 12.3 7 13C3.7 12.3 1 9.8 1 7V3.5L7 1Z"/></svg></div>
-          <div><div class="nc-title" style="color:var(--teams)">미리보기</div></div></div>
+        <div class="nc-header"><div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
+          <div><div class="nc-title" style="color:var(--outlook)">미리보기</div></div></div>
         <div class="nc-body" id="bulk-preview-msg"></div>
       </div>
     </div>
     <div class="modal-ft">
       <button class="btn" onclick="closeModal('modal-bulk-notify')">취소</button>
-      <button class="btn btn-teams" onclick="sendBulk()">일괄 발송</button>
+      <button class="btn btn-outlook" onclick="sendBulk()">일괄 발송</button>
     </div>
   </div>
 </div>
@@ -1059,7 +1058,11 @@ textarea{resize:vertical;min-height:64px;}
       </div>
       <div class="fg">
         <label>부서</label>
-        <input id="pos-dept" placeholder="예: 현장지원1팀"/>
+        <div style="position:relative">
+          <input id="pos-dept" placeholder="부서명 검색 또는 직접 입력 (예: 현장지원1팀)" autocomplete="off"
+            oninput="filterDepts()" onfocus="filterDepts()" onblur="setTimeout(()=>{const l=document.getElementById('pos-dept-list');if(l)l.style.display='none';},200)"/>
+          <div id="pos-dept-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:200px;overflow-y:auto;margin-top:2px"></div>
+        </div>
       </div>
       <div class="fg" style="grid-column:1/-1">
         <label>1차 면접관</label>
@@ -1201,6 +1204,7 @@ let trackerSearch   = '';   // 검색어
 let showRejected    = false; // 불합격자 표시 여부
 let refFilter       = 'all'; // 레퍼런스 필터
 let refMetricFilter = '';   // 레퍼런스 메트릭 필터 (ready/ing/zero/done/pend)
+let selectedRefCandId = null; // 레퍼런스 선택된 지원자
 
 
 // ═════════════════
@@ -1218,20 +1222,24 @@ const TITLES = {
   settings:   '알림 설정',
 };
 
-const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격'];
-const SBG    = ['bgray','bblue','bteal','bpurple','bamber','bgreen','bred'];
+const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격','입사'];
+const SBG    = ['bgray','bblue','bteal','bpurple','bamber','bgreen','bred','bgreen'];
 const STAGE_GUIDES = {
   0: { msg:'서류 검토 단계로 이동합니다.', notify:false },
   1: { msg:'1차 실무면접 단계로 이동합니다.\n면접 일정을 등록하고 지원자에게 안내 메시지를 발송하세요.', notify:true, tpl:'int1' },
   2: { msg:'레퍼런스 체크 단계로 이동합니다.\n지원자에게 추천인 등록 안내를 발송하고 체크를 시작합니다.', notify:true, tpl:'ref' },
   3: { msg:'2차 임원면접 단계로 이동합니다.\n레퍼런스 체크 완료 확인 후 면접 일정을 등록하세요.', notify:true, tpl:'int2' },
   4: { msg:'처우 협의 단계로 이동합니다.\n처우 조건을 확인 후 지원자와 협의를 시작하세요.', notify:false },
-  5: { msg:'🎉 최종 합격 처리입니다!\n지원자에게 합격 안내 메시지를 발송하고 입사 안내를 등록하세요.', notify:true, tpl:'offer' },
+  5: { msg:'🎉 최종 합격 처리입니다!\n다음 단계(입사)로 이동 시 입사 안내가 발송됩니다.', notify:false },
   6: { msg:'불합격 처리합니다.\n지원자에게 불합격 안내 메시지를 발송하시겠습니까?', notify:true, tpl:'reject' },
+  7: { msg:'입사 단계로 이동합니다.\n지원자에게 입사 안내를 발송하세요.', notify:true, tpl:'onboard' },
 };
 const ROLE_CLS = { 현장직:'r-field', 사무직:'r-office', 기술직:'r-tech', 관리직:'r-mgr' };
 const ETYPE_CLS = { 정규직:'et-regular', 전문직:'et-expert', 파견직:'et-dispatch' };
-const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','var(--amber)','var(--green)','var(--red)'];
+const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','var(--amber)','var(--green)','var(--red)','var(--green)'];
+// 진행 단계 순서 (불합격 6 제외, 입사 7 포함) — 표시·이동용
+const FLOW = [0,1,2,3,4,5,7]; // 서류→1차→레퍼→2차→처우→최종합격→입사
+function nextFlowStage(cur){ const i=FLOW.indexOf(cur); return i>=0&&i<FLOW.length-1?FLOW[i+1]:cur; }
 
 
 // ══════════════════════════════════════════════════════════════
@@ -1334,6 +1342,52 @@ async function deleteIntFromGS(id) {
   if(!GS_CONFIG.scriptUrl) return;
   await gsDelete('Interviews', id);
 }
+
+// ── 모집단위(Positions) GS 동기화 ───────────────────────────
+async function syncPosToGS(pos) {
+  if(!GS_CONFIG.scriptUrl) return;
+  await gsUpsert('Positions', {
+    id:        pos.id,
+    title:     pos.title || '',
+    etype:     pos.etype || '',
+    role:      pos.role || '',
+    headcount: pos.headcount != null ? pos.headcount : 1,
+    dept:      pos.dept || '',
+    panel1:    pos.panel1 || '',
+    panel2:    pos.panel2 || '',
+    loc:       pos.loc || '',
+    memo:      pos.memo || '',
+    createdAt: pos.createdAt || '',
+  });
+  showSyncStatus('모집단위 GS 동기화 완료', 'ok');
+}
+async function deletePosFromGS(id) {
+  if(!GS_CONFIG.scriptUrl) return;
+  await gsDelete('Positions', id);
+}
+async function loadPositionsFromGS() {
+  if(!GS_CONFIG.scriptUrl) return false;
+  try {
+    const data = await gsGetAll('Positions');
+    if(!data || !data.length) return false;
+    positions = data.map(row => ({
+      id:        Number(row.id),
+      title:     row.title || '',
+      etype:     row.etype || '정규직',
+      role:      row.role || '현장직',
+      headcount: parseInt(row.headcount) || 1,
+      dept:      row.dept || '',
+      panel1:    row.panel1 || '',
+      panel2:    row.panel2 || '',
+      loc:       row.loc || '',
+      memo:      row.memo || '',
+      createdAt: row.createdAt || '',
+    }));
+    saveState();
+    return true;
+  } catch(e) { console.warn('모집단위 로드 실패', e); return false; }
+}
+
 async function loadInterviewsFromGS() {
   if(!GS_CONFIG.scriptUrl) return false;
   try {
@@ -1351,6 +1405,7 @@ async function loadInterviewsFromGS() {
       notified: row.notified === 'Y',
       status:   row.status || 'pending',
     }));
+    saveState();
     return true;
   } catch(e) { console.warn('면접 로드 실패', e); return false; }
 }
@@ -1494,12 +1549,12 @@ function renderPositions() {
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
-            ${pos.title}
+            ${pos.dept ? pos.dept + ' · ' : ''}${pos.title}
             ${done ? '<span class="b bgreen" style="font-size:10px">완료</span>' : '<span class="b bblue" style="font-size:10px">진행중</span>'}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'professional':'dispatch'}">${pos.etype}</span>
-            <span style="font-size:11px;color:var(--t3)">${pos.role} · ${pos.dept||'부서 미정'}</span>
+            <span style="font-size:11px;color:var(--t3)">${pos.role}</span>
             <span style="font-size:11px;color:var(--t3)">모집 ${pos.headcount||1}명</span>
           </div>
         </div>
@@ -1539,13 +1594,115 @@ function renderPositions() {
   }).join('');
 }
 
+// 모집단위 상세에서 입사 안내 - 지원자 본인
+function sendOnboardToCand(candId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) return;
+  const subject = `[우미건설] ${c.name}님 입사 안내`;
+  const body = buildOnboardEmail(c);
+  const sent = openMailto(c.email, subject, body);
+  if(sent === false) return;
+  c.notified = true;
+  logNotify('Outlook', '입사안내-지원자', c.name, c.email);
+  saveState();
+  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+  toast(`${c.name}님 입사 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
+}
+
+// 모집단위 상세에서 입사 안내 - 사내 관련 부서(팀장·전산 등)
+function sendOnboardToDept(candId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) return;
+  const teams   = parseNotifyTeams();
+  const sign    = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
+  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
+  const ob = onboardings.find(o => o.candId === c.id) || {};
+  // 부서: 모집단위(positions) 우선 → 지원자 → 입사정보
+  const pos = positions.find(p => Number(p.id) === Number(c.posId));
+  const dept = (pos && pos.dept) || c.dept || ob.dept || '';
+  const joinDate = ob.joinDate || '미정';
+
+  // 배치 부서장 자동 매칭: 면접관DB에서 같은 부서 + 직급(팀장/소장)
+  let deptLead = ob.deptLead || '';
+  let deptLeadName = '';
+  if(!deptLead && dept && Array.isArray(interviewers)) {
+    const lead = interviewers.find(iv =>
+      iv.dept && dept && iv.dept.trim() === dept.trim() &&
+      /팀장|소장/.test(iv.rank || ''));
+    if(lead) { deptLead = lead.email; deptLeadName = `${lead.name} ${lead.rank}`; }
+  }
+
+  const toEmails = [deptLead, ...teams.map(t => t.email), hrEmail].filter(Boolean).join(';');
+  if(!toEmails) {
+    alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: ${dept||'부서 미정'} 의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.\n\n둘 중 하나를 설정해주세요.`);
+    return;
+  }
+  const leadLabel = deptLeadName ? `${deptLeadName}(배치 부서장)` : (deptLead ? '배치 부서장' : '');
+  const teamNames = [leadLabel, ...teams.map(t => t.name)].filter(Boolean).join(', ') || '유관 부서';
+
+  const subject = `[우미건설] 신규 입사자 안내 — ${c.name} (${joinDate})`;
+  const body = [
+    `${teamNames} 담당자님,`, ``,
+    `${sign}입니다.`,
+    `아래와 같이 신규 입사자를 안내드리오니 입사 준비(좌석·계정·장비 등)에 협조 부탁드립니다.`, ``,
+    `━━ 입사자 정보 ━━`,
+    `성명:     ${c.name}`,
+    `직무:     ${c.pos || ob.pos || '미정'}`,
+    `소속:     ${dept || '미정'}`,
+    `입사일:   ${joinDate}`,
+    `채용형태: ${c.etype || '정규직'}`,
+    ob.rank ? `직급:     ${ob.rank}` : '',
+    ob.loc ? `근무지:   ${ob.loc}` : '',
+    ``,
+    `■ 전산팀: 사번·이메일·그룹웨어 계정, PC 및 장비 준비`,
+    `■ 배치부서${deptLeadName?'('+deptLeadName+')':''}: 좌석 배정, 업무 인수인계 준비`,
+    `■ 총무팀: 출입증, 명함 발급`, ``,
+    `감사합니다.`,
+    sign,
+  ].filter(s => s !== '').join('\n');
+
+  const sent = openMailto(toEmails, subject, body);
+  if(sent === false) return;
+  logNotify('Outlook', '입사통보-사내부서', c.name, toEmails);
+  saveState();
+  toast(`${c.name}님 사내부서 통보${deptLeadName?' (부서장: '+deptLeadName+')':''} — Outlook 창에서 전송하세요`, 'toutlook');
+}
+
+
+// 모집단위 단계의 미확정 면접 일정을 전체 확정
+function confirmAllInterviews(posId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  const pendings = posCands
+    .map(c => interviews.find(i => i.candId === c.id && i.type === round && i.status === 'pending'))
+    .filter(Boolean);
+  if(!pendings.length) { toast('확정할 미확정 일정이 없습니다.', 'tw'); return; }
+  const noDate = pendings.filter(i => !i.date || i.date.indexOf('미정') !== -1);
+  if(noDate.length) {
+    if(!confirm(`${noDate.length}명은 일정이 미정입니다. 일정이 지정된 ${pendings.length-noDate.length}명만 확정하시겠습니까?\n(미정 건은 일괄 일정 배치를 먼저 사용하세요)`)) return;
+  } else {
+    if(!confirm(`${pendings.length}명의 ${round} 면접 일정을 모두 확정하시겠습니까?`)) return;
+  }
+  let cnt = 0;
+  pendings.forEach(itv => {
+    if(itv.date && itv.date.indexOf('미정') === -1) {
+      itv.status = 'confirmed';
+      if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
+      cnt++;
+    }
+  });
+  saveState();
+  openPosDetail(Number(posId));
+  toast(`${cnt}명 일정 확정 완료. 지원자 안내를 발송하세요.`, 'tok');
+}
+
 // 모집단위 상세에서 합격 처리 (다음 단계로 + 복귀)
 function passFromPos(candId, posId, stageIdx) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
-  const nextStage = stageIdx + 1;  // 다음 단계
+  const nextStage = nextFlowStage(stageIdx);  // FLOW 기준 다음 (5→7 입사)
   const stageName = STAGES[nextStage] || '';
-  if(!confirm(`${c.name}님을 '${STAGES[stageIdx]}' → '${stageName}'(으)로 합격 처리하시겠습니까?`)) return;
+  if(!confirm(`${c.name}님을 '${STAGES[stageIdx]}' → '${stageName}'(으)로 이동하시겠습니까?`)) return;
   returnToPosId = posId;
   closeModal('modal-pos-detail');
   requestStageChange(candId, nextStage);  // 합격 안내 메일 + 단계 이동 (모달에서 확정)
@@ -1628,7 +1785,7 @@ function openPosDetail(posId) {
   const byStage = STAGES.map((s,i) => ({stage:s, idx:i, list:posCands.filter(c=>c.stage===i)}));
   const active = byStage.filter(s => s.idx < 6 && s.list.length > 0);
 
-  document.getElementById('pos-detail-title').textContent = pos.title;
+  document.getElementById('pos-detail-title').textContent = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
 
   const body = document.getElementById('pos-detail-body');
   body.innerHTML = `
@@ -1671,7 +1828,8 @@ function openPosDetail(posId) {
       <span style="font-size:13px;font-weight:700">지원자 현황</span>
       <button class="btn btn-sm btn-primary" onclick="addCandToPos(${posId})">+ 지원자 추가</button>
     </div>
-    ${STAGES.slice(0,6).map((stageName, stageIdx) => {
+    ${FLOW.map((stageIdx) => {
+      const stageName = STAGES[stageIdx];
       const stageCands = posCands.filter(c => c.stage === stageIdx);
       if(!stageCands.length) return '';
       return `<div style="margin-bottom:16px">
@@ -1679,6 +1837,11 @@ function openPosDetail(posId) {
           <span style="font-size:12px;font-weight:700;color:var(--t2)">${stageName}</span>
           <span style="background:var(--s3);padding:2px 8px;border-radius:20px;font-size:11px">${stageCands.length}명</span>
           ${(()=>{
+            // 서류합격(0): 전체 1차 면접 일정 일괄 배치
+            if(stageIdx===0) {
+              return `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1)">📅 전체 1차 면접일정 배치</button>`
+                + `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},0,1)">전체 1차면접으로 이동</button>`;
+            }
             if(stageIdx!==1 && stageIdx!==3) return '';
             const round = stageIdx===1?'1차':'2차';
             const confirmedCnt = stageCands.filter(cd => interviews.some(i=>i.candId===cd.id && i.type===round && (i.status==='confirmed'||i.status==='done'))).length;
@@ -1688,6 +1851,11 @@ function openPosDetail(posId) {
             btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>`;
             // 일정 확정 진행률 표시
             btns += `<span style="font-size:10px;color:${allConfirmed?'var(--green)':'var(--t3)'};font-weight:600">일정확정 ${confirmedCnt}/${stageCands.length}</span>`;
+            // 미확정 일정이 있으면 전체 일정 확정 버튼
+            const pendingCnt = stageCands.filter(cd => interviews.some(i=>i.candId===cd.id && i.type===round && i.status==='pending')).length;
+            if(pendingCnt > 0) {
+              btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="confirmAllInterviews(${posId},${stageIdx})">✓ 전체 일정 확정 (${pendingCnt}명)</button>`;
+            }
             // 확정된 지원자가 있으면 지원자 일괄 안내 버튼
             if(confirmedCnt > 0) {
               btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendAllCandSchedule(${posId},${stageIdx})">✉ 지원자 일괄 안내 (${confirmedCnt}명)</button>`;
@@ -1753,10 +1921,81 @@ function openPosDetail(posId) {
                 ${candNoticeBtn}
                 ${doneBtn}
                 ${refBtns}
-                ${stageIdx < 5 ? `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">✓ ${stageIdx===4?'최종합격':'합격'}</button>` : ''}
-                ${stageIdx < 5 ? `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>` : ''}
+                ${(() => {
+                  // 서류합격(0): 이미 합격해서 등록됨 → 합격/불합격 없음 (다음 단계 이동만)
+                  if(stageIdx === 0) return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ 1차면접</button>`;
+                  // 1차(1)·2차(3) 면접: 합격/불합격 둘 다
+                  if(stageIdx === 1 || stageIdx === 3) {
+                    return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">✓ 합격</button>`
+                      + `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>`;
+                  }
+                  // 레퍼런스(2)·처우협의(4): 다음 단계 진행 (+불합격 선택)
+                  if(stageIdx === 2 || stageIdx === 4) {
+                    const nx = nextFlowStage(stageIdx);
+                    return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ ${STAGES[nx]}</button>`
+                      + `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>`;
+                  }
+                  // 최종합격(5): 입사 처리
+                  if(stageIdx === 5) return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">🎉 입사 처리</button>`;
+                  // 입사(7): 입사 안내 + 사내부서 통보
+                  if(stageIdx === 7) {
+                    return `<button class="btn btn-sm btn-outlook" style="font-size:11px" onclick="sendOnboardToCand(${cand.id})">✉ 입사 안내(지원자)</button>`
+                      + `<button class="btn btn-sm" style="font-size:11px;background:#E9F7F2;color:var(--teal);border-color:#A8E0C0" onclick="sendOnboardToDept(${cand.id})">🏢 사내부서 통보</button>`;
+                  }
+                  return '';
+                })()}
               </div>
             </div>
+            ${(stageIdx===1||stageIdx===3) ? (()=>{
+              // 면접 단계 세부 타임라인
+              const rnd = stageIdx===1 ? '1차' : '2차';
+              const itvT = interviews.find(i => Number(i.candId)===Number(cand.id) && i.type===rnd);
+              const steps = [
+                { label:'합격·일정 후보 안내', done: !!itvT, note: itvT?'일정 후보 등록됨':'미등록' },
+                { label:'면접 일정 확정', done: itvT && (itvT.status==='confirmed'||itvT.status==='done'), note: (itvT&&(itvT.status==='confirmed'||itvT.status==='done'))?(itvT.date||''):'미확정' },
+                { label:'지원자 면접 안내', done: itvT && itvT.candNotified, note: (itvT&&itvT.candNotified)?'발송완료':'미발송' },
+                { label:'면접관 면접 안내', done: itvT && itvT.notified, note: (itvT&&itvT.notified)?'발송완료':'미발송' },
+              ];
+              return `<div style="margin:6px 0 2px 38px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
+                <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">${rnd} 면접 진행 단계</div>
+                <div style="display:flex;align-items:flex-start;gap:0">
+                  ${steps.map((s,si)=>`
+                    <div style="flex:1;text-align:center;position:relative">
+                      ${si<steps.length-1?`<div style="position:absolute;top:9px;left:50%;width:100%;height:2px;background:${steps[si+1].done||s.done?'var(--green)':'var(--border2)'}"></div>`:''}
+                      <div style="position:relative;width:18px;height:18px;border-radius:50%;margin:0 auto 5px;background:${s.done?'var(--green)':'#fff'};border:2px solid ${s.done?'var(--green)':'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;z-index:1">${s.done?'✓':''}</div>
+                      <div style="font-size:10px;font-weight:600;color:${s.done?'var(--t1)':'var(--t3)'};line-height:1.3">${s.label}</div>
+                      <div style="font-size:9px;color:${s.done?'var(--green)':'var(--t3)'};margin-top:2px">${s.note}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>`;
+            })() : ''}
+            ${stageIdx===2 ? (()=>{
+              // 레퍼런스 단계 세부 타임라인
+              const refs = refDetails[cand.id] || [];
+              const reg = refs.filter(r=>r.status==='등록'||r.status==='응답').length;
+              const resp = refs.filter(r=>r.status==='응답').length;
+              const tot = cand.refT || refs.length || 3;
+              const steps = [
+                { label:'추천인 요청 발송', done: cand.ref!=='미시작', note: cand.ref!=='미시작'?'발송완료':'미발송' },
+                { label:'추천인 접수', done: reg>0, note: reg>0?`${reg}/${tot}명 접수`:'미접수' },
+                { label:'응답 수집', done: resp>0, note: resp>0?`${resp}/${tot}명 응답`:'대기' },
+                { label:'체크 완료', done: cand.ref==='완료', note: cand.ref==='완료'?'완료':'진행중' },
+              ];
+              return `<div style="margin:6px 0 2px 38px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
+                <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">레퍼런스 진행 단계</div>
+                <div style="display:flex;align-items:flex-start;gap:0">
+                  ${steps.map((s,si)=>`
+                    <div style="flex:1;text-align:center;position:relative">
+                      ${si<steps.length-1?`<div style="position:absolute;top:9px;left:50%;width:100%;height:2px;background:${steps[si+1].done||s.done?'var(--teal)':'var(--border2)'}"></div>`:''}
+                      <div style="position:relative;width:18px;height:18px;border-radius:50%;margin:0 auto 5px;background:${s.done?'var(--teal)':'#fff'};border:2px solid ${s.done?'var(--teal)':'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;z-index:1">${s.done?'✓':''}</div>
+                      <div style="font-size:10px;font-weight:600;color:${s.done?'var(--t1)':'var(--t3)'};line-height:1.3">${s.label}</div>
+                      <div style="font-size:9px;color:${s.done?'var(--teal)':'var(--t3)'};margin-top:2px">${s.note}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>`;
+            })() : ''}
           `;}).join('')}
         </div>
       </div>`;
@@ -2224,6 +2463,48 @@ function loadInterviewerOptions() {
 }
 
 // 검색어로 면접관 필터링 → 목록 표시
+// 부서 검색 드롭다운 (면접관 DB의 고유 부서 목록 기반)
+function filterDepts() {
+  const input = document.getElementById('pos-dept');
+  const listEl = document.getElementById('pos-dept-list');
+  if(!input || !listEl) return;
+  const q = input.value.trim().toLowerCase();
+
+  const deptMap = {};
+  (Array.isArray(interviewers) ? interviewers : []).forEach(iv => {
+    if(!iv.dept) return;
+    const d = iv.dept.trim();
+    if(!d) return;
+    if(!deptMap[d]) deptMap[d] = [];
+    if(/팀장|소장/.test(iv.rank||'')) deptMap[d].push(`${iv.name} ${iv.rank}`);
+  });
+  let depts = Object.keys(deptMap);
+  if(q) depts = depts.filter(d => d.toLowerCase().includes(q));
+  depts.sort();
+
+  if(!depts.length) {
+    listEl.innerHTML = interviewers.length
+      ? '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">일치하는 부서가 없습니다. 직접 입력하셔도 됩니다.</div>'
+      : '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">면접관 DB가 비어있습니다. 부서를 직접 입력하세요.</div>';
+    listEl.style.display = 'block';
+    return;
+  }
+  listEl.innerHTML = depts.map(d => {
+    const leads = deptMap[d];
+    const leadLabel = leads.length ? `<span style="color:var(--teal);font-size:11px">· 부서장 ${leads.join(', ')}</span>` : '<span style="color:var(--t3);font-size:11px">· 부서장 미등록</span>';
+    return `<div onclick="selectDept('${d.replace(/'/g,"\\'")}')" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='transparent'">
+      <b>${d}</b> ${leadLabel}
+    </div>`;
+  }).join('');
+  listEl.style.display = 'block';
+}
+function selectDept(dept) {
+  const input = document.getElementById('pos-dept');
+  const listEl = document.getElementById('pos-dept-list');
+  if(input) input.value = dept;
+  if(listEl) listEl.style.display = 'none';
+}
+
 function filterInterviewers(round) {
   const input  = document.getElementById('pos-panel' + round + '-search');
   const listEl = document.getElementById('pos-panel' + round + '-list');
@@ -2555,6 +2836,7 @@ function savePosition() {
 
   closeModal('modal-position');
   saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(posData);
   renderPositions();
 }
 
@@ -2568,6 +2850,7 @@ async function deletePosition(posId) {
   }
   positions = positions.filter(p => p.id !== posId);
   saveState();
+  if(GS_CONFIG.scriptUrl && typeof deletePosFromGS === 'function') deletePosFromGS(posId);
   renderPositions();
   toast(`${pos.title} 삭제 완료`, 'tok');
 }
@@ -2729,7 +3012,7 @@ function showSyncStatus(msg, type='') {
   const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
   const el = document.getElementById('sp-sync-status');
   if(el) { el.textContent = msg; el.style.color = colors[type]||colors['']; }
-  console.log('[SP]', msg);
+  console.log('[GS]', msg);
 }
 
 function loadState() {
@@ -2974,7 +3257,7 @@ function buildIntEmail(itv, cand) {
 }
 
 function buildOfferEmail(ob, cand) {
-  const tpl = document.getElementById('tpl-offer')?.value || '';
+  const tpl = document.getElementById('tpl-onboard')?.value || '';
   if(tpl) {
     return tpl
       .replace('{지원자명}', ob.candName)
@@ -2990,6 +3273,12 @@ function buildOfferEmail(ob, cand) {
 
 function buildRejectEmail(cand) {
   return `안녕하세요 ${cand.name}님,\n\n${cand.pos} 포지션에 지원해 주셔서 진심으로 감사드립니다.\n\n아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.\n소중한 시간 내어 주셔서 감사드립니다.\n\n앞날에 좋은 일들이 가득하시길 바랍니다.`;
+}
+
+function buildOnboardEmail(cand) {
+  const tpl = document.getElementById('tpl-onboard')?.value;
+  if(tpl) return tpl.replace(/\{지원자명\}/g, cand.name).replace(/\{포지션\}/g, cand.pos||'');
+  return `🎉 [입사 안내 - 우미건설]\n${cand.name}님, 최종 합격을 진심으로 축하드립니다!\n\n${cand.pos} 포지션으로 입사하시게 되어 환영합니다.\n입사 절차와 준비 서류를 아래와 같이 안내드립니다.\n\n■ 입사 예정일: 별도 협의\n■ 준비 서류: 신분증 사본, 통장 사본, 자격증 사본 등\n■ 문의: 우미건설 피플팀\n\n입사 관련 궁금하신 점은 언제든 회신 주세요.\n\n우미건설 피플팀 드림`;
 }
 
 function buildRefRequestEmail(cand) {
@@ -3314,14 +3603,60 @@ function updateMetrics() {
 // ══════════════════════════════════════════════════════════════
 // 대시보드
 // ══════════════════════════════════════════════════════════════
+// 모집단위별 단계 칸반보드
+function renderKanban() {
+  const el = document.getElementById('dash-kanban');
+  if(!el) return;
+  if(!positions.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">등록된 모집단위가 없습니다. 모집단위 관리에서 추가하세요.</div>';
+    return;
+  }
+  // 칸반 열: FLOW 단계 (서류합격~입사)
+  const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
+  const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
+
+  let html = '<div style="min-width:760px">';
+  // 헤더 행
+  html += '<div style="display:grid;grid-template-columns:160px repeat('+cols.length+',1fr);gap:6px;margin-bottom:6px">';
+  html += '<div style="font-size:10px;font-weight:700;color:var(--t3);display:flex;align-items:flex-end;padding-bottom:4px">모집단위</div>';
+  cols.forEach(c => {
+    html += `<div style="font-size:10px;font-weight:700;text-align:center;color:${stageColor(c.idx)};padding-bottom:4px;border-bottom:2px solid ${stageColor(c.idx)}">${c.name}</div>`;
+  });
+  html += '</div>';
+
+  // 모집단위별 행
+  positions.forEach(pos => {
+    const posCands = candidates.filter(c => Number(c.posId) === Number(pos.id));
+    const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
+    html += '<div style="display:grid;grid-template-columns:160px repeat('+cols.length+',1fr);gap:6px;margin-bottom:6px;align-items:stretch">';
+    // 모집단위 이름 셀 (클릭 시 상세)
+    html += `<div onclick="openPosDetail(${pos.id})" style="cursor:pointer;padding:8px 10px;background:var(--s2);border-radius:var(--rsm);display:flex;flex-direction:column;justify-content:center">
+      <div style="font-size:11.5px;font-weight:700;line-height:1.3">${title}</div>
+      <div style="font-size:10px;color:var(--t3)">${pos.etype||''} · 모집 ${pos.headcount||1}명</div>
+    </div>`;
+    // 단계별 셀
+    cols.forEach(c => {
+      const cnt = posCands.filter(pc => pc.stage === c.idx).length;
+      const filled = cnt > 0;
+      html += `<div onclick="openPosDetail(${pos.id})" style="cursor:pointer;min-height:42px;border-radius:var(--rsm);background:${filled?stageColor(c.idx):'var(--surface)'};border:1px solid ${filled?stageColor(c.idx):'var(--border)'};display:flex;align-items:center;justify-content:center;${filled?'':'opacity:.5'}">
+        <span style="font-size:15px;font-weight:800;color:${filled?'#fff':'var(--t3)'}">${cnt||'·'}</span>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
 function renderDashboard() {
   updateMetrics();
+  renderKanban();
 
   // 파이프라인 플로우
   const pf = document.getElementById('dash-pipe-flow');
   if(pf) {
-    pf.innerHTML = STAGES.map((s,i) => {
-      if(i===6) return ''; // 불합격 제외
+    pf.innerHTML = FLOW.map((stageIdx, fi) => {
+      const i = stageIdx;
       const cnt = candidates.filter(c=>c.stage===i).length;
       const hasCurr = cnt > 0;
       const isSelected = dashPipeFilter === i;
@@ -3329,11 +3664,11 @@ function renderDashboard() {
         <div class="pf-dot ${isSelected?'active':hasCurr?'active':''}"
              onclick="setDashPipeFilter(${i})"
              style="cursor:pointer;${isSelected?'box-shadow:0 0 0 3px rgba(15,52,96,.3);':''}"
-             title="${s} ${cnt}명 — 클릭하여 상세 보기">
-          ${hasCurr?cnt:i+1}
+             title="${STAGES[i]} ${cnt}명 — 클릭하여 상세 보기">
+          ${hasCurr?cnt:fi+1}
         </div>
-        <div class="pf-lbl ${isSelected||hasCurr?'active':''}">${s}${cnt>0?' ('+cnt+')':''}</div>
-      </div>${i<STAGES.length-2?`<div class="pf-line ${candidates.filter(c=>c.stage>i&&c.stage!==6).length>0?'done':''}"></div>`:''}`;
+        <div class="pf-lbl ${isSelected||hasCurr?'active':''}">${STAGES[i]}${cnt>0?' ('+cnt+')':''}</div>
+      </div>${fi<FLOW.length-1?`<div class="pf-line ${candidates.filter(c=>FLOW.indexOf(c.stage)>fi&&c.stage!==6).length>0?'done':''}"></div>`:''}`;
     }).join('');
   }
 
@@ -3422,7 +3757,7 @@ function updateCsPreview(c, newStage) {
 
 function requestStageChange(candId, newStage) {
   const c = candidates.find(x => x.id === candId);
-  if(!c || newStage < 0 || newStage > 6) return;
+  if(!c || newStage < 0 || newStage > 7) return;
   if(c.stage === newStage) { toast('이미 해당 단계입니다.'); return; }
 
   pendingStageChange = { candId, newStage };
@@ -3445,34 +3780,9 @@ function requestStageChange(candId, newStage) {
   const no = document.getElementById('cs-notify-opts');
   no.style.display = guide.notify ? '' : 'none';
 
-  // 외부인 대상 단계(1차 면접 안내)는 이메일만 가능 → Teams 비활성화
-  const teamsCheck = document.getElementById('cs-notify-teams');
+  // 지원자 안내는 항상 이메일(Outlook)
   const outlookCheck = document.getElementById('cs-notify-outlook');
-  const teamsLabel = teamsCheck ? teamsCheck.closest('label') : null;
-  const externalOnly = true; // 지원자는 모두 외부인 → 이메일(Outlook)만 가능
-  const extNotice = document.getElementById('cs-external-notice');
-  if(extNotice) extNotice.style.display = externalOnly ? '' : 'none';
-  if(teamsCheck && outlookCheck) {
-    if(externalOnly) {
-      teamsCheck.checked = false;
-      teamsCheck.disabled = true;
-      outlookCheck.checked = true;
-      if(teamsLabel) {
-        teamsLabel.style.opacity = '0.4';
-        teamsLabel.style.pointerEvents = 'none';
-        teamsLabel.title = '외부 지원자 대상 — Teams 발송 불가';
-      }
-    } else {
-      teamsCheck.disabled = false;
-      teamsCheck.checked = true;
-      outlookCheck.checked = false;
-      if(teamsLabel) {
-        teamsLabel.style.opacity = '';
-        teamsLabel.style.pointerEvents = '';
-        teamsLabel.title = '';
-      }
-    }
-  }
+  if(outlookCheck) outlookCheck.checked = true;
 
   // 미리보기 메시지 생성
   const preview = buildStageNotifyMsg(c, newStage);
@@ -3561,38 +3871,29 @@ function confirmStageChange() {
     ensureRefDetails(c);
   }
 
-  // 알림 발송
-  const sendTeams = document.getElementById('cs-notify-teams')?.checked;
-  const sendOutlook = document.getElementById('cs-notify-outlook')?.checked;
+  // 알림 발송 (지원자는 외부인 → 이메일만)
   const guide = STAGE_GUIDES[newStage];
 
   if(guide && guide.notify) {
-    if(sendOutlook) {
-      // 단계별 이메일 생성
-      let subject = `[우미건설] ${c.name}님 채용 진행 안내`;
-      let body = buildStageNotifyMsg(c, newStage);
-      if(newStage === 6) {
-        subject = `[우미건설] ${c.name}님 채용 결과 안내`;
-        body = buildRejectEmail(c);
-      } else if(newStage === 1 || newStage === 3) {
-        const intType = newStage===1?'1차 실무':'2차 임원';
-        subject = `[우미건설] ${c.name}님 ${intType}면접 일정 안내`;
-        // buildStageNotifyMsg가 이미 일정 후보를 포함하므로 그대로 사용 (중복 방지)
-        body = buildStageNotifyMsg(c, newStage);
-      } else if(newStage === 2) {
-        subject = `[우미건설] ${c.name}님 레퍼런스 체크 안내`;
-        body = buildRefRequestEmail(c);
-      } else if(newStage === 5) {
-        subject = `[우미건설] ${c.name}님 최종 합격 안내`;
-      }
-      openMailto(c.email, subject, body);
+    let subject = `[우미건설] ${c.name}님 채용 진행 안내`;
+    let body = buildStageNotifyMsg(c, newStage);
+    if(newStage === 6) {
+      subject = `[우미건설] ${c.name}님 채용 결과 안내`;
+      body = buildRejectEmail(c);
+    } else if(newStage === 1 || newStage === 3) {
+      const intType = newStage===1?'1차 실무':'2차 임원';
+      subject = `[우미건설] ${c.name}님 ${intType}면접 일정 안내`;
+      body = buildStageNotifyMsg(c, newStage);
+    } else if(newStage === 2) {
+      subject = `[우미건설] ${c.name}님 레퍼런스 체크 안내`;
+      body = buildRefRequestEmail(c);
+    } else if(newStage === 7) {
+      subject = `[우미건설] ${c.name}님 입사 안내`;
+      body = buildOnboardEmail ? buildOnboardEmail(c) : buildStageNotifyMsg(c, newStage);
     }
-    if(sendTeams) logNotify('Teams', STAGES[newStage]+'안내', c.name, c.email);
-    if(sendOutlook) logNotify('Outlook', STAGES[newStage]+'안내', c.name, c.email);
-    if(sendTeams || sendOutlook) {
-      const ch = sendTeams && sendOutlook ? 'Teams + Outlook' : sendTeams ? 'Teams' : 'Outlook';
-      toast(`${c.name}님 → ${STAGES[newStage]} / ${ch} 발송 (Outlook 전송 버튼 누르세요)`, sendTeams ? 'tteams' : 'toutlook');
-    }
+    openMailto(c.email, subject, body);
+    logNotify('Outlook', STAGES[newStage]+'안내', c.name, c.email);
+    toast(`${c.name}님 → ${STAGES[newStage]} / 이메일 발송 (Outlook 창에서 전송하세요)`, 'toutlook');
   }
 
   // 면접 후보 일정 자동 등록 (1차/2차 면접 단계) — 같은 type 면접 1건만 유지(갱신)
@@ -3958,9 +4259,7 @@ function updateIntPreview() {
   const memo = document.getElementById('int-memo')?.value||'';
   const name = cand?cand.name:'{지원자명}';
   const msg  = buildIntMsg(type, name, dt, loc, panel, memo);
-  const pt = document.getElementById('int-preview-teams');
   const po = document.getElementById('int-preview-outlook');
-  if(pt) pt.textContent = msg;
   if(po) po.textContent = `수신: ${name} <${cand?cand.email:''}>\n제목: [우미건설] ${type} 면접 일정 안내\n\n${msg}`;
 }
 
@@ -4083,31 +4382,46 @@ function renderReference() {
   set('ref-overall-pct',`${totalD} / ${totalT} (${pct}%)`);
   const bar=document.getElementById('ref-overall-bar');if(bar)bar.style.width=pct+'%';
 
-  // 우선순위 리스트
-  const sortMode=document.getElementById('ref-sort')?.value||'urgency';
-  let ingList=candidates.filter(c=>c.ref==='진행중');
-  if(sortMode==='urgency') ingList.sort((a,b)=>a.refD-b.refD);
-  else if(sortMode==='rate') ingList.sort((a,b)=>(a.refD/Math.max(a.refT,1))-(b.refD/Math.max(b.refT,1)));
+  // 레퍼런스 진행 현황 리스트 (레퍼런스 단계 이상 전체, 추천인 표시)
+  const sortMode=document.getElementById('ref-sort')?.value||'name';
+  let ingList=candidates.filter(c=>c.stage>=2 && c.stage!==6);  // 레퍼런스 단계 이상, 불합격 제외
+  if(sortMode==='rate') ingList.sort((a,b)=>(a.refD/Math.max(a.refT,1))-(b.refD/Math.max(b.refT,1)));
   else ingList.sort((a,b)=>a.name.localeCompare(b.name));
 
   const ul=document.getElementById('ref-urgency-list');
   if(ul) {
-    if(!ingList.length){ul.innerHTML='<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">진행 중인 레퍼런스가 없습니다.</div>';}
+    if(!ingList.length){ul.innerHTML='<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">레퍼런스 단계 지원자가 없습니다.</div>';}
     else ul.innerHTML=ingList.map(c=>{
-      const pct2=Math.round(c.refD/c.refT*100);
-      const urgC=c.refD===0?'var(--red)':c.refD<c.refT?'var(--amber)':'var(--green)';
+      const refs = refDetails[c.id] || [];
+      const tot = c.refT || refs.length || 3;
+      const pct2 = tot>0 ? Math.round((c.refD||0)/tot*100) : 0;
+      const urgC = c.ref==='완료'?'var(--green)' : (c.refD||0)===0?'var(--red)':'var(--amber)';
       const isSel=selectedRefCandId===c.id;
-      return`<div onclick="selectRefCand(${c.id})" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'var(--acc-light)':'transparent'};transition:background .1s">
+      const stBadge = c.ref==='미시작' ? '<span class="b bgray" style="font-size:9px">미시작</span>'
+        : c.ref==='완료' ? '<span class="b bgreen" style="font-size:9px">완료</span>'
+        : '<span class="b bamber" style="font-size:9px">진행중</span>';
+      // 추천인 목록 표시
+      const refListHtml = refs.length ? refs.map(r=>{
+        const dot = r.status==='응답'?'var(--green)':r.status==='등록'?'var(--blue)':'var(--t3)';
+        const stxt = r.status==='응답'?'응답완료':r.status==='등록'?'접수':'대기';
+        return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0">
+          <span style="width:5px;height:5px;border-radius:50%;background:${dot}"></span>
+          <span style="flex:1">${r.name||'추천인'} <span style="color:var(--t3)">${r.relation||''}</span></span>
+          <span style="color:${dot}">${stxt}</span>
+        </div>`;
+      }).join('') : '<div style="font-size:11px;color:var(--t3);padding:4px 0">추천인 정보 없음 (지원자 폼 제출 대기)</div>';
+      return`<div onclick="selectRefCand(${c.id})" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'var(--acc-light)':'transparent'}">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
           <div style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></div>
-          <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${c.name}</div><div style="font-size:11px;color:var(--t3)">${c.pos} ${etypePill(c.etype)}</div></div>
-          <div style="font-size:13px;font-weight:700;color:${urgC}">${c.refD}/${c.refT}</div>
+          <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${c.name} ${stBadge}</div><div style="font-size:11px;color:var(--t3)">${c.pos}</div></div>
+          <div style="font-size:13px;font-weight:700;color:${urgC}">${c.refD||0}/${tot}</div>
         </div>
         <div class="prog" style="height:3px;margin-bottom:8px"><div class="pf-bar" style="width:${pct2}%;background:${urgC}"></div></div>
+        <div style="padding:6px 8px;background:var(--s2);border-radius:var(--rsm);margin-bottom:8px">${refListHtml}</div>
         <div style="display:flex;gap:5px">
-          <button class="btn btn-xs btn-teams" onclick="event.stopPropagation();remindRef(${c.id})">리마인드</button>
-          <button class="btn btn-xs" onclick="event.stopPropagation();markOneResponse(${c.id})">+1응답</button>
-          <button class="btn btn-xs btn-green" onclick="event.stopPropagation();completeRef(${c.id})">완료</button>
+          ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" onclick="event.stopPropagation();sendRefRequest(${c.id})">📋 추천인 요청</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" onclick="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" onclick="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
         </div>
       </div>`;
     }).join('');
@@ -4208,7 +4522,7 @@ function markOneResponse(id){
   const target=refDetails[id].find(r=>r.status==='등록') || refDetails[id].find(r=>r.status==='대기');
   if(target){target.status='응답';c.refD++;}
   if(c.refD>=c.refT)c.ref='완료';
-  saveState();renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   toast(`${c.name} +1응답 (${c.refD}/${c.refT})`,'tok');
 }
 // 추천인 접수(등록) 처리: 대기 상태 추천인 1명을 등록으로
@@ -4218,7 +4532,7 @@ function markRefRegistered(id){
   const pend=refDetails[id].find(r=>r.status==='대기');
   if(!pend){toast('모든 추천인이 이미 접수됐습니다.','tw');return;}
   pend.status='등록';
-  saveState();renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   const registered=refDetails[id].filter(r=>r.status==='등록'||r.status==='응답').length;
   toast(`${c.name} 추천인 접수 (${registered}/${c.refT})`,'tok');
 }
@@ -4230,7 +4544,7 @@ function startRef(id){
   if(!sent)return;
   c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);
   logNotify('Outlook','레퍼런스발송',c.name,c.email);
-  saveState();renderReference();updateMetrics();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();
   toast(`${c.name}님 레퍼런스 안내 Outlook이 열렸습니다.`,'toutlook');
 }
 // 모집단위 상세에서 추천인 접수 요청 (startRef + 모집단위 복귀)
@@ -4245,7 +4559,7 @@ function startAllEligible(){
   const el=candidates.filter(c=>c.stage>=2&&c.ref==='미시작');
   if(!el.length){alert('일괄 시작할 대상이 없습니다.');return;}
   if(!confirm(`2차면접 이상 미시작 ${el.length}명에게 일괄 발송하시겠습니까?`))return;
-  el.forEach(c=>{c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);logNotify('Outlook','레퍼런스발송',c.name,c.email);});
+  el.forEach(c=>{c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);logNotify('Outlook','레퍼런스발송',c.name,c.email);if(GS_CONFIG.scriptUrl)syncCandToGS(c);});
   saveState();renderReference();updateMetrics();
   toast(`${el.length}명 레퍼런스 체크 일괄 발송`,'toutlook');
 }
@@ -4273,7 +4587,7 @@ function completeRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   c.ref='완료';c.refD=c.refT;
   ensureRefDetails(c);refDetails[id].forEach(r=>r.status='응답');
-  saveState();renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   toast(`${c.name}님 완료 처리`,'tok');
 }
 function remindAllRef(){
@@ -4297,7 +4611,7 @@ async function generateAI(){
   const text=document.getElementById('ref-ai-text');
   if(prog)prog.style.display='block';if(out)out.style.display='none';
   let p=0;
-  const timer=setInterval(()=>{p=Math.min(p+Math.random()*14,90);if(bar)bar.style.width=Math.round(p)+'%';if(label){const s=['응답 데이터 수집 중...','Claude AI 분석 중...','역량 평가 중...','보고서 작성 중...'];label.textContent=s[Math.min(Math.floor(p/25),3)];}},280);
+  const timer=setInterval(()=>{p=Math.min(p+Math.random()*14,90);if(bar)bar.style.width=Math.round(p)+'%';if(label){const s=['응답 데이터 수집 중...','ChatGPT 분석 중...','역량 평가 중...','보고서 작성 중...'];label.textContent=s[Math.min(Math.floor(p/25),3)];}},280);
   const refs=refDetails[cid];
   const prompt=`건설회사 HR 담당자용 레퍼런스 체크 요약 보고서를 작성해주세요.
 
@@ -4311,14 +4625,33 @@ async function generateAI(){
 3. 주의사항 (있다면)
 4. HR 채용 권고 (강력추천/추천/보류/비추천 + 근거)
 한국어, 간결하게.`;
+  const apiKey = document.getElementById('cfg-openai-key')?.value?.trim();
+  if(!apiKey){
+    clearInterval(timer);
+    if(prog)prog.style.display='none';
+    alert('설정 탭에서 ChatGPT(OpenAI) API 키를 먼저 입력하세요.');
+    return;
+  }
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+      body:JSON.stringify({
+        model:'gpt-4o-mini',
+        max_tokens:900,
+        messages:[
+          {role:'system',content:'당신은 건설회사 HR 채용 담당자를 돕는 전문 어시스턴트입니다.'},
+          {role:'user',content:prompt}
+        ]
+      })
+    });
     const data=await resp.json();
     clearInterval(timer);if(bar)bar.style.width='100%';
-    setTimeout(()=>{if(prog)prog.style.display='none';if(out)out.style.display='block';if(text)text.textContent=data.content?.map(x=>x.text||'').join('')||'생성 실패';},300);
+    const result = data.choices?.[0]?.message?.content || ('오류: ' + (data.error?.message || '응답 형식 확인 필요'));
+    setTimeout(()=>{if(prog)prog.style.display='none';if(out)out.style.display='block';if(text)text.textContent=result;},300);
   }catch(e){
     clearInterval(timer);if(prog)prog.style.display='none';if(out)out.style.display='block';
-    if(text)text.textContent=`[${c.name} 레퍼런스 요약]\n\n[종합 평가]\n${c.name}님은 ${c.refT}명 중 ${c.refD}명으로부터 응답을 받았습니다 (${Math.round(c.refD/c.refT*100)}%). ${c.pos} 직무(${c.etype})에 적합한 역량 보유로 판단됩니다.\n\n[핵심 강점]\n• 관련 직무 전문성\n• 협업·소통 역량\n• 현장 적응력\n\n[주의사항]\n${c.refD<c.refT?`응답률 ${Math.round(c.refD/c.refT*100)}% — 추가 응답 수집 권고`:'특이사항 없음'}\n\n[채용 권고]\n${c.refD>=2?'추천':'보류'} — ${c.refD>=2?`${c.refD}명 응답 확보됨`:'추가 응답 필요'}\n\n※ Claude API 연동 시 설문 내용 기반 상세 분석이 제공됩니다.`;
+    if(text)text.textContent=`AI 요약 생성 실패: ${e.message}\n\n네트워크 또는 API 키를 확인하세요.`;
   }
 }
 
@@ -4336,9 +4669,9 @@ function updateObPreview(){
   const loc=document.getElementById('ob-loc')?.value||'{근무지}';
   const etype=document.getElementById('ob-etype')?.value||'{채용형태}';
   const notes=document.getElementById('ob-notes')?.value||'';
-  const tpl=document.getElementById('tpl-offer')?.value||'';
+  const tpl=document.getElementById('tpl-onboard')?.value||'';
   const msg=tpl.replace('{지원자명}',nm).replace('{입사일}',jd).replace('{부서}',dept).replace('{직책}',rank).replace('{채용형태}',etype).replace('{근무지}',loc).replace('{준비사항}',notes?'준비사항:\n'+notes:'');
-  const el=document.getElementById('ob-preview-teams');if(el)el.textContent=msg;
+  const el=document.getElementById('ob-preview-outlook');if(el)el.textContent=msg;
 }
 
 
@@ -4368,11 +4701,29 @@ function sendJoinNotice(obId) {
   const sign    = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
   const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
 
-  // 수신자: 유관 팀 이메일 + HR
-  const toEmails = [...teams.map(t => t.email), hrEmail]
-    .filter(Boolean).join(';');
+  // 부서: 모집단위 우선 → 지원자 → 입사정보
+  const pos = positions.find(p => Number(p.id) === Number(cand.posId));
+  const dept = (pos && pos.dept) || cand.dept || ob.dept || '';
 
-  const teamNames = teams.map(t => t.name).join(', ') || '유관 팀';
+  // 배치 부서장 자동 매칭: 면접관DB에서 같은 부서 + 직급(팀장/소장)
+  let deptLead = ob.deptLead || '';
+  let deptLeadName = '';
+  if(!deptLead && dept && Array.isArray(interviewers)) {
+    const lead = interviewers.find(iv =>
+      iv.dept && iv.dept.trim() === dept.trim() &&
+      /팀장|소장/.test(iv.rank || ''));
+    if(lead) { deptLead = lead.email; deptLeadName = `${lead.name} ${lead.rank}`; }
+  }
+
+  // 수신자: 배치 부서장 + 유관 팀 이메일 + HR
+  const toEmails = [deptLead, ...teams.map(t => t.email), hrEmail]
+    .filter(Boolean).join(';');
+  if(!toEmails) {
+    alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: '${dept||'부서 미정'}'의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.`);
+    return;
+  }
+
+  const teamNames = [deptLeadName ? deptLeadName+'(배치 부서장)' : (deptLead ? '배치 부서장' : ''), ...teams.map(t => t.name)].filter(Boolean).join(', ') || '유관 팀';
 
   const subject = `[우미건설] ${cand.name}님 입사 안내 — ${ob.joinDate}`;
 
@@ -4404,26 +4755,14 @@ function sendJoinNotice(obId) {
     hrEmail ? `📧 ${hrEmail}` : '',
   ].filter(l => l !== undefined).join('\n');
 
-  // Outlook 발송
+  // Outlook 발송 (관련 부서 + HR 일괄 수신)
   const mailUrl = `mailto:${toEmails}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.open(mailUrl);
-
-  // Teams 딥링크 (유관 팀 개별 채팅)
-  setTimeout(() => {
-    teams.forEach(team => {
-      if(team.email) {
-        const msg = encodeURIComponent(
-          `[입사 안내] ${cand.name}님 ${ob.joinDate} 입사 예정입니다.\n` +
-          `직무: ${cand.pos || '미정'} / 소속: ${cand.dept || '미정'}\n` +
-          `세부 안내는 이메일 참고 부탁드립니다.`
-        );
-        window.open(`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(team.email)}&message=${msg}`);
-      }
-    });
-    toast(`입사 안내 발송 완료 — Outlook + Teams ${teams.length}팀`, 'tok');
-    logNotify('outlook+teams', '입사안내', cand.name);
-    saveState();
-  }, 600);
+  ob.deptNotified = true;
+  toast(`사내 부서 입사 안내 발송 — ${teams.length}개 부서 + HR (Outlook 창에서 전송)`, 'tok');
+  logNotify('Outlook', '입사안내(사내부서)', cand.name, toEmails);
+  saveState();
+  renderOnboarding();
 }
 
 // 배치 부서장 면접 안내 (최종합격 후 부서장에게)
@@ -4482,12 +4821,13 @@ function addOnboarding(){
     id:Date.now(),candId:cid,candName:c.name,pos:c.pos,
     etype:document.getElementById('ob-etype').value,
     dept:document.getElementById('ob-dept').value,
+    deptLead:document.getElementById('ob-dept-lead')?.value||'',
     joinDate:jd,rank:document.getElementById('ob-rank').value,
     loc:document.getElementById('ob-loc').value,
     notes:document.getElementById('ob-notes').value,notified:false
   });
   if(c.stage<5)c.stage=5;
-  saveState();renderOnboarding();updateMetrics();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderOnboarding();updateMetrics();
   toast(`${c.name}님 입사 등록 완료`,'tok');
 }
 
@@ -4541,9 +4881,10 @@ function renderOnboarding(){
       <td><div>${o.pos}</div><div class="tsub">${o.dept||'-'}</div></td>
       <td style="font-weight:700;color:var(--green);font-family:'DM Mono',monospace;font-size:12px">${o.joinDate}</td>
       <td>${o.rank||'-'}</td>
-      <td>${o.notified?'<span class="b bgreen">발송완료</span>':'<span class="b bgray">미발송</span>'}</td>
-      <td style="display:flex;gap:4px">
-        ${!o.notified?`<button class="btn btn-xs btn-teams" onclick="sendObById(${o.id},'teams')">Teams</button><button class="btn btn-xs btn-outlook" onclick="sendObById(${o.id},'outlook')">Outlook</button>`:''}
+      <td>${o.notified?'<span class="b bgreen">지원자✓</span>':'<span class="b bgray">미발송</span>'} ${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-xs btn-outlook" onclick="sendObById(${o.id},'outlook')">✉ 지원자 안내</button>
+        <button class="btn btn-xs" style="background:#E9F7F2;color:var(--teal);border-color:#A8E0C0" onclick="sendJoinNotice(${o.id})">🏢 사내부서 통보</button>
       </td>
     </tr>`).join('')}</tbody>
   </table></div>`;
@@ -4602,7 +4943,7 @@ function updateBulkPreview(){
     offer:`🎉 [최종 합격 안내 - 우미건설]\n{지원자명}님, 진심으로 축하드립니다!\n상세 입사 안내를 별도로 연락드리겠습니다.\n우미건설 피플팀 드림`,
     remind:`📝 [레퍼런스 체크 리마인드]\n{지원자명}님, 추천인 응답 기한이 다가왔습니다.\n우미건설 피플팀 드림`,
   };
-  const prev=document.getElementById('bulk-preview');
+  const prev=document.getElementById('bulk-preview-msg');
   if(prev)prev.textContent=msgs[type]||'';
 }
 function sendBulk(){
@@ -4623,7 +4964,7 @@ function sendBulk(){
       remind:'[우미건설] 레퍼런스 체크 안내',
     };
     const subject = msgs[type] || '[우미건설] 채용 진행 안내';
-    const body = document.getElementById('bulk-preview')?.textContent || '';
+    const body = document.getElementById('bulk-preview-msg')?.textContent || '';
     const sign    = document.getElementById('cfg-sign')?.value    || '우미건설 피플팀';
     const hrEmail = document.getElementById('cfg-hr-email')?.value || 'hr@woomic.co.kr';
     // BCC로 일괄 발송 (개인정보 보호)
@@ -4690,9 +5031,10 @@ async function loadSettingsWithGS() {
       set('cfg-interviewer-url', gsCfg.interviewerUrl);
       set('cfg-ref-auto-url',    gsCfg.refAutoUrl);
       set('cfg-notify-teams',    gsCfg.notifyTeams);
+      set('cfg-openai-key',      gsCfg.openaiKey);
       set('tpl-int1',            gsCfg.tplInt1);
       set('tpl-int2',            gsCfg.tplInt2);
-      set('tpl-offer',           gsCfg.tplOffer);
+      set('tpl-onboard',         gsCfg.tplOnboard);
       if(gsCfg.spUrl)          SP_CONFIG.siteUrl = gsCfg.spUrl;
       if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
       if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
@@ -4786,9 +5128,10 @@ function saveSettings() {
     interviewerUrl: document.getElementById('cfg-interviewer-url')?.value || '',
     refAutoUrl: document.getElementById('cfg-ref-auto-url')?.value || '',
     notifyTeams:  document.getElementById('cfg-notify-teams')?.value || '',
+    openaiKey:    document.getElementById('cfg-openai-key')?.value || '',
     tplInt1: document.getElementById('tpl-int1')?.value || '',
     tplInt2: document.getElementById('tpl-int2')?.value || '',
-    tplOffer:document.getElementById('tpl-offer')?.value || '',
+    tplOnboard:document.getElementById('tpl-onboard')?.value || '',
   };
   try {
     localStorage.setItem('woomic_settings', JSON.stringify(cfg));
@@ -4833,9 +5176,10 @@ function loadSettings() {
     set('cfg-ref-auto-url', cfg.refAutoUrl);
     if(cfg.refAutoUrl) GS_CONFIG.refAutoUrl = cfg.refAutoUrl;
     set('cfg-notify-teams',     cfg.notifyTeams);
+    set('cfg-openai-key',       cfg.openaiKey);
     set('tpl-int1',             cfg.tplInt1);
     set('tpl-int2',             cfg.tplInt2);
-    set('tpl-offer',            cfg.tplOffer);
+    set('tpl-onboard',          cfg.tplOnboard);
   } catch(e) { console.warn('설정 로드 실패', e); }
 }
 
@@ -4908,11 +5252,28 @@ try {
     if(FIXED_URLS.scriptUrl)      GS_CONFIG.scriptUrl      = FIXED_URLS.scriptUrl;
     if(FIXED_URLS.interviewerUrl) GS_CONFIG.interviewerUrl = FIXED_URLS.interviewerUrl;
     if(FIXED_URLS.refAutoUrl)     GS_CONFIG.refAutoUrl     = FIXED_URLS.refAutoUrl;
-    // 지원자 데이터 로드
+    // 지원자 데이터 로드 (GS 우선, 실패 시 localStorage 캐시 유지)
     if(GS_CONFIG.scriptUrl) {
       loadFromGS().then(loaded => {
-        if(loaded) { updateMetrics(); renderDashboard(); renderTracker(); }
+        if(loaded) {
+          updateMetrics(); renderDashboard(); renderTracker(); renderPositions();
+          showSyncStatus('Google Sheets 기준으로 로드됨', 'ok');
+        } else {
+          showSyncStatus('⚠ GS 응답 없음 — 로컬 캐시로 표시 중', 'warn');
+        }
+      }).catch(() => {
+        showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
       });
+      // 모집단위 로드
+      if(typeof loadPositionsFromGS === 'function') {
+        loadPositionsFromGS().then(loaded => { if(loaded) renderPositions(); });
+      }
+      // 면접 데이터 로드
+      if(typeof loadInterviewsFromGS === 'function') {
+        loadInterviewsFromGS().then(loaded => { if(loaded) { renderPositions(); renderDashboard(); } });
+      }
+    } else {
+      showSyncStatus('⚠ GS 미연결 — 로컬 캐시로만 동작 (데이터 영구 저장 안 됨)', 'warn');
     }
     // 면접관 DB 자동 로드
     if(GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function') loadInterviewers();
