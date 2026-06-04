@@ -819,6 +819,10 @@ textarea{resize:vertical;min-height:64px;}
         <div style="font-size:11px;color:var(--t3);margin-top:8px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
           💡 사용 가능한 치환 변수: <b>{지원자명}</b> <b>{포지션}</b> <b>{면접일시}</b> <b>{장소}</b> <b>{면접관}</b> <b>{메모}</b> <b>{추천인명}</b> <b>{추천인폼링크}</b> <b>{결과설문링크}</b> — 발송 시 실제 값으로 자동 변환됩니다.
         </div>
+        <div class="brow" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 설정 저장</button>
+          <span style="font-size:11.5px;color:var(--t3)">메일 템플릿·URL·서명 등 모든 설정을 저장합니다 (Google Sheets에도 동기화).</span>
+        </div>
       </div>
     </div>
 
@@ -1205,6 +1209,52 @@ textarea{resize:vertical;min-height:64px;}
     </div>
   </div>
 </div>
+
+<!-- ── 후보일정 일괄 수집 안내 모달 ──────────────────────── -->
+<div class="overlay" id="modal-collect-slots">
+  <div class="modal" style="width:600px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="csl-title">면접 후보일정 일괄 안내</div>
+      <button class="mclose" onclick="closeModal('modal-collect-slots')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
+        이 모집단위 면접 대상 전원에게 <b>동일한 후보일정 3안</b>을 안내하고 가능한 일시를 회신받습니다. 회신이 오면 [확정일정 배치] 또는 개별 [일정 확정]으로 확정하세요.
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">📅 공통 후보일정 (최대 3안)</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        ${[1,2,3].map(n=>'').join('')}
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
+          <input id="csl-slot1-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <input id="csl-slot1-time" type="time" step="600" value="10:00" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">2안</span>
+          <input id="csl-slot2-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <input id="csl-slot2-time" type="time" step="600" value="14:00" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">3안</span>
+          <input id="csl-slot3-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <input id="csl-slot3-time" type="time" step="600" value="10:00" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:12px">
+        <label>면접 장소 (선택)</label>
+        <input id="csl-loc" placeholder="예: 본사 3층 회의실 A" style="font-size:12px"/>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px">안내 대상</div>
+      <div id="csl-targets" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rsm);padding:8px;font-size:12px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('modal-collect-slots')">취소</button>
+      <button class="btn btn-outlook" onclick="sendCollectSlots()">✉ 대상 전원에게 안내 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 후보일정 일괄 수집 안내 모달 끝 ────────────────────── -->
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -1699,6 +1749,98 @@ function sendOnboardToDept(candId) {
 }
 
 
+// ── 후보일정 일괄 수집 (모집단위 단위) ──────────────────────
+let collectSlotsCtx = { posId: null, stageIdx: null };
+
+function openCollectSlots(posId, stageIdx) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const round = stageIdx === 1 ? '1차' : '2차';
+  // 대상: 서류합격(0)에서 1차 수집이면 stage 0, 1차 단계(1)면 stage 1
+  const targetStage = stageIdx;
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === targetStage);
+  if(!targets.length) { toast(`${round} 면접 후보일정을 안내할 대상이 없습니다.`, 'terr'); return; }
+
+  collectSlotsCtx = { posId, stageIdx };
+  document.getElementById('csl-title').textContent = `${round} 면접 후보일정 일괄 안내 — ${(pos.dept?pos.dept+' · ':'')+pos.title} (${targets.length}명)`;
+  // 기본 날짜 채우기 (3일 후부터)
+  [1,2,3].forEach(n => {
+    const d = new Date(); d.setDate(d.getDate() + 2 + n);
+    const dEl = document.getElementById(`csl-slot${n}-date`);
+    if(dEl) dEl.value = d.toISOString().slice(0,10);
+  });
+  document.getElementById('csl-loc').value = pos.loc || '';
+  // 대상 목록
+  const tw = document.getElementById('csl-targets');
+  if(tw) tw.innerHTML = targets.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+    <span style="font-weight:600">${c.name}</span><span style="color:var(--t3)">${c.email}</span></div>`).join('');
+  closeModal('modal-pos-detail');
+  openModal('modal-collect-slots');
+}
+
+function sendCollectSlots() {
+  const { posId, stageIdx } = collectSlotsCtx;
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const roundLabel = round === '1차' ? '1차 실무면접' : '2차 임원면접';
+
+  // 후보일정 수집
+  const slots = [];
+  [1,2,3].forEach(n => {
+    const date = document.getElementById(`csl-slot${n}-date`)?.value;
+    const time = document.getElementById(`csl-slot${n}-time`)?.value;
+    if(date && time) slots.push(`${date} ${time}`);
+  });
+  if(!slots.length) { toast('후보일정을 1개 이상 입력하세요.', 'terr'); return; }
+  const loc = document.getElementById('csl-loc')?.value || '';
+
+  // 후보일정 표시 텍스트
+  const slotText = slots.map((s,i) => {
+    const d = new Date(s.replace(' ','T'));
+    const wk = ['일','월','화','수','목','금','토'][d.getDay()];
+    return `  ${['①','②','③'][i]} ${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}(${wk}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }).join('\n');
+
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  if(!targets.length) { toast('대상이 없습니다.', 'terr'); return; }
+  if(!confirm(`${targets.length}명에게 후보일정 안내 메일을 작성합니다.\n메일 작성창이 순서대로 열립니다. 진행할까요?`)) return;
+
+  // 각 지원자에게 후보일정 안내 + pending 면접 생성/갱신
+  targets.forEach((c, idx) => {
+    // pending 면접 생성/갱신 (후보일정 저장, 확정 전)
+    let itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
+    if(itv) {
+      itv.slots = slots; itv.status = 'pending';
+      itv.loc = loc || itv.loc || '미정 (회신 후 확정)';
+      itv.memo = `후보일정 안내됨 (회신 대기)`;
+    } else {
+      interviews.push({
+        id: Date.now() + idx, candId: c.id, candName: c.name, type: round,
+        date: slots[0], loc: loc || '미정 (회신 후 확정)', panel: '미정',
+        memo: '후보일정 안내됨 (회신 대기)', notified: false, status: 'pending', slots: slots,
+      });
+    }
+    // 메일 작성창 순차 오픈
+    setTimeout(() => {
+      const subject = `[우미건설] ${c.name}님 ${roundLabel} 일정 협의 안내`;
+      const body = `안녕하세요 ${c.name}님,\n\n우미건설 ${c.pos} 포지션 ${roundLabel}을 진행하고자 합니다.\n아래 후보일정 중 가능한 일시를 회신해 주세요.\n\n${slotText}\n${loc ? '\n■ 장소: '+loc : ''}\n\n※ 모두 어려우시면 가능한 일정을 알려주세요.\n회신 주시면 일정을 확정하여 다시 안내드리겠습니다.`;
+      openMailto(c.email, subject, body);
+    }, idx * 600);
+    logNotify('Outlook', `${round}후보일정안내`, c.name, c.email);
+  });
+  saveState();
+  if(GS_CONFIG.scriptUrl) {
+    targets.forEach(c => {
+      const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
+      if(itv) syncIntToGS(itv);
+    });
+  }
+  closeModal('modal-collect-slots');
+  toast(`${targets.length}명에게 후보일정 안내 작성창을 엽니다. 각 창에서 전송하세요.`, 'toutlook');
+  setTimeout(() => openPosDetail(Number(posId)), targets.length * 600 + 400);
+}
+
 // 모집단위 단계의 미확정 면접 일정을 전체 확정
 function confirmAllInterviews(posId, stageIdx) {
   const round = stageIdx === 1 ? '1차' : '2차';
@@ -1853,6 +1995,26 @@ function openPosDetail(posId) {
       </div>
     </div>
 
+    <!-- 모집단위 진행 타임라인 (단계별 인원 + 일괄 이동) -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">모집단위 진행 단계</div>
+      <div style="display:flex;align-items:flex-start;overflow-x:auto;padding:4px 0">
+        ${FLOW.map((stageIdx, fi) => {
+          const cnt = posCands.filter(c => c.stage === stageIdx).length;
+          const col = STAGE_COLORS[stageIdx] || 'var(--t3)';
+          const hasNext = fi < FLOW.length - 1;
+          const nextStage = hasNext ? FLOW[fi+1] : null;
+          const canMove = cnt > 0 && hasNext;
+          return `<div style="flex:1;min-width:90px;text-align:center;position:relative">
+            ${hasNext ? `<div style="position:absolute;top:18px;left:50%;width:100%;height:2px;background:${cnt>0?col:'var(--border2)'};z-index:0"></div>` : ''}
+            <div style="position:relative;z-index:1;width:38px;height:38px;border-radius:50%;margin:0 auto 6px;background:${cnt>0?col:'var(--surface)'};border:2px solid ${cnt>0?col:'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:${cnt>0?'#fff':'var(--t3)'}">${cnt||'·'}</div>
+            <div style="font-size:10.5px;font-weight:700;color:${cnt>0?'var(--t1)':'var(--t3)'};line-height:1.3">${STAGES[stageIdx]}</div>
+            ${canMove ? `<button class="btn btn-xs" style="margin-top:5px;font-size:9px;padding:1px 6px" onclick="batchStageChange(${posId},${stageIdx},${nextStage})">→ ${STAGES[nextStage]} 일괄</button>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
     <!-- 단계별 지원자 목록 -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span style="font-size:13px;font-weight:700">지원자 현황</span>
@@ -1869,7 +2031,8 @@ function openPosDetail(posId) {
           ${(()=>{
             // 서류합격(0): 전체 1차 면접 일정 일괄 배치
             if(stageIdx===0) {
-              return `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1)">📅 전체 1차 면접일정 배치</button>`
+              return `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${posId},1)">📨 후보일정 일괄 안내(수집)</button>`
+                + `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1)">📅 확정일정 일괄 배치</button>`
                 + `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},0,1)">전체 1차면접으로 이동</button>`;
             }
             if(stageIdx!==1 && stageIdx!==3) return '';
@@ -1877,7 +2040,8 @@ function openPosDetail(posId) {
             const confirmedCnt = stageCands.filter(cd => interviews.some(i=>i.candId===cd.id && i.type===round && (i.status==='confirmed'||i.status==='done'))).length;
             const allConfirmed = stageCands.length>0 && confirmedCnt===stageCands.length;
             const panelExists = (stageIdx===1?parsePanelists(pos.panel1):parsePanelists(pos.panel2)).length>0;
-            let btns = `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},${stageIdx})">📅 일괄 일정 배치</button>`;
+            let btns = `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${posId},${stageIdx})">📨 후보일정 안내(수집)</button>`;
+            btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},${stageIdx})">📅 확정일정 배치</button>`;
             btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>`;
             // 일정 확정 진행률 표시
             btns += `<span style="font-size:10px;color:${allConfirmed?'var(--green)':'var(--t3)'};font-weight:600">일정확정 ${confirmedCnt}/${stageCands.length}</span>`;
