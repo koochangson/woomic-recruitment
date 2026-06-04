@@ -815,9 +815,21 @@ textarea{resize:vertical;min-height:64px;}
 
 앞날에 좋은 일들이 가득하시길 바랍니다.
 우미건설 피플팀 드림</textarea></div>
+          <div class="fg"><label>면접 후보일정 안내 (일정 취합용)</label><textarea id="tpl-collect" style="min-height:90px;font-family:'DM Mono',monospace;font-size:11.5px">안녕하세요 {지원자명}님,
+
+우미건설 {포지션} 포지션 {면접유형}을 진행하고자 합니다.
+아래 후보일정 중 가능한 일시를 회신해 주세요.
+
+{후보일정}
+{장소}
+
+※ 모두 어려우시면 가능한 일정을 알려주세요.
+회신 주시면 일정을 확정하여 다시 안내드리겠습니다.
+
+우미건설 피플팀 드림</textarea></div>
         </div>
         <div style="font-size:11px;color:var(--t3);margin-top:8px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
-          💡 사용 가능한 치환 변수: <b>{지원자명}</b> <b>{포지션}</b> <b>{면접일시}</b> <b>{장소}</b> <b>{면접관}</b> <b>{메모}</b> <b>{추천인명}</b> <b>{추천인폼링크}</b> <b>{결과설문링크}</b> — 발송 시 실제 값으로 자동 변환됩니다.
+          💡 사용 가능한 치환 변수: <b>{지원자명}</b> <b>{포지션}</b> <b>{면접유형}</b> <b>{후보일정}</b> <b>{면접일시}</b> <b>{장소}</b> <b>{면접관}</b> <b>{메모}</b> <b>{추천인명}</b> <b>{추천인폼링크}</b> <b>{결과설문링크}</b> — 발송 시 실제 값으로 자동 변환됩니다.
         </div>
         <div class="brow" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
           <button class="btn btn-primary" onclick="saveSettings()">💾 설정 저장</button>
@@ -1756,10 +1768,13 @@ function openCollectSlots(posId, stageIdx) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const round = stageIdx === 1 ? '1차' : '2차';
-  // 대상: 서류합격(0)에서 1차 수집이면 stage 0, 1차 단계(1)면 stage 1
-  const targetStage = stageIdx;
-  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === targetStage);
-  if(!targets.length) { toast(`${round} 면접 후보일정을 안내할 대상이 없습니다.`, 'terr'); return; }
+  // 1차 후보일정 → 서류합격(0)·1차면접(1) 대상 / 2차 후보일정 → 레퍼런스(2)·2차면접(3) 대상
+  const targetStages = stageIdx === 1 ? [0,1] : [2,3];
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage));
+  if(!targets.length) {
+    alert(`${round} 면접 후보일정을 안내할 대상이 없습니다.\n\n대상: ${targetStages.map(s=>STAGES[s]).join(' 또는 ')} 단계 지원자\n먼저 지원자를 해당 단계로 이동시켜 주세요.`);
+    return;
+  }
 
   collectSlotsCtx = { posId, stageIdx };
   document.getElementById('csl-title').textContent = `${round} 면접 후보일정 일괄 안내 — ${(pos.dept?pos.dept+' · ':'')+pos.title} (${targets.length}명)`;
@@ -1802,7 +1817,8 @@ function sendCollectSlots() {
     return `  ${['①','②','③'][i]} ${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}(${wk}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }).join('\n');
 
-  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  const targetStages = stageIdx === 1 ? [0,1] : [2,3];
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage));
   if(!targets.length) { toast('대상이 없습니다.', 'terr'); return; }
   if(!confirm(`${targets.length}명에게 후보일정 안내 메일을 작성합니다.\n메일 작성창이 순서대로 열립니다. 진행할까요?`)) return;
 
@@ -1824,7 +1840,18 @@ function sendCollectSlots() {
     // 메일 작성창 순차 오픈
     setTimeout(() => {
       const subject = `[우미건설] ${c.name}님 ${roundLabel} 일정 협의 안내`;
-      const body = `안녕하세요 ${c.name}님,\n\n우미건설 ${c.pos} 포지션 ${roundLabel}을 진행하고자 합니다.\n아래 후보일정 중 가능한 일시를 회신해 주세요.\n\n${slotText}\n${loc ? '\n■ 장소: '+loc : ''}\n\n※ 모두 어려우시면 가능한 일정을 알려주세요.\n회신 주시면 일정을 확정하여 다시 안내드리겠습니다.`;
+      const tpl = document.getElementById('tpl-collect')?.value;
+      let body;
+      if(tpl) {
+        body = tpl
+          .replace(/\{지원자명\}/g, c.name||'')
+          .replace(/\{포지션\}/g, c.pos||'')
+          .replace(/\{면접유형\}/g, roundLabel)
+          .replace(/\{후보일정\}/g, slotText)
+          .replace(/\{장소\}/g, loc ? '■ 장소: '+loc : '');
+      } else {
+        body = `안녕하세요 ${c.name}님,\n\n우미건설 ${c.pos} 포지션 ${roundLabel}을 진행하고자 합니다.\n아래 후보일정 중 가능한 일시를 회신해 주세요.\n\n${slotText}\n${loc ? '\n■ 장소: '+loc : ''}\n\n※ 모두 어려우시면 가능한 일정을 알려주세요.\n회신 주시면 일정을 확정하여 다시 안내드리겠습니다.`;
+      }
       openMailto(c.email, subject, body);
     }, idx * 600);
     logNotify('Outlook', `${round}후보일정안내`, c.name, c.email);
@@ -1996,7 +2023,7 @@ function openPosDetail(posId) {
     </div>
 
     <!-- 모집단위 진행 타임라인 (단계별 인원 + 일괄 이동) -->
-    <div style="margin-bottom:20px">
+    <div style="margin-bottom:16px">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px">모집단위 진행 단계</div>
       <div style="display:flex;align-items:flex-start;overflow-x:auto;padding:4px 0">
         ${FLOW.map((stageIdx, fi) => {
@@ -2013,6 +2040,21 @@ function openPosDetail(posId) {
           </div>`;
         }).join('')}
       </div>
+    </div>
+
+    <!-- 면접일정 관리 액션 바 (상시 노출) -->
+    <div style="margin-bottom:20px;padding:12px 14px;background:var(--abg);border:1px solid var(--abd);border-radius:var(--r)">
+      <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">📅 면접일정 관리 (후보일정을 직접 정해서 안내 → 회신 후 확정)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--t2);align-self:center;font-weight:600">1차:</span>
+        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--amber);border-color:var(--abd)" onclick="openCollectSlots(${posId},1)">📨 후보일정 안내</button>
+        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1)">📅 확정일정 배치</button>
+        <span style="width:1px;background:var(--abd);margin:0 4px"></span>
+        <span style="font-size:11px;color:var(--t2);align-self:center;font-weight:600">2차:</span>
+        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--amber);border-color:var(--abd)" onclick="openCollectSlots(${posId},3)">📨 후보일정 안내</button>
+        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},3)">📅 확정일정 배치</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--t3);margin-top:6px">※ 후보일정 안내 = 우리가 정한 후보 3안을 대상자에게 보내 가능 일시를 회신받음 · 확정일정 배치 = 시간을 바로 배정</div>
     </div>
 
     <!-- 단계별 지원자 목록 -->
@@ -5250,6 +5292,7 @@ async function loadSettingsWithGS() {
       set('tpl-ref',             gsCfg.tplRef);
       set('tpl-ref-remind',      gsCfg.tplRefRemind);
       set('tpl-reject',          gsCfg.tplReject);
+      set('tpl-collect',         gsCfg.tplCollect);
       if(gsCfg.spUrl)          SP_CONFIG.siteUrl = gsCfg.spUrl;
       if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
       if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
@@ -5350,6 +5393,7 @@ function saveSettings() {
     tplRef: document.getElementById('tpl-ref')?.value || '',
     tplRefRemind: document.getElementById('tpl-ref-remind')?.value || '',
     tplReject: document.getElementById('tpl-reject')?.value || '',
+    tplCollect: document.getElementById('tpl-collect')?.value || '',
   };
   try {
     localStorage.setItem('woomic_settings', JSON.stringify(cfg));
@@ -5401,6 +5445,7 @@ function loadSettings() {
     set('tpl-ref',              cfg.tplRef);
     set('tpl-ref-remind',       cfg.tplRefRemind);
     set('tpl-reject',           cfg.tplReject);
+    set('tpl-collect',          cfg.tplCollect);
   } catch(e) { console.warn('설정 로드 실패', e); }
 }
 
