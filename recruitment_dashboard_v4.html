@@ -1257,7 +1257,6 @@ textarea{resize:vertical;min-height:64px;}
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">📅 공통 후보일정 (최대 3안)</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        ${[1,2,3].map(n=>'').join('')}
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
           <input id="csl-slot1-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
@@ -1289,6 +1288,18 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 
 <!-- ── 후보일정 일괄 수집 안내 모달 끝 ────────────────────── -->
+
+<!-- ── 후보일정 순차 발송 진행 모달 ──────────────────────── -->
+<div class="overlay" id="modal-collect-send">
+  <div class="modal" style="width:420px">
+    <div class="modal-hd">
+      <div class="modal-title">후보일정 안내 — 순차 발송</div>
+      <button class="mclose" onclick="closeCollectSend()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body" id="csend-body"></div>
+    <div class="modal-ft" id="csend-footer"></div>
+  </div>
+</div>
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -1842,11 +1853,9 @@ function sendCollectSlots() {
   const targetStages = stageIdx === 1 ? [0,1] : [2,3];
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage));
   if(!targets.length) { toast('대상이 없습니다.', 'terr'); return; }
-  if(!confirm(`${targets.length}명에게 후보일정 안내 메일을 작성합니다.\n메일 작성창이 순서대로 열립니다. 진행할까요?`)) return;
 
-  // 각 지원자에게 후보일정 안내 + pending 면접 생성/갱신
+  // 각 지원자 pending 면접 생성/갱신 (후보일정 저장, 확정 전)
   targets.forEach((c, idx) => {
-    // pending 면접 생성/갱신 (후보일정 저장, 확정 전)
     let itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
     if(itv) {
       itv.slots = slots; itv.status = 'pending';
@@ -1859,24 +1868,6 @@ function sendCollectSlots() {
         memo: '후보일정 안내됨 (회신 대기)', notified: false, status: 'pending', slots: slots,
       });
     }
-    // 메일 작성창 순차 오픈
-    setTimeout(() => {
-      const subject = `[우미건설] ${c.name}님 ${roundLabel} 일정 협의 안내`;
-      const tpl = document.getElementById('tpl-collect')?.value;
-      let body;
-      if(tpl) {
-        body = tpl
-          .replace(/\{지원자명\}/g, c.name||'')
-          .replace(/\{포지션\}/g, c.pos||'')
-          .replace(/\{면접유형\}/g, roundLabel)
-          .replace(/\{후보일정\}/g, slotText)
-          .replace(/\{장소\}/g, loc ? '■ 장소: '+loc : '');
-      } else {
-        body = `안녕하세요 ${c.name}님,\n\n우미건설 ${c.pos} 포지션 ${roundLabel}을 진행하고자 합니다.\n아래 후보일정 중 가능한 일시를 회신해 주세요.\n\n${slotText}\n${loc ? '\n■ 장소: '+loc : ''}\n\n※ 모두 어려우시면 가능한 일정을 알려주세요.\n회신 주시면 일정을 확정하여 다시 안내드리겠습니다.`;
-      }
-      openMailto(c.email, subject, body, true);
-    }, idx * 600);
-    logNotify('Outlook', `${round}후보일정안내`, c.name, c.email);
   });
   saveState();
   if(GS_CONFIG.scriptUrl) {
@@ -1885,9 +1876,109 @@ function sendCollectSlots() {
       if(itv) syncIntToGS(itv);
     });
   }
+
+  // 순차 발송 큐 구성 (mailto는 연속 자동발송이 막히므로 한 명씩)
+  collectSendQueue = {
+    posId, round, roundLabel, slotText, loc,
+    list: targets.map(c => ({ id: c.id, name: c.name, email: c.email, pos: c.pos })),
+    idx: 0,
+  };
   closeModal('modal-collect-slots');
-  toast(`${targets.length}명에게 후보일정 안내 작성창을 엽니다. 각 창에서 전송하세요.`, 'toutlook');
-  setTimeout(() => openPosDetail(Number(posId)), targets.length * 600 + 400);
+  renderCollectSendStep();
+  openModal('modal-collect-send');
+}
+
+// 순차 발송 큐 상태
+let collectSendQueue = null;
+
+// 발송 진행 모달 렌더
+function renderCollectSendStep() {
+  const q = collectSendQueue;
+  if(!q) return;
+  const total = q.list.length;
+  const done = q.idx;
+  const cur = q.list[q.idx];
+  const body = document.getElementById('csend-body');
+  if(!body) return;
+
+  if(!cur) {
+    // 전부 발송 완료
+    body.innerHTML = `<div style="text-align:center;padding:24px 0">
+      <div style="font-size:40px;margin-bottom:10px">✅</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">${total}명 전원 안내 완료</div>
+      <div style="font-size:12px;color:var(--t3)">각 메일 창에서 [보내기]를 눌렀는지 확인하세요.</div>
+    </div>`;
+    document.getElementById('csend-footer').innerHTML =
+      `<button class="btn btn-primary" onclick="closeCollectSend()">완료</button>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-bottom:4px">
+        <span>진행 ${done}/${total}</span><span>${Math.round(done/total*100)}%</span>
+      </div>
+      <div class="prog" style="height:6px"><div class="pf-bar" style="width:${done/total*100}%;background:var(--outlook)"></div></div>
+    </div>
+    <div style="padding:16px;background:var(--s2);border-radius:var(--r);text-align:center">
+      <div style="font-size:11px;color:var(--t3);margin-bottom:4px">다음 발송 대상 (${done+1}번째)</div>
+      <div style="font-size:17px;font-weight:800;margin-bottom:2px">${cur.name}</div>
+      <div style="font-size:12px;color:var(--t2)">${cur.email}</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:4px">${cur.pos}</div>
+    </div>
+    <div style="font-size:11.5px;color:var(--t3);margin-top:12px;text-align:center">
+      아래 버튼을 누르면 <b>${cur.name}</b>님 메일 작성창이 열립니다.<br>Outlook에서 전송 후 [다음 사람]을 누르세요.
+    </div>`;
+
+  const remaining = total - done;
+  document.getElementById('csend-footer').innerHTML = `
+    <button class="btn" onclick="skipCollectSend()" style="font-size:12px">이 사람 건너뛰기</button>
+    <button class="btn btn-outlook" onclick="doCollectSendCurrent()">✉ ${cur.name}님 메일 열기</button>`;
+}
+
+// 현재 대상 메일 작성창 열기
+function doCollectSendCurrent() {
+  const q = collectSendQueue;
+  if(!q) return;
+  const cur = q.list[q.idx];
+  if(!cur) return;
+  const subject = `[우미건설] ${cur.name}님 ${q.roundLabel} 일정 협의 안내`;
+  const tpl = document.getElementById('tpl-collect')?.value;
+  let body;
+  if(tpl) {
+    body = tpl
+      .replace(/\{지원자명\}/g, cur.name||'')
+      .replace(/\{포지션\}/g, cur.pos||'')
+      .replace(/\{면접유형\}/g, q.roundLabel)
+      .replace(/\{후보일정\}/g, q.slotText)
+      .replace(/\{장소\}/g, q.loc ? '■ 장소: '+q.loc : '');
+  } else {
+    body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 후보일정 중 가능한 일시를 회신해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n\n※ 모두 어려우시면 가능한 일정을 알려주세요.\n회신 주시면 일정을 확정하여 다시 안내드리겠습니다.`;
+  }
+  openMailto(cur.email, subject, body);
+  logNotify('Outlook', `${q.round}후보일정안내`, cur.name, cur.email);
+  // 메일 연 뒤 "다음 사람" 버튼으로 전환
+  document.getElementById('csend-footer').innerHTML = `
+    <span style="font-size:11.5px;color:var(--t3);align-self:center">${cur.name}님 메일 창에서 전송하셨나요?</span>
+    <button class="btn btn-primary" onclick="nextCollectSend()">다음 사람 →</button>`;
+}
+
+function nextCollectSend() {
+  if(!collectSendQueue) return;
+  collectSendQueue.idx++;
+  saveState();
+  renderCollectSendStep();
+}
+function skipCollectSend() {
+  if(!collectSendQueue) return;
+  collectSendQueue.idx++;
+  renderCollectSendStep();
+}
+function closeCollectSend() {
+  const posId = collectSendQueue ? collectSendQueue.posId : null;
+  collectSendQueue = null;
+  closeModal('modal-collect-send');
+  if(posId != null) openPosDetail(Number(posId));
 }
 
 // 모집단위 단계의 미확정 면접 일정을 전체 확정
