@@ -281,7 +281,7 @@ textarea{resize:vertical;min-height:64px;}
 /* ── 대시보드 채용단계 칸반 ─────────────────────────────── */
 /* 7개 단계 컬럼이 한 화면에 들어오도록 flex로 폭 분배 (좁은 화면에서는 min-width로 가로 스크롤 폴백) */
 .position-kanban{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;align-items:stretch;}
-.position-kanban-col{flex:1 1 0;min-width:120px;min-height:160px;max-height:440px;box-sizing:border-box;border-radius:var(--r);padding:10px 8px;display:flex;flex-direction:column;}
+.position-kanban-col{flex:1 1 0;min-width:120px;min-height:360px;max-height:calc(100vh - 250px);box-sizing:border-box;border-radius:var(--r);padding:10px 8px;display:flex;flex-direction:column;}
 .position-kanban-list{flex:1;min-height:0;overflow-y:auto;padding-right:2px;}
 .position-kanban-list::-webkit-scrollbar{width:4px;}
 .position-kanban-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
@@ -438,17 +438,6 @@ textarea{resize:vertical;min-height:64px;}
         </div>
         <div id="dash-stage-kanban" style="display:none"></div>
         <div id="dash-kanban" style="overflow-x:auto"></div>
-      </div>
-
-      <div class="grid g32">
-        <div class="card">
-          <div class="ch"><div class="ch-l">긴급 처리 항목</div></div>
-          <div id="dash-urgent"></div>
-        </div>
-        <div class="card">
-          <div class="ch"><div class="ch-l">최근 알림 발송</div></div>
-          <div id="dash-notify-recent"></div>
-        </div>
       </div>
     </div>
 
@@ -3341,6 +3330,7 @@ function savePosition() {
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(posData);
   renderPositions();
+  renderDashboard(); // 대시보드 칸반(미배정 스트립 포함) 즉시 반영
 }
 
 async function deletePosition(posId) {
@@ -3561,7 +3551,9 @@ function nav(id, btn) {
   document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
   document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
   document.getElementById('sect-'+id).classList.add('on');
-  btn.classList.add('on');
+  // btn 미전달(프로그램적 호출) 시 해당 섹션의 사이드바 버튼을 자동 활성화
+  if(btn) btn.classList.add('on');
+  else { const auto = document.querySelector(`.nb[onclick*="nav('${id}'"]`); if(auto) auto.classList.add('on'); }
   document.getElementById('tb-title').textContent = TITLES[id]||id;
   if(id==='dash') renderDashboard();
   if(id==='tracker') { populateSel('int-cand'); populateSel('ob-cand'); renderTracker(); }
@@ -4280,6 +4272,19 @@ function renderKanban() {
     </div>`;
   });
   html += '</div>';
+
+  // 지원자 0명(미배정) 활성 모집단위 — 단계 열에는 안 잡히므로 별도 스트립으로 노출
+  const posTotal = pos => FLOW.reduce((s,si)=> s + (byKey[Number(pos.id)+'|'+si]||[]).length, 0);
+  const emptyPos = activePos.filter(p => posTotal(p) === 0);
+  if(emptyPos.length) {
+    html += `<div style="margin-top:10px;padding:10px 12px;background:var(--s2);border:1px dashed var(--border2);border-radius:var(--r)">
+      <div style="font-size:10.5px;font-weight:700;color:var(--t3);margin-bottom:7px;letter-spacing:.3px">지원자 미배정 모집단위 · ${emptyPos.length}건 <span style="font-weight:500">(지원자 등록 시 위 단계 보드에 표시됩니다)</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${emptyPos.map(p=>`<button class="btn btn-xs" style="background:var(--surface)" onclick="openPosDetail(${p.id})">${(p.dept?p.dept+' · ':'')+p.title}${p.etype?` <span style="color:var(--t3);font-weight:500">${p.etype}</span>`:''}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
   el.innerHTML = html;
 }
 
