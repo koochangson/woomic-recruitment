@@ -277,6 +277,23 @@ textarea{resize:vertical;min-height:64px;}
 .toast.terr{background:var(--red);}
 @keyframes tin{from{transform:translateY(8px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 
+
+/* ── 대시보드 채용단계 칸반 ─────────────────────────────── */
+.stage-kanban{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 10px;align-items:flex-start;}
+.stage-col{flex:0 0 235px;min-width:235px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:10px;min-height:190px;}
+.stage-col-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.stage-col-title{font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;}
+.stage-col-count{font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px;background:var(--surface);border:1px solid var(--border);}
+.stage-drop{min-height:110px;}
+.stage-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 11px;margin-bottom:8px;box-shadow:var(--sh);cursor:pointer;transition:transform .12s, box-shadow .12s, border-color .12s;}
+.stage-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.09);border-color:var(--border2);}
+.stage-card-name{font-size:13px;font-weight:800;line-height:1.35;margin-bottom:4px;}
+.stage-card-meta{font-size:11px;color:var(--t3);line-height:1.4;margin-bottom:7px;}
+.stage-card-tags{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:7px;}
+.stage-card-actions{display:flex;align-items:center;justify-content:space-between;gap:5px;border-top:1px solid var(--border);padding-top:7px;}
+.stage-empty{font-size:11px;color:var(--t3);text-align:center;padding:24px 4px;border:1px dashed var(--border2);border-radius:var(--rsm);background:rgba(255,255,255,.45);}
+.stage-col.drag-over{outline:2px dashed var(--acc);outline-offset:-4px;background:var(--acc-light);}
+
 /* ── 공통 ──────────────────────────────────────────────── */
 .div{height:1px;background:var(--border);margin:12px 0;}
 .tag{display:inline-block;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:10px;color:var(--t2);font-weight:600;}
@@ -397,13 +414,12 @@ textarea{resize:vertical;min-height:64px;}
         <div id="dash-kanban" style="overflow-x:auto"></div>
       </div>
 
-      <!-- 파이프라인 시각화 (6단계) -->
+      <!-- 채용단계별 칸반보드 -->
       <div class="card" style="margin-bottom:12px">
-        <div class="ch"><div class="ch-l">진행 중인 채용 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(절차 높은 순 · 최종합격·불합격 제외)</span></div>
+        <div class="ch"><div class="ch-l">채용단계별 지원자 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(지원자 카드 · 단계별 칸반)</span></div>
           <button class="btn btn-xs btn-ghost" onclick="navBtn('tracker')">전체 보기 →</button>
         </div>
-        <div class="pipe-flow" id="dash-pipe-flow"></div>
-        <div id="dash-pipe-list"></div>
+        <div id="dash-stage-kanban"></div>
       </div>
 
       <div class="grid g32">
@@ -465,7 +481,7 @@ textarea{resize:vertical;min-height:64px;}
         <button class="fbtn" onclick="filterRole('기술직',this)" data-group="role">기술직</button>
         <button class="fbtn" onclick="filterRole('관리직',this)" data-group="role">관리직</button>
         <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <button class="fbtn" onclick="filterEtype('all',this)" data-group="etype" class="fbtn fon">전체</button>
+        <button class="fbtn fon" onclick="filterEtype('all',this)" data-group="etype">전체</button>
         <button class="fbtn" onclick="filterEtype('정규직',this)" data-group="etype">정규직</button>
         <button class="fbtn" onclick="filterEtype('전문직',this)" data-group="etype">전문직</button>
         <button class="fbtn" onclick="filterEtype('파견직',this)" data-group="etype">파견직</button>
@@ -4051,6 +4067,81 @@ function renderDashPipeList() {
     </div>`;
 }
 
+
+// ── 대시보드 채용단계별 지원자 칸반 ──────────────────────────
+function dashDropStage(e, stageIdx) {
+  e.preventDefault();
+  const col = e.currentTarget;
+  if(col) col.classList.remove('drag-over');
+  const candId = Number(e.dataTransfer.getData('text/plain'));
+  const c = candidates.find(x => Number(x.id) === candId);
+  if(!c) return;
+  if(c.stage === stageIdx) return;
+  requestStageChange(c.id, stageIdx);
+}
+
+function renderStageKanban() {
+  const el = document.getElementById('dash-stage-kanban');
+  if(!el) return;
+
+  const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
+  const stageBg = ['#F1F3F6','#EBF3FD','#E9F7F2','#F0EBFA','#FDF4E8','#EAF7EE','#FBECEC','#EAF7EE'];
+  const activeCandidates = candidates.filter(c => c.stage !== 6);
+
+  if(!activeCandidates.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">진행 중인 지원자가 없습니다.</div>';
+    return;
+  }
+
+  el.innerHTML = `<div class="stage-kanban">${cols.map(col => {
+    const list = activeCandidates
+      .filter(c => c.stage === col.idx)
+      .slice()
+      .sort((a,b) => (a.name||'').localeCompare(b.name||'', 'ko'));
+    const color = STAGE_COLORS[col.idx] || 'var(--t3)';
+    const bg = stageBg[col.idx] || 'var(--s2)';
+
+    return `<div class="stage-col"
+                 style="background:${bg}"
+                 ondragover="event.preventDefault();this.classList.add('drag-over')"
+                 ondragleave="this.classList.remove('drag-over')"
+                 ondrop="dashDropStage(event,${col.idx})">
+      <div class="stage-col-h">
+        <div class="stage-col-title" style="color:${color}">
+          <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span>
+          ${col.name}
+        </div>
+        <div class="stage-col-count">${list.length}명</div>
+      </div>
+      <div class="stage-drop">
+        ${list.length ? list.map(c => {
+          const nextStage = nextFlowStage(c.stage);
+          const hasNext = nextStage !== c.stage;
+          const refWarn = c.ref === '진행중' && Number(c.refD || 0) === 0;
+          const intWarn = interviews.some(i => Number(i.candId) === Number(c.id) && !i.notified);
+          return `<div class="stage-card"
+                       draggable="true"
+                       ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"
+                       onclick="openDetail(${c.id})">
+            <div class="stage-card-name">${c.name} ${etypePill(c.etype)}</div>
+            <div class="stage-card-meta">${c.pos || ''}${c.dept ? ' · ' + c.dept : ''}</div>
+            <div class="stage-card-tags">
+              ${c.role ? `<span class="role ${ROLE_CLS[c.role] || ''}">${c.role}</span>` : ''}
+              ${refWarn ? '<span class="b bred" style="font-size:10px">레퍼런스 확인</span>' : ''}
+              ${intWarn ? '<span class="b bamber" style="font-size:10px">면접안내 미발송</span>' : ''}
+            </div>
+            <div class="stage-card-actions">
+              <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();openDetail(${c.id})">상세</button>
+              ${hasNext ? `<button class="btn btn-xs btn-primary" onclick="event.stopPropagation();requestStageChange(${c.id},${nextStage})">${STAGES[nextStage]} →</button>` : '<span style="font-size:10px;color:var(--t3)">최종 단계</span>'}
+            </div>
+          </div>`;
+        }).join('') : '<div class="stage-empty">해당 단계 지원자 없음</div>'}
+      </div>
+    </div>`;
+  }).join('')}</div>
+  <div style="font-size:11px;color:var(--t3);margin-top:6px">카드를 클릭하면 상세정보를 확인할 수 있으며, 드래그하여 단계 변경도 가능합니다. 단계 변경 시 기존 확인 팝업이 표시됩니다.</div>`;
+}
+
 // ══════════════════════════════════════════════════════════════
 // 메트릭 업데이트
 // ══════════════════════════════════════════════════════════════
@@ -4127,28 +4218,8 @@ function renderDashboard() {
   updateMetrics();
   renderKanban();
 
-  // 파이프라인 플로우
-  const pf = document.getElementById('dash-pipe-flow');
-  if(pf) {
-    pf.innerHTML = FLOW.map((stageIdx, fi) => {
-      const i = stageIdx;
-      const cnt = candidates.filter(c=>c.stage===i).length;
-      const hasCurr = cnt > 0;
-      const isSelected = dashPipeFilter === i;
-      return `<div class="pf-step">
-        <div class="pf-dot ${isSelected?'active':hasCurr?'active':''}"
-             onclick="setDashPipeFilter(${i})"
-             style="cursor:pointer;${isSelected?'box-shadow:0 0 0 3px rgba(15,52,96,.3);':''}"
-             title="${STAGES[i]} ${cnt}명 — 클릭하여 상세 보기">
-          ${hasCurr?cnt:fi+1}
-        </div>
-        <div class="pf-lbl ${isSelected||hasCurr?'active':''}">${STAGES[i]}${cnt>0?' ('+cnt+')':''}</div>
-      </div>${fi<FLOW.length-1?`<div class="pf-line ${candidates.filter(c=>FLOW.indexOf(c.stage)>fi&&c.stage!==6).length>0?'done':''}"></div>`:''}`;
-    }).join('');
-  }
-
-  // 파이프라인 리스트
-  renderDashPipeList();
+  // 채용단계별 지원자 칸반
+  renderStageKanban();
 
   // 긴급 처리
   const du = document.getElementById('dash-urgent');
