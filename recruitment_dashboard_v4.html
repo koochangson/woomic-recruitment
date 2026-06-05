@@ -2188,23 +2188,52 @@ function openPosDetail(posId) {
       </div>
     </div>
 
-    <!-- 모집단위 진행 타임라인 (단계별 인원 + 일괄 이동) -->
+    <!-- 모집단위 진행 타임라인 (전체 프로세스 + 진행 음영) -->
     <div style="margin-bottom:16px">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px">모집단위 진행 단계</div>
       <div style="display:flex;align-items:flex-start;overflow-x:auto;padding:4px 0">
-        ${FLOW.map((stageIdx, fi) => {
-          const cnt = posCands.filter(c => c.stage === stageIdx).length;
-          const col = STAGE_COLORS[stageIdx] || 'var(--t3)';
-          const hasNext = fi < FLOW.length - 1;
-          const nextStage = hasNext ? FLOW[fi+1] : null;
-          const canMove = cnt > 0 && hasNext;
-          return `<div style="flex:1;min-width:90px;text-align:center;position:relative">
-            ${hasNext ? `<div style="position:absolute;top:18px;left:50%;width:100%;height:2px;background:${cnt>0?col:'var(--border2)'};z-index:0"></div>` : ''}
-            <div style="position:relative;z-index:1;width:38px;height:38px;border-radius:50%;margin:0 auto 6px;background:${cnt>0?col:'var(--surface)'};border:2px solid ${cnt>0?col:'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:${cnt>0?'#fff':'var(--t3)'}">${cnt||'·'}</div>
-            <div style="font-size:10.5px;font-weight:700;color:${cnt>0?'var(--t1)':'var(--t3)'};line-height:1.3">${STAGES[stageIdx]}</div>
-            ${canMove ? `<button class="btn btn-xs" style="margin-top:5px;font-size:9px;padding:1px 6px" onclick="batchStageChange(${posId},${stageIdx},${nextStage})">→ ${STAGES[nextStage]} 일괄</button>` : ''}
-          </div>`;
-        }).join('')}
+        ${(()=>{
+          // 각 단계 통과 여부 판정: 현재 그 단계에 있거나, 더 앞선 단계로 간 인원이 있으면 "도달함"
+          // 활성 후보(불합격 제외) 기준으로 가장 앞선 진행 위치 계산
+          const activeCands = posCands.filter(c => c.stage !== 6);
+          const maxFlowIdx = activeCands.length
+            ? Math.max(...activeCands.map(c => { const fi = FLOW.indexOf(c.stage); return fi < 0 ? -1 : fi; }))
+            : -1;
+          return FLOW.map((stageIdx, fi) => {
+            const cnt = posCands.filter(c => c.stage === stageIdx).length;
+            const col = STAGE_COLORS[stageIdx] || 'var(--t3)';
+            const hasNext = fi < FLOW.length - 1;
+            const nextStage = hasNext ? FLOW[fi+1] : null;
+            const canMove = cnt > 0 && hasNext;
+            // 상태 판정
+            const isCurrent = cnt > 0;                       // 현재 인원이 있는 단계
+            const isPassed  = fi < maxFlowIdx;               // 이미 통과한(지나간) 단계
+            const isFuture  = fi > maxFlowIdx;               // 아직 도달 안 한 단계
+            // 음영 스타일
+            let circleBg, circleBd, circleColor, lblColor, opacity;
+            if(isCurrent) {
+              circleBg = col; circleBd = col; circleColor = '#fff'; lblColor = 'var(--t1)'; opacity = '1';
+            } else if(isPassed) {
+              circleBg = col; circleBd = col; circleColor = '#fff'; lblColor = 'var(--t2)'; opacity = '0.55';
+            } else { // future
+              circleBg = 'var(--surface)'; circleBd = 'var(--border2)'; circleColor = 'var(--t3)'; lblColor = 'var(--t3)'; opacity = '0.4';
+            }
+            // 연결선: 통과했거나 현재까지 진행된 구간만 색칠
+            const lineDone = fi < maxFlowIdx;
+            return `<div style="flex:1;min-width:88px;text-align:center;position:relative;opacity:${opacity}">
+              ${hasNext ? `<div style="position:absolute;top:18px;left:50%;width:100%;height:2px;background:${lineDone?col:'var(--border2)'};z-index:0"></div>` : ''}
+              <div style="position:relative;z-index:1;width:38px;height:38px;border-radius:50%;margin:0 auto 6px;background:${circleBg};border:2px solid ${circleBd};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${circleColor};${isCurrent?'box-shadow:0 0 0 4px '+col+'22':''}">${isPassed&&cnt===0?'✓':(cnt||'·')}</div>
+              <div style="font-size:10.5px;font-weight:${isCurrent?'800':'600'};color:${lblColor};line-height:1.3">${STAGES[stageIdx]}</div>
+              ${cnt>0?`<div style="font-size:9px;color:${col};font-weight:700;margin-top:1px">${cnt}명</div>`:''}
+              ${canMove ? `<button class="btn btn-xs" style="margin-top:4px;font-size:9px;padding:1px 6px" onclick="batchStageChange(${posId},${stageIdx},${nextStage})">→ ${STAGES[nextStage]}</button>` : ''}
+            </div>`;
+          }).join('');
+        })()}
+      </div>
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:10px;color:var(--t3)">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--acc)"></span>진행 중</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--acc);opacity:.55"></span>완료(통과)</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--surface);border:1px solid var(--border2)"></span>예정</span>
       </div>
     </div>
 
@@ -4057,35 +4086,38 @@ function renderKanban() {
   // 칸반 열: FLOW 단계 (서류합격~입사)
   const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
   const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
+  const stageBg = ['#F1F3F6','#EBF3FD','#E9F7F2','#F0EBFA','#FDF4E8','#EAF7EE','#FBECEC','#EAF7EE'];
 
-  let html = '<div style="min-width:760px">';
-  // 헤더 행
-  html += '<div style="display:grid;grid-template-columns:160px repeat('+cols.length+',1fr);gap:6px;margin-bottom:6px">';
-  html += '<div style="font-size:10px;font-weight:700;color:var(--t3);display:flex;align-items:flex-end;padding-bottom:4px">모집단위</div>';
+  // 활성 모집단위만 (완료된 모집단위 제외)
+  const activePos = positions.filter(p => p.status !== 'done');
+
+  let html = '<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;align-items:flex-start">';
   cols.forEach(c => {
-    html += `<div style="font-size:10px;font-weight:700;text-align:center;color:${stageColor(c.idx)};padding-bottom:4px;border-bottom:2px solid ${stageColor(c.idx)}">${c.name}</div>`;
-  });
-  html += '</div>';
-
-  // 모집단위별 행
-  positions.forEach(pos => {
-    const posCands = candidates.filter(c => Number(c.posId) === Number(pos.id));
-    const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
-    html += '<div style="display:grid;grid-template-columns:160px repeat('+cols.length+',1fr);gap:6px;margin-bottom:6px;align-items:stretch">';
-    // 모집단위 이름 셀 (클릭 시 상세)
-    html += `<div onclick="openPosDetail(${pos.id})" style="cursor:pointer;padding:8px 10px;background:var(--s2);border-radius:var(--rsm);display:flex;flex-direction:column;justify-content:center">
-      <div style="font-size:11.5px;font-weight:700;line-height:1.3">${title}</div>
-      <div style="font-size:10px;color:var(--t3)">${pos.etype||''} · 모집 ${pos.headcount||1}명</div>
-    </div>`;
-    // 단계별 셀
-    cols.forEach(c => {
-      const cnt = posCands.filter(pc => pc.stage === c.idx).length;
-      const filled = cnt > 0;
-      html += `<div onclick="openPosDetail(${pos.id})" style="cursor:pointer;min-height:42px;border-radius:var(--rsm);background:${filled?stageColor(c.idx):'var(--surface)'};border:1px solid ${filled?stageColor(c.idx):'var(--border)'};display:flex;align-items:center;justify-content:center;${filled?'':'opacity:.5'}">
-        <span style="font-size:15px;font-weight:800;color:${filled?'#fff':'var(--t3)'}">${cnt||'·'}</span>
+    const col = stageColor(c.idx);
+    const bg = stageBg[c.idx] || 'var(--s2)';
+    // 이 단계에 인원이 있는 모집단위 카드들
+    const cards = activePos.map(pos => {
+      const cnt = candidates.filter(x => Number(x.posId) === Number(pos.id) && x.stage === c.idx).length;
+      if(!cnt) return '';
+      const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
+      const names = candidates.filter(x => Number(x.posId) === Number(pos.id) && x.stage === c.idx).map(x => x.name).slice(0,4).join(', ');
+      return `<div onclick="openPosDetail(${pos.id})" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-left:3px solid ${col};border-radius:var(--rsm);padding:9px 11px;margin-bottom:7px;box-shadow:var(--sh)">
+        <div style="font-size:12px;font-weight:700;line-height:1.35;margin-bottom:3px">${title}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <span style="font-size:10px;background:${col};color:#fff;padding:1px 7px;border-radius:20px;font-weight:700">${cnt}명</span>
+          <span style="font-size:10px;color:var(--t3)">${pos.etype||''}</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--t3);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${names}</div>
       </div>`;
-    });
-    html += '</div>';
+    }).filter(Boolean).join('');
+
+    const totalInCol = activePos.reduce((s,pos) => s + candidates.filter(x => Number(x.posId) === Number(pos.id) && x.stage === c.idx).length, 0);
+
+    html += `<div style="flex:0 0 200px;min-width:200px;background:${bg};border-radius:var(--r);padding:10px">
+      <div style="font-size:11px;font-weight:800;color:${col};margin-bottom:2px">${c.name}</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:10px">${totalInCol}명</div>
+      ${cards || '<div style="font-size:10.5px;color:var(--t3);text-align:center;padding:16px 0;opacity:.6">—</div>'}
+    </div>`;
   });
   html += '</div>';
   el.innerHTML = html;
