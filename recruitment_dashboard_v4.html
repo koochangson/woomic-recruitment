@@ -280,7 +280,7 @@ textarea{resize:vertical;min-height:64px;}
 
 /* ── 대시보드 채용단계 칸반 ─────────────────────────────── */
 .position-kanban{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 14px;align-items:stretch;}
-.position-kanban-col{flex:0 0 260px;min-width:260px;height:480px;box-sizing:border-box;border-radius:var(--r);padding:14px;display:flex;flex-direction:column;}
+.position-kanban-col{flex:0 0 260px;min-width:260px;min-height:200px;max-height:480px;box-sizing:border-box;border-radius:var(--r);padding:14px;display:flex;flex-direction:column;}
 .position-kanban-list{flex:1;min-height:0;overflow-y:auto;padding-right:4px;}
 .position-kanban-list::-webkit-scrollbar{width:4px;}
 .position-kanban-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
@@ -302,6 +302,12 @@ textarea{resize:vertical;min-height:64px;}
 .stage-card-actions{display:flex;align-items:center;justify-content:space-between;gap:5px;border-top:1px solid var(--border);padding-top:7px;}
 .stage-empty{font-size:11px;color:var(--t3);text-align:center;padding:24px 4px;border:1px dashed var(--border2);border-radius:var(--rsm);background:rgba(255,255,255,.45);}
 .stage-col.drag-over{outline:2px dashed var(--acc);outline-offset:-4px;background:var(--acc-light);}
+
+/* ── 칸반 뷰 토글 (세그먼트) ────────────────────────────── */
+.seg{display:inline-flex;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:2px;gap:2px;}
+.seg-btn{border:none;background:none;font-family:'Pretendard',sans-serif;font-size:11.5px;font-weight:600;color:var(--t2);padding:4px 10px;border-radius:4px;cursor:pointer;transition:all .12s;}
+.seg-btn:hover{color:var(--text);}
+.seg-btn.on{background:var(--surface);color:var(--text);box-shadow:var(--sh);}
 
 /* ── 공통 ──────────────────────────────────────────────── */
 .div{height:1px;background:var(--border);margin:12px 0;}
@@ -415,11 +421,19 @@ textarea{resize:vertical;min-height:64px;}
         <div class="mc c-red" onclick="openMetricDetail('action')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">처리 필요</div><div class="mc-val" id="m-action">0</div><div class="mc-sub">즉시 처리 ↗</div></div>
       </div>
 
-      <!-- 모집단위 칸반보드 -->
+      <!-- 진행 현황 칸반 (토글) -->
       <div class="card" style="margin-bottom:12px">
-        <div class="ch"><div class="ch-l">모집단위별 진행 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(단계별 인원 · 칸반)</span></div>
-          <button class="btn btn-xs btn-ghost" onclick="nav('position')">모집단위 관리 →</button>
+        <div class="ch">
+          <div class="ch-l">진행 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(칸반)</span></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="seg">
+              <button class="seg-btn"    id="kb-tab-stage" onclick="switchKanban('stage')">단계별 지원자</button>
+              <button class="seg-btn on" id="kb-tab-pos"   onclick="switchKanban('pos')">모집단위별</button>
+            </div>
+            <button class="btn btn-xs btn-ghost" onclick="nav('position')">모집단위 관리 →</button>
+          </div>
         </div>
+        <div id="dash-stage-kanban" style="display:none"></div>
         <div id="dash-kanban" style="overflow-x:auto"></div>
       </div>
 
@@ -4069,6 +4083,20 @@ function renderDashPipeList() {
 }
 
 
+// ── 칸반 뷰 토글 (모집단위별 ↔ 단계별 지원자) ────────────────
+let kanbanView = 'pos'; // 'pos'(기본) | 'stage'
+function switchKanban(view){
+  kanbanView = view;
+  const stageOn = view === 'stage';
+  const stageEl = document.getElementById('dash-stage-kanban');
+  const posEl   = document.getElementById('dash-kanban');
+  if(stageEl) stageEl.style.display = stageOn ? '' : 'none';
+  if(posEl)   posEl.style.display   = stageOn ? 'none' : '';
+  const ts = document.getElementById('kb-tab-stage'); if(ts) ts.classList.toggle('on', stageOn);
+  const tp = document.getElementById('kb-tab-pos');   if(tp) tp.classList.toggle('on', !stageOn);
+  stageOn ? renderStageKanban() : renderKanban();
+}
+
 // ── 대시보드 채용단계별 지원자 칸반 ──────────────────────────
 function dashDropStage(e, stageIdx) {
   e.preventDefault();
@@ -4183,16 +4211,26 @@ function renderKanban() {
   // 활성 모집단위만 (완료된 모집단위 제외)
   const activePos = positions.filter(p => p.status !== 'done');
 
+  // 1패스 인덱싱: "posId|stage" → 지원자 배열 (중첩 필터 제거)
+  const byKey = {};
+  candidates.forEach(x => {
+    const k = Number(x.posId) + '|' + x.stage;
+    (byKey[k] = byKey[k] || []).push(x);
+  });
+
   let html = '<div class="position-kanban">';
   cols.forEach(c => {
     const col = stageColor(c.idx);
     const bg = stageBg[c.idx] || 'var(--s2)';
+    let totalInCol = 0;
     // 이 단계에 인원이 있는 모집단위 카드들
     const cards = activePos.map(pos => {
-      const cnt = candidates.filter(x => Number(x.posId) === Number(pos.id) && x.stage === c.idx).length;
+      const grp = byKey[Number(pos.id) + '|' + c.idx] || [];
+      const cnt = grp.length;
       if(!cnt) return '';
+      totalInCol += cnt;
       const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
-      const names = candidates.filter(x => Number(x.posId) === Number(pos.id) && x.stage === c.idx).map(x => x.name).slice(0,4).join(', ');
+      const names = grp.slice(0,4).map(x => x.name).join(', ') + (cnt > 4 ? ` 외 ${cnt-4}명` : '');
       return `<div class="position-kanban-card" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
         <div class="position-kanban-title">${title}</div>
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
@@ -4202,8 +4240,6 @@ function renderKanban() {
         <div class="position-kanban-names">${names}</div>
       </div>`;
     }).filter(Boolean).join('');
-
-    const totalInCol = activePos.reduce((s,pos) => s + candidates.filter(x => Number(x.posId) === Number(pos.id) && x.stage === c.idx).length, 0);
 
     html += `<div class="position-kanban-col" style="background:${bg}">
       <div style="font-size:13px;font-weight:800;color:${col};margin-bottom:3px">${c.name}</div>
@@ -4217,7 +4253,7 @@ function renderKanban() {
 
 function renderDashboard() {
   updateMetrics();
-  renderKanban();
+  if(kanbanView === 'stage') renderStageKanban(); else renderKanban();
 
   // 긴급 처리
   const du = document.getElementById('dash-urgent');
