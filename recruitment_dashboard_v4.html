@@ -279,15 +279,18 @@ textarea{resize:vertical;min-height:64px;}
 
 
 /* ── 대시보드 채용단계 칸반 ─────────────────────────────── */
-.position-kanban{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 14px;align-items:stretch;}
-.position-kanban-col{flex:0 0 260px;min-width:260px;min-height:200px;max-height:480px;box-sizing:border-box;border-radius:var(--r);padding:14px;display:flex;flex-direction:column;}
-.position-kanban-list{flex:1;min-height:0;overflow-y:auto;padding-right:4px;}
+/* 7개 단계 컬럼이 한 화면에 들어오도록 flex로 폭 분배 (좁은 화면에서는 min-width로 가로 스크롤 폴백) */
+.position-kanban{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;align-items:stretch;}
+.position-kanban-col{flex:1 1 0;min-width:120px;min-height:160px;max-height:440px;box-sizing:border-box;border-radius:var(--r);padding:10px 8px;display:flex;flex-direction:column;}
+.position-kanban-list{flex:1;min-height:0;overflow-y:auto;padding-right:2px;}
 .position-kanban-list::-webkit-scrollbar{width:4px;}
 .position-kanban-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
-.position-kanban-card{height:112px;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-left-width:4px;border-radius:var(--rsm);padding:12px 13px;margin-bottom:10px;box-shadow:var(--sh);transition:transform .12s,box-shadow .12s;}
+.position-kanban-card{box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-left-width:3px;border-radius:var(--rsm);padding:8px 9px;margin-bottom:7px;box-shadow:var(--sh);transition:transform .12s,box-shadow .12s;}
 .position-kanban-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.09);}
-.position-kanban-title{height:34px;font-size:12.5px;font-weight:700;line-height:1.35;margin-bottom:6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.position-kanban-names{font-size:11px;color:var(--t3);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.position-kanban-title{font-size:11.5px;font-weight:700;line-height:1.3;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.position-kanban-names{font-size:10px;color:var(--t3);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.position-kanban-col-h{font-size:11.5px;font-weight:800;margin-bottom:2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.position-kanban-col-sub{font-size:10px;color:var(--t3);margin-bottom:8px;}
 .stage-kanban{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 10px;align-items:flex-start;}
 .stage-col{flex:0 0 235px;min-width:235px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:10px;min-height:190px;}
 .stage-col-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);}
@@ -2290,12 +2293,33 @@ function openPosDetail(posId) {
     </div>
     ${FLOW.map((stageIdx) => {
       const stageName = STAGES[stageIdx];
-      const stageCands = posCands.filter(c => c.stage === stageIdx);
+      let stageCands = posCands.filter(c => c.stage === stageIdx);
       if(!stageCands.length) return '';
+      // ── 단계별 '처리 완료(된 것)' vs '처리 필요(안 된 것)' 판정 ──
+      const stageActionDone = (cd) => {
+        switch(stageIdx){
+          case 0: return interviews.some(i=>Number(i.candId)===Number(cd.id) && i.type==='1차'); // 1차 일정 처리 시작
+          case 1: case 3: return !!cd.decision;                                 // 합/불 판정 완료
+          case 2: return cd.ref==='완료';                                       // 레퍼런스 완료
+          case 5: return onboardings.some(o=>Number(o.candId)===Number(cd.id)); // 입사 안내 발송됨
+          default: return null;                                                 // 4(처우)·7(입사): 분리 없음
+        }
+      };
+      const splitOn = stageActionDone(stageCands[0]) !== null;
+      if(splitOn){
+        stageCands = stageCands.slice().sort((a,b)=>{
+          const da = stageActionDone(a)?1:0, db = stageActionDone(b)?1:0;
+          return da - db || (a.name||'').localeCompare(b.name||'','ko');
+        });
+      }
+      const needCnt = splitOn ? stageCands.filter(c=>!stageActionDone(c)).length : 0;
+      const doneCnt = splitOn ? stageCands.length - needCnt : 0;
+      const firstDoneIdx = splitOn ? stageCands.findIndex(c=>stageActionDone(c)) : -1;
       return `<div style="margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
           <span style="font-size:12px;font-weight:700;color:var(--t2)">${stageName}</span>
           <span style="background:var(--s3);padding:2px 8px;border-radius:20px;font-size:11px">${stageCands.length}명</span>
+          ${splitOn ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:${needCnt>0?'var(--amber)':'var(--t3)'}"><span style="width:6px;height:6px;border-radius:50%;background:${needCnt>0?'var(--amber)':'var(--border2)'}"></span>처리 필요 ${needCnt}</span><span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:${doneCnt>0?'var(--green)':'var(--t3)'}"><span style="width:6px;height:6px;border-radius:50%;border:1.5px solid ${doneCnt>0?'var(--green)':'var(--border2)'};box-sizing:border-box"></span>완료 ${doneCnt}</span>` : ''}
           ${(()=>{
             // 서류합격(0): 전체 1차 면접 일정 일괄 배치
             if(stageIdx===0) {
@@ -2340,7 +2364,15 @@ function openPosDetail(posId) {
           })()}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${stageCands.map(cand => {
+          ${stageCands.map((cand, ci) => {
+            // 처리 필요 / 완료 구분선
+            const _needHdr = (splitOn && needCnt>0 && ci===0)
+              ? `<div style="display:flex;align-items:center;gap:7px;margin:2px 0 5px;font-size:10px;font-weight:700;color:var(--amber)"><span style="width:5px;height:5px;border-radius:50%;background:var(--amber)"></span>처리 필요 ${needCnt}건<span style="flex:1;height:1px;background:var(--abd)"></span></div>`
+              : '';
+            const _doneHdr = (splitOn && firstDoneIdx>=0 && ci===firstDoneIdx)
+              ? `<div style="display:flex;align-items:center;gap:7px;margin:12px 0 5px;font-size:10px;font-weight:700;color:var(--green)"><span style="width:5px;height:5px;border-radius:50%;border:1.5px solid var(--green);box-sizing:border-box"></span>처리 완료 ${doneCnt}건<span style="flex:1;height:1px;background:var(--gbd)"></span></div>`
+              : '';
+            const _stageDone = splitOn ? stageActionDone(cand) : false;
             const round = stageIdx===1?'1차':stageIdx===3?'2차':'';
             const itv = round ? interviews.find(i => i.candId === cand.id && i.type === round) : null;
             const st = itv ? (itv.status||'pending') : null;
@@ -2377,8 +2409,8 @@ function openPosDetail(posId) {
                 refBtns = `<button class="btn btn-sm" style="font-size:11px" onclick="syncRefFromGS()">↻ 상태 갱신</button>`;
               }
             }
-            return `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)">
+            return `${_needHdr}${_doneHdr}
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)${_stageDone?';opacity:.62':''}">
               <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${cand.name.charAt(0)}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">${cand.name} ${stBadge}</div>
@@ -4233,18 +4265,18 @@ function renderKanban() {
       const names = grp.slice(0,4).map(x => x.name).join(', ') + (cnt > 4 ? ` 외 ${cnt-4}명` : '');
       return `<div class="position-kanban-card" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
         <div class="position-kanban-title">${title}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-          <span style="font-size:10px;background:${col};color:#fff;padding:1px 7px;border-radius:20px;font-weight:700">${cnt}명</span>
-          <span style="font-size:10px;color:var(--t3)">${pos.etype||''}</span>
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:wrap">
+          <span style="font-size:9.5px;background:${col};color:#fff;padding:1px 6px;border-radius:20px;font-weight:700">${cnt}명</span>
+          ${pos.etype ? `<span style="font-size:9.5px;color:var(--t3)">${pos.etype}</span>` : ''}
         </div>
         <div class="position-kanban-names">${names}</div>
       </div>`;
     }).filter(Boolean).join('');
 
     html += `<div class="position-kanban-col" style="background:${bg}">
-      <div style="font-size:13px;font-weight:800;color:${col};margin-bottom:3px">${c.name}</div>
-      <div style="font-size:11px;color:var(--t3);margin-bottom:12px">${totalInCol}명</div>
-      <div class="position-kanban-list">${cards || '<div style="font-size:10.5px;color:var(--t3);text-align:center;padding:16px 0;opacity:.6">—</div>'}</div>
+      <div class="position-kanban-col-h" style="color:${col}">${c.name}</div>
+      <div class="position-kanban-col-sub">${totalInCol}명</div>
+      <div class="position-kanban-list">${cards || '<div style="font-size:10px;color:var(--t3);text-align:center;padding:14px 0;opacity:.6">—</div>'}</div>
     </div>`;
   });
   html += '</div>';
