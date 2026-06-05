@@ -1981,6 +1981,59 @@ function closeCollectSend() {
   if(posId != null) openPosDetail(Number(posId));
 }
 
+// 면접 합격/불합격 판정 '표시' (단계 이동 X, decision만 설정)
+function setDecision(candId, decision, posId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) return;
+  // 같은 판정 다시 누르면 해제(토글)
+  c.decision = (c.decision === decision) ? '' : decision;
+  saveState();
+  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+  openPosDetail(Number(posId));
+}
+
+// 모집단위 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
+function confirmStageDecisions(posId, stageIdx) {
+  const round = STAGES[stageIdx];
+  const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  if(!posCands.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+
+  const undecided = posCands.filter(c => !c.decision);
+  const passers = posCands.filter(c => c.decision === 'pass');
+  const failers = posCands.filter(c => c.decision === 'fail');
+
+  if(undecided.length) {
+    if(!confirm(`아직 판정하지 않은 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n판정된 인원만 이동시키고, 미판정자는 현재 단계에 남깁니다.\n계속할까요?`)) return;
+  } else {
+    if(!confirm(`'${round}' 단계 판정을 확정합니다.\n\n· 합격 ${passers.length}명 → 다음 단계 이동\n· 불합격 ${failers.length}명 → 전형 종료\n\n진행할까요?`)) return;
+  }
+
+  const nx = nextFlowStage(stageIdx);
+  let passCnt = 0, failCnt = 0;
+  // 합격자 → 다음 단계
+  passers.forEach(c => {
+    c.stage = nx;
+    c.decision = '';  // 판정 초기화 (다음 단계에서 새로 판정)
+    if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+    passCnt++;
+  });
+  // 불합격자 → 탈락(6)
+  failers.forEach(c => {
+    c.stage = 6;
+    c.rejectedAt = today();
+    c.decision = '';
+    // 진행중 면접·레퍼런스 정리
+    interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && (i.status||'pending')==='pending'));
+    if(c.ref === '진행중') { c.ref = '미시작'; c.refD = 0; c.refT = 0; delete refDetails[c.id]; }
+    if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+    failCnt++;
+  });
+  saveState();
+  renderPositions(); renderDashboard(); updateMetrics();
+  openPosDetail(Number(posId));
+  toast(`판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
+}
+
 // 모집단위 단계의 미확정 면접 일정을 전체 확정
 function confirmAllInterviews(posId, stageIdx) {
   const round = stageIdx === 1 ? '1차' : '2차';
@@ -2215,6 +2268,14 @@ function openPosDetail(posId) {
             } else if(panelExists && confirmedCnt>0) {
               btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;opacity:.5" title="전원 일정 확정 후 활성화됩니다" disabled>📧 면접관 안내 (확정 대기)</button>`;
             }
+            // 판정 확정 (합격/불합격 일괄 이동) — 1·2차 면접 단계
+            const decided = stageCands.filter(c => c.decision).length;
+            const passN = stageCands.filter(c => c.decision === 'pass').length;
+            const failN = stageCands.filter(c => c.decision === 'fail').length;
+            btns += `<span style="font-size:10px;color:var(--t3);align-self:center;margin-left:4px">판정 ${decided}/${stageCands.length} (합격 ${passN}·불합격 ${failN})</span>`;
+            if(decided > 0) {
+              btns += `<button class="btn btn-sm" style="font-size:10px;padding:3px 10px;background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700" onclick="confirmStageDecisions(${posId},${stageIdx})">⚖ 판정 확정 → 일괄 이동</button>`;
+            }
             return btns;
           })()}
         </div>
@@ -2273,10 +2334,11 @@ function openPosDetail(posId) {
                 ${(() => {
                   // 서류합격(0): 이미 합격해서 등록됨 → 합격/불합격 없음 (다음 단계 이동만)
                   if(stageIdx === 0) return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ 1차면접</button>`;
-                  // 1차(1)·2차(3) 면접: 합격/불합격 둘 다
+                  // 1차(1)·2차(3) 면접: 합격/불합격 '판정 표시'만 (단계 이동은 모집단위 일괄 확정으로)
                   if(stageIdx === 1 || stageIdx === 3) {
-                    return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">✓ 합격</button>`
-                      + `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>`;
+                    const dec = cand.decision || '';
+                    return `<button class="btn btn-sm ${dec==='pass'?'btn-green':''}" style="font-size:11px;${dec==='pass'?'':'color:var(--green);border-color:var(--green)'}" onclick="setDecision(${cand.id},'pass',${posId})">${dec==='pass'?'✓ 합격 ●':'합격'}</button>`
+                      + `<button class="btn btn-sm" style="font-size:11px;${dec==='fail'?'background:var(--red);color:#fff;border-color:var(--red)':'color:var(--red);border-color:var(--red)'}" onclick="setDecision(${cand.id},'fail',${posId})">${dec==='fail'?'✗ 불합격 ●':'불합격'}</button>`;
                   }
                   // 레퍼런스(2)·처우협의(4): 다음 단계 진행 (+불합격 선택)
                   if(stageIdx === 2 || stageIdx === 4) {
