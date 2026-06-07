@@ -279,18 +279,30 @@ textarea{resize:vertical;min-height:64px;}
 
 
 /* ── 대시보드 채용단계 칸반 ─────────────────────────────── */
-/* 7개 단계 컬럼이 한 화면에 들어오도록 flex로 폭 분배 (좁은 화면에서는 min-width로 가로 스크롤 폴백) */
-.position-kanban{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;align-items:stretch;}
-.position-kanban-col{flex:1 1 0;min-width:120px;min-height:360px;max-height:calc(100vh - 250px);box-sizing:border-box;border-radius:var(--r);padding:10px 8px;display:flex;flex-direction:column;}
+/* 대시보드 영역을 flex로 채워 칸반이 화면 높이에 맞게 늘어남 (고정 px 계산 제거 → 확대/상단 높이 변화에 안전) */
+#sect-dash.on{display:flex;flex-direction:column;min-height:100%;}
+#dash-kanban-card{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+#dash-kanban{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+#dash-stage-kanban{flex:1 1 auto;min-height:0;overflow:auto;}
+/* 넓은 화면: 7개 단계를 한 줄에 폭 분배 / 좁은 화면(≤1200px): 읽기 좋은 고정폭 + 가로 스크롤 */
+.position-kanban{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;align-items:stretch;flex:1 1 auto;min-height:0;}
+.position-kanban-col{flex:1 1 0;min-width:120px;min-height:280px;box-sizing:border-box;border-radius:var(--r);padding:10px 8px;display:flex;flex-direction:column;}
 .position-kanban-list{flex:1;min-height:0;overflow-y:auto;padding-right:2px;}
 .position-kanban-list::-webkit-scrollbar{width:4px;}
 .position-kanban-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
 .position-kanban-card{box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-left-width:3px;border-radius:var(--rsm);padding:8px 9px;margin-bottom:7px;box-shadow:var(--sh);transition:transform .12s,box-shadow .12s;}
 .position-kanban-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.09);}
+.position-kanban-card:focus-visible,.stage-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
 .position-kanban-title{font-size:11.5px;font-weight:700;line-height:1.3;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .position-kanban-names{font-size:10px;color:var(--t3);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .position-kanban-col-h{font-size:11.5px;font-weight:800;margin-bottom:2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .position-kanban-col-sub{font-size:10px;color:var(--t3);margin-bottom:8px;}
+@media (max-width:1200px){
+  /* 단계 폭이 너무 좁아지지 않도록 고정폭 전환 → 보드가 가로 스크롤됨 */
+  .position-kanban-col{flex:0 0 178px;min-width:178px;}
+  .position-kanban-title{font-size:12px;}
+  .position-kanban-names{font-size:10.5px;}
+}
 .stage-kanban{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 10px;align-items:flex-start;}
 .stage-col{flex:0 0 235px;min-width:235px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:10px;min-height:190px;}
 .stage-col-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);}
@@ -321,6 +333,94 @@ textarea{resize:vertical;min-height:64px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
 @media print{.sb,.topbar,.brow{display:none!important;}.toast-wrap{display:none;}.main{margin-left:0;}.content{padding:0;}}
+
+/* ════════════════════════════════════════════════════════════
+   디자인 레이어 v2 — Cool Enterprise (JS·데이터 무변경, CSS 오버라이드만)
+   되돌리려면 이 블록만 삭제하면 원본 디자인으로 복귀합니다.
+   ════════════════════════════════════════════════════════════ */
+/* 1. 변수 — Cloud/Steel Gray + Enterprise Blue */
+:root{
+  --bg:#F6F8FB; --s2:#F4F6F8; --s3:#E9EDF2;
+  --border:#E2E7ED; --border2:#C9D1DB;
+  --text:#172033; --t2:#596579; --t3:#8792A5;
+  --acc:#0F3460; --acc2:#174A80; --acc-light:#EEF3F8;
+  --sh:0 1px 3px rgba(15,34,58,.05);
+  --shm:0 12px 32px rgba(15,34,58,.14);
+  --rlg:12px;
+  --purple:#174A80; --pbg:#EEF3F8; --pbd:#AFC4DE;   /* Purple → Navy 통합 */
+  --teal:#147A48;   --tbg:#EDFAF3; --tbd:#A3E6C4;   /* Teal → Green 통합 */
+}
+/* 2. 레이아웃 */
+.sb{width:224px;}
+.topbar{height:60px;padding:0 32px;}
+.content{padding:24px 32px 32px;}
+.mrow{gap:16px;}
+.grid{gap:16px;}
+/* 3. 사이드바 — Executive Navy + 흰색 카드형 활성 메뉴 */
+.sb{background:#12375D;}
+.nb{min-height:38px;padding:9px 11px;border-radius:7px;color:rgba(255,255,255,.72);}
+.nb:hover{background:rgba(255,255,255,.12);color:#fff;}
+.nb.on{background:#fff;color:#12375D;font-weight:700;box-shadow:0 4px 14px rgba(4,22,40,.18);}
+/* 4. 타이포그래피 */
+html,body{line-height:1.55;}
+.tb-title{font-size:17px;font-weight:700;}
+.ch{font-size:13px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--t2);}
+.mc-val{font-size:30px;}
+.mc-lbl{font-size:10.5px;}
+.modal-title{font-size:16px;}
+.position-kanban-title{font-size:12.5px;font-weight:600;}
+.position-kanban-names{font-size:10.5px;}
+.position-kanban-col-sub{font-size:10.5px;}
+.stage-card-name{font-size:12.5px;font-weight:600;}
+/* 5. KPI 카드 — 좌측 Accent Bar + 대형 숫자 + Hover */
+.mc{min-height:98px;padding:15px 17px 14px;border-left:3px solid var(--border2);transition:transform .12s,box-shadow .12s,border-color .12s;}
+.mc:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,34,58,.09);}
+.c-blue{border-left-color:var(--blue);}
+.c-green{border-left-color:var(--green);}
+.c-amber{border-left-color:var(--amber);}
+.c-red{border-left-color:var(--red);}
+.c-purple{border-left-color:var(--purple);}
+.c-teal{border-left-color:var(--teal);}
+/* 6. 공통 카드 — Hover 시 테두리 강조 */
+.card{border-radius:var(--rlg);transition:border-color .12s;}
+.card:hover{border-color:var(--border2);}
+/* 반응형 본문 여백 */
+@media (max-width:1280px){ .content{padding:22px 24px 28px;} }
+@media (max-width:900px){ .content{padding:18px;} }
+
+/* ── 디자인 보완 (검토 반영) ─────────────────────────────────
+   (A) 단계/지표 색상 구분 복원: 전역 통합(Teal→Green, Purple→Navy)은
+       KPI 행(완료=충원 동일 Green)과 칸반(레퍼런스=최종합격 Green,
+       1차≈2차 Blue)에서 색 충돌을 만들어 상태 식별을 저해함.
+       쿨톤은 유지하되 6단계를 구분 가능한 스케일(+Cyan/+Indigo)로 분리.
+   ──────────────────────────────────────────────────────────── */
+:root{
+  --teal:#0E7490;  --tbg:#E8F6F8; --tbd:#A6DCE6;   /* Cyan-Teal — 레퍼런스 */
+  --purple:#3F4EA8;--pbg:#EEF0FB; --pbd:#BFC6EE;    /* Indigo — 2차면접 */
+}
+/* (B) KPI 라벨 가독성: ~3:1 → AA(4.5:1+) */
+.mc-lbl{color:var(--t2);}
+/* (C) 키보드 포커스 링 — 접근성 일관성 */
+.nb:focus-visible{outline:2px solid rgba(255,255,255,.75);outline-offset:-2px;}
+.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
+/* (D) 칸반 단계 헤더 굵기 정리 (800 → 700) */
+.position-kanban-col-h{font-weight:700;}
+
+/* ── ATS 재설계 (모집단위 중심) ─────────────────────────────── */
+/* KPI: 높이 축소 · 숫자 강조 · 라벨 축소 (Navy/Green/Amber/Red만 사용) */
+.mc{min-height:74px;padding:11px 14px 12px;}
+.mc-lbl{font-size:9.5px;margin-bottom:4px;}
+.mc-val{font-size:28px;}
+.mc-u{font-size:12px;font-weight:600;margin-left:1px;color:var(--t3);}
+.c-navy{border-left-color:var(--acc);}
+.c-navy .mc-val{color:var(--acc);}
+/* 처리 필요(중단) 카드는 고정 높이 — 칸반이 화면의 주인공 */
+#dash-urgent-card{flex:0 0 auto;}
+/* 모집단위 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 생성일 */
+.pk-meta{font-size:10px;color:var(--t2);margin-bottom:5px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.pk-meta .pk-dot{color:var(--t3);}
+.pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.pk-date{font-size:9.5px;color:var(--t3);}
 </style>
 </head>
 <body>
@@ -336,12 +436,12 @@ textarea{resize:vertical;min-height:64px;}
   <nav class="sb-nav">
     <div class="ng">
       <div class="ng-label">메인</div>
-      <button class="nb on" onclick="nav('position',this)">
+      <button class="nb" onclick="nav('position',this)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="2"/><path d="M5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 7v4M6 9h4"/></svg>
         모집단위 관리
         <span class="nbb" id="nb-pos">0</span>
       </button>
-      <button class="nb" onclick="nav('dash',this)">
+      <button class="nb on" onclick="nav('dash',this)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
         대시보드
       </button>
@@ -399,7 +499,7 @@ textarea{resize:vertical;min-height:64px;}
 <div class="main">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
-      <div class="tb-title" id="tb-title">모집단위 관리</div>
+      <div class="tb-title" id="tb-title">대시보드</div>
       <span class="b bblue" id="tb-date" style="font-size:11px;font-weight:500"></span>
     </div>
     <div class="tb-right">
@@ -414,20 +514,26 @@ textarea{resize:vertical;min-height:64px;}
   <div class="content">
 
     <!-- ① 대시보드 ──────────────────────────────────────── -->
-    <div id="sect-dash" class="sect">
+    <div id="sect-dash" class="sect on">
       <div class="mrow g6" style="margin-bottom:14px">
-        <div class="mc c-blue" onclick="openMetricDetail('total')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">전체 진행</div><div class="mc-val" id="m-total">0</div><div class="mc-sub">지원자 수 ↗</div></div>
-        <div class="mc c-amber" onclick="openMetricDetail('int1')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">1차 면접</div><div class="mc-val" id="m-int1">0</div><div class="mc-sub">예정·진행 ↗</div></div>
-        <div class="mc c-purple" onclick="openMetricDetail('int2')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">2차 면접</div><div class="mc-val" id="m-int2">0</div><div class="mc-sub">예정·진행 ↗</div></div>
-        <div class="mc c-teal" onclick="openMetricDetail('ref')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">레퍼런스</div><div class="mc-val" id="m-ref">0</div><div class="mc-sub">진행 중 ↗</div></div>
-        <div class="mc c-green" onclick="openMetricDetail('pass')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">최종 합격</div><div class="mc-val" id="m-pass">0</div><div class="mc-sub">입사 대기 포함 ↗</div></div>
+        <div class="mc c-navy"><div class="mc-lbl">채용목표</div><div class="mc-val" id="m-target">0</div><div class="mc-sub">진행중+충원완료 인원</div></div>
+        <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled">0</div><div class="mc-sub">충원완료 모집단위</div></div>
+        <div class="mc c-amber"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
+        <div class="mc c-green"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
+        <div class="mc c-navy" onclick="nav('position')" style="cursor:pointer" title="모집단위 관리로 이동"><div class="mc-lbl">진행중 모집단위</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
         <div class="mc c-red" onclick="openMetricDetail('action')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">처리 필요</div><div class="mc-val" id="m-action">0</div><div class="mc-sub">즉시 처리 ↗</div></div>
       </div>
 
+      <!-- 처리 필요 (중단) -->
+      <div class="card" id="dash-urgent-card" style="margin-bottom:14px">
+        <div class="ch"><div class="ch-l">처리 필요</div></div>
+        <div id="dash-urgent"></div>
+      </div>
+
       <!-- 진행 현황 칸반 (토글) -->
-      <div class="card" style="margin-bottom:12px">
+      <div class="card" id="dash-kanban-card">
         <div class="ch">
-          <div class="ch-l">진행 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(칸반)</span></div>
+          <div class="ch-l">진행 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(칸반)</span> <span id="kb-progress" style="font-size:11px;font-weight:700;color:var(--acc);background:var(--acc-light);padding:2px 9px;border-radius:20px;margin-left:4px">진행 0명</span></div>
           <div style="display:flex;gap:8px;align-items:center">
             <div class="seg">
               <button class="seg-btn"    id="kb-tab-stage" onclick="switchKanban('stage')">단계별 지원자</button>
@@ -443,7 +549,7 @@ textarea{resize:vertical;min-height:64px;}
 
     <!-- ② 지원자 트래커 ──────────────────────────────────── -->
     <!-- ── 모집단위 관리 섹션 ─────────────────────────────────── -->
-<div id="sect-position" class="sect on">
+<div id="sect-position" class="sect">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <div>
       <div style="font-size:15px;font-weight:700;">모집단위 관리</div>
@@ -1063,7 +1169,7 @@ textarea{resize:vertical;min-height:64px;}
             <option value="-1">전체</option>
             <option value="0">서류합격</option><option value="1">1차면접</option>
             <option value="2">레퍼런스</option><option value="3">2차면접</option>
-            <option value="4">처우협의</option><option value="5">최종합격</option><option value="7">입사</option>
+            <option value="4">처우협의</option><option value="5">최종합격</option>
           </select>
         </div>
         <div class="fg"><label>발송 채널</label>
@@ -1386,8 +1492,35 @@ const ROLE_CLS = { 현장직:'r-field', 사무직:'r-office', 기술직:'r-tech'
 const ETYPE_CLS = { 정규직:'et-regular', 전문직:'et-expert', 파견직:'et-dispatch' };
 const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','var(--amber)','var(--green)','var(--red)','var(--green)'];
 // 진행 단계 순서 (불합격 6 제외, 입사 7 포함) — 표시·이동용
-const FLOW = [0,1,2,3,4,5,7]; // 서류→1차→레퍼→2차→처우→최종합격→입사
+const FLOW = [0,1,2,3,4,5]; // 서류→1차→레퍼→2차→처우→최종합격 (입사 단계 폐지: 최종합격=충원 완료)
 function nextFlowStage(cur){ const i=FLOW.indexOf(cur); return i>=0&&i<FLOW.length-1?FLOW[i+1]:cur; }
+
+// 외부/GS 데이터를 innerHTML에 넣기 전 HTML 이스케이프 (XSS·레이아웃 깨짐 방지)
+function esc(v){
+  if(v == null) return '';
+  return String(v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+// 클릭 가능한 div를 키보드(Enter/Space)로도 동작시키는 핸들러 (접근성)
+function kbActivate(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.currentTarget.click(); } }
+
+// ── 모집단위 상태 모델 (진행중/충원완료/미채용완료/채용중단) ──────────────
+// 레거시 'done'→충원완료, 'active'/미지정→진행중
+const POS_STATUS = { active:'진행중', filled:'충원완료', nohire:'미채용완료', stopped:'채용중단' };
+function posStatus(p){
+  const s = p && p.status;
+  if(s==='filled' || s==='done') return 'filled';
+  if(s==='nohire') return 'nohire';
+  if(s==='stopped') return 'stopped';
+  return 'active';
+}
+function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
+// 모집단위의 현재 단계 = 비탈락(≠6) 지원자 중 최고 단계 (지원자 없으면 null)
+function posCurrentStage(p){
+  const cs = candidates.filter(c => Number(c.posId)===Number(p.id) && c.stage!==6).map(c=>c.stage);
+  return cs.length ? Math.max(...cs) : null;
+}
+// YYYY-MM-DD → YYYY.MM.DD 표시용
+function fmtDate(d){ return d ? String(d).slice(0,10).replace(/-/g,'.') : ''; }
 
 
 // ══════════════════════════════════════════════════════════════
@@ -1645,8 +1778,8 @@ function renderPositions() {
   const nbPos = document.getElementById('nb-pos');
   if(!list) return;
 
-  // 상태 판정 헬퍼: 명시적 done이면 완료, 아니면 진행중
-  const isDone = (pos) => pos.status === 'done';
+  // 상태 판정: 진행중(active)이 아니면 '종료' 그룹(충원완료/미채용완료/채용중단)
+  const isDone = (pos) => posStatus(pos) !== 'active';
 
   // 탭별 카운트
   const activeCount = positions.filter(p => !isDone(p)).length;
@@ -1698,7 +1831,7 @@ function renderPositions() {
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
             ${pos.dept ? pos.dept + ' · ' : ''}${pos.title}
-            ${done ? '<span class="b bgreen" style="font-size:10px">완료</span>' : '<span class="b bblue" style="font-size:10px">진행중</span>'}
+            ${done ? `<span class="b bgreen" style="font-size:10px">${posStatusLabel(pos)}</span>` : '<span class="b bblue" style="font-size:10px">진행중</span>'}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'professional':'dispatch'}">${pos.etype}</span>
@@ -2145,12 +2278,54 @@ function closePosition(posId) {
   if(active > 0) msg += `\n\n⚠ 아직 진행중인 지원자가 ${active}명 있습니다.`;
   if(passed < (pos.headcount||1)) msg += `\n⚠ 최종합격 ${passed}명 / 목표 ${pos.headcount||1}명 (미달)`;
   if(!confirm(msg)) return;
-  pos.status = 'done';
+  pos.status = 'filled';
   pos.closedAt = new Date().toISOString().slice(0,10);
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
-  renderPositions();
-  toast(`'${pos.title}' 채용 완료 처리`, 'tok');
+  renderPositions(); renderDashboard();
+  toast(`'${pos.title}' 충원완료 처리`, 'tok');
+}
+
+// 미채용 완료 + 동일 조건 재모집단위 자동 생성
+function nohirePosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  if(!confirm('해당 모집단위를 미채용 종료 처리하고 동일 조건으로 재모집단위를 생성하시겠습니까?')) return;
+  pos.status = 'nohire';
+  pos.closedAt = today();
+  // 재채용 명칭 자동 증가: base 추출 후 기존 "base (재채용N)" 중 최대 N+1
+  const base = (pos.title || '').replace(/\s*\(재채용\d+\)\s*$/, '').trim();
+  const reEsc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^' + reEsc + '\\s*\\(재채용(\\d+)\\)$');
+  let n = 1;
+  positions.forEach(p => { const m = (p.title || '').match(re); if(m) n = Math.max(n, parseInt(m[1]) + 1); });
+  const newTitle = `${base} (재채용${n})`;
+  const np = {
+    id: Date.now(), title: newTitle,
+    etype: pos.etype, role: pos.role, headcount: pos.headcount, dept: pos.dept,
+    panel1: pos.panel1, panel2: pos.panel2, loc: pos.loc, memo: pos.memo,
+    status: 'active', createdAt: today(),
+  }; // 복사 제외: 지원자/면접일정/레퍼런스/알림 (별도 배열이므로 미복사)
+  positions.push(np);
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') { syncPosToGS(pos); syncPosToGS(np); }
+  closeModal('modal-pos-detail');
+  renderPositions(); renderDashboard();
+  toast(`'${pos.title}' 미채용 종료 · '${newTitle}' 생성`, 'tok');
+}
+
+// 채용 중단 (재모집 없이 종료)
+function stopPosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  if(!confirm(`'${pos.title}' 모집단위를 채용 중단 처리하시겠습니까?`)) return;
+  pos.status = 'stopped';
+  pos.closedAt = today();
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
+  closeModal('modal-pos-detail');
+  renderPositions(); renderDashboard();
+  toast(`'${pos.title}' 채용 중단 처리`, 'tok');
 }
 
 // 진행중으로 복원
@@ -2427,10 +2602,8 @@ function openPosDetail(posId) {
                     return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ ${STAGES[nx]}</button>`
                       + `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>`;
                   }
-                  // 최종합격(5): 입사 처리
-                  if(stageIdx === 5) return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">🎉 입사 처리</button>`;
-                  // 입사(7): 입사 안내 + 사내부서 통보
-                  if(stageIdx === 7) {
+                  // 최종합격(5) = 충원 완료(입사 단계 폐지) → 입사 안내·사내부서 통보를 이 단계에서 처리
+                  if(stageIdx === 5) {
                     return `<button class="btn btn-sm btn-outlook" style="font-size:11px" onclick="sendOnboardToCand(${cand.id})">✉ 입사 안내(지원자)</button>`
                       + `<button class="btn btn-sm" style="font-size:11px;background:#E9F7F2;color:var(--teal);border-color:#A8E0C0" onclick="sendOnboardToDept(${cand.id})">🏢 사내부서 통보</button>`;
                   }
@@ -2515,9 +2688,18 @@ function openPosDetail(posId) {
   `;
 
   const ft = document.getElementById('pos-detail-ft');
+  const _st = posStatus(pos);
   ft.innerHTML = `
     <button class="btn" onclick="closeModal('modal-pos-detail')">닫기</button>
-    <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');editPosition(${posId})">✏ 수정</button>
+    <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--s2);color:var(--t2)">${posStatusLabel(pos)}</span>
+    <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      ${_st!=='active'
+        ? `<button class="btn btn-sm" onclick="reopenPosition(${posId});closeModal('modal-pos-detail')">↻ 진행중으로 복원</button>`
+        : `<button class="btn btn-sm" style="background:#EDFAF3;color:var(--green);border-color:#A8E0C0" onclick="closeModal('modal-pos-detail');closePosition(${posId})">✓ 충원 완료</button>
+           <button class="btn btn-sm" style="background:var(--abg);color:var(--amber);border-color:var(--abd)" onclick="nohirePosition(${posId})">↻ 미채용 완료(재모집)</button>
+           <button class="btn btn-sm" style="color:var(--t2)" onclick="stopPosition(${posId})">■ 채용 중단</button>`}
+      <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');editPosition(${posId})">✏ 수정</button>
+    </div>
   `;
 
   openModal('modal-pos-detail');
@@ -4146,9 +4328,14 @@ function renderStageKanban() {
     return;
   }
 
+  // 1패스 그룹화: stage → 지원자[] (단계별 전체 배열 반복 검색 제거)
+  const byStage = {};
+  activeCandidates.forEach(c => { (byStage[c.stage] = byStage[c.stage] || []).push(c); });
+  // 알림 미발송 면접 보유 지원자 집합 (매 카드마다 interviews 순회하지 않도록 사전 계산)
+  const intWarnSet = new Set(interviews.filter(i => !i.notified).map(i => Number(i.candId)));
+
   el.innerHTML = `<div class="stage-kanban">${cols.map(col => {
-    const list = activeCandidates
-      .filter(c => c.stage === col.idx)
+    const list = (byStage[col.idx] || [])
       .slice()
       .sort((a,b) => (a.name||'').localeCompare(b.name||'', 'ko'));
     const color = STAGE_COLORS[col.idx] || 'var(--t3)';
@@ -4171,15 +4358,16 @@ function renderStageKanban() {
           const nextStage = nextFlowStage(c.stage);
           const hasNext = nextStage !== c.stage;
           const refWarn = c.ref === '진행중' && Number(c.refD || 0) === 0;
-          const intWarn = interviews.some(i => Number(i.candId) === Number(c.id) && !i.notified);
+          const intWarn = intWarnSet.has(Number(c.id));
           return `<div class="stage-card"
                        draggable="true"
+                       role="button" tabindex="0" onkeydown="kbActivate(event)"
                        ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"
                        onclick="openDetail(${c.id})">
-            <div class="stage-card-name">${c.name} ${etypePill(c.etype)}</div>
-            <div class="stage-card-meta">${c.pos || ''}${c.dept ? ' · ' + c.dept : ''}</div>
+            <div class="stage-card-name">${esc(c.name)} ${etypePill(c.etype)}</div>
+            <div class="stage-card-meta">${esc(c.pos || '')}${c.dept ? ' · ' + esc(c.dept) : ''}</div>
             <div class="stage-card-tags">
-              ${c.role ? `<span class="role ${ROLE_CLS[c.role] || ''}">${c.role}</span>` : ''}
+              ${c.role ? `<span class="role ${ROLE_CLS[c.role] || ''}">${esc(c.role)}</span>` : ''}
               ${refWarn ? '<span class="b bred" style="font-size:10px">레퍼런스 확인</span>' : ''}
               ${intWarn ? '<span class="b bamber" style="font-size:10px">면접안내 미발송</span>' : ''}
             </div>
@@ -4199,21 +4387,61 @@ function renderStageKanban() {
 // 메트릭 업데이트
 // ══════════════════════════════════════════════════════════════
 function updateMetrics() {
-  const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  const active = candidates.filter(c=>c.stage!==6);
-  set('m-total', active.length);
-  set('m-int1', candidates.filter(c=>c.stage===1).length);
-  set('m-int2', candidates.filter(c=>c.stage===3).length);
-  set('m-ref', candidates.filter(c=>c.ref==='진행중').length);
-  set('m-pass', candidates.filter(c=>c.stage===5).length);
+  const set = (id, v) => { const el=document.getElementById(id); if(el) el.innerHTML=v; };
+  const active = candidates.filter(c=>c.stage!==6); // 불합격 제외 = 진행 중 지원자
+
+  // ── 모집단위 상태 기반 충원 KPI ──────────────────────────
+  const hc = p => parseInt(p.headcount)||0;
+  const targetN = positions.filter(p=>{const s=posStatus(p);return s==='active'||s==='filled';})
+                           .reduce((s,p)=>s+hc(p),0);                 // 채용목표 = 진행중+충원완료 headcount
+  const filledN = positions.filter(p=>posStatus(p)==='filled').reduce((s,p)=>s+hc(p),0); // 채용완료
+  const openN   = Math.max(0, targetN - filledN);                     // 미충원
+  const fillPct = targetN>0 ? (filledN/targetN*100).toFixed(1) : '0.0'; // 충원율
+  const activePosN = positions.filter(p=>posStatus(p)==='active').length; // 진행중 모집단위
   const acts = candidates.filter(c=>c.stage===5&&!onboardings.find(o=>o.candId===c.id)).length
              + candidates.filter(c=>c.ref==='진행중'&&c.refD===0).length
-             + interviews.filter(i=>!i.notified).length;
-  set('m-action', acts);
+             + interviews.filter(i=>!i.notified).length;             // 처리 필요
+
+  const unit = (n,u) => `${n}<span class="mc-u">${u}</span>`;
+  set('m-target',     unit(targetN,'명'));
+  set('m-filled',     unit(filledN,'명'));
+  set('m-open',       unit(openN,'명'));
+  set('m-fillrate',   unit(fillPct,'%'));
+  set('m-pos-active', unit(activePosN,'개'));
+  set('m-action',     unit(acts,'건'));
+
+  set('kb-progress', `진행 ${active.length}명`);
   set('nb-total', candidates.length);
   const pi = interviews.filter(i=>!i.notified).length;
   const ni = document.getElementById('nb-int');
-  if(pi>0){ni.style.display='';ni.textContent=pi;}else ni.style.display='none';
+  if(ni){ if(pi>0){ni.style.display='';ni.textContent=pi;}else ni.style.display='none'; }
+
+  if(typeof renderUrgent==='function') renderUrgent(); // 처리 필요 카드(중단 영역)
+}
+
+// ── 처리 필요 카드 (면접 미확정 / 레퍼런스 미응답 / 미발송 알림) ──────────
+function renderUrgent() {
+  const el = document.getElementById('dash-urgent');
+  if(!el) return;
+  const noInt = candidates.filter(c => (c.stage===1||c.stage===3) &&
+      !interviews.some(i=>Number(i.candId)===Number(c.id) && (i.status==='confirmed'||i.status==='done')));
+  const noRef = candidates.filter(c => c.ref==='진행중' && Number(c.refD||0)===0);
+  const noNoti = interviews.filter(i => !i.notified);
+  const col = (title, items, color, render) => `
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:6px;display:flex;align-items:center;gap:5px">
+        <span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${title}
+        <span style="margin-left:auto;font-size:11px;color:var(--t3)">${items.length}</span>
+      </div>
+      ${items.length ? items.slice(0,4).map(render).join('') + (items.length>4?`<div style="font-size:10.5px;color:var(--t3);padding:2px 0">외 ${items.length-4}건</div>`:'')
+        : '<div style="font-size:10.5px;color:var(--t3);padding:3px 0">없음</div>'}
+    </div>`;
+  const row = (name, sub) => `<div style="font-size:11.5px;padding:3px 0;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)} <span style="color:var(--t3)">${esc(sub)}</span></div>`;
+  el.innerHTML = `<div style="display:flex;gap:18px;align-items:flex-start">
+    ${col('면접 미확정', noInt, 'var(--amber)', c=>row(c.name, STAGES[c.stage]))}
+    ${col('레퍼런스 미응답', noRef, 'var(--blue)', c=>row(c.name, c.pos||''))}
+    ${col('미발송 알림', noNoti, 'var(--red)', i=>{const c=candidates.find(x=>Number(x.id)===Number(i.candId));return row(c?c.name:'-', (i.type||'')+' 면접');})}
+  </div>`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4232,55 +4460,50 @@ function renderKanban() {
   const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
   const stageBg = ['#F1F3F6','#EBF3FD','#E9F7F2','#F0EBFA','#FDF4E8','#EAF7EE','#FBECEC','#EAF7EE'];
 
-  // 활성 모집단위만 (완료된 모집단위 제외)
-  const activePos = positions.filter(p => p.status !== 'done');
+  // 진행중 모집단위만 (충원완료/미채용완료/채용중단 제외)
+  const activePos = positions.filter(p => posStatus(p) === 'active');
 
-  // 1패스 인덱싱: "posId|stage" → 지원자 배열 (중첩 필터 제거)
-  const byKey = {};
-  candidates.forEach(x => {
-    const k = Number(x.posId) + '|' + x.stage;
-    (byKey[k] = byKey[k] || []).push(x);
+  // posId → 비탈락 지원자 배열
+  const byPos = {};
+  candidates.forEach(x => { if(x.stage===6) return; (byPos[Number(x.posId)] = byPos[Number(x.posId)] || []).push(x); });
+
+  // 각 진행중 모집단위를 현재 단계(최고 단계) 컬럼에 1장씩 배치
+  const colCards = {};            // stageIdx → [html]
+  const emptyPos = [];            // 지원자 없는 진행중 모집단위
+  activePos.forEach(pos => {
+    const cands = byPos[Number(pos.id)] || [];
+    if(!cands.length) { emptyPos.push(pos); return; }
+    const cur = Math.max(...cands.map(c=>c.stage));   // 현재 단계
+    const col = stageColor(cur);
+    const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
+    const card = `<div class="position-kanban-card" role="button" tabindex="0" onkeydown="kbActivate(event)" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
+      <div class="position-kanban-title">${esc(title)}</div>
+      <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
+      <div class="pk-stage" style="color:${col}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block"></span>${STAGES[cur]}</div>
+      <div class="pk-date">생성일 ${fmtDate(pos.createdAt)}</div>
+    </div>`;
+    (colCards[cur] = colCards[cur] || []).push(card);
   });
 
   let html = '<div class="position-kanban">';
   cols.forEach(c => {
     const col = stageColor(c.idx);
     const bg = stageBg[c.idx] || 'var(--s2)';
-    let totalInCol = 0;
-    // 이 단계에 인원이 있는 모집단위 카드들
-    const cards = activePos.map(pos => {
-      const grp = byKey[Number(pos.id) + '|' + c.idx] || [];
-      const cnt = grp.length;
-      if(!cnt) return '';
-      totalInCol += cnt;
-      const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
-      const names = grp.slice(0,4).map(x => x.name).join(', ') + (cnt > 4 ? ` 외 ${cnt-4}명` : '');
-      return `<div class="position-kanban-card" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
-        <div class="position-kanban-title">${title}</div>
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:wrap">
-          <span style="font-size:9.5px;background:${col};color:#fff;padding:1px 6px;border-radius:20px;font-weight:700">${cnt}명</span>
-          ${pos.etype ? `<span style="font-size:9.5px;color:var(--t3)">${pos.etype}</span>` : ''}
-        </div>
-        <div class="position-kanban-names">${names}</div>
-      </div>`;
-    }).filter(Boolean).join('');
-
+    const cards = (colCards[c.idx] || []);
     html += `<div class="position-kanban-col" style="background:${bg}">
       <div class="position-kanban-col-h" style="color:${col}">${c.name}</div>
-      <div class="position-kanban-col-sub">${totalInCol}명</div>
-      <div class="position-kanban-list">${cards || '<div style="font-size:10px;color:var(--t3);text-align:center;padding:14px 0;opacity:.6">—</div>'}</div>
+      <div class="position-kanban-col-sub">${cards.length}개 모집단위</div>
+      <div class="position-kanban-list">${cards.join('') || '<div style="font-size:10px;color:var(--t3);text-align:center;padding:14px 0;opacity:.6">—</div>'}</div>
     </div>`;
   });
   html += '</div>';
 
-  // 지원자 0명(미배정) 활성 모집단위 — 단계 열에는 안 잡히므로 별도 스트립으로 노출
-  const posTotal = pos => FLOW.reduce((s,si)=> s + (byKey[Number(pos.id)+'|'+si]||[]).length, 0);
-  const emptyPos = activePos.filter(p => posTotal(p) === 0);
+  // 지원자 미배정(0명) 진행중 모집단위 — 별도 스트립
   if(emptyPos.length) {
     html += `<div style="margin-top:10px;padding:10px 12px;background:var(--s2);border:1px dashed var(--border2);border-radius:var(--r)">
       <div style="font-size:10.5px;font-weight:700;color:var(--t3);margin-bottom:7px;letter-spacing:.3px">지원자 미배정 모집단위 · ${emptyPos.length}건 <span style="font-weight:500">(지원자 등록 시 위 단계 보드에 표시됩니다)</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${emptyPos.map(p=>`<button class="btn btn-xs" style="background:var(--surface)" onclick="openPosDetail(${p.id})">${(p.dept?p.dept+' · ':'')+p.title}${p.etype?` <span style="color:var(--t3);font-weight:500">${p.etype}</span>`:''}</button>`).join('')}
+        ${emptyPos.map(p=>`<button class="btn btn-xs" style="background:var(--surface)" onclick="openPosDetail(${p.id})">${esc((p.dept?p.dept+' · ':'')+p.title)} <span style="color:var(--t3);font-weight:500">채용 ${parseInt(p.headcount)||1}명</span></button>`).join('')}
       </div>
     </div>`;
   }
@@ -4289,32 +4512,8 @@ function renderKanban() {
 }
 
 function renderDashboard() {
-  updateMetrics();
+  updateMetrics(); // 처리 필요 카드(renderUrgent) 포함
   if(kanbanView === 'stage') renderStageKanban(); else renderKanban();
-
-  // 긴급 처리
-  const du = document.getElementById('dash-urgent');
-  if(du) {
-    const urgs = [];
-    candidates.filter(c=>c.ref==='진행중'&&c.refD===0).forEach(c=>urgs.push({level:'red',msg:`${c.name}(${c.pos}) 레퍼런스 0/${c.refT} — 즉시 리마인드`}));
-    candidates.filter(c=>c.stage===5&&!onboardings.find(o=>o.candId===c.id)).forEach(c=>urgs.push({level:'red',msg:`${c.name} 최종합격 — 입사 안내 미등록`}));
-    interviews.filter(i=>!i.notified).forEach(i=>urgs.push({level:'amber',msg:`${i.candName} ${i.type} 면접 — 알림 미발송`}));
-    if(!urgs.length) du.innerHTML='<div style="font-size:12.5px;color:var(--green)">✓ 긴급 처리 항목이 없습니다.</div>';
-    else du.innerHTML = urgs.map(u=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--rsm);margin-bottom:5px;background:${u.level==='red'?'var(--rbg)':'var(--abg)'};border:1px solid ${u.level==='red'?'var(--rbd)':'var(--abd)'}"><div style="width:6px;height:6px;border-radius:50%;background:var(--${u.level});flex-shrink:0"></div><div style="font-size:12px;flex:1">${u.msg}</div></div>`).join('');
-  }
-
-  // 최근 알림
-  const nr = document.getElementById('dash-notify-recent');
-  if(nr) {
-    if(!notifyLog.length) nr.innerHTML='<div style="font-size:12px;color:var(--t3)">발송 내역 없음</div>';
-    else nr.innerHTML = notifyLog.slice(0,5).map(l=>`
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-        <span class="b ${l.ch==='Teams'?'bteams':'bblue'}" style="font-size:10px">${l.ch}</span>
-        <span class="tag" style="font-size:10px">${l.type}</span>
-        <span style="flex:1;font-size:12px;color:var(--t2)">${l.target}</span>
-        <span style="font-size:10px;font-family:'DM Mono',monospace;color:var(--t3)">${l.time}</span>
-      </div>`).join('');
-  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4850,7 +5049,7 @@ function openDetail(id) {
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">단계 변경 (클릭 시 확인 팝업)</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
-      ${STAGES.map((s,si)=>`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" onclick="closeModal('modal-detail');requestStageChange(${c.id},${si})">${s}</button>`).join('')}
+      ${STAGES.map((s,si)=>si===7?'':`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" onclick="closeModal('modal-detail');requestStageChange(${c.id},${si})">${s}</button>`).join('')}
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">면접 일정</div>
     ${itv.length ? itv.map(i=>{
