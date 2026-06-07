@@ -517,16 +517,17 @@ html,body{line-height:1.55;}
     <div id="sect-dash" class="sect on">
       <div class="mrow g6" style="margin-bottom:14px">
         <div class="mc c-navy"><div class="mc-lbl">채용목표</div><div class="mc-val" id="m-target">0</div><div class="mc-sub">진행중+충원완료 인원</div></div>
-        <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled">0</div><div class="mc-sub">충원완료 모집단위</div></div>
+        <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled">0</div><div class="mc-sub">최종합격 인원</div></div>
         <div class="mc c-amber"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
         <div class="mc c-green"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
         <div class="mc c-navy" onclick="nav('position')" style="cursor:pointer" title="모집단위 관리로 이동"><div class="mc-lbl">진행중 모집단위</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
         <div class="mc c-red" onclick="openMetricDetail('action')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">처리 필요</div><div class="mc-val" id="m-action">0</div><div class="mc-sub">즉시 처리 ↗</div></div>
       </div>
 
-      <!-- 처리 필요 (중단) -->
+      <!-- 처리 필요 + 채용 인사이트 (중단) -->
       <div class="card" id="dash-urgent-card" style="margin-bottom:14px">
-        <div class="ch"><div class="ch-l">처리 필요</div></div>
+        <div id="dash-insights" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)"></div>
+        <div class="ch" style="margin-bottom:8px"><div class="ch-l">처리 필요</div></div>
         <div id="dash-urgent"></div>
       </div>
 
@@ -1522,6 +1523,25 @@ function posCurrentStage(p){
 // YYYY-MM-DD → YYYY.MM.DD 표시용
 function fmtDate(d){ return d ? String(d).slice(0,10).replace(/-/g,'.') : ''; }
 
+// 실제 '진행 중' 파이프라인 지원자: 불합격 제외 + 종료(충원완료/미채용완료/채용중단) 모집단위 소속 제외
+function isActivePipelineCand(c){
+  if(c.stage===6) return false;                 // 불합격
+  if(c.posId==null || c.posId==='') return true; // 미연결 지원자는 유지
+  const p = positions.find(x=>Number(x.id)===Number(c.posId));
+  if(p && posStatus(p)!=='active') return false; // 종료 모집단위 소속 제외
+  return true;
+}
+// 처리 필요 항목 단일 산출 (KPI 숫자와 처리필요 카드가 공유 → 항상 일치)
+function getActionItems(){
+  const pool = candidates.filter(isActivePipelineCand);
+  const noInt = pool.filter(c => (c.stage===1||c.stage===3) &&
+     !interviews.some(i=>Number(i.candId)===Number(c.id) && (i.status==='confirmed'||i.status==='done')));
+  const noRef = pool.filter(c => c.ref==='진행중' && Number(c.refD||0)===0);
+  const activeIds = new Set(pool.map(c=>Number(c.id)));
+  const noNoti = interviews.filter(i => !i.notified && activeIds.has(Number(i.candId)));
+  return { noInt, noRef, noNoti, total: noInt.length + noRef.length + noNoti.length };
+}
+
 
 // ══════════════════════════════════════════════════════════════
 // Google Sheets 연동
@@ -1639,6 +1659,8 @@ async function syncPosToGS(pos) {
     loc:       pos.loc || '',
     memo:      pos.memo || '',
     createdAt: pos.createdAt || '',
+    status:    pos.status || 'active',
+    closedAt:  pos.closedAt || '',
   });
   showSyncStatus('모집단위 GS 동기화 완료', 'ok');
 }
@@ -1663,6 +1685,8 @@ async function loadPositionsFromGS() {
       loc:       row.loc || '',
       memo:      row.memo || '',
       createdAt: row.createdAt || '',
+      status:    (row.status==='done' ? 'filled' : (row.status || 'active')),
+      closedAt:  row.closedAt || '',
     }));
     saveState();
     return true;
@@ -1830,7 +1854,7 @@ function renderPositions() {
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
-            ${pos.dept ? pos.dept + ' · ' : ''}${pos.title}
+            ${pos.dept ? pos.dept + ' · ' : ''}${esc(pos.title)}
             ${done ? `<span class="b bgreen" style="font-size:10px">${posStatusLabel(pos)}</span>` : '<span class="b bblue" style="font-size:10px">진행중</span>'}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1879,7 +1903,7 @@ function renderPositions() {
 function sendOnboardToCand(candId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
-  const subject = `[우미건설] ${c.name}님 입사 안내`;
+  const subject = `[우미건설] ${esc(c.name)}님 입사 안내`;
   const body = buildOnboardEmail(c);
   const sent = openMailto(c.email, subject, body);
   if(sent === false) return;
@@ -1887,7 +1911,7 @@ function sendOnboardToCand(candId) {
   logNotify('Outlook', '입사안내-지원자', c.name, c.email);
   saveState();
   if(GS_CONFIG.scriptUrl) syncCandToGS(c);
-  toast(`${c.name}님 입사 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
+  toast(`${esc(c.name)}님 입사 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
 }
 
 // 모집단위 상세에서 입사 안내 - 사내 관련 부서(팀장·전산 등)
@@ -1921,13 +1945,13 @@ function sendOnboardToDept(candId) {
   const leadLabel = deptLeadName ? `${deptLeadName}(배치 부서장)` : (deptLead ? '배치 부서장' : '');
   const teamNames = [leadLabel, ...teams.map(t => t.name)].filter(Boolean).join(', ') || '유관 부서';
 
-  const subject = `[우미건설] 신규 입사자 안내 — ${c.name} (${joinDate})`;
+  const subject = `[우미건설] 신규 입사자 안내 — ${esc(c.name)} (${joinDate})`;
   const body = [
     `${teamNames} 담당자님,`, ``,
     `${sign}입니다.`,
     `아래와 같이 신규 입사자를 안내드리오니 입사 준비(좌석·계정·장비 등)에 협조 부탁드립니다.`, ``,
     `━━ 입사자 정보 ━━`,
-    `성명:     ${c.name}`,
+    `성명:     ${esc(c.name)}`,
     `직무:     ${c.pos || ob.pos || '미정'}`,
     `소속:     ${dept || '미정'}`,
     `입사일:   ${joinDate}`,
@@ -1946,7 +1970,7 @@ function sendOnboardToDept(candId) {
   if(sent === false) return;
   logNotify('Outlook', '입사통보-사내부서', c.name, toEmails);
   saveState();
-  toast(`${c.name}님 사내부서 통보${deptLeadName?' (부서장: '+deptLeadName+')':''} — Outlook 창에서 전송하세요`, 'toutlook');
+  toast(`${esc(c.name)}님 사내부서 통보${deptLeadName?' (부서장: '+deptLeadName+')':''} — Outlook 창에서 전송하세요`, 'toutlook');
 }
 
 
@@ -1977,7 +2001,7 @@ function openCollectSlots(posId, stageIdx) {
   // 대상 목록
   const tw = document.getElementById('csl-targets');
   if(tw) tw.innerHTML = targets.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
-    <span style="font-weight:600">${c.name}</span><span style="color:var(--t3)">${c.email}</span></div>`).join('');
+    <span style="font-weight:600">${esc(c.name)}</span><span style="color:var(--t3)">${esc(c.email)}</span></div>`).join('');
   closeModal('modal-pos-detail');
   openModal('modal-collect-slots');
 }
@@ -2223,7 +2247,7 @@ function passFromPos(candId, posId, stageIdx) {
   if(!c) return;
   const nextStage = nextFlowStage(stageIdx);  // FLOW 기준 다음 (5→7 입사)
   const stageName = STAGES[nextStage] || '';
-  if(!confirm(`${c.name}님을 '${STAGES[stageIdx]}' → '${stageName}'(으)로 이동하시겠습니까?`)) return;
+  if(!confirm(`${esc(c.name)}님을 '${STAGES[stageIdx]}' → '${stageName}'(으)로 이동하시겠습니까?`)) return;
   returnToPosId = posId;
   closeModal('modal-pos-detail');
   requestStageChange(candId, nextStage);  // 합격 안내 메일 + 단계 이동 (모달에서 확정)
@@ -2233,7 +2257,7 @@ function passFromPos(candId, posId, stageIdx) {
 function rejectFromPos(candId, posId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
-  if(!confirm(`${c.name}님을 불합격 처리하시겠습니까?\n전형이 종료되며, 불합격 안내를 발송할 수 있습니다.`)) return;
+  if(!confirm(`${esc(c.name)}님을 불합격 처리하시겠습니까?\n전형이 종료되며, 불합격 안내를 발송할 수 있습니다.`)) return;
   returnToPosId = posId;
   closeModal('modal-pos-detail');
   requestStageChange(candId, 6);  // 불합격 단계 (전형 종료)
@@ -2256,7 +2280,7 @@ function linkCandToPos(candId, posId) {
     renderPositions();
     openPosDetail(Number(posId));
   }
-  toast(`${c.name}님을 '${pos.title}'에 연결했습니다.`, 'tok');
+  toast(`${esc(c.name)}님을 '${esc(pos.title)}'에 연결했습니다.`, 'tok');
 }
 
 // ── 모집단위 상태 필터 ──
@@ -2274,7 +2298,7 @@ function closePosition(posId) {
   if(!pos) return;
   const passed = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === 5).length;
   const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5).length;
-  let msg = `'${pos.title}' 모집을 완료 처리하시겠습니까?`;
+  let msg = `'${esc(pos.title)}' 모집을 완료 처리하시겠습니까?`;
   if(active > 0) msg += `\n\n⚠ 아직 진행중인 지원자가 ${active}명 있습니다.`;
   if(passed < (pos.headcount||1)) msg += `\n⚠ 최종합격 ${passed}명 / 목표 ${pos.headcount||1}명 (미달)`;
   if(!confirm(msg)) return;
@@ -2283,7 +2307,7 @@ function closePosition(posId) {
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
   renderPositions(); renderDashboard();
-  toast(`'${pos.title}' 충원완료 처리`, 'tok');
+  toast(`'${esc(pos.title)}' 충원완료 처리`, 'tok');
 }
 
 // 미채용 완료 + 동일 조건 재모집단위 자동 생성
@@ -2311,21 +2335,21 @@ function nohirePosition(posId) {
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') { syncPosToGS(pos); syncPosToGS(np); }
   closeModal('modal-pos-detail');
   renderPositions(); renderDashboard();
-  toast(`'${pos.title}' 미채용 종료 · '${newTitle}' 생성`, 'tok');
+  toast(`'${esc(pos.title)}' 미채용 종료 · '${newTitle}' 생성`, 'tok');
 }
 
 // 채용 중단 (재모집 없이 종료)
 function stopPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
-  if(!confirm(`'${pos.title}' 모집단위를 채용 중단 처리하시겠습니까?`)) return;
+  if(!confirm(`'${esc(pos.title)}' 모집단위를 채용 중단 처리하시겠습니까?`)) return;
   pos.status = 'stopped';
   pos.closedAt = today();
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
   closeModal('modal-pos-detail');
   renderPositions(); renderDashboard();
-  toast(`'${pos.title}' 채용 중단 처리`, 'tok');
+  toast(`'${esc(pos.title)}' 채용 중단 처리`, 'tok');
 }
 
 // 진행중으로 복원
@@ -2336,7 +2360,7 @@ function reopenPosition(posId) {
   delete pos.closedAt;
   saveState();
   renderPositions();
-  toast(`'${pos.title}' 진행중으로 복원`, 'tok');
+  toast(`'${esc(pos.title)}' 진행중으로 복원`, 'tok');
 }
 
 // ── 모집단위 상세 모달 ────────────────────────────────────────
@@ -2676,8 +2700,8 @@ function openPosDetail(posId) {
           ${unlinked.map(c => `
             <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
               <div style="flex:1">
-                <span style="font-size:13px;font-weight:600">${c.name}</span>
-                <span style="font-size:11px;color:var(--t3)">· ${c.pos} · ${STAGES[c.stage]}</span>
+                <span style="font-size:13px;font-weight:600">${esc(c.name)}</span>
+                <span style="font-size:11px;color:var(--t3)">· ${esc(c.pos)} · ${STAGES[c.stage]}</span>
               </div>
               <button class="btn btn-xs btn-primary" onclick="linkCandToPos(${c.id},${posId})">+ 연결</button>
             </div>
@@ -2689,13 +2713,16 @@ function openPosDetail(posId) {
 
   const ft = document.getElementById('pos-detail-ft');
   const _st = posStatus(pos);
+  const _passed = candidates.filter(c => Number(c.posId)===Number(pos.id) && c.stage===5).length;
+  const _targetMet = _passed >= (parseInt(pos.headcount)||1);
   ft.innerHTML = `
     <button class="btn" onclick="closeModal('modal-pos-detail')">닫기</button>
     <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--s2);color:var(--t2)">${posStatusLabel(pos)}</span>
+    ${(_st==='active' && _targetMet) ? `<span style="font-size:11px;font-weight:700;color:var(--green)">✓ 최종합격 ${_passed}/${parseInt(pos.headcount)||1} — 충원완료 처리 가능</span>` : ''}
     <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
       ${_st!=='active'
         ? `<button class="btn btn-sm" onclick="reopenPosition(${posId});closeModal('modal-pos-detail')">↻ 진행중으로 복원</button>`
-        : `<button class="btn btn-sm" style="background:#EDFAF3;color:var(--green);border-color:#A8E0C0" onclick="closeModal('modal-pos-detail');closePosition(${posId})">✓ 충원 완료</button>
+        : `<button class="btn btn-sm${_targetMet?' btn-primary':''}" style="${_targetMet?'':'background:#EDFAF3;color:var(--green);border-color:#A8E0C0'}" onclick="closeModal('modal-pos-detail');closePosition(${posId})">✓ 충원 완료${_targetMet?' (목표 달성)':''}</button>
            <button class="btn btn-sm" style="background:var(--abg);color:var(--amber);border-color:var(--abd)" onclick="nohirePosition(${posId})">↻ 미채용 완료(재모집)</button>
            <button class="btn btn-sm" style="color:var(--t2)" onclick="stopPosition(${posId})">■ 채용 중단</button>`}
       <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');editPosition(${posId})">✏ 수정</button>
@@ -2853,7 +2880,7 @@ function openBatchSchedule(posId, stageIdx) {
     return;
   }
   batchScheduleCtx = { posId, stageIdx };
-  document.getElementById('bs-title').textContent = `${round} 면접 일괄 일정 배치 — ${pos.title} (${targets.length}명)`;
+  document.getElementById('bs-title').textContent = `${round} 면접 일괄 일정 배치 — ${esc(pos.title)} (${targets.length}명)`;
   // 기본값 설정
   const dateEl = document.getElementById('bs-date');
   if(dateEl && !dateEl.value) {
@@ -2947,7 +2974,7 @@ function applyBatchSchedule() {
         date: s.datetime,
         loc: loc,
         panel: panel || '미정',
-        memo: `모집단위 일괄 배치 (${pos.title})`,
+        memo: `모집단위 일괄 배치 (${esc(pos.title)})`,
         status: 'confirmed',
         notified: false,
       });
@@ -3011,11 +3038,11 @@ function sendCandSchedule(intId, sequential) {
   const arrive = new Date(d.getTime() - 30*60000);
   const arriveLabel = `${String(arrive.getHours()).padStart(2,'0')}:${String(arrive.getMinutes()).padStart(2,'0')}`;
 
-  const subject = `[우미건설] ${c.name}님 ${roundLabel} 일정 안내`;
+  const subject = `[우미건설] ${esc(c.name)}님 ${roundLabel} 일정 안내`;
   const body =
-`안녕하세요 ${c.name}님,
+`안녕하세요 ${esc(c.name)}님,
 
-우미건설 ${c.pos} 포지션 ${roundLabel} 일정을 안내드립니다.
+우미건설 ${esc(c.pos)} 포지션 ${roundLabel} 일정을 안내드립니다.
 
 ■ 일시 : ${dateLabel} ${timeLabel}
 ■ 장소 : ${itv.loc}
@@ -3031,7 +3058,7 @@ function sendCandSchedule(intId, sequential) {
   c.notified = true;
   logNotify('Outlook', `${itv.type}면접지원자안내`, c.name, c.email);
   saveState();
-  toast(`${c.name}님에게 ${roundLabel} 일정 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
+  toast(`${esc(c.name)}님에게 ${roundLabel} 일정 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
 }
 
 function sendPanelSchedule(posId, stageIdx) {
@@ -3076,9 +3103,9 @@ function sendPanelSchedule(posId, stageIdx) {
 
   // 면접 대상 (순서 + 시간 + 이름)
   const targetText = schedule.map((i, idx) =>
-    `   ${idx+1}. ${i.date.split(' ')[1]}  ${i.candName} (${pos.title})`).join('\n');
+    `   ${idx+1}. ${i.date.split(' ')[1]}  ${esc(i.candName)} (${esc(pos.title)})`).join('\n');
 
-  const subject = `[우미건설] ${pos.title} ${roundLabel} 면접 안내 (${scheduleLabel})`;
+  const subject = `[우미건설] ${esc(pos.title)} ${roundLabel} 면접 안내 (${scheduleLabel})`;
   const body =
 `면접위원님께,
 
@@ -3527,7 +3554,7 @@ async function deletePosition(posId) {
   saveState();
   if(GS_CONFIG.scriptUrl && typeof deletePosFromGS === 'function') deletePosFromGS(posId);
   renderPositions();
-  toast(`${pos.title} 삭제 완료`, 'tok');
+  toast(`${esc(pos.title)} 삭제 완료`, 'tok');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -3790,6 +3817,15 @@ function openModal(id) {
   el.style.padding = '20px';
   el.style.boxSizing = 'border-box';
   el.classList.add('open');
+  // 접근성: 다이얼로그 역할 + 포커스 이동(이전 포커스 저장)
+  el.setAttribute('role','dialog');
+  el.setAttribute('aria-modal','true');
+  el._prevFocus = document.activeElement;
+  setTimeout(() => {
+    const f = el.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
+    if(f) { try{ f.focus(); }catch(e){} }
+    else { el.setAttribute('tabindex','-1'); el.focus(); }
+  }, 30);
   console.log('[openModal] opened:', id);
 }
 function closeModal(id) {
@@ -3797,6 +3833,7 @@ function closeModal(id) {
   if(!el) return;
   el.style.display = 'none';
   el.classList.remove('open');
+  if(el._prevFocus && el._prevFocus.focus){ try{ el._prevFocus.focus(); }catch(e){} el._prevFocus=null; } // 포커스 복귀
 }
 
 // 신규 지원자 등록 모달 열기 (모집단위 드롭다운 자동 채움)
@@ -3808,7 +3845,7 @@ function addCandToPos(posId) {
   if(!modal) return;
   delete modal.dataset.editId;
   modal.dataset.returnPosId = posId;   // 저장 후 복귀용
-  document.querySelector('#modal-add .modal-title').textContent = `신규 지원자 등록 — ${pos.title}`;
+  document.querySelector('#modal-add .modal-title').textContent = `신규 지원자 등록 — ${esc(pos.title)}`;
   // 입력 초기화 후 모집단위 정보 자동 채움
   const setv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
   setv('nc-name','');  setv('nc-email',''); setv('nc-memo',''); setv('nc-date','');
@@ -3866,7 +3903,7 @@ function populateSel(id) {
   const s = document.getElementById(id); if(!s) return;
   const v = s.value;
   s.innerHTML = '<option value="">-- 선택 --</option>';
-  candidates.forEach(c => s.add(new Option(`${c.name} (${c.pos})`, c.id)));
+  candidates.forEach(c => s.add(new Option(`${esc(c.name)} (${esc(c.pos)})`, c.id)));
   if(v) s.value = v;
 }
 function badge(stage) { return `<span class="b ${SBG[stage]||'bgray'}">${STAGES[stage]||''}</span>`; }
@@ -4079,11 +4116,11 @@ function openMetricDetail(type) {
     const noNotify  = interviews.filter(i=>!i.notified);
 
     html += renderActionGroup('🔴 최종합격 → 입사 안내 미등록', noOnboard.map(c=>({
-      name:c.name, sub:`${c.pos} · ${etypePill(c.etype)}`,
+      name:c.name, sub:`${esc(c.pos)} · ${etypePill(c.etype)}`,
       btn:`<button class="btn btn-xs btn-green" onclick="closeModal('modal-metric');navBtn('onboarding')">입사 등록</button>`
     })));
     html += renderActionGroup('🔴 레퍼런스 0건 응답 (즉시 리마인드)', noRef.map(c=>({
-      name:c.name, sub:`${c.pos} · 추천인 ${c.refT}명 전원 미응답`,
+      name:c.name, sub:`${esc(c.pos)} · 추천인 ${c.refT}명 전원 미응답`,
       btn:`<button class="btn btn-xs btn-outlook" onclick="closeModal('modal-metric');remindRef(${c.id})">리마인드</button>`
     })));
     html += renderActionGroup('🟡 면접 알림 미발송', noNotify.map(i=>({
@@ -4098,8 +4135,8 @@ function openMetricDetail(type) {
       return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('modal-metric');navBtn('reference')">
         <div style="width:32px;height:32px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0">${c.name.charAt(0)}</div>
         <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${c.name} ${etypePill(c.etype)}</div>
-          <div style="font-size:11px;color:var(--t3)">${c.pos}${c.dept?' · '+c.dept:''}</div>
+          <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
+          <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
           <div style="margin-top:5px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
               <span style="font-size:11px;color:${urgColor};font-weight:700">${c.refD}/${c.refT}명 응답 (${pct}%)</span>
@@ -4118,8 +4155,8 @@ function openMetricDetail(type) {
       return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('modal-metric');openDetail(${c.id})">
         <div style="width:32px;height:32px;border-radius:50%;background:var(--pbg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--purple);flex-shrink:0">${c.name.charAt(0)}</div>
         <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${c.name} ${etypePill(c.etype)}</div>
-          <div style="font-size:11px;color:var(--t3)">${c.pos}${c.dept?' · '+c.dept:''}</div>
+          <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
+          <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
           ${itvInfo ? `<div style="font-size:11px;color:var(--blue);margin-top:3px;font-family:'DM Mono',monospace">📅 ${itvInfo.date} · ${itvInfo.loc}</div>` : '<div style="font-size:11px;color:var(--red);margin-top:3px">⚠ 면접 일정 미등록</div>'}
         </div>
         <div style="display:flex;gap:5px">
@@ -4135,8 +4172,8 @@ function openMetricDetail(type) {
       return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('modal-metric');openDetail(${c.id})">
         <div style="width:32px;height:32px;border-radius:50%;background:${type==='pass'?'var(--gbg)':'var(--bbg)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${type==='pass'?'var(--green)':'var(--blue)'};flex-shrink:0">${c.name.charAt(0)}</div>
         <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${c.name} ${etypePill(c.etype)}</div>
-          <div style="font-size:11px;color:var(--t3)">${c.pos}${c.dept?' · '+c.dept:''}</div>
+          <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
+          <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
           ${ob ? `<div style="font-size:11px;color:var(--green);margin-top:2px">입사일: ${ob.joinDate}</div>` : ''}
         </div>
         ${badge(c.stage)}
@@ -4229,8 +4266,8 @@ function renderRefFilterPanel() {
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">
       <div style="width:32px;height:32px;border-radius:50%;background:var(--acc-light);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0">${c.name.charAt(0)}</div>
       <div style="flex:1">
-        <div style="font-weight:700;font-size:13px">${c.name} ${etypePill(c.etype)}</div>
-        <div style="font-size:11px;color:var(--t3)">${c.pos}${c.dept?' · '+c.dept:''} ${badge(c.stage)}</div>
+        <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
+        <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''} ${badge(c.stage)}</div>
         ${refInfo}
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0">${actionBtns}</div>
@@ -4273,8 +4310,8 @@ function renderDashPipeList() {
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s" onclick="openDetail(${c.id})" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
       <div style="width:28px;height:28px;border-radius:50%;background:var(--acc-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc);flex-shrink:0">${c.name.charAt(0)}</div>
       <div style="flex:1">
-        <div style="font-weight:600;font-size:12.5px">${c.name} ${etypePill(c.etype)}</div>
-        <div style="font-size:11px;color:var(--t3)">${c.pos}${c.dept?' · '+c.dept:''}</div>
+        <div style="font-weight:600;font-size:12.5px">${esc(c.name)} ${etypePill(c.etype)}</div>
+        <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
       </div>
       ${isFiltered ? '' : badge(c.stage)}
       <div style="display:flex;gap:4px">
@@ -4321,7 +4358,7 @@ function renderStageKanban() {
 
   const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
   const stageBg = ['#F1F3F6','#EBF3FD','#E9F7F2','#F0EBFA','#FDF4E8','#EAF7EE','#FBECEC','#EAF7EE'];
-  const activeCandidates = candidates.filter(c => c.stage !== 6);
+  const activeCandidates = candidates.filter(isActivePipelineCand);
 
   if(!activeCandidates.length) {
     el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">진행 중인 지원자가 없습니다.</div>';
@@ -4388,19 +4425,19 @@ function renderStageKanban() {
 // ══════════════════════════════════════════════════════════════
 function updateMetrics() {
   const set = (id, v) => { const el=document.getElementById(id); if(el) el.innerHTML=v; };
-  const active = candidates.filter(c=>c.stage!==6); // 불합격 제외 = 진행 중 지원자
+  const active = candidates.filter(isActivePipelineCand); // 진행 중(종료 모집단위·불합격 제외)
 
-  // ── 모집단위 상태 기반 충원 KPI ──────────────────────────
+  // ── 모집단위 상태 기반 충원 KPI (채용완료=실제 최종합격 인원) ──────
   const hc = p => parseInt(p.headcount)||0;
-  const targetN = positions.filter(p=>{const s=posStatus(p);return s==='active'||s==='filled';})
-                           .reduce((s,p)=>s+hc(p),0);                 // 채용목표 = 진행중+충원완료 headcount
-  const filledN = positions.filter(p=>posStatus(p)==='filled').reduce((s,p)=>s+hc(p),0); // 채용완료
+  const counted = positions.filter(p=>{const s=posStatus(p);return s==='active'||s==='filled';}); // 목표 집계 대상
+  const targetN = counted.reduce((s,p)=>s+hc(p),0);                   // 채용목표 = 진행중+충원완료 headcount
+  // 채용완료 = 대상 모집단위별 min(채용인원, 최종합격 수) 합 (좌석 초과 방지 → 실제 충원)
+  const filledN = counted.reduce((s,p)=> s + Math.min(hc(p),
+                    candidates.filter(c=>Number(c.posId)===Number(p.id) && c.stage===5).length), 0);
   const openN   = Math.max(0, targetN - filledN);                     // 미충원
   const fillPct = targetN>0 ? (filledN/targetN*100).toFixed(1) : '0.0'; // 충원율
   const activePosN = positions.filter(p=>posStatus(p)==='active').length; // 진행중 모집단위
-  const acts = candidates.filter(c=>c.stage===5&&!onboardings.find(o=>o.candId===c.id)).length
-             + candidates.filter(c=>c.ref==='진행중'&&c.refD===0).length
-             + interviews.filter(i=>!i.notified).length;             // 처리 필요
+  const acts = getActionItems().total;                                // 처리 필요(카드와 동일 정의)
 
   const unit = (n,u) => `${n}<span class="mc-u">${u}</span>`;
   set('m-target',     unit(targetN,'명'));
@@ -4417,16 +4454,40 @@ function updateMetrics() {
   if(ni){ if(pi>0){ni.style.display='';ni.textContent=pi;}else ni.style.display='none'; }
 
   if(typeof renderUrgent==='function') renderUrgent(); // 처리 필요 카드(중단 영역)
+  if(typeof renderInsights==='function') renderInsights(); // 채용 인사이트(TTF 등)
 }
 
-// ── 처리 필요 카드 (면접 미확정 / 레퍼런스 미응답 / 미발송 알림) ──────────
+// ── 채용 인사이트: 평균 채용 소요일(TTF) · 이번 달 충원완료 · 최장기 진행중 ──
+function renderInsights() {
+  const el = document.getElementById('dash-insights');
+  if(!el) return;
+  const filled = positions.filter(p => posStatus(p)==='filled' && p.createdAt && p.closedAt);
+  const days = filled.map(p => Math.max(0, Math.round((new Date(p.closedAt) - new Date(p.createdAt))/86400000)));
+  const ttf = days.length ? Math.round(days.reduce((a,b)=>a+b,0)/days.length) : null;
+  const ym = new Date().toISOString().slice(0,7);
+  const thisMonth = positions.filter(p => posStatus(p)==='filled' && String(p.closedAt||'').slice(0,7)===ym).length;
+  const now = Date.now();
+  let oldest=null, oldestDays=-1;
+  positions.filter(p => posStatus(p)==='active' && p.createdAt).forEach(p => {
+    const d = Math.round((now - new Date(p.createdAt))/86400000);
+    if(d > oldestDays){ oldestDays=d; oldest=p; }
+  });
+  const item = (label,val,sub) => `<div style="flex:1;min-width:0">
+    <div style="font-size:10px;color:var(--t3);font-weight:700;margin-bottom:2px">${label}</div>
+    <div style="font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${val}<span style="font-size:11px;font-weight:600;color:var(--t3);margin-left:3px">${sub||''}</span></div>
+  </div>`;
+  el.innerHTML = `<div style="display:flex;gap:18px;align-items:center">
+    ${item('평균 채용 소요일', ttf!=null?ttf:'—', ttf!=null?'일':'')}
+    ${item('이번 달 충원완료', thisMonth, '건')}
+    ${item('최장기 진행중', oldest?esc((oldest.dept?oldest.dept+' · ':'')+oldest.title):'—', oldest?`· ${oldestDays}일 경과`:'')}
+  </div>`;
+}
+
+// ── 처리 필요 카드 (면접 미확정 / 레퍼런스 미응답 / 미발송 알림) — getActionItems 공유 ──
 function renderUrgent() {
   const el = document.getElementById('dash-urgent');
   if(!el) return;
-  const noInt = candidates.filter(c => (c.stage===1||c.stage===3) &&
-      !interviews.some(i=>Number(i.candId)===Number(c.id) && (i.status==='confirmed'||i.status==='done')));
-  const noRef = candidates.filter(c => c.ref==='진행중' && Number(c.refD||0)===0);
-  const noNoti = interviews.filter(i => !i.notified);
+  const { noInt, noRef, noNoti } = getActionItems();
   const col = (title, items, color, render) => `
     <div style="flex:1;min-width:0">
       <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:6px;display:flex;align-items:center;gap:5px">
@@ -4491,7 +4552,7 @@ function renderKanban() {
     const bg = stageBg[c.idx] || 'var(--s2)';
     const cards = (colCards[c.idx] || []);
     html += `<div class="position-kanban-col" style="background:${bg}">
-      <div class="position-kanban-col-h" style="color:${col}">${c.name}</div>
+      <div class="position-kanban-col-h" style="color:${col}">${esc(c.name)}</div>
       <div class="position-kanban-col-sub">${cards.length}개 모집단위</div>
       <div class="position-kanban-list">${cards.join('') || '<div style="font-size:10px;color:var(--t3);text-align:center;padding:14px 0;opacity:.6">—</div>'}</div>
     </div>`;
@@ -4581,7 +4642,7 @@ function requestStageChange(candId, newStage) {
 
   // 지원자 정보 표시
   document.getElementById('cs-avatar').textContent = c.name.charAt(0);
-  document.getElementById('cs-name').textContent = `${c.name} · ${c.pos}`;
+  document.getElementById('cs-name').textContent = `${esc(c.name)} · ${esc(c.pos)}`;
   document.getElementById('cs-pos').innerHTML = `${etypePill(c.etype)} ${c.dept||''}`;
   document.getElementById('cs-from').textContent = STAGES[c.stage];
   document.getElementById('cs-to').textContent = STAGES[newStage];
@@ -4622,8 +4683,8 @@ function requestStageChange(candId, newStage) {
 function buildStageNotifyMsg(c, newStage) {
   const msgs = {
     6: `😔 [채용 결과 안내 - 우미건설]
-안녕하세요 \${c.name}님,
-우미건설 \${c.pos} 포지션에 지원해 주셔서 감사합니다.
+안녕하세요 \${esc(c.name)}님,
+우미건설 \${esc(c.pos)} 포지션에 지원해 주셔서 감사합니다.
 아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.
 소중한 시간 내주셔서 감사드립니다.
 우미건설 피플팀 드림`,
@@ -4638,9 +4699,9 @@ function buildStageNotifyMsg(c, newStage) {
       const scheduleText = slots.length
         ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
         : '\n\n면접 일정은 별도 안내드릴 예정입니다.';
-      return `📅 [1차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n\n우미건설 ${c.pos} 포지션 서류 전형에 합격하셨습니다. 진심으로 축하드립니다!\n\n이어서 1차 실무면접을 진행하고자 합니다.${scheduleText}\n\n우미건설 피플팀 드림`;
+      return `📅 [1차 면접 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n\n우미건설 ${esc(c.pos)} 포지션 서류 전형에 합격하셨습니다. 진심으로 축하드립니다!\n\n이어서 1차 실무면접을 진행하고자 합니다.${scheduleText}\n\n우미건설 피플팀 드림`;
     })(),
-    2: `📝 [레퍼런스 체크 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n1차 면접을 통과하셨습니다. 수고 많으셨습니다.\n\n채용 절차의 일환으로 레퍼런스 체크를 진행합니다.\n아래 링크에서 추천인 정보를 입력해 주세요.\n[입력하기 →]\n\n우미건설 피플팀 드림`,
+    2: `📝 [레퍼런스 체크 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n1차 면접을 통과하셨습니다. 수고 많으셨습니다.\n\n채용 절차의 일환으로 레퍼런스 체크를 진행합니다.\n아래 링크에서 추천인 정보를 입력해 주세요.\n[입력하기 →]\n\n우미건설 피플팀 드림`,
     3: (() => {
       const s1 = getSlotValue(1);
       const s2 = getSlotValue(2);
@@ -4652,12 +4713,12 @@ function buildStageNotifyMsg(c, newStage) {
       const scheduleText = slots.length
         ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
         : '\n\n2차 임원면접 일정을 곧 안내드리겠습니다.';
-      return `📋 [2차 면접 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n레퍼런스 체크가 완료되었습니다. 감사합니다!${scheduleText}\n\n우미건설 피플팀 드림`;
+      return `📋 [2차 면접 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n레퍼런스 체크가 완료되었습니다. 감사합니다!${scheduleText}\n\n우미건설 피플팀 드림`;
     })(),
-    4: `💼 [처우 협의 안내 - 우미건설]\n안녕하세요 ${c.name}님,\n채용 절차가 순조롭게 진행되고 있습니다.\n\n처우 협의를 위해 연락드리겠습니다.\n우미건설 피플팀 드림`,
-    5: `🎉 [최종 합격 안내 - 우미건설]\n${c.name}님, 진심으로 축하드립니다!\n\n우미건설 ${c.pos} 포지션 최종 합격을 알려드립니다.\n입사 안내는 별도로 연락드리겠습니다.\n\n우미건설 피플팀 드림`,
+    4: `💼 [처우 협의 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n채용 절차가 순조롭게 진행되고 있습니다.\n\n처우 협의를 위해 연락드리겠습니다.\n우미건설 피플팀 드림`,
+    5: `🎉 [최종 합격 안내 - 우미건설]\n${esc(c.name)}님, 진심으로 축하드립니다!\n\n우미건설 ${esc(c.pos)} 포지션 최종 합격을 알려드립니다.\n입사 안내는 별도로 연락드리겠습니다.\n\n우미건설 피플팀 드림`,
   };
-  return msgs[newStage] || `${c.name}님, ${STAGES[newStage]} 단계로 안내드립니다.\n우미건설 피플팀 드림`;
+  return msgs[newStage] || `${esc(c.name)}님, ${STAGES[newStage]} 단계로 안내드립니다.\n우미건설 피플팀 드림`;
 }
 
 // 단계 변경 취소 (모집단위에서 진입한 경우 복귀)
@@ -4730,25 +4791,25 @@ function confirmStageChange() {
   const guide = STAGE_GUIDES[newStage];
 
   if(guide && guide.notify) {
-    let subject = `[우미건설] ${c.name}님 채용 진행 안내`;
+    let subject = `[우미건설] ${esc(c.name)}님 채용 진행 안내`;
     let body = buildStageNotifyMsg(c, newStage);
     if(newStage === 6) {
-      subject = `[우미건설] ${c.name}님 채용 결과 안내`;
+      subject = `[우미건설] ${esc(c.name)}님 채용 결과 안내`;
       body = buildRejectEmail(c);
     } else if(newStage === 1 || newStage === 3) {
       const intType = newStage===1?'1차 실무':'2차 임원';
-      subject = `[우미건설] ${c.name}님 ${intType}면접 일정 안내`;
+      subject = `[우미건설] ${esc(c.name)}님 ${intType}면접 일정 안내`;
       body = buildStageNotifyMsg(c, newStage);
     } else if(newStage === 2) {
-      subject = `[우미건설] ${c.name}님 레퍼런스 체크 안내`;
+      subject = `[우미건설] ${esc(c.name)}님 레퍼런스 체크 안내`;
       body = buildRefRequestEmail(c);
     } else if(newStage === 7) {
-      subject = `[우미건설] ${c.name}님 입사 안내`;
+      subject = `[우미건설] ${esc(c.name)}님 입사 안내`;
       body = buildOnboardEmail ? buildOnboardEmail(c) : buildStageNotifyMsg(c, newStage);
     }
     openMailto(c.email, subject, body);
     logNotify('Outlook', STAGES[newStage]+'안내', c.name, c.email);
-    toast(`${c.name}님 → ${STAGES[newStage]} / 이메일 발송 (Outlook 창에서 전송하세요)`, 'toutlook');
+    toast(`${esc(c.name)}님 → ${STAGES[newStage]} / 이메일 발송 (Outlook 창에서 전송하세요)`, 'toutlook');
   }
 
   // 면접 후보 일정 자동 등록 (1차/2차 면접 단계) — 같은 type 면접 1건만 유지(갱신)
@@ -4800,7 +4861,7 @@ function confirmStageChange() {
   closeModal('modal-confirm-stage');
   pendingStageChange = null;
   renderTracker(); renderDashboard(); updateMetrics(); renderPositions();
-  toast(`${c.name} → ${STAGES[newStage]}`, 'tok');
+  toast(`${esc(c.name)} → ${STAGES[newStage]}`, 'tok');
   syncCandToSP(c).then(()=>saveState());
   // 모집단위 상세에서 진입한 경우 복귀
   if(returnToPosId != null) {
@@ -4995,7 +5056,7 @@ function renderTracker() {
     const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardings.find(o=>o.candId===c.id) ? 'urg-red' : 'urg-none';
     return `<div class="cl-row" onclick="openDetail(${c.id})">
       <div class="urg ${urg}"></div>
-      <div><div class="tname">${c.name}</div><div class="tsub">${c.pos}${c.dept?' · '+c.dept:''}</div></div>
+      <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div></div>
       <div>${etypePill(c.etype)}</div>
       <div>${rolePill(c.role)}</div>
       <div>${badge(c.stage)}</div>
@@ -5026,7 +5087,7 @@ function openDetail(id) {
     return !hasConfirmed;
   });
   const ob  = onboardings.find(o => o.candId===id);
-  document.getElementById('detail-title').textContent = `${c.name} · ${c.pos}`;
+  document.getElementById('detail-title').textContent = `${esc(c.name)} · ${esc(c.pos)}`;
   document.getElementById('detail-body').innerHTML = `
     <div class="grid g2" style="gap:10px;margin-bottom:14px">
       <div style="background:var(--s2);border-radius:var(--rsm);padding:12px">
@@ -5035,7 +5096,7 @@ function openDetail(id) {
           <tr><td style="color:var(--t3);padding:3px 0;width:70px">채용형태</td><td>${etypePill(c.etype)}</td></tr>
           <tr><td style="color:var(--t3);padding:3px 0">직군</td><td>${rolePill(c.role)}</td></tr>
           <tr><td style="color:var(--t3);padding:3px 0">부서</td><td>${c.dept||'-'}</td></tr>
-          <tr><td style="color:var(--t3);padding:3px 0">이메일</td><td>${c.email}</td></tr>
+          <tr><td style="color:var(--t3);padding:3px 0">이메일</td><td>${esc(c.email)}</td></tr>
           <tr><td style="color:var(--t3);padding:3px 0">경력</td><td>${c.career}</td></tr>
           <tr><td style="color:var(--t3);padding:3px 0">접수일</td><td>${c.receivedAt}</td></tr>
         </tbody></table>
@@ -5084,8 +5145,8 @@ function quickNotify(id, ch) {
   const c = candidates.find(x=>x.id===id);
   if(!c) return;
   if(ch === 'outlook') {
-    const subject = `[우미건설] ${c.name}님 채용 진행 안내`;
-    const body = `안녕하세요 ${c.name}님,\n\n우미건설 ${c.pos} 포지션 채용 진행 관련 안내드립니다.\n현재 단계: ${STAGES[c.stage]}\n\n추가 안내가 있으면 연락드리겠습니다.`;
+    const subject = `[우미건설] ${esc(c.name)}님 채용 진행 안내`;
+    const body = `안녕하세요 ${esc(c.name)}님,\n\n우미건설 ${esc(c.pos)} 포지션 채용 진행 관련 안내드립니다.\n현재 단계: ${STAGES[c.stage]}\n\n추가 안내가 있으면 연락드리겠습니다.`;
     const sent = openMailto(c.email, subject, body);
     if(!sent) return;
   }
@@ -5093,7 +5154,7 @@ function quickNotify(id, ch) {
   logNotify(ch==='teams'?'Teams':'Outlook', '개별알림', c.name, c.email);
   saveState(); renderTracker(); renderDashboard();
   closeModal('modal-detail');
-  toast(`${c.name}님 ${ch==='teams'?'Teams':'Outlook'} 발송 (Outlook 창에서 전송하세요)`, ch==='teams'?'tteams':'toutlook');
+  toast(`${esc(c.name)}님 ${ch==='teams'?'Teams':'Outlook'} 발송 (Outlook 창에서 전송하세요)`, ch==='teams'?'tteams':'toutlook');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -5169,7 +5230,7 @@ function renderIntTable() {
   wrap.innerHTML = `<div class="tw"><table>
     <thead><tr><th>지원자</th><th>유형</th><th>일시</th><th>장소</th><th>면접관</th><th>결과</th><th>알림</th><th>액션</th></tr></thead>
     <tbody>${list.map(i=>`<tr>
-      <td><div class="tname">${i.candName}</div></td>
+      <td><div class="tname">${esc(i.candName)}</div></td>
       <td><span class="b ${i.type==='1차'?'bblue':'bpurple'}">${i.type} ${i.type==='1차'?'실무':'임원'}면접</span></td>
       <td style="font-family:'DM Mono',monospace;font-size:11.5px">${i.date}</td>
       <td>${i.loc}</td>
@@ -5190,7 +5251,7 @@ function sendIntById(id, ch) {
   const c = candidates.find(x=>x.id===i.candId);
   if(ch === 'outlook') {
     const type = i.type === '1차' ? '1차 실무면접' : '2차 임원면접';
-    const subject = `[우미건설] ${i.candName}님 ${type} 일정 안내`;
+    const subject = `[우미건설] ${esc(i.candName)}님 ${type} 일정 안내`;
     const body = buildIntEmail(i, c);
     const sent = openMailto(c?.email || '', subject, body);
     if(!sent) return;
@@ -5199,7 +5260,7 @@ function sendIntById(id, ch) {
   if(GS_CONFIG.scriptUrl) { syncIntToGS(i); if(c) syncCandToGS(c); }
   logNotify(ch==='teams'?'Teams':'Outlook', `${i.type}면접안내`, i.candName, c?.email||'');
   saveState(); renderIntTable(); renderDashboard(); updateMetrics();
-  toast(`${i.candName}님 ${ch==='teams'?'Teams':'Outlook'} 발송 (Outlook 창에서 전송하세요)`, ch==='teams'?'tteams':'toutlook');
+  toast(`${esc(i.candName)}님 ${ch==='teams'?'Teams':'Outlook'} 발송 (Outlook 창에서 전송하세요)`, ch==='teams'?'tteams':'toutlook');
 }
 function delInt(id) { if(GS_CONFIG.scriptUrl) deleteIntFromGS(id); interviews=interviews.filter(i=>i.id!==id); saveState(); renderIntTable(); updateMetrics(); }
 
@@ -5268,7 +5329,7 @@ function renderReference() {
       return`<div onclick="selectRefCand(${c.id})" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'var(--acc-light)':'transparent'}">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
           <div style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></div>
-          <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${c.name} ${stBadge}</div><div style="font-size:11px;color:var(--t3)">${c.pos}</div></div>
+          <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${esc(c.name)} ${stBadge}</div><div style="font-size:11px;color:var(--t3)">${esc(c.pos)}</div></div>
           <div style="font-size:13px;font-weight:700;color:${urgC}">${c.refD||0}/${tot}</div>
         </div>
         <div class="prog" style="height:3px;margin-bottom:8px"><div class="pf-bar" style="width:${pct2}%;background:${urgC}"></div></div>
@@ -5304,7 +5365,7 @@ function renderReference() {
         : registered<regTotal ? `<span class="b bamber" style="font-size:10px">접수중 ${registered}/${regTotal}</span>`
         : `<span class="b bblue" style="font-size:10px">접수완료 ${registered}/${regTotal}</span>`;
       return`<tr>
-        <td><div class="tname">${c.name}</div><div class="tsub">${c.email}</div></td>
+        <td><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.email)}</div></td>
         <td>${etypePill(c.etype)}</td>
         <td>${badge(c.stage)}</td>
         <td><span class="b ${rb}">${c.ref==='진행중'&&c.refD===0?'⚠ 전무응답':c.ref}</span></td>
@@ -5327,7 +5388,7 @@ function renderReference() {
 
   // AI 셀렉트
   const aiSel=document.getElementById('ref-ai-cand');
-  if(aiSel){const pv=aiSel.value;aiSel.innerHTML='<option value="">-- 선택 --</option>';candidates.filter(c=>c.ref==='진행중'||c.ref==='완료').forEach(c=>aiSel.add(new Option(`${c.name} (${c.refD}/${c.refT})`,c.id)));if(pv)aiSel.value=pv;}
+  if(aiSel){const pv=aiSel.value;aiSel.innerHTML='<option value="">-- 선택 --</option>';candidates.filter(c=>c.ref==='진행중'||c.ref==='완료').forEach(c=>aiSel.add(new Option(`${esc(c.name)} (${c.refD}/${c.refT})`,c.id)));if(pv)aiSel.value=pv;}
 }
 
 function selectRefCand(id){
@@ -5337,10 +5398,10 @@ function selectRefCand(id){
   const refs=refDetails[id];
   const panel=document.getElementById('ref-referee-panel');
   if(!panel)return;
-  panel.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:10px">${c.name} · ${c.refD}/${c.refT} 응답</div>
+  panel.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:10px">${esc(c.name)} · ${c.refD}/${c.refT} 응답</div>
     ${refs.map((r,ri)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:26px;height:26px;border-radius:50%;background:${r.status==='응답'?'var(--gbg)':'var(--rbg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${r.status==='응답'?'var(--green)':'var(--red)'}">${ri+1}</div>
-      <div style="flex:1"><div style="font-weight:600;font-size:12px">${r.name} <span class="tag">${r.relation}</span></div><div style="font-size:11px;color:var(--t3)">${r.email}${r.remindCnt>0?' · 리마인드 '+r.remindCnt+'회':''}</div></div>
+      <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name)} <span class="tag">${esc(r.relation)}</span></div><div style="font-size:11px;color:var(--t3)">${r.email}${r.remindCnt>0?' · 리마인드 '+r.remindCnt+'회':''}</div></div>
       <span class="b ${r.status==='응답'?'bgreen':'bred'}">${r.status}</span>
       ${r.status!=='응답'?`<button class="btn btn-xs btn-outlook" onclick="remindOneRef(${id},${ri})">리마인드</button><button class="btn btn-xs" onclick="markRefResponse(${id},${ri})">응답</button>`:''}
     </div>`).join('')}`;
@@ -5352,14 +5413,14 @@ function remindOneRef(candId,ri){
   ensureRefDetails(c);
   const r=refDetails[candId][ri];
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'[레퍼런스 체크 설문 URL]';
-  const subject=`[레퍼런스 체크 리마인드] ${c.name}님 레퍼런스 체크 응답 부탁드립니다`;
-  const body=`안녕하세요 ${r.name}님,\n\n앞서 요청드린 ${c.name}님 레퍼런스 체크 설문에 아직 응답하지 않으셨습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.`;
+  const subject=`[레퍼런스 체크 리마인드] ${esc(c.name)}님 레퍼런스 체크 응답 부탁드립니다`;
+  const body=`안녕하세요 ${esc(r.name)}님,\n\n앞서 요청드린 ${esc(c.name)}님 레퍼런스 체크 설문에 아직 응답하지 않으셨습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.`;
   const sent=openMailto(r.email,subject,body);
   if(!sent)return;
   r.remindCnt=(r.remindCnt||0)+1;
-  logNotify('Outlook','추천인리마인드',`${c.name}-${r.name}`,r.email);
+  logNotify('Outlook','추천인리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);
   saveState();selectRefCand(candId);
-  toast(`${r.name}님 리마인드 Outlook이 열렸습니다.`,'toutlook');
+  toast(`${esc(r.name)}님 리마인드 Outlook이 열렸습니다.`,'toutlook');
 }
 function markRefResponse(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;
@@ -5378,7 +5439,7 @@ function markOneResponse(id){
   if(target){target.status='응답';c.refD++;}
   if(c.refD>=c.refT)c.ref='완료';
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
-  toast(`${c.name} +1응답 (${c.refD}/${c.refT})`,'tok');
+  toast(`${esc(c.name)} +1응답 (${c.refD}/${c.refT})`,'tok');
 }
 // 추천인 접수(등록) 처리: 대기 상태 추천인 1명을 등록으로
 function markRefRegistered(id){
@@ -5389,18 +5450,18 @@ function markRefRegistered(id){
   pend.status='등록';
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   const registered=refDetails[id].filter(r=>r.status==='등록'||r.status==='응답').length;
-  toast(`${c.name} 추천인 접수 (${registered}/${c.refT})`,'tok');
+  toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT})`,'tok');
 }
 function startRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
-  const subject=`[우미건설] ${c.name}님 레퍼런스 체크 추천인 등록 안내`;
+  const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 추천인 등록 안내`;
   const body=buildRefRequestEmail(c);
   const sent=openMailto(c.email,subject,body);
   if(!sent)return;
   c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);
   logNotify('Outlook','레퍼런스발송',c.name,c.email);
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();
-  toast(`${c.name}님 레퍼런스 안내 Outlook이 열렸습니다.`,'toutlook');
+  toast(`${esc(c.name)}님 레퍼런스 안내 Outlook이 열렸습니다.`,'toutlook');
 }
 // 모집단위 상세에서 추천인 접수 요청 (startRef + 모집단위 복귀)
 function sendRefRequest(id){
@@ -5437,14 +5498,14 @@ function remindRef(id){
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'[레퍼런스 체크 설문 URL]';
   pendingRefs.forEach((r,i)=>{
     r.remindCnt=(r.remindCnt||0)+1;
-    logNotify('Outlook','리마인드',`${c.name}-${r.name}`,r.email);
+    logNotify('Outlook','리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);
     if(i===0){
-      const subject=`[레퍼런스 체크 리마인드] ${c.name}님 레퍼런스 체크 응답 부탁드립니다`;
-      const body=`안녕하세요 ${r.name}님,\n\n앞서 요청드린 ${c.name}님 레퍼런스 체크 설문의 응답 기한이 다가왔습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.`;
+      const subject=`[레퍼런스 체크 리마인드] ${esc(c.name)}님 레퍼런스 체크 응답 부탁드립니다`;
+      const body=`안녕하세요 ${esc(r.name)}님,\n\n앞서 요청드린 ${esc(c.name)}님 레퍼런스 체크 설문의 응답 기한이 다가왔습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.`;
       openMailto(r.email,subject,body);
     }
   });
-  const msg=pendingRefs.length>1?`추천인 ${pendingRefs.length}명 중 1명 Outlook 열림. 나머지는 추천인 패널에서 개별 발송하세요.`:`${c.name}님 리마인드 Outlook이 열렸습니다.`;
+  const msg=pendingRefs.length>1?`추천인 ${pendingRefs.length}명 중 1명 Outlook 열림. 나머지는 추천인 패널에서 개별 발송하세요.`:`${esc(c.name)}님 리마인드 Outlook이 열렸습니다.`;
   toast(msg,'toutlook');
   saveState();if(selectedRefCandId===id)selectRefCand(id);
 }
@@ -5454,12 +5515,12 @@ function completeRef(id){
   c.ref='완료';c.refD=c.refT;
   ensureRefDetails(c);refDetails[id].forEach(r=>r.status='응답');
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
-  toast(`${c.name}님 완료 처리`,'tok');
+  toast(`${esc(c.name)}님 완료 처리`,'tok');
 }
 function remindAllRef(){
   const p=candidates.filter(c=>c.ref==='진행중');
   if(!p.length){alert('진행 중인 건이 없습니다.');return;}
-  p.forEach(c=>{ensureRefDetails(c);refDetails[c.id].filter(r=>r.status==='대기').forEach(r=>{r.remindCnt=(r.remindCnt||0)+1;logNotify('Outlook','전체리마인드',`${c.name}-${r.name}`,r.email);});});
+  p.forEach(c=>{ensureRefDetails(c);refDetails[c.id].filter(r=>r.status==='대기').forEach(r=>{r.remindCnt=(r.remindCnt||0)+1;logNotify('Outlook','전체리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);});});
   saveState();renderReference();
   toast(`${p.length}명 전체 리마인드 발송`,'toutlook');
 }
@@ -5481,9 +5542,9 @@ async function generateAI(){
   const refs=refDetails[cid];
   const prompt=`건설회사 HR 담당자용 레퍼런스 체크 요약 보고서를 작성해주세요.
 
-지원자: ${c.name} / 직무: ${c.pos} / 채용형태: ${c.etype} / 부서: ${c.dept||'미정'}
+지원자: ${esc(c.name)} / 직무: ${esc(c.pos)} / 채용형태: ${c.etype} / 부서: ${c.dept||'미정'}
 채용단계: ${STAGES[c.stage]} / 응답: ${c.refD}/${c.refT}명 (${Math.round(c.refD/c.refT*100)}%)
-추천인: ${refs.map((r,i)=>`${r.name}(${r.relation},${r.status})`).join(', ')}
+추천인: ${refs.map((r,i)=>`${esc(r.name)}(${esc(r.relation)},${r.status})`).join(', ')}
 
 다음 구조로 작성해주세요:
 1. 종합 평가 (2~3문장)
@@ -5694,7 +5755,7 @@ function addOnboarding(){
   });
   if(c.stage<5)c.stage=5;
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderOnboarding();updateMetrics();
-  toast(`${c.name}님 입사 등록 완료`,'tok');
+  toast(`${esc(c.name)}님 입사 등록 완료`,'tok');
 }
 
 function sendObNotify(ch){
@@ -5780,8 +5841,8 @@ function renderNotifyLog(){
     <tbody>${list.map(l=>`<tr>
       <td><span class="b ${l.ch==='Teams'?'bteams':'bblue'}">${l.ch}</span></td>
       <td><span class="tag">${l.type}</span></td>
-      <td>${l.target}</td>
-      <td style="font-size:11px;color:var(--t3)">${l.to}</td>
+      <td>${esc(l.target)}</td>
+      <td style="font-size:11px;color:var(--t3)">${esc(l.to)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${l.date}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${l.time}</td>
     </tr>`).join('')}</tbody>
@@ -5801,7 +5862,7 @@ function updateBulkPreview(){
   const tw=document.getElementById('bulk-targets');
   if(tw){
     if(!targets.length)tw.innerHTML='<div style="color:var(--t3)">해당 대상 없음</div>';
-    else tw.innerHTML=targets.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">${etypePill(c.etype)} ${c.name} <span style="color:var(--t3)">(${c.pos})</span></div>`).join('');
+    else tw.innerHTML=targets.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">${etypePill(c.etype)} ${esc(c.name)} <span style="color:var(--t3)">(${esc(c.pos)})</span></div>`).join('');
   }
   const msgs={
     int1:`📅 [1차 면접 안내 - 우미건설]\n안녕하세요 {지원자명}님,\n1차 실무면접 일정을 안내드립니다.\n우미건설 피플팀 드림`,
