@@ -419,9 +419,9 @@ html,body{line-height:1.55;}
 /* 모집단위 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 면접일 */
 .pk-meta{font-size:10px;color:var(--t2);margin-bottom:5px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
 .pk-meta .pk-dot{color:var(--t3);}
-.pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px;}
-.pk-itv{font-size:10px;font-weight:700;color:var(--blue);margin-bottom:4px;padding:3px 6px;background:var(--bbg);border-radius:4px;display:inline-flex;align-items:center;gap:3px;}
-.pk-itv.warn{color:var(--amber);background:var(--abg);}
+.pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pk-stage-date{font-weight:600;}
+.pk-stage-date.warn{color:var(--amber);}
 </style>
 </head>
 <body>
@@ -4586,8 +4586,8 @@ function renderKanban() {
     const cur = Math.max(...cands.map(c=>c.stage));   // 현재 단계
     const col = stageColor(cur);
     const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
-    // 면접 단계(1·2차)면 등록된 해당 차수 일정 중 가장 이른 면접일 표기
-    let itvLine = '';
+    // 면접 단계(1·2차)면 현재 단계명 옆에 가장 이른 면접일 표기
+    let stageDate = '';
     if(cur===1 || cur===3){
       const round = cur===1 ? '1차' : '2차';
       const candIds = new Set(cands.filter(c=>c.stage===cur).map(c=>Number(c.id)));
@@ -4595,15 +4595,14 @@ function renderKanban() {
         .filter(i=>candIds.has(Number(i.candId)) && String(i.type||'').startsWith(round) && i.date)
         .map(i=>i.date))]
         .sort();
-      itvLine = dates.length
-        ? `<div class="pk-itv">📅 ${round}면접일 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}</div>`
-        : `<div class="pk-itv warn">📅 면접일 미확정</div>`;
+      stageDate = dates.length
+        ? `<span class="pk-stage-date">(${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''})</span>`
+        : `<span class="pk-stage-date warn">(일정 미확정)</span>`;
     }
     const card = `<div class="position-kanban-card" role="button" tabindex="0" onkeydown="kbActivate(event)" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
       <div class="position-kanban-title">${esc(title)}</div>
       <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
-      <div class="pk-stage" style="color:${col}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block"></span>${STAGES[cur]}</div>
-      ${itvLine}
+      <div class="pk-stage" style="color:${col}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block;flex:0 0 auto"></span>${STAGES[cur]} ${stageDate}</div>
     </div>`;
     (colCards[cur] = colCards[cur] || []).push(card);
   });
