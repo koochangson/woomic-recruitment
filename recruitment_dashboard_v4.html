@@ -572,6 +572,9 @@ html,body{line-height:1.55;}
 .pp-group-tasks{display:none;padding:4px 7px;border-top:1px solid var(--border);}
 .pp-process-group.open .pp-group-tasks{display:block;}
 .pp-task{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:5px;align-items:center;min-height:29px;padding:4px 2px;border-bottom:1px solid var(--border);}
+.pp-task.actionable{cursor:pointer;border-radius:4px;}
+.pp-task.actionable:hover{background:var(--acc-light);}
+.pp-task.actionable::after{content:'실행 ›';grid-column:2/4;font-size:8px;font-weight:700;color:var(--acc);margin-top:-2px;}
 .pp-task:last-child{border-bottom:0;}
 .pp-task-dot{width:7px;height:7px;border-radius:50%;background:var(--s3);border:1px solid var(--border2);}
 .pp-task-title{font-size:9.5px;font-weight:600;color:var(--t2);line-height:1.2;}
@@ -3666,20 +3669,20 @@ function renderPositionProcessChecklist(positionId) {
   const d = getPositionProjectData(positionId);
   const steps = getPositionProcessStatus(positionId);
   const byKey = key => steps.find(s => s.key === key);
-  const mergeTask = (title, keys) => {
+  const mergeTask = (title, keys, actionKey) => {
     const items = keys.map(byKey).filter(Boolean);
     const status = items.every(x=>x.status==='skipped') ? 'skipped'
       : items.every(x=>x.status==='complete'||x.status==='skipped') ? 'complete'
       : items.some(x=>x.status==='delayed') ? 'delayed'
       : items.some(x=>x.status==='current') ? 'current' : 'upcoming';
-    return { title, status, label:status==='complete'?'완료':status==='current'?'진행중':status==='delayed'?'지연':status==='skipped'?'생략':'예정' };
+    return { title, actionKey, status, label:status==='complete'?'완료':status==='current'?'진행중':status==='delayed'?'지연':status==='skipped'?'생략':'예정' };
   };
   const groups = [
-    { title:'준비', stage:0, tasks:[mergeTask('지원자 등록',['register'])] },
-    { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots']),mergeTask('일정 확정',['int1_confirm']),mergeTask('면접 안내',['int1_panel','int1_cand']),mergeTask('면접 실시',['int1_done']),mergeTask('결과 입력',['int1_result'])] },
-    { title:'레퍼런스', stage:2, tasks:[mergeTask('레퍼런스 요청',['ref_req']),mergeTask('레퍼런스 완료',['ref_done'])] },
-    { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots']),mergeTask('일정 확정',['int2_confirm']),mergeTask('면접 안내',['int2_panel','int2_cand']),mergeTask('면접 실시',['int2_done']),mergeTask('결과 입력',['int2_result'])] },
-    { title:'최종 단계', stage:4, tasks:[mergeTask('처우협의',['offer']),mergeTask('최종합격',['final']),mergeTask('입사안내',['onboard'])] },
+    { title:'준비', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
+    { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots'],'int1_slots'),mergeTask('일정 확정',['int1_confirm'],'int1_confirm'),mergeTask('면접 안내',['int1_panel','int1_cand'],'int1_notice'),mergeTask('면접 실시',['int1_done'],'int1_done'),mergeTask('결과 입력',['int1_result'],'int1_result')] },
+    { title:'레퍼런스', stage:2, tasks:[mergeTask('레퍼런스 요청',['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
+    { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('일정 확정',['int2_confirm'],'int2_confirm'),mergeTask('면접 안내',['int2_panel','int2_cand'],'int2_notice'),mergeTask('면접 실시',['int2_done'],'int2_done'),mergeTask('결과 입력',['int2_result'],'int2_result')] },
+    { title:'최종 단계', stage:4, tasks:[mergeTask('처우협의',['offer'],'offer'),mergeTask('최종합격',['final'],'final'),mergeTask('입사안내',['onboard'],'onboard')] },
   ];
   const shortNote = d && isShortProcessEtype(d.pos.etype)
     ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
@@ -3699,7 +3702,7 @@ function renderPositionProcessChecklist(positionId) {
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
       const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" onclick="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">${g.title} 이동 · ${moveCount}명</button>` : '';
       return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" onclick="togglePositionProcessGroup(this)"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel} · ${groupCount}</span>${moveButton}<span class="pp-group-arrow">⌄</span></div>
-        <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}"><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
+        <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}${s.status!=='skipped'?' actionable':''}" ${s.status!=='skipped'?`onclick="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
       </div>`;
     }).join('')}</div>
   </section>`;
@@ -3724,6 +3727,60 @@ async function changePositionProcessStage(positionId, toStage) {
   }
   await batchStageChange(positionId, fromStage, Number(toStage));
   renderPositionDetail(positionId);
+}
+
+async function executePositionProcessTask(positionId, actionKey) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return;
+  const round = actionKey.startsWith('int1') ? 1 : actionKey.startsWith('int2') ? 2 : 0;
+  const stageIdx = round === 1 ? 1 : round === 2 ? 3 : -1;
+  if(actionKey === 'candidate_register') return addCandToPos(positionId);
+  if(actionKey === 'int1_slots' || actionKey === 'int2_slots') return openCollectSlots(positionId, stageIdx);
+  if(actionKey === 'int1_confirm' || actionKey === 'int2_confirm') return openPositionRoundSchedule(positionId, stageIdx);
+  if(actionKey === 'int1_notice' || actionKey === 'int2_notice') {
+    sendAllCandSchedule(positionId, stageIdx);
+    if(confirm('면접자 일정 안내에 이어 면접관 안내도 진행하시겠습니까?')) setTimeout(()=>sendPanelNotice(positionId, round), 500);
+    return;
+  }
+  if(actionKey === 'int1_done' || actionKey === 'int2_done') return completePositionInterviews(positionId, stageIdx);
+  if(actionKey === 'int1_result' || actionKey === 'int2_result') return confirmStageDecisions(positionId, stageIdx);
+  if(actionKey === 'ref_request') return requestPositionReferences(positionId);
+  if(actionKey === 'ref_complete') return completePositionReferences(positionId);
+  if(actionKey === 'offer') return changePositionProcessStage(positionId, 4);
+  if(actionKey === 'final') return changePositionProcessStage(positionId, 5);
+  if(actionKey === 'onboard') { closeModal('modal-pos-detail'); nav('onboarding'); return; }
+}
+
+async function completePositionInterviews(positionId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const ids = new Set(candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===stageIdx).map(c=>Number(c.id)));
+  const targets = interviews.filter(i=>ids.has(Number(i.candId))&&i.type===round&&i.status==='confirmed');
+  if(!targets.length) { toast('완료 처리할 확정 면접이 없습니다.', 'terr'); return; }
+  if(!confirm(`${round} 면접 ${targets.length}건을 완료 처리하시겠습니까?`)) return;
+  targets.forEach(i=>{ i.status='done'; });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
+  renderPositionDetail(positionId); renderDashboard();
+  toast(`${round} 면접 ${targets.length}건 완료 처리`, 'tok');
+}
+
+function requestPositionReferences(positionId) {
+  const targets = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===2&&c.ref==='미시작');
+  if(!targets.length) { toast('레퍼런스 요청 대상자가 없습니다.', 'terr'); return; }
+  if(!confirm(`${targets.length}명에게 레퍼런스 체크 안내를 진행하시겠습니까?`)) return;
+  targets.forEach((c,i)=>setTimeout(()=>startRef(c.id),i*600));
+  setTimeout(()=>renderPositionDetail(positionId),targets.length*600+200);
+}
+
+async function completePositionReferences(positionId) {
+  const targets = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===2&&c.ref==='진행중');
+  if(!targets.length) { toast('완료 처리할 레퍼런스 진행 건이 없습니다.', 'terr'); return; }
+  if(!confirm(`${targets.length}명의 레퍼런스를 완료 처리하시겠습니까?`)) return;
+  targets.forEach(c=>{ c.ref='완료'; c.refD=c.refT; ensureRefDetails(c); refDetails[c.id].forEach(r=>r.status='응답'); });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(c=>syncCandToGS(c)), '레퍼런스 완료 동기화');
+  renderPositionDetail(positionId); updateMetrics();
+  toast(`${targets.length}명 레퍼런스 완료 처리`, 'tok');
 }
 
 function renderPositionCandidates(positionId) {
