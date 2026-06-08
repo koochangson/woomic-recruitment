@@ -554,12 +554,12 @@ html,body{line-height:1.55;}
 .pp-action-priority{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--t3);}
 .pp-action-empty{display:flex;align-items:center;gap:8px;color:var(--green);font-size:12px;font-weight:600;padding:6px 0;}
 .pp-process{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;}
-.pp-process-groups{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;align-items:start;}
+.pp-process-groups{display:grid;grid-template-columns:repeat(5,minmax(150px,190px));gap:5px;align-items:start;justify-content:start;}
 .pp-process-group{border:1px solid var(--border);border-radius:var(--r);background:#FAFBFC;overflow:hidden;}
 .pp-process-group.complete{border-color:var(--gbd);}
 .pp-process-group.current{border-color:#B8CBE1;}
 .pp-process-group.delayed{border-color:var(--abd);}
-.pp-group-head{width:100%;height:36px;display:grid;grid-template-columns:8px minmax(56px,1fr) auto auto 10px;align-items:center;gap:5px;padding:6px 7px;background:var(--s2);border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;}
+.pp-group-head{width:100%;height:34px;display:grid;grid-template-columns:8px minmax(50px,1fr) auto auto 9px;align-items:center;gap:4px;padding:5px 6px;background:var(--s2);border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;}
 .pp-group-head:hover{background:var(--s3);}
 .pp-group-status{width:8px;height:8px;border-radius:50%;background:var(--border2);}
 .pp-process-group.complete .pp-group-status{background:var(--green);}
@@ -569,7 +569,7 @@ html,body{line-height:1.55;}
 .pp-group-count{font-size:8px;font-weight:700;color:var(--t3);white-space:nowrap;}
 .pp-group-arrow{font-size:10px;color:var(--t3);transition:transform .15s;}
 .pp-process-group.open .pp-group-arrow{transform:rotate(180deg);}
-.pp-group-move{padding:2px 5px!important;font-size:8px!important;white-space:nowrap;max-width:92px;overflow:hidden;text-overflow:ellipsis;}
+.pp-group-move{padding:2px 5px!important;font-size:8px!important;white-space:nowrap;}
 .pp-group-tasks{display:none;padding:4px 7px;border-top:1px solid var(--border);}
 .pp-process-group.open .pp-group-tasks{display:block;}
 .pp-task{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:5px;align-items:center;min-height:29px;padding:4px 2px;border-bottom:1px solid var(--border);}
@@ -615,7 +615,7 @@ html,body{line-height:1.55;}
 @media(max-width:1050px){
   .pp-kpis{grid-template-columns:repeat(3,1fr);}
   .pp-process{grid-template-columns:repeat(4,1fr);}
-  .pp-process-groups{grid-template-columns:repeat(2,1fr);}
+  .pp-process-groups{grid-template-columns:repeat(3,minmax(150px,1fr));}
   .pp-cand{grid-template-columns:minmax(180px,1fr) 100px 130px auto;}
   .pp-cand .pp-secondary{display:none;}
 }
@@ -3720,7 +3720,7 @@ function renderPositionProcessChecklist(positionId) {
       const targetIndex = flow.indexOf(g.stage);
       const fromStage = targetIndex > 0 ? flow[targetIndex-1] : -1;
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
-      const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" onclick="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">${g.title} 이동 · ${moveCount}명</button>` : '';
+      const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" onclick="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
       return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" onclick="togglePositionProcessGroup(this)"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel} · ${groupCount}</span>${moveButton}<span class="pp-group-arrow">⌄</span></div>
         <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}${s.status!=='skipped'?' actionable':''}" ${s.status!=='skipped'?`onclick="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
       </div>`;
