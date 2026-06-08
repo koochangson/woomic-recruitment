@@ -519,7 +519,7 @@ html,body{line-height:1.55;}
   .stage-seg{flex:0 0 82px;}
 }
 /* ── 모집단위 상세: 채용 프로젝트 관리 화면 ───────────────── */
-#modal-pos-detail .modal{width:min(1240px,97vw)!important;max-height:95vh!important;}
+#modal-pos-detail .modal{width:min(1080px,94vw)!important;max-height:95vh!important;}
 #modal-pos-detail .modal-hd{padding:12px 18px;}
 #modal-pos-detail .modal-body{padding:9px 11px;background:#F7F9FC;}
 #modal-pos-detail .modal-ft{padding:7px 11px;align-items:center;}
@@ -554,12 +554,12 @@ html,body{line-height:1.55;}
 .pp-action-priority{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--t3);}
 .pp-action-empty{display:flex;align-items:center;gap:8px;color:var(--green);font-size:12px;font-weight:600;padding:6px 0;}
 .pp-process{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;}
-.pp-process-groups{display:grid;grid-template-columns:repeat(5,minmax(150px,190px));gap:5px;align-items:start;justify-content:start;}
+.pp-process-groups{display:grid;grid-template-columns:repeat(5,minmax(135px,172px));gap:5px;align-items:start;justify-content:start;}
 .pp-process-group{border:1px solid var(--border);border-radius:var(--r);background:#FAFBFC;overflow:hidden;}
 .pp-process-group.complete{border-color:var(--gbd);}
 .pp-process-group.current{border-color:#B8CBE1;}
 .pp-process-group.delayed{border-color:var(--abd);}
-.pp-group-head{width:100%;height:34px;display:grid;grid-template-columns:8px minmax(50px,1fr) auto auto 9px;align-items:center;gap:4px;padding:5px 6px;background:var(--s2);border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;}
+.pp-group-head{width:100%;height:34px;display:grid;grid-template-columns:8px minmax(46px,1fr) auto auto;align-items:center;gap:4px;padding:5px 6px;background:var(--s2);border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;}
 .pp-group-head:hover{background:var(--s3);}
 .pp-group-status{width:8px;height:8px;border-radius:50%;background:var(--border2);}
 .pp-process-group.complete .pp-group-status{background:var(--green);}
@@ -567,8 +567,6 @@ html,body{line-height:1.55;}
 .pp-process-group.delayed .pp-group-status{background:var(--amber);}
 .pp-group-title{font-size:10.5px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pp-group-count{font-size:8px;font-weight:700;color:var(--t3);white-space:nowrap;}
-.pp-group-arrow{font-size:10px;color:var(--t3);transition:transform .15s;}
-.pp-process-group.open .pp-group-arrow{transform:rotate(180deg);}
 .pp-group-move{padding:2px 5px!important;font-size:8px!important;white-space:nowrap;}
 .pp-group-tasks{display:none;padding:4px 7px;border-top:1px solid var(--border);}
 .pp-process-group.open .pp-group-tasks{display:block;}
@@ -1537,7 +1535,7 @@ html,body{line-height:1.55;}
 
 <!-- ── 모집단위 상세 모달 ─────────────────────────────────── -->
 <div class="overlay" id="modal-pos-detail">
-  <div class="modal" style="width:min(1180px,96vw);max-height:94vh">
+  <div class="modal" style="width:min(1080px,94vw);max-height:95vh">
     <div class="modal-hd">
       <div class="modal-title" id="pos-detail-title">모집단위 상세</div>
       <button class="mclose" onclick="closeModal('modal-pos-detail')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
@@ -3721,7 +3719,7 @@ function renderPositionProcessChecklist(positionId) {
       const fromStage = targetIndex > 0 ? flow[targetIndex-1] : -1;
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
       const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" onclick="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
-      return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" onclick="togglePositionProcessGroup(this)"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel} · ${groupCount}</span>${moveButton}<span class="pp-group-arrow">⌄</span></div>
+      return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" onclick="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel} · ${groupCount}</span>${moveButton}</div>
         <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}${s.status!=='skipped'?' actionable':''}" ${s.status!=='skipped'?`onclick="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
       </div>`;
     }).join('')}</div>
