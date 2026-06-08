@@ -682,10 +682,10 @@ html,body{line-height:1.55;}
           <summary>상세 필터</summary>
           <div class="advanced-filter-panel">
             <button class="fbtn fon" onclick="filterRole('all',this)" data-group="role">전체 직군</button>
-            <button class="fbtn" onclick="filterRole('현장직',this)" data-group="role">현장직</button>
-            <button class="fbtn" onclick="filterRole('사무직',this)" data-group="role">사무직</button>
+            <button class="fbtn" onclick="filterRole('영업직',this)" data-group="role">영업직</button>
             <button class="fbtn" onclick="filterRole('기술직',this)" data-group="role">기술직</button>
             <button class="fbtn" onclick="filterRole('관리직',this)" data-group="role">관리직</button>
+            <button class="fbtn" onclick="filterRole('현장직',this)" data-group="role">현장직</button>
             <span style="width:100%;height:1px;background:var(--border)"></span>
             <button class="fbtn fon" onclick="filterEtype('all',this)" data-group="etype">전체 형태</button>
             <button class="fbtn" onclick="filterEtype('정규직',this)" data-group="etype">정규직</button>
@@ -1109,8 +1109,8 @@ html,body{line-height:1.55;}
         </div>
         <div class="fg"><label>직군</label>
           <select id="nc-role">
-            <option value="현장직">현장직</option><option value="사무직">사무직</option>
-            <option value="기술직">기술직</option><option value="관리직">관리직</option>
+            <option value="영업직">영업직</option><option value="기술직">기술직</option>
+            <option value="관리직">관리직</option><option value="현장직">현장직</option>
           </select>
         </div>
         <div class="fg"><label>부서</label><input id="nc-dept" placeholder="현장지원팀"/></div>
@@ -1338,10 +1338,10 @@ html,body{line-height:1.55;}
       <div class="fg">
         <label>직군</label>
         <select id="pos-role">
-          <option value="현장직">현장직</option>
-          <option value="사무직">사무직</option>
+          <option value="영업직">영업직</option>
           <option value="기술직">기술직</option>
           <option value="관리직">관리직</option>
+          <option value="현장직">현장직</option>
         </select>
       </div>
       <div class="fg">
@@ -1583,7 +1583,8 @@ const STAGE_GUIDES = {
   6: { msg:'불합격 처리합니다.\n지원자에게 불합격 안내 메시지를 발송하시겠습니까?', notify:true, tpl:'reject' },
   7: { msg:'입사 단계로 이동합니다.\n지원자에게 입사 안내를 발송하세요.', notify:true, tpl:'onboard' },
 };
-const ROLE_CLS = { 현장직:'r-field', 사무직:'r-office', 기술직:'r-tech', 관리직:'r-mgr' };
+const ROLE_CLS = { 영업직:'r-office', 기술직:'r-tech', 관리직:'r-mgr', 현장직:'r-field' };
+function normalizeRole(role){ return role === '사무직' ? '영업직' : (role || '영업직'); }
 const ETYPE_CLS = { 정규직:'et-regular', 전문직:'et-expert', 파견직:'et-dispatch' };
 const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','var(--amber)','var(--green)','var(--red)','var(--green)'];
 // 진행 단계 순서 (불합격 6 제외, 입사 7 포함) — 표시·이동용
@@ -1797,7 +1798,7 @@ async function loadPositionsFromGS() {
       id:        Number(row.id),
       title:     row.title || '',
       etype:     row.etype || '정규직',
-      role:      row.role || '현장직',
+      role:      normalizeRole(row.role),
       headcount: parseInt(row.headcount) || 1,
       dept:      row.dept || '',
       panel1:    row.panel1 || '',
@@ -1846,7 +1847,7 @@ async function loadFromGS() {
     pos:        row.pos,
     email:      row.email,
     etype:      row.etype,
-    role:       row.role,
+    role:       normalizeRole(row.role),
     dept:       row.dept,
     career:     row.career,
     stage:      STAGES.indexOf(row.stage) >= 0 ? STAGES.indexOf(row.stage) : 0,
@@ -3638,7 +3639,7 @@ function openAddPosition() {
       if(el) el.value = '';
     });
     document.getElementById('pos-etype').value = '정규직';
-    document.getElementById('pos-role').value  = '현장직';
+    document.getElementById('pos-role').value  = '영업직';
     document.getElementById('pos-headcount').value = '1';
     // 면접관 태그 초기화
     const t1 = document.getElementById('pos-panel1-tags'); if(t1) t1.innerHTML = '';
@@ -3662,7 +3663,7 @@ function editPosition(posId) {
   document.getElementById('pos-modal-title').textContent = '모집단위 수정';
   document.getElementById('pos-title').value  = pos.title || '';
   document.getElementById('pos-etype').value  = pos.etype || '정규직';
-  document.getElementById('pos-role').value   = pos.role  || '현장직';
+  document.getElementById('pos-role').value   = normalizeRole(pos.role);
   document.getElementById('pos-headcount').value = pos.headcount || 1;
   document.getElementById('pos-dept').value   = pos.dept   || '';
   restorePanelistTags(1, pos.panel1 || '');
@@ -3681,7 +3682,7 @@ function savePosition() {
     id:        editingPosId || nextId(),
     title,
     etype:     document.getElementById('pos-etype')?.value   || '정규직',
-    role:      document.getElementById('pos-role')?.value    || '현장직',
+    role:      document.getElementById('pos-role')?.value    || '영업직',
     headcount: parseInt(document.getElementById('pos-headcount')?.value) || 1,
     dept:      document.getElementById('pos-dept')?.value    || '',
     panel1:    document.getElementById('pos-panel1')?.value  || '',
@@ -3838,7 +3839,7 @@ function spToCand(item) {
     pos:        item.CandPos || '',
     email:      item.CandEmail || '',
     etype:      item.EType || '정규직',
-    role:       item.Role || '현장직',
+    role:       normalizeRole(item.Role),
     dept:       item.Dept || '',
     career:     item.Career || '경력직',
     stage:      STAGES.indexOf(item.Stage) >= 0 ? STAGES.indexOf(item.Stage) : 0,
@@ -3903,6 +3904,8 @@ async function loadStateWithSP() {
   if(saved && saved.candidates) {
     ({ candidates, interviews, onboardings, notifyLog, refDetails } = saved);
     if(saved.positions) positions = saved.positions;
+    candidates.forEach(c => { c.role = normalizeRole(c.role); });
+    positions.forEach(p => { p.role = normalizeRole(p.role); });
     return true;
   }
   return false;
