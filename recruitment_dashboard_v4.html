@@ -406,22 +406,46 @@ html,body{line-height:1.55;}
 /* (D) 칸반 단계 헤더 굵기 정리 (800 → 700) */
 .position-kanban-col-h{font-weight:700;}
 
-/* ── ATS 재설계 (모집단위 중심) ─────────────────────────────── */
-/* KPI: 높이 축소 · 숫자 강조 · 라벨 축소 (Navy/Green/Amber/Red만 사용) */
-.mc{min-height:74px;padding:11px 14px 12px;}
-.mc-lbl{font-size:9.5px;margin-bottom:4px;}
-.mc-val{font-size:28px;}
+/* ── ATS 대시보드 최종 디자인 (모집단위 중심) ───────────────── */
+/* KPI: 일반 현황은 차분하게, 운영·처리 항목은 명확하게 */
+.mc{min-height:78px;padding:12px 15px;border-left-color:var(--border2);}
+.mc-lbl{font-size:10px;margin-bottom:4px;}
+.mc-val{font-size:28px;color:var(--text);}
+.mc-sub{font-size:10.5px;}
 .mc-u{font-size:12px;font-weight:600;margin-left:1px;color:var(--t3);}
-.c-navy{border-left-color:var(--acc);}
-.c-navy .mc-val{color:var(--acc);}
-/* 처리 필요(중단) 카드는 고정 높이 — 칸반이 화면의 주인공 */
-#dash-urgent-card{flex:0 0 auto;}
+.mc.kpi-operational{border-left-color:var(--acc);}
+.mc.kpi-operational .mc-val{color:var(--acc);}
+.mc.kpi-warning{border-left-color:var(--amber);}
+.mc.kpi-warning .mc-val{color:var(--amber);}
+.mc[onclick]{cursor:pointer;}
+/* 처리 필요: 항목이 없으면 한 줄 상태로 축소 */
+#dash-urgent-card{flex:0 0 auto;padding:14px 18px;}
+#dash-urgent-card.is-empty .ch{display:none;}
+#dash-urgent-card.is-empty{padding:10px 14px;border-style:dashed;background:var(--surface);}
+.urgent-empty{display:flex;align-items:center;gap:7px;color:var(--green);font-size:11.5px;font-weight:600;}
+.urgent-empty-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto;}
+/* 모집단위 칸반: 동일 배경, 충분한 폭과 읽기 쉬운 정보 밀도 */
+.position-kanban{gap:12px;padding:4px 2px 12px;}
+.position-kanban-col{flex:1 0 145px;min-width:145px;background:var(--s2);border:1px solid var(--border);padding:11px 10px;}
+.position-kanban-card{padding:10px 11px;margin-bottom:9px;}
+.position-kanban-title{font-size:13px;font-weight:650;line-height:1.35;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.position-kanban-title.is-long{font-size:11.5px;letter-spacing:-.2px;}
+.position-kanban-title.is-xlong{font-size:10.5px;letter-spacing:-.35px;}
+.position-kanban-col-h{font-size:12.5px;}
+.position-kanban-col-sub{font-size:11px;margin-bottom:9px;}
+.stage-col{background:var(--s2);}
+.stage-col-title{font-size:12.5px;font-weight:700;}
 /* 모집단위 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 면접일 */
-.pk-meta{font-size:10px;color:var(--t2);margin-bottom:5px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.pk-meta{font-size:11px;color:var(--t2);margin-bottom:6px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
 .pk-meta .pk-dot{color:var(--t3);}
-.pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pk-stage{font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pk-stage-date{font-weight:600;}
 .pk-stage-date.warn{color:var(--amber);}
+@media (max-width:1200px){
+  .position-kanban-col{flex:0 0 164px;min-width:164px;}
+  #dash-urgent>div{flex-wrap:wrap;}
+  #dash-urgent>div>div{flex:1 1 220px!important;}
+}
 </style>
 </head>
 <body>
@@ -516,13 +540,12 @@ html,body{line-height:1.55;}
 
     <!-- ① 대시보드 ──────────────────────────────────────── -->
     <div id="sect-dash" class="sect on">
-      <div class="mrow g6" style="margin-bottom:14px">
-        <div class="mc c-navy"><div class="mc-lbl">채용목표</div><div class="mc-val" id="m-target">0</div><div class="mc-sub">진행중+충원완료 인원</div></div>
-        <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled">0</div><div class="mc-sub">최종합격 인원</div></div>
-        <div class="mc c-amber"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
-        <div class="mc c-green"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
-        <div class="mc c-navy" onclick="nav('position')" style="cursor:pointer" title="모집단위 관리로 이동"><div class="mc-lbl">진행중 모집단위</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
-        <div class="mc c-red" onclick="openMetricDetail('action')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">처리 필요</div><div class="mc-val" id="m-action">0</div><div class="mc-sub">즉시 처리 ↗</div></div>
+      <div class="mrow g5" style="margin-bottom:14px">
+        <div class="mc"><div class="mc-lbl">채용목표</div><div class="mc-val" id="m-target">0</div><div class="mc-sub">진행중+충원완료 인원</div></div>
+        <div class="mc"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled">0</div><div class="mc-sub">최종합격 인원</div></div>
+        <div class="mc kpi-warning"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
+        <div class="mc"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
+        <div class="mc kpi-operational" onclick="nav('position')" title="모집단위 관리로 이동"><div class="mc-lbl">진행중 모집단위</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
       </div>
 
       <!-- 처리 필요 -->
@@ -4430,7 +4453,6 @@ function renderStageKanban() {
   if(!el) return;
 
   const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
-  const stageBg = ['#F1F3F6','#EBF3FD','#E9F7F2','#F0EBFA','#FDF4E8','#EAF7EE','#FBECEC','#EAF7EE'];
   const activeCandidates = candidates.filter(isActivePipelineCand);
 
   if(!activeCandidates.length) {
@@ -4449,10 +4471,8 @@ function renderStageKanban() {
       .slice()
       .sort((a,b) => (a.name||'').localeCompare(b.name||'', 'ko'));
     const color = STAGE_COLORS[col.idx] || 'var(--t3)';
-    const bg = stageBg[col.idx] || 'var(--s2)';
 
     return `<div class="stage-col"
-                 style="background:${bg}"
                  ondragover="event.preventDefault();this.classList.add('drag-over')"
                  ondragleave="this.classList.remove('drag-over')"
                  ondrop="dashDropStage(event,${col.idx})">
@@ -4513,15 +4533,12 @@ function updateMetrics() {
   const openN   = Math.max(0, targetN - filledN);                     // 미충원
   const fillPct = targetN>0 ? (filledN/targetN*100).toFixed(1) : '0.0'; // 충원율
   const activePosN = positions.filter(p=>posStatus(p)==='active').length; // 진행중 모집단위
-  const acts = getActionItems().total;                                // 처리 필요(카드와 동일 정의)
-
   const unit = (n,u) => `${n}<span class="mc-u">${u}</span>`;
   set('m-target',     unit(targetN,'명'));
   set('m-filled',     unit(filledN,'명'));
   set('m-open',       unit(openN,'명'));
   set('m-fillrate',   unit(fillPct,'%'));
   set('m-pos-active', unit(activePosN,'개'));
-  set('m-action',     unit(acts,'건'));
 
   set('kb-progress', `진행 ${active.length}명`);
   set('nb-total', candidates.length);
@@ -4536,7 +4553,14 @@ function updateMetrics() {
 function renderUrgent() {
   const el = document.getElementById('dash-urgent');
   if(!el) return;
-  const { noInt, noRef, noNoti } = getActionItems();
+  const card = document.getElementById('dash-urgent-card');
+  const { noInt, noRef, noNoti, total } = getActionItems();
+  if(total === 0) {
+    if(card) card.classList.add('is-empty');
+    el.innerHTML = '<div class="urgent-empty"><span class="urgent-empty-dot"></span>현재 처리 필요한 항목이 없습니다.</div>';
+    return;
+  }
+  if(card) card.classList.remove('is-empty');
   const col = (title, items, color, render) => `
     <div style="flex:1;min-width:0">
       <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:6px;display:flex;align-items:center;gap:5px">
@@ -4549,7 +4573,7 @@ function renderUrgent() {
   const row = (name, sub) => `<div style="font-size:11.5px;padding:3px 0;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)} <span style="color:var(--t3)">${esc(sub)}</span></div>`;
   el.innerHTML = `<div style="display:flex;gap:18px;align-items:flex-start">
     ${col('면접 미확정', noInt, 'var(--amber)', c=>row(c.name, STAGES[c.stage]))}
-    ${col('레퍼런스 미응답', noRef, 'var(--blue)', c=>row(c.name, c.pos||''))}
+    ${col('레퍼런스 미응답', noRef, 'var(--acc)', c=>row(c.name, c.pos||''))}
     ${col('미발송 알림', noNoti, 'var(--red)', i=>{const c=candidates.find(x=>Number(x.id)===Number(i.candId));return row(c?c.name:'-', (i.type||'')+' 면접');})}
   </div>`;
 }
@@ -4568,7 +4592,6 @@ function renderKanban() {
   // 칸반 열: FLOW 단계 (서류합격~입사)
   const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
   const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
-  const stageBg = ['#F1F3F6','#EBF3FD','#E9F7F2','#F0EBFA','#FDF4E8','#EAF7EE','#FBECEC','#EAF7EE'];
 
   // 진행중 모집단위만 (충원완료/미채용완료/채용중단 제외)
   const activePos = positions.filter(p => posStatus(p) === 'active');
@@ -4586,6 +4609,7 @@ function renderKanban() {
     const cur = Math.max(...cands.map(c=>c.stage));   // 현재 단계
     const col = stageColor(cur);
     const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
+    const titleSizeClass = title.length > 20 ? ' is-xlong' : (title.length > 14 ? ' is-long' : '');
     // 면접 단계(1·2차)면 현재 단계명 옆에 가장 이른 면접일 표기
     let stageDate = '';
     if(cur===1 || cur===3){
@@ -4600,7 +4624,7 @@ function renderKanban() {
         : `<span class="pk-stage-date warn">(일정 미확정)</span>`;
     }
     const card = `<div class="position-kanban-card" role="button" tabindex="0" onkeydown="kbActivate(event)" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
-      <div class="position-kanban-title">${esc(title)}</div>
+      <div class="position-kanban-title${titleSizeClass}" title="${esc(title)}">${esc(title)}</div>
       <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
       <div class="pk-stage" style="color:${col}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block;flex:0 0 auto"></span>${STAGES[cur]} ${stageDate}</div>
     </div>`;
@@ -4610,9 +4634,8 @@ function renderKanban() {
   let html = '<div class="position-kanban">';
   cols.forEach(c => {
     const col = stageColor(c.idx);
-    const bg = stageBg[c.idx] || 'var(--s2)';
     const cards = (colCards[c.idx] || []);
-    html += `<div class="position-kanban-col" style="background:${bg}">
+    html += `<div class="position-kanban-col">
       <div class="position-kanban-col-h" style="color:${col}">${esc(c.name)}</div>
       <div class="position-kanban-col-sub">${cards.length}개 모집단위</div>
       <div class="position-kanban-list">${cards.join('') || '<div style="font-size:10px;color:var(--t3);text-align:center;padding:14px 0;opacity:.6">—</div>'}</div>
