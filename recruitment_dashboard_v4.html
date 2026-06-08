@@ -519,28 +519,28 @@ html,body{line-height:1.55;}
   .stage-seg{flex:0 0 82px;}
 }
 /* ── 모집단위 상세: 채용 프로젝트 관리 화면 ───────────────── */
-#modal-pos-detail .modal{width:min(1180px,96vw)!important;max-height:94vh!important;}
-#modal-pos-detail .modal-body{padding:20px 22px;background:#F7F9FC;}
-#modal-pos-detail .modal-ft{padding:12px 20px;align-items:flex-start;}
-.pos-project{display:flex;flex-direction:column;gap:16px;}
-.pp-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 18px;box-shadow:var(--sh);}
-.pp-section-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+#modal-pos-detail .modal{width:min(1280px,98vw)!important;max-height:96vh!important;}
+#modal-pos-detail .modal-body{padding:12px 14px;background:#F7F9FC;}
+#modal-pos-detail .modal-ft{padding:9px 14px;align-items:center;}
+.pos-project{display:flex;flex-direction:column;gap:10px;}
+.pp-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:12px 14px;box-shadow:var(--sh);}
+.pp-section-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
 .pp-section-title{font-size:14px;font-weight:700;color:var(--text);}
 .pp-section-sub{font-size:10.5px;color:var(--t3);}
-.pp-summary-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
-.pp-title{font-size:19px;font-weight:750;letter-spacing:-.35px;}
-.pp-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--t2);}
+.pp-summary-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:9px;}
+.pp-title{font-size:17px;font-weight:750;letter-spacing:-.3px;}
+.pp-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;font-size:10.5px;color:var(--t2);}
 .pp-meta span{padding:2px 7px;background:var(--s2);border-radius:4px;}
 .pp-status{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
 .pp-status.active,.pp-status.partial{color:var(--acc);background:var(--acc-light);}
 .pp-status.filled{color:var(--green);background:var(--gbg);}
 .pp-status.nohire{color:var(--amber);background:var(--abg);}
 .pp-status.stopped{color:var(--red);background:var(--rbg);}
-.pp-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;}
-.pp-kpi{padding:10px 11px;background:#FAFBFC;border:1px solid var(--border);border-radius:var(--r);}
-.pp-kpi-val{font-size:22px;font-weight:750;line-height:1.15;}
-.pp-kpi-lbl{font-size:10px;color:var(--t3);margin-top:4px;}
-.pp-fillbar{height:7px;background:var(--s3);border-radius:10px;overflow:hidden;margin-top:12px;}
+.pp-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
+.pp-kpi{padding:7px 9px;background:#FAFBFC;border:1px solid var(--border);border-radius:var(--r);}
+.pp-kpi-val{font-size:19px;font-weight:750;line-height:1.1;}
+.pp-kpi-lbl{font-size:9.5px;color:var(--t3);margin-top:3px;}
+.pp-fillbar{height:5px;background:var(--s3);border-radius:10px;overflow:hidden;margin-top:8px;}
 .pp-fillbar>span{display:block;height:100%;background:var(--green);border-radius:10px;}
 .pp-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
 .pp-action{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:var(--r);background:var(--surface);}
@@ -552,18 +552,46 @@ html,body{line-height:1.55;}
 .pp-action-desc{font-size:10.5px;color:var(--t3);margin-top:2px;}
 .pp-action-priority{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--t3);}
 .pp-action-empty{display:flex;align-items:center;gap:8px;color:var(--green);font-size:12px;font-weight:600;padding:6px 0;}
-.pp-process{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;}
+.pp-process{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;}
+.pp-process-groups{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;align-items:start;}
+.pp-process-group{border:1px solid var(--border);border-radius:var(--r);background:#FAFBFC;overflow:hidden;}
+.pp-process-group.complete{border-color:var(--gbd);}
+.pp-process-group.current{border-color:#B8CBE1;}
+.pp-process-group.delayed{border-color:var(--abd);}
+.pp-group-head{width:100%;display:grid;grid-template-columns:9px minmax(0,1fr) auto 12px;align-items:center;gap:7px;padding:10px;background:var(--s2);border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;}
+.pp-group-head:hover{background:var(--s3);}
+.pp-group-status{width:8px;height:8px;border-radius:50%;background:var(--border2);}
+.pp-process-group.complete .pp-group-status{background:var(--green);}
+.pp-process-group.current .pp-group-status{background:var(--acc);}
+.pp-process-group.delayed .pp-group-status{background:var(--amber);}
+.pp-group-title{font-size:11px;font-weight:750;}
+.pp-group-count{font-size:8.5px;font-weight:700;color:var(--t3);white-space:nowrap;}
+.pp-group-arrow{font-size:10px;color:var(--t3);transition:transform .15s;}
+.pp-process-group.open .pp-group-arrow{transform:rotate(180deg);}
+.pp-group-tasks{display:none;padding:4px 7px;border-top:1px solid var(--border);}
+.pp-process-group.open .pp-group-tasks{display:block;}
+.pp-task{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:5px;align-items:center;min-height:29px;padding:4px 2px;border-bottom:1px solid var(--border);}
+.pp-task:last-child{border-bottom:0;}
+.pp-task-dot{width:7px;height:7px;border-radius:50%;background:var(--s3);border:1px solid var(--border2);}
+.pp-task-title{font-size:9.5px;font-weight:600;color:var(--t2);line-height:1.2;}
+.pp-task-state{font-size:8px;color:var(--t3);white-space:nowrap;}
+.pp-task.complete .pp-task-dot{background:var(--green);border-color:var(--green);}
+.pp-task.current{background:var(--acc-light);border-radius:4px;}
+.pp-task.current .pp-task-dot{background:var(--acc);border-color:var(--acc);}
+.pp-task.delayed{background:var(--abg);border-radius:4px;}
+.pp-task.delayed .pp-task-dot{background:var(--amber);border-color:var(--amber);}
+.pp-task.skipped{opacity:.42;}
 .pp-step.upcoming{background:#FAFBFC;border-color:var(--border);}
 .pp-footer-label{font-size:9.5px;font-weight:700;color:var(--t3);margin-right:2px;}
-.pp-step{padding:9px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;min-height:62px;}
+.pp-step{position:relative;padding:7px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;min-height:48px;}
 .pp-step.complete{background:var(--gbg);border-color:var(--gbd);}
 .pp-step.current{background:var(--acc-light);border-color:#B8CBE1;box-shadow:0 0 0 2px rgba(15,52,96,.06);}
 .pp-step.delayed{background:var(--rbg);border-color:var(--rbd);}
 .pp-step-num{font-size:9px;font-weight:700;color:var(--t3);}
-.pp-step-title{font-size:10.5px;font-weight:650;line-height:1.3;margin-top:3px;}
-.pp-step-state{font-size:9px;color:var(--t3);margin-top:4px;}
-.pp-cand-list{display:flex;flex-direction:column;gap:7px;}
-.pp-cand{display:grid;grid-template-columns:minmax(160px,1.35fr) 95px 130px 115px 105px auto;gap:10px;align-items:center;padding:10px 11px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;}
+.pp-step-title{font-size:10.5px;font-weight:650;line-height:1.2;margin-top:2px;}
+.pp-step-state{position:absolute;right:7px;top:6px;font-size:8.5px;color:var(--t3);}
+.pp-cand-list{display:flex;flex-direction:column;gap:5px;}
+.pp-cand{display:grid;grid-template-columns:minmax(160px,1.35fr) 95px 130px 115px 105px auto;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;}
 .pp-cand-name{font-size:12.5px;font-weight:700;}
 .pp-cand-email{font-size:10.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pp-cand-cell{font-size:10.5px;color:var(--t2);}
@@ -575,18 +603,21 @@ html,body{line-height:1.55;}
 .pp-fill-item{padding:12px 14px;background:#FAFBFC;border:1px solid var(--border);border-radius:var(--r);}
 .pp-fill-val{font-size:20px;font-weight:750;}
 .pp-fill-lbl{font-size:10px;color:var(--t3);margin-top:3px;}
-.pp-batch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm);border:1px dashed var(--border);}
-.pp-process-note{font-size:10.5px;color:var(--t3);margin-bottom:10px;padding:8px 10px;background:var(--acc-light);border-radius:var(--rsm);}
-.pp-step-action{margin-top:8px;width:100%;justify-content:center;}
+.pp-batch{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px;padding:7px 9px;background:var(--s2);border-radius:var(--rsm);border:1px dashed var(--border);}
+.pp-process-note{font-size:10px;color:var(--t3);margin-bottom:7px;padding:6px 8px;background:var(--acc-light);border-radius:var(--rsm);}
+.pp-step-action{margin-top:5px;width:100%;justify-content:center;padding:3px 6px!important;font-size:9px!important;}
 .pp-step.current,.pp-step.delayed{box-shadow:0 4px 12px rgba(15,52,96,.08);}
 @media(max-width:1050px){
   .pp-kpis{grid-template-columns:repeat(3,1fr);}
-  .pp-process{grid-template-columns:repeat(3,1fr);}
+  .pp-process{grid-template-columns:repeat(4,1fr);}
+  .pp-process-groups{grid-template-columns:repeat(2,1fr);}
   .pp-cand{grid-template-columns:minmax(180px,1fr) 100px 130px auto;}
   .pp-cand .pp-secondary{display:none;}
 }
 @media(max-width:720px){
-  .pp-actions,.pp-kpis,.pp-process{grid-template-columns:1fr;}
+  .pp-actions,.pp-kpis{grid-template-columns:1fr;}
+  .pp-process{grid-template-columns:repeat(2,1fr);}
+  .pp-process-groups{grid-template-columns:1fr;}
   .pp-cand{grid-template-columns:1fr auto;}
   .pp-cand-cell{display:none;}
 }
@@ -3563,9 +3594,7 @@ function renderPositionSummary(positionId) {
   const short = isShortProcessEtype(pos.etype);
   return `<section class="pp-section">
     <div class="pp-summary-top">
-      <div><div class="pp-title">${esc(pos.dept ? pos.dept + ' · ' : '')}${esc(pos.title)}</div>
-        <div class="pp-meta"><span>${esc(pos.dept||'부서 미지정')}</span><span>${esc(pos.loc||'근무지 미지정')}</span><span class="etype ${ETYPE_CLS[pos.etype]||''}">${esc(pos.etype||'-')}</span><span>${esc(pos.role||'-')}</span>${short?'<span style="color:var(--acc);font-weight:650">1차면접 프로세스</span>':''}</div>
-      </div>
+      <div class="pp-meta" style="margin-top:0"><span>${esc(pos.dept||'부서 미지정')}</span><span>${esc(pos.loc||'근무지 미지정')}</span><span class="etype ${ETYPE_CLS[pos.etype]||''}">${esc(pos.etype||'-')}</span><span>${esc(pos.role||'-')}</span><span>담당자 ${esc(owner)}</span><span>요청/생성일 ${fmtDate(requested)||'-'}</span><span>목표 충원일 ${fmtDate(targetDate)||esc(targetDate)}</span>${short?'<span style="color:var(--acc);font-weight:650">1차면접 프로세스</span>':''}</div>
       <div style="text-align:right"><span class="pp-status ${projectStatus}">${statusLabel}</span></div>
     </div>
     <div class="pp-kpis">
@@ -3577,7 +3606,6 @@ function renderPositionSummary(positionId) {
       <div class="pp-kpi"><div class="pp-kpi-val">${rejected.length}<small>명</small></div><div class="pp-kpi-lbl">불합격/종료</div></div>
     </div>
     <div class="pp-fillbar"><span style="width:${rate}%"></span></div>
-    <div class="pp-meta" style="margin-top:11px"><span>담당자 ${esc(owner)}</span><span>요청/생성일 ${fmtDate(requested)||'-'}</span><span>목표 충원일 ${fmtDate(targetDate)||esc(targetDate)}</span><span>등록 지원자 ${list.length}명</span></div>
   </section>`;
 }
 
@@ -3636,23 +3664,44 @@ function renderPositionActionCenter(positionId) {
 function renderPositionProcessChecklist(positionId) {
   const d = getPositionProjectData(positionId);
   const steps = getPositionProcessStatus(positionId);
-  const current = steps.find(s => s.status === 'delayed') || steps.find(s => s.status === 'current');
+  const byKey = key => steps.find(s => s.key === key);
+  const mergeTask = (title, keys) => {
+    const items = keys.map(byKey).filter(Boolean);
+    const status = items.every(x=>x.status==='skipped') ? 'skipped'
+      : items.every(x=>x.status==='complete'||x.status==='skipped') ? 'complete'
+      : items.some(x=>x.status==='delayed') ? 'delayed'
+      : items.some(x=>x.status==='current') ? 'current' : 'upcoming';
+    return { title, status, label:status==='complete'?'완료':status==='current'?'진행중':status==='delayed'?'지연':status==='skipped'?'생략':'예정' };
+  };
+  const groups = [
+    { title:'준비', tasks:[mergeTask('지원자 등록',['register'])] },
+    { title:'1차 면접', tasks:[mergeTask('후보일정 안내',['int1_slots']),mergeTask('일정 확정',['int1_confirm']),mergeTask('면접 안내',['int1_panel','int1_cand']),mergeTask('면접 실시',['int1_done']),mergeTask('결과 입력',['int1_result'])] },
+    { title:'레퍼런스', tasks:[mergeTask('레퍼런스 요청',['ref_req']),mergeTask('레퍼런스 완료',['ref_done'])] },
+    { title:'2차 면접', tasks:[mergeTask('후보일정 안내',['int2_slots']),mergeTask('일정 확정',['int2_confirm']),mergeTask('면접 안내',['int2_panel','int2_cand']),mergeTask('면접 실시',['int2_done']),mergeTask('결과 입력',['int2_result'])] },
+    { title:'최종 단계', tasks:[mergeTask('처우협의',['offer']),mergeTask('최종합격',['final']),mergeTask('입사안내',['onboard'])] },
+  ];
   const shortNote = d && isShortProcessEtype(d.pos.etype)
     ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
     : '';
-  const currentNote = current ? `<div class="pp-process-note" style="border-left:3px solid ${current.status==='delayed'?'var(--amber)':'var(--acc)'}"><b>현재 위치:</b> ${esc(current.title)}${current.actionLabel ? ` · 버튼을 눌러 다음 업무를 진행하세요.` : ''}</div>` : '';
-  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">전체 채용 프로세스</div><div class="pp-section-sub">완료된 업무, 현재 진행 위치, 이후 순서를 한 화면에서 확인하고 처리합니다.</div></div></div>
+  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">프로세스 진행현황</div><div class="pp-section-sub">상위 단계를 클릭하면 세부 진행상태를 확인할 수 있습니다.</div></div></div>
     ${shortNote}
-    ${currentNote}
-    <div class="pp-process">${steps.map(s=>`<div class="pp-step ${s.status}"><div class="pp-step-num">${String(s.number).padStart(2,'0')}</div><div class="pp-step-title">${s.title}</div><div class="pp-step-state">${s.label}</div>${s.actionCall&&s.status!=='complete'&&s.status!=='upcoming' ? `<button class="btn btn-xs btn-primary pp-step-action" onclick="${s.actionCall}">${esc(s.actionLabel)}</button>` : ''}</div>`).join('')}</div>
-    <div style="display:flex;gap:12px;margin-top:10px;font-size:10px;color:var(--t3);flex-wrap:wrap">
-      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--green);margin-right:4px"></span>완료</span>
-      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--acc);margin-right:4px"></span>진행중</span>
-      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--amber);margin-right:4px"></span>처리 필요</span>
-      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--red);margin-right:4px"></span>지연</span>
-      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--s3);margin-right:4px"></span>예정/생략</span>
-    </div>
+    <div class="pp-process-groups">${groups.map(g=>{
+      const tasks = g.tasks;
+      const activeTasks = tasks.filter(s=>s.status!=='skipped');
+      const completed = activeTasks.filter(s=>s.status==='complete').length;
+      const groupCount = activeTasks.length ? `${completed}/${activeTasks.length} 완료` : '생략';
+      const groupStatus = !activeTasks.length ? 'skipped' : activeTasks.every(s=>s.status==='complete') ? 'complete' : activeTasks.some(s=>s.status==='delayed') ? 'delayed' : activeTasks.some(s=>s.status==='current'||s.status==='complete') ? 'current' : 'upcoming';
+      const groupStatusLabel = groupStatus==='complete'?'완료':groupStatus==='current'?'진행중':groupStatus==='delayed'?'지연':groupStatus==='skipped'?'생략':'예정';
+      return `<div class="pp-process-group ${groupStatus}"><button class="pp-group-head" onclick="togglePositionProcessGroup(this)"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel} · ${groupCount}</span><span class="pp-group-arrow">⌄</span></button>
+        <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}"><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
+      </div>`;
+    }).join('')}</div>
   </section>`;
+}
+
+function togglePositionProcessGroup(button) {
+  const group = button && button.closest('.pp-process-group');
+  if(group) group.classList.toggle('open');
 }
 
 function renderPositionCandidates(positionId) {
@@ -3677,8 +3726,7 @@ function renderPositionCandidates(positionId) {
     </div>`;
   };
   return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">개별 지원자 상태 확인 및 예외 처리</div></div><button class="btn btn-sm btn-primary" onclick="addCandToPos(${positionId})">+ 지원자 추가</button></div>
-    ${renderPositionBatchToolbar(positionId)}
-    <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 모집단위에 연결된 지원자가 없습니다. Action Center에서 지원자를 추가하세요.</div>'}</div>
+    <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 모집단위에 연결된 지원자가 없습니다. 지원자를 추가해 채용 프로세스를 시작하세요.</div>'}</div>
   </section>`;
 }
 
@@ -3704,6 +3752,7 @@ function renderPositionDetail(positionId) {
   document.getElementById('pos-detail-title').textContent = (d.pos.dept ? d.pos.dept + ' · ' : '') + d.pos.title;
   document.getElementById('pos-detail-body').innerHTML = `<div class="pos-project">
     ${renderPositionSummary(positionId)}
+    ${renderPositionActionCenter(positionId)}
     ${renderPositionProcessChecklist(positionId)}
     ${renderPositionCandidates(positionId)}
   </div>`;
