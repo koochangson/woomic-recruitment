@@ -422,7 +422,6 @@ html,body{line-height:1.55;}
 .pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px;}
 .pk-itv{font-size:10px;font-weight:700;color:var(--blue);margin-bottom:4px;padding:3px 6px;background:var(--bbg);border-radius:4px;display:inline-flex;align-items:center;gap:3px;}
 .pk-itv.warn{color:var(--amber);background:var(--abg);}
-.pk-date{font-size:9.5px;color:var(--t3);}
 </style>
 </head>
 <body>
@@ -438,14 +437,14 @@ html,body{line-height:1.55;}
   <nav class="sb-nav">
     <div class="ng">
       <div class="ng-label">메인</div>
+      <button class="nb on" onclick="nav('dash',this)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        대시보드
+      </button>
       <button class="nb" onclick="nav('position',this)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="2"/><path d="M5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 7v4M6 9h4"/></svg>
         모집단위 관리
         <span class="nbb" id="nb-pos">0</span>
-      </button>
-      <button class="nb on" onclick="nav('dash',this)">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
-        대시보드
       </button>
     </div>
     <div class="ng">
@@ -526,9 +525,8 @@ html,body{line-height:1.55;}
         <div class="mc c-red" onclick="openMetricDetail('action')" style="cursor:pointer" title="클릭하여 상세 보기"><div class="mc-lbl">처리 필요</div><div class="mc-val" id="m-action">0</div><div class="mc-sub">즉시 처리 ↗</div></div>
       </div>
 
-      <!-- 처리 필요 + 채용 인사이트 (중단) -->
+      <!-- 처리 필요 -->
       <div class="card" id="dash-urgent-card" style="margin-bottom:14px">
-        <div id="dash-insights" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)"></div>
         <div class="ch" style="margin-bottom:8px"><div class="ch-l">처리 필요</div></div>
         <div id="dash-urgent"></div>
       </div>
@@ -4531,34 +4529,7 @@ function updateMetrics() {
   const ni = document.getElementById('nb-int');
   if(ni){ if(pi>0){ni.style.display='';ni.textContent=pi;}else ni.style.display='none'; }
 
-  if(typeof renderUrgent==='function') renderUrgent(); // 처리 필요 카드(중단 영역)
-  if(typeof renderInsights==='function') renderInsights(); // 채용 인사이트(TTF 등)
-}
-
-// ── 채용 인사이트: 평균 채용 소요일(TTF) · 이번 달 충원완료 · 최장기 진행중 ──
-function renderInsights() {
-  const el = document.getElementById('dash-insights');
-  if(!el) return;
-  const filled = positions.filter(p => posStatus(p)==='filled' && p.createdAt && p.closedAt);
-  const days = filled.map(p => Math.max(0, Math.round((new Date(p.closedAt) - new Date(p.createdAt))/86400000)));
-  const ttf = days.length ? Math.round(days.reduce((a,b)=>a+b,0)/days.length) : null;
-  const ym = new Date().toISOString().slice(0,7);
-  const thisMonth = positions.filter(p => posStatus(p)==='filled' && String(p.closedAt||'').slice(0,7)===ym).length;
-  const now = Date.now();
-  let oldest=null, oldestDays=-1;
-  positions.filter(p => posStatus(p)==='active' && p.createdAt).forEach(p => {
-    const d = Math.round((now - new Date(p.createdAt))/86400000);
-    if(d > oldestDays){ oldestDays=d; oldest=p; }
-  });
-  const item = (label,val,sub) => `<div style="flex:1;min-width:0">
-    <div style="font-size:10px;color:var(--t3);font-weight:700;margin-bottom:2px">${label}</div>
-    <div style="font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${val}<span style="font-size:11px;font-weight:600;color:var(--t3);margin-left:3px">${sub||''}</span></div>
-  </div>`;
-  el.innerHTML = `<div style="display:flex;gap:18px;align-items:center">
-    ${item('평균 채용 소요일', ttf!=null?ttf:'—', ttf!=null?'일':'')}
-    ${item('이번 달 충원완료', thisMonth, '건')}
-    ${item('최장기 진행중', oldest?esc((oldest.dept?oldest.dept+' · ':'')+oldest.title):'—', oldest?`· ${oldestDays}일 경과`:'')}
-  </div>`;
+  if(typeof renderUrgent==='function') renderUrgent(); // 처리 필요 카드
 }
 
 // ── 처리 필요 카드 (면접 미확정 / 레퍼런스 미응답 / 미발송 알림) — getActionItems 공유 ──
