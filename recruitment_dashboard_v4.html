@@ -420,6 +420,8 @@ html,body{line-height:1.55;}
 .pk-meta{font-size:10px;color:var(--t2);margin-bottom:5px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
 .pk-meta .pk-dot{color:var(--t3);}
 .pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.pk-itv{font-size:10px;font-weight:700;color:var(--blue);margin-bottom:4px;padding:3px 6px;background:var(--bbg);border-radius:4px;display:inline-flex;align-items:center;gap:3px;}
+.pk-itv.warn{color:var(--amber);background:var(--abg);}
 .pk-date{font-size:9.5px;color:var(--t3);}
 </style>
 </head>
@@ -1349,7 +1351,7 @@ html,body{line-height:1.55;}
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
-        같은 모집단위 지원자 전원에게 시작 시간부터 설정한 간격으로 순차 배치합니다. 배치 후 개별 시간은 수정할 수 있습니다.
+        모집단위 공통 면접 날짜를 기준으로 지원자 전원에게 시간을 순차 배정합니다. 특별한 사유가 있는 경우에만 배치 후 개인 시간을 수정하세요.
       </div>
       <div class="fgrid" style="gap:10px;margin-bottom:14px">
         <div class="fg"><label>면접 날짜</label><input type="date" id="bs-date"/></div>
@@ -1503,6 +1505,24 @@ function esc(v){
 }
 // 클릭 가능한 div를 키보드(Enter/Space)로도 동작시키는 핸들러 (접근성)
 function kbActivate(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.currentTarget.click(); } }
+// 같은 밀리초에 여러 건을 생성해도 충돌하지 않는 숫자형 ID
+let idSequence = 0;
+function nextId(){
+  idSequence = (idSequence + 1) % 1000;
+  return Date.now() * 1000 + idSequence;
+}
+
+// 일괄 GS 동기화 결과를 집계해 일부 실패를 사용자에게 알림
+async function settleSync(tasks, label='GS 동기화'){
+  if(!tasks.length) return { ok:0, failed:0 };
+  const results = await Promise.allSettled(tasks);
+  const failed = results.filter(r => r.status === 'rejected' || r.value == null).length;
+  if(failed) {
+    showSyncStatus(`${label} 일부 실패 (${failed}/${results.length})`, 'warn');
+    toast(`${label} 일부 실패: ${failed}건`, 'terr');
+  }
+  return { ok:results.length-failed, failed };
+}
 
 // ── 모집단위 상태 모델 (진행중/충원완료/미채용완료/채용중단) ──────────────
 // 레거시 'done'→충원완료, 'active'/미지정→진행중
@@ -1522,6 +1542,13 @@ function posCurrentStage(p){
 }
 // YYYY-MM-DD → YYYY.MM.DD 표시용
 function fmtDate(d){ return d ? String(d).slice(0,10).replace(/-/g,'.') : ''; }
+// 면접 일시 표시: "MM.DD HH:mm" (날짜만 있으면 MM.DD)
+function fmtItv(d){
+  if(!d) return '';
+  const [date, time] = String(d).split('T');
+  const md = String(date).slice(5,10).replace(/-/g,'.'); // MM.DD
+  return md + (time ? ' ' + time.slice(0,5) : '');
+}
 
 // 실제 '진행 중' 파이프라인 지원자: 불합격 제외 + 종료(충원완료/미채용완료/채용중단) 모집단위 소속 제외
 function isActivePipelineCand(c){
@@ -1600,7 +1627,7 @@ async function gsDelete(sheet, id) {
 
 async function syncCandToGS(cand) {
   if(!GS_CONFIG.scriptUrl) return;
-  await gsUpsert('Candidates', {
+  const result = await gsUpsert('Candidates', {
     id:         cand.id,
     name:       cand.name,
     pos:        cand.pos,
@@ -1620,13 +1647,14 @@ async function syncCandToGS(cand) {
     posId:      cand.posId != null ? cand.posId : '',
     intDate:    cand.intDate || '',
   });
-  showSyncStatus('GS 동기화 완료', 'ok');
+  if(result != null) showSyncStatus('GS 동기화 완료', 'ok');
+  return result;
 }
 
 // ── 면접(Interviews) GS 동기화 ──────────────────────────────
 async function syncIntToGS(itv) {
   if(!GS_CONFIG.scriptUrl) return;
-  await gsUpsert('Interviews', {
+  return await gsUpsert('Interviews', {
     id:        itv.id,
     candId:    itv.candId != null ? itv.candId : '',
     candName:  itv.candName || '',
@@ -1768,7 +1796,7 @@ async function testGSConnection() {
     } else if(result.data?.length > 0) {
       if(confirm('Google Sheets에 ' + result.data.length + '명의 데이터가 있습니다. 불러올까요?')) {
         await loadFromGS();
-        updateMetrics(); renderDashboard(); renderTracker();
+        renderDashboard(); renderTracker();
       }
     }
   } else {
@@ -1801,6 +1829,11 @@ function renderPositions() {
   const countLabel = document.getElementById('pos-count-label');
   const nbPos = document.getElementById('nb-pos');
   if(!list) return;
+  const candidatesByPos = {};
+  candidates.forEach(c => {
+    const key = Number(c.posId);
+    (candidatesByPos[key] = candidatesByPos[key] || []).push(c);
+  });
 
   // 상태 판정: 진행중(active)이 아니면 '종료' 그룹(충원완료/미채용완료/채용중단)
   const isDone = (pos) => posStatus(pos) !== 'active';
@@ -1839,7 +1872,7 @@ function renderPositions() {
   }
 
   list.innerHTML = filtered.map(pos => {
-    const posCandiates = candidates.filter(c => Number(c.posId) === Number(pos.id));
+    const posCandiates = candidatesByPos[Number(pos.id)] || [];
     const active = posCandiates.filter(c => c.stage < 6);
     const passed = posCandiates.filter(c => c.stage === 5);
     const int1Ready = active.filter(c => c.stage === 1);
@@ -1850,16 +1883,16 @@ function renderPositions() {
     return `<div class="card" style="padding:0;overflow:hidden${done?';opacity:.75':''}">
       <div style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:16px" onclick="openPosDetail(${pos.id})">
         <div style="width:44px;height:44px;border-radius:10px;background:${done?'var(--s3)':'var(--bbg)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:${done?'var(--t3)':'var(--blue)'};flex-shrink:0">
-          ${pos.title.charAt(0)}
+          ${esc(pos.title.charAt(0))}
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
-            ${pos.dept ? pos.dept + ' · ' : ''}${esc(pos.title)}
+            ${pos.dept ? esc(pos.dept) + ' · ' : ''}${esc(pos.title)}
             ${done ? `<span class="b bgreen" style="font-size:10px">${posStatusLabel(pos)}</span>` : '<span class="b bblue" style="font-size:10px">진행중</span>'}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'professional':'dispatch'}">${pos.etype}</span>
-            <span style="font-size:11px;color:var(--t3)">${pos.role}</span>
+            <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'professional':'dispatch'}">${esc(pos.etype)}</span>
+            <span style="font-size:11px;color:var(--t3)">${esc(pos.role)}</span>
             <span style="font-size:11px;color:var(--t3)">모집 ${pos.headcount||1}명</span>
           </div>
         </div>
@@ -2043,7 +2076,7 @@ function sendCollectSlots() {
       itv.memo = `후보일정 안내됨 (회신 대기)`;
     } else {
       interviews.push({
-        id: Date.now() + idx, candId: c.id, candName: c.name, type: round,
+        id: nextId(), candId: c.id, candName: c.name, type: round,
         date: slots[0], loc: loc || '미정 (회신 후 확정)', panel: '미정',
         memo: '후보일정 안내됨 (회신 대기)', notified: false, status: 'pending', slots: slots,
       });
@@ -2173,10 +2206,17 @@ function setDecision(candId, decision, posId) {
 }
 
 // 모집단위 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
-function confirmStageDecisions(posId, stageIdx) {
+async function confirmStageDecisions(posId, stageIdx) {
   const round = STAGES[stageIdx];
   const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
   if(!posCands.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+
+  if(stageIdx === 1 || stageIdx === 3) {
+    const missing = posCands.filter(c => !hasConfirmedRoundSchedule(c.id, stageIdx));
+    if(missing.length) {
+      if(!confirm(`면접 일정이 확정되지 않은 지원자가 ${missing.length}명 있습니다.\n\n일정 확정·안내 없이 판정을 확정하고 다음 단계로 이동할까요?\n단계를 지나간 뒤에는 일정 미확정 건이 '처리 필요'에서 자동 추적되지 않을 수 있습니다.`)) return;
+    }
+  }
 
   const undecided = posCands.filter(c => !c.decision);
   const passers = posCands.filter(c => c.decision === 'pass');
@@ -2194,7 +2234,6 @@ function confirmStageDecisions(posId, stageIdx) {
   passers.forEach(c => {
     c.stage = nx;
     c.decision = '';  // 판정 초기화 (다음 단계에서 새로 판정)
-    if(GS_CONFIG.scriptUrl) syncCandToGS(c);
     passCnt++;
   });
   // 불합격자 → 탈락(6)
@@ -2205,11 +2244,11 @@ function confirmStageDecisions(posId, stageIdx) {
     // 진행중 면접·레퍼런스 정리
     interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && (i.status||'pending')==='pending'));
     if(c.ref === '진행중') { c.ref = '미시작'; c.refD = 0; c.refT = 0; delete refDetails[c.id]; }
-    if(GS_CONFIG.scriptUrl) syncCandToGS(c);
     failCnt++;
   });
   saveState();
-  renderPositions(); renderDashboard(); updateMetrics();
+  if(GS_CONFIG.scriptUrl) await settleSync([...passers, ...failers].map(c => syncCandToGS(c)), '판정 결과 동기화');
+  renderPositions(); renderDashboard();
   openPosDetail(Number(posId));
   toast(`판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
 }
@@ -2298,7 +2337,7 @@ function closePosition(posId) {
   if(!pos) return;
   const passed = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === 5).length;
   const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5).length;
-  let msg = `'${esc(pos.title)}' 모집을 완료 처리하시겠습니까?`;
+  let msg = `'${pos.title}' 모집을 완료 처리하시겠습니까?`;
   if(active > 0) msg += `\n\n⚠ 아직 진행중인 지원자가 ${active}명 있습니다.`;
   if(passed < (pos.headcount||1)) msg += `\n⚠ 최종합격 ${passed}명 / 목표 ${pos.headcount||1}명 (미달)`;
   if(!confirm(msg)) return;
@@ -2325,7 +2364,7 @@ function nohirePosition(posId) {
   positions.forEach(p => { const m = (p.title || '').match(re); if(m) n = Math.max(n, parseInt(m[1]) + 1); });
   const newTitle = `${base} (재채용${n})`;
   const np = {
-    id: Date.now(), title: newTitle,
+    id: nextId(), title: newTitle,
     etype: pos.etype, role: pos.role, headcount: pos.headcount, dept: pos.dept,
     panel1: pos.panel1, panel2: pos.panel2, loc: pos.loc, memo: pos.memo,
     status: 'active', createdAt: today(),
@@ -2342,7 +2381,7 @@ function nohirePosition(posId) {
 function stopPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
-  if(!confirm(`'${esc(pos.title)}' 모집단위를 채용 중단 처리하시겠습니까?`)) return;
+  if(!confirm(`'${pos.title}' 모집단위를 채용 중단 처리하시겠습니까?`)) return;
   pos.status = 'stopped';
   pos.closedAt = today();
   saveState();
@@ -2359,7 +2398,8 @@ function reopenPosition(posId) {
   pos.status = 'active';
   delete pos.closedAt;
   saveState();
-  renderPositions();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
+  renderPositions(); renderDashboard();
   toast(`'${esc(pos.title)}' 진행중으로 복원`, 'tok');
 }
 
@@ -2400,12 +2440,12 @@ function openPosDetail(posId) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
       <div class="card" style="padding:14px">
         <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">1차 면접관</div>
-        ${parsePanelists(pos.panel1).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${p.name} <span style="color:var(--t3);font-size:11px">${p.email}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
+        ${parsePanelists(pos.panel1).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px">${esc(p.email)}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
         ${parsePanelists(pos.panel1).length ? `<button class="btn btn-sm" style="margin-top:8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${posId},1)">📧 1차 면접관 안내 발송</button>` : ''}
       </div>
       <div class="card" style="padding:14px">
         <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px">2차 면접관</div>
-        ${parsePanelists(pos.panel2).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${p.name} <span style="color:var(--t3);font-size:11px">${p.email}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
+        ${parsePanelists(pos.panel2).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px">${esc(p.email)}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
         ${parsePanelists(pos.panel2).length ? `<button class="btn btn-sm" style="margin-top:8px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${posId},2)">📧 2차 면접관 안내 발송</button>` : ''}
       </div>
     </div>
@@ -2447,7 +2487,7 @@ function openPosDetail(posId) {
               <div style="position:relative;z-index:1;width:38px;height:38px;border-radius:50%;margin:0 auto 6px;background:${circleBg};border:2px solid ${circleBd};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${circleColor};${isCurrent?'box-shadow:0 0 0 4px '+col+'22':''}">${isPassed&&cnt===0?'✓':(cnt||'·')}</div>
               <div style="font-size:10.5px;font-weight:${isCurrent?'800':'600'};color:${lblColor};line-height:1.3">${STAGES[stageIdx]}</div>
               ${cnt>0?`<div style="font-size:9px;color:${col};font-weight:700;margin-top:1px">${cnt}명</div>`:''}
-              ${canMove ? `<button class="btn btn-xs" style="margin-top:4px;font-size:9px;padding:1px 6px" onclick="batchStageChange(${posId},${stageIdx},${nextStage})">→ ${STAGES[nextStage]}</button>` : ''}
+              ${canMove ? `<button class="btn btn-xs" style="margin-top:4px;font-size:9px;padding:1px 6px" onclick="batchStageChange(${posId},${stageIdx},${nextStage})">단계 전체 → ${STAGES[nextStage]}</button>` : ''}
             </div>`;
           }).join('');
         })()}
@@ -2465,13 +2505,13 @@ function openPosDetail(posId) {
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--t2);align-self:center;font-weight:600">1차:</span>
         <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--amber);border-color:var(--abd)" onclick="openCollectSlots(${posId},1)">📨 후보일정 안내</button>
-        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1)">📅 확정일정 배치</button>
+        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${posId},1)">📅 1차 공통일정 확정</button>
         <span style="width:1px;background:var(--abd);margin:0 4px"></span>
         <span style="font-size:11px;color:var(--t2);align-self:center;font-weight:600">2차:</span>
         <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--amber);border-color:var(--abd)" onclick="openCollectSlots(${posId},3)">📨 후보일정 안내</button>
-        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},3)">📅 확정일정 배치</button>
+        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${posId},3)">📅 2차 공통일정 확정</button>
       </div>
-      <div style="font-size:10.5px;color:var(--t3);margin-top:6px">※ 후보일정 안내 = 우리가 정한 후보 3안을 대상자에게 보내 가능 일시를 회신받음 · 확정일정 배치 = 시간을 바로 배정</div>
+      <div style="font-size:10.5px;color:var(--t3);margin-top:6px">※ 모집단위별 동일 면접 날짜가 기본입니다. 일정 확정 후 해당 단계 대상자가 일괄 이동하며, 개인 일정 수정은 예외적으로 사용합니다.</div>
     </div>
 
     <!-- 단계별 지원자 목록 -->
@@ -2512,8 +2552,7 @@ function openPosDetail(posId) {
             // 서류합격(0): 전체 1차 면접 일정 일괄 배치
             if(stageIdx===0) {
               return `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${posId},1)">📨 후보일정 일괄 안내(수집)</button>`
-                + `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1)">📅 확정일정 일괄 배치</button>`
-                + `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},0,1)">전체 1차면접으로 이동</button>`;
+                + `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1,0,true)">📅 공통일정 확정 후 전체 1차면접 이동</button>`;
             }
             if(stageIdx!==1 && stageIdx!==3) return '';
             const round = stageIdx===1?'1차':'2차';
@@ -2522,7 +2561,7 @@ function openPosDetail(posId) {
             const panelExists = (stageIdx===1?parsePanelists(pos.panel1):parsePanelists(pos.panel2)).length>0;
             let btns = `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${posId},${stageIdx})">📨 후보일정 안내(수집)</button>`;
             btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},${stageIdx})">📅 확정일정 배치</button>`;
-            btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">전체 다음 단계로</button>`;
+            btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">단계 전체 → ${STAGES[stageIdx+1]}</button>`;
             // 일정 확정 진행률 표시
             btns += `<span style="font-size:10px;color:${allConfirmed?'var(--green)':'var(--t3)'};font-weight:600">일정확정 ${confirmedCnt}/${stageCands.length}</span>`;
             // 미확정 일정이 있으면 전체 일정 확정 버튼
@@ -2599,10 +2638,10 @@ function openPosDetail(posId) {
             }
             return `${_needHdr}${_doneHdr}
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)${_stageDone?';opacity:.62':''}">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${cand.name.charAt(0)}</div>
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${esc(cand.name.charAt(0))}</div>
               <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">${cand.name} ${stBadge}</div>
-                <div style="font-size:11px;color:var(--t3)">${cand.email}</div>
+                <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">${esc(cand.name)} ${stBadge}</div>
+                <div style="font-size:11px;color:var(--t3)">${esc(cand.email)}</div>
                 ${timeInfo}${refInfo}
               </div>
               <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
@@ -2868,19 +2907,25 @@ function markIntDoneFromPos(intId, posId) {
 }
 
 // ── (이하 면접 일괄 배치) ──
-let batchScheduleCtx = { posId: null, stageIdx: null };
+let batchScheduleCtx = { posId: null, stageIdx: null, sourceStage: null, moveAfterApply: false };
 
-function openBatchSchedule(posId, stageIdx) {
+function openPositionRoundSchedule(posId, stageIdx) {
+  const prevStage = stageIdx === 1 ? 0 : 2;
+  const prevCount = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === prevStage).length;
+  openBatchSchedule(posId, stageIdx, prevCount ? prevStage : stageIdx, prevCount > 0);
+}
+
+function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApply = false) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const round = stageIdx === 1 ? '1차' : '2차';
-  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === sourceStage);
   if(targets.length === 0) {
-    toast(`${round} 면접 단계 지원자가 없습니다.`, 'terr');
+    toast(`${STAGES[sourceStage]} 단계 지원자가 없습니다.`, 'terr');
     return;
   }
-  batchScheduleCtx = { posId, stageIdx };
-  document.getElementById('bs-title').textContent = `${round} 면접 일괄 일정 배치 — ${esc(pos.title)} (${targets.length}명)`;
+  batchScheduleCtx = { posId, stageIdx, sourceStage, moveAfterApply };
+  document.getElementById('bs-title').textContent = `${round} 면접 공통일정 확정${moveAfterApply?' 후 단계 이동':''} — ${pos.title} (${targets.length}명)`;
   // 기본값 설정
   const dateEl = document.getElementById('bs-date');
   if(dateEl && !dateEl.value) {
@@ -2902,11 +2947,11 @@ function openBatchSchedule(posId, stageIdx) {
 }
 
 function computeBatchSlots() {
-  const { posId, stageIdx } = batchScheduleCtx;
+  const { posId, sourceStage } = batchScheduleCtx;
   const date     = document.getElementById('bs-date')?.value;
   const start    = document.getElementById('bs-start')?.value || '10:00';
   const interval = parseInt(document.getElementById('bs-interval')?.value || '30');
-  const targets  = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx)
+  const targets  = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === sourceStage)
     .slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
 
   if(!date) return { targets, slots: [] };
@@ -2940,8 +2985,8 @@ function renderBatchPreview() {
     `<div style="padding:8px 4px 2px;font-size:11px;color:var(--t3)">📍 장소: ${loc} · 총 ${slots.length}명 · 종료 예정 ${slots[slots.length-1].time} 이후</div>`;
 }
 
-function applyBatchSchedule() {
-  const { posId, stageIdx } = batchScheduleCtx;
+async function applyBatchSchedule() {
+  const { posId, stageIdx, sourceStage, moveAfterApply } = batchScheduleCtx;
   const date = document.getElementById('bs-date')?.value;
   const loc  = document.getElementById('bs-loc')?.value || '미정';
   if(!date) { toast('면접 날짜를 선택하세요.', 'terr'); return; }
@@ -2968,34 +3013,36 @@ function applyBatchSchedule() {
       updated++;
     } else {
       interviews.push({
-        id: Date.now() + Math.floor(Math.random()*1000),
+        id: nextId(),
         candId: s.cand.id, candName: s.cand.name,
         type: round,
         date: s.datetime,
         loc: loc,
         panel: panel || '미정',
-        memo: `모집단위 일괄 배치 (${esc(pos.title)})`,
+        memo: `모집단위 일괄 배치 (${pos.title})`,
         status: 'confirmed',
         notified: false,
       });
       created++;
     }
     s.cand.intDate = s.datetime;
+    if(moveAfterApply && s.cand.stage === sourceStage) s.cand.stage = stageIdx;
   });
 
   saveState();
   if(GS_CONFIG.scriptUrl) {
-    slots.forEach(s => syncCandToGS(s.cand));
+    const syncTasks = slots.map(s => syncCandToGS(s.cand));
     // 이번 배치로 생성/갱신된 면접 동기화
     slots.forEach(s => {
       const itv = interviews.find(i => i.candId === s.cand.id && i.type === round);
-      if(itv) syncIntToGS(itv);
+      if(itv) syncTasks.push(syncIntToGS(itv));
     });
+    await settleSync(syncTasks, `${round} 면접 일정 동기화`);
   }
   closeModal('modal-batch-schedule');
-  updateMetrics();
+  renderDashboard(); renderTracker(); renderPositions();
   if(typeof renderIntTable === 'function') renderIntTable();
-  toast(`${round} 면접 ${slots.length}명 일괄 배치 완료 (신규 ${created} / 갱신 ${updated})`, 'tok');
+  toast(`${round} 면접 공통일정 ${slots.length}명 확정${moveAfterApply?' · 단계 이동 완료':''} (신규 ${created} / 갱신 ${updated})`, 'tok');
   // 상세 모달 다시 열어 면접관 안내 버튼 갱신
   setTimeout(() => openPosDetail(posId), 300);
 }
@@ -3235,13 +3282,12 @@ function filterInterviewers(round) {
   }
 
   listEl.innerHTML = matched.map(iv => {
-    const payload = JSON.stringify({ id: iv.id, name: iv.name, email: iv.email, rank: iv.rank })
-      .replace(/"/g, '&quot;');
+    const payload = encodeURIComponent(JSON.stringify({ id: iv.id, name: iv.name, email: iv.email, rank: iv.rank }));
     return `<div onmousedown="selectInterviewer(${round}, '${payload}')"
       style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='transparent'">
-      👤 ${iv.name} <span style="color:var(--t3);font-size:11px">${iv.rank} · ${iv.dept}</span><br>
-      <span style="color:var(--t3);font-size:11px">${iv.email}</span>
+      👤 ${esc(iv.name)} <span style="color:var(--t3);font-size:11px">${esc(iv.rank)} · ${esc(iv.dept)}</span><br>
+      <span style="color:var(--t3);font-size:11px">${esc(iv.email)}</span>
     </div>`;
   }).join('');
   listEl.style.display = 'block';
@@ -3255,7 +3301,10 @@ function hideInterviewerList(round) {
 // 검색 목록에서 면접관 선택 → 태그 추가
 function selectInterviewer(round, payloadStr) {
   let iv;
-  try { iv = JSON.parse(payloadStr.replace(/&quot;/g, '"')); } catch(e) { return; }
+  try {
+    const decoded = payloadStr.startsWith('%7B') ? decodeURIComponent(payloadStr) : payloadStr.replace(/&quot;/g, '"');
+    iv = JSON.parse(decoded);
+  } catch(e) { return; }
 
   const existing = getPanelistsFromHidden(round);
   if (existing.some(p => p.email === iv.email)) {
@@ -3266,7 +3315,7 @@ function selectInterviewer(round, payloadStr) {
   const tagsEl = document.getElementById('pos-panel' + round + '-tags');
   const tag = document.createElement('span');
   tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
-  tag.innerHTML = `👤 ${iv.name} <span style="color:var(--t3);font-size:11px">${iv.rank}</span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+  tag.innerHTML = `👤 ${esc(iv.name)} <span style="color:var(--t3);font-size:11px">${esc(iv.rank)}</span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
   tag.dataset.email = iv.email;
   tag.dataset.name  = iv.name;
   tagsEl.appendChild(tag);
@@ -3313,7 +3362,7 @@ function restorePanelistTags(round, panelStr) {
   parsePanelists(panelStr).forEach(p => {
     const tag = document.createElement('span');
     tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
-    tag.innerHTML = `👤 ${p.name} <span style="color:var(--t3);font-size:11px"></span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+    tag.innerHTML = `👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px"></span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
     tag.dataset.email = p.email;
     tag.dataset.name  = p.name;
     tagsEl.appendChild(tag);
@@ -3451,14 +3500,38 @@ function sendPanelNotice(posId, round) {
 }
 
 // ── 일괄 단계 변경 ────────────────────────────────────────────
-function batchStageChange(posId, fromStage, toStage) {
+function hasConfirmedRoundSchedule(candId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : stageIdx === 3 ? '2차' : '';
+  if(!round) return true;
+  return interviews.some(i => Number(i.candId) === Number(candId) && i.type === round &&
+    (i.status === 'confirmed' || i.status === 'done') && i.date);
+}
+
+async function batchStageChange(posId, fromStage, toStage) {
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === fromStage);
   if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+
+  // 면접 단계 진입은 모집단위 공통일정을 먼저 확정한 뒤 일괄 이동한다.
+  if(toStage === 1 || toStage === 3) {
+    const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, toStage));
+    if(missing.length) {
+      if(!confirm(`${STAGES[toStage]} 공통일정이 확정되지 않았습니다.\n\n일정 요청·이메일 안내 없이 ${targets.length}명을 바로 이동할까요?\n미완료 항목은 대시보드 '처리 필요'에 표시됩니다.`)) return;
+    }
+  }
+
+  // 면접 단계에서 다음 단계로 일괄 이동할 때도 전원 일정 확정을 필수로 한다.
+  if(fromStage === 1 || fromStage === 3) {
+    const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, fromStage));
+    if(missing.length) {
+      if(!confirm(`면접 일정이 확정되지 않은 지원자가 ${missing.length}명 있습니다.\n\n일정 확정·안내 없이 다음 단계로 이동할까요?\n단계를 지나간 뒤에는 일정 미확정 건이 '처리 필요'에서 자동 추적되지 않을 수 있습니다.`)) return;
+    }
+  }
+
   if(!confirm(`${targets.length}명을 ${STAGES[toStage]} 단계로 이동하시겠습니까?`)) return;
   targets.forEach(c => { c.stage = toStage; });
   saveState();
-  if(GS_CONFIG.scriptUrl) targets.forEach(c => syncCandToGS(c));
-  updateMetrics(); renderDashboard(); renderTracker(); renderPositions();
+  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(c => syncCandToGS(c)), '단계 일괄 이동 동기화');
+  renderDashboard(); renderTracker(); renderPositions();
   toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
 }
 
@@ -3513,7 +3586,7 @@ function savePosition() {
   if(!title) { toast('포지션명을 입력하세요.', 'terr'); return; }
 
   const posData = {
-    id:        editingPosId || Date.now(),
+    id:        editingPosId || nextId(),
     title,
     etype:     document.getElementById('pos-etype')?.value   || '정규직',
     role:      document.getElementById('pos-role')?.value    || '현장직',
@@ -3548,12 +3621,14 @@ async function deletePosition(posId) {
   const linked = candidates.filter(c => Number(c.posId) === Number(posId)).length;
   if(linked > 0) {
     if(!confirm(`이 모집단위에 연결된 지원자 ${linked}명이 있습니다. 삭제하면 연결이 해제됩니다. 계속할까요?`)) return;
-    candidates.forEach(c => { if(Number(c.posId) === Number(posId)) c.posId = null; });
+    const unlinked = candidates.filter(c => Number(c.posId) === Number(posId));
+    unlinked.forEach(c => { c.posId = null; });
+    if(GS_CONFIG.scriptUrl && typeof syncCandToGS === 'function') await settleSync(unlinked.map(c => syncCandToGS(c)), '지원자 연결 해제 동기화');
   }
   positions = positions.filter(p => p.id !== posId);
   saveState();
-  if(GS_CONFIG.scriptUrl && typeof deletePosFromGS === 'function') deletePosFromGS(posId);
-  renderPositions();
+  if(GS_CONFIG.scriptUrl && typeof deletePosFromGS === 'function') await deletePosFromGS(posId);
+  renderPositions(); renderDashboard();
   toast(`${esc(pos.title)} 삭제 완료`, 'tok');
 }
 
@@ -3749,7 +3824,7 @@ function saveState() {
     if(e.name === 'QuotaExceededError' || e.code === 22) {
       // 용량 초과 시 알림 로그 절반 삭제 후 재시도
       notifyLog = notifyLog.slice(0, 50);
-      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails })); }
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, positions })); }
       catch(e2) { console.warn('localStorage 저장 실패:', e2); }
     }
   }
@@ -4429,11 +4504,14 @@ function updateMetrics() {
 
   // ── 모집단위 상태 기반 충원 KPI (채용완료=실제 최종합격 인원) ──────
   const hc = p => parseInt(p.headcount)||0;
+  const filledByPos = {};
+  candidates.forEach(c => {
+    if(c.stage === 5) filledByPos[Number(c.posId)] = (filledByPos[Number(c.posId)] || 0) + 1;
+  });
   const counted = positions.filter(p=>{const s=posStatus(p);return s==='active'||s==='filled';}); // 목표 집계 대상
   const targetN = counted.reduce((s,p)=>s+hc(p),0);                   // 채용목표 = 진행중+충원완료 headcount
   // 채용완료 = 대상 모집단위별 min(채용인원, 최종합격 수) 합 (좌석 초과 방지 → 실제 충원)
-  const filledN = counted.reduce((s,p)=> s + Math.min(hc(p),
-                    candidates.filter(c=>Number(c.posId)===Number(p.id) && c.stage===5).length), 0);
+  const filledN = counted.reduce((s,p)=> s + Math.min(hc(p), filledByPos[Number(p.id)] || 0), 0);
   const openN   = Math.max(0, targetN - filledN);                     // 미충원
   const fillPct = targetN>0 ? (filledN/targetN*100).toFixed(1) : '0.0'; // 충원율
   const activePosN = positions.filter(p=>posStatus(p)==='active').length; // 진행중 모집단위
@@ -4537,10 +4615,24 @@ function renderKanban() {
     const cur = Math.max(...cands.map(c=>c.stage));   // 현재 단계
     const col = stageColor(cur);
     const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
+    // 면접 단계(1·2차)면 등록된 해당 차수 일정 중 가장 이른 면접일 표기
+    let itvLine = '';
+    if(cur===1 || cur===3){
+      const round = cur===1 ? '1차' : '2차';
+      const candIds = new Set(cands.filter(c=>c.stage===cur).map(c=>Number(c.id)));
+      const dates = [...new Set(interviews
+        .filter(i=>candIds.has(Number(i.candId)) && String(i.type||'').startsWith(round) && i.date)
+        .map(i=>i.date))]
+        .sort();
+      itvLine = dates.length
+        ? `<div class="pk-itv">📅 ${round}면접일 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}</div>`
+        : `<div class="pk-itv warn">📅 면접일 미확정</div>`;
+    }
     const card = `<div class="position-kanban-card" role="button" tabindex="0" onkeydown="kbActivate(event)" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
       <div class="position-kanban-title">${esc(title)}</div>
       <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
       <div class="pk-stage" style="color:${col}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block"></span>${STAGES[cur]}</div>
+      ${itvLine}
       <div class="pk-date">생성일 ${fmtDate(pos.createdAt)}</div>
     </div>`;
     (colCards[cur] = colCards[cur] || []).push(card);
@@ -4642,8 +4734,8 @@ function requestStageChange(candId, newStage) {
 
   // 지원자 정보 표시
   document.getElementById('cs-avatar').textContent = c.name.charAt(0);
-  document.getElementById('cs-name').textContent = `${esc(c.name)} · ${esc(c.pos)}`;
-  document.getElementById('cs-pos').innerHTML = `${etypePill(c.etype)} ${c.dept||''}`;
+  document.getElementById('cs-name').textContent = `${c.name} · ${c.pos}`;
+  document.getElementById('cs-pos').innerHTML = `${etypePill(c.etype)} ${esc(c.dept||'')}`;
   document.getElementById('cs-from').textContent = STAGES[c.stage];
   document.getElementById('cs-to').textContent = STAGES[newStage];
   document.getElementById('cs-from').style.color = STAGE_COLORS[c.stage];
@@ -4683,8 +4775,8 @@ function requestStageChange(candId, newStage) {
 function buildStageNotifyMsg(c, newStage) {
   const msgs = {
     6: `😔 [채용 결과 안내 - 우미건설]
-안녕하세요 \${esc(c.name)}님,
-우미건설 \${esc(c.pos)} 포지션에 지원해 주셔서 감사합니다.
+안녕하세요 ${esc(c.name)}님,
+우미건설 ${esc(c.pos)} 포지션에 지원해 주셔서 감사합니다.
 아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.
 소중한 시간 내주셔서 감사드립니다.
 우미건설 피플팀 드림`,
@@ -4737,6 +4829,16 @@ function confirmStageChange() {
   const { candId, newStage } = pendingStageChange;
   const c = candidates.find(x => x.id === candId);
   if(!c) return;
+
+  // ── A. 소프트 경고: 1·2차 면접 이동 시 일정 후보 미입력이면 확인 ──
+  if(newStage === 1 || newStage === 3) {
+    const round = newStage===1 ? '1차' : '2차';
+    const hasSlot = [1,2,3].some(n => getSlotValue(n));
+    const hasItv  = interviews.some(i => Number(i.candId)===Number(candId) && i.type===round && i.date);
+    if(!hasSlot && !hasItv) {
+      if(!confirm(`모집단위 공통 면접일정이 확정되지 않았습니다.\n특별한 사유로 이 지원자만 '${STAGES[newStage]}' 단계로 예외 이동할까요?\n\n일반적인 단계 이동은 모집단위 상세의 '공통일정 확정 후 이동'을 사용하세요.`)) return;
+    }
+  }
 
   const oldStage = c.stage;
   c.stage = newStage;
@@ -4835,7 +4937,7 @@ function confirmStageChange() {
         itv.notified = false;
       } else {
         interviews.push({
-          id: Date.now(), candId: c.id, candName: c.name,
+          id: nextId(), candId: c.id, candName: c.name,
           type: intType,
           date: firstDate,
           loc: '미정 (지원자 회신 후 확정)',
@@ -4860,7 +4962,7 @@ function confirmStageChange() {
   if(GS_CONFIG.scriptUrl) syncCandToGS(c);
   closeModal('modal-confirm-stage');
   pendingStageChange = null;
-  renderTracker(); renderDashboard(); updateMetrics(); renderPositions();
+  renderTracker(); renderDashboard(); renderPositions();
   toast(`${esc(c.name)} → ${STAGES[newStage]}`, 'tok');
   syncCandToSP(c).then(()=>saveState());
   // 모집단위 상세에서 진입한 경우 복귀
@@ -4956,7 +5058,7 @@ function addCandidate() {
     document.querySelector('#modal-add .modal-title').textContent = '신규 지원자 등록';
     saveState();
     closeModal('modal-add');
-    updateMetrics(); renderDashboard(); renderTracker();
+    renderDashboard(); renderTracker();
     populateSel('int-cand'); populateSel('ob-cand');
     toast(`${name}님 정보 수정 완료`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(existing);
@@ -4964,7 +5066,7 @@ function addCandidate() {
   } else {
     // 신규 등록 모드
     const newCand = {
-      id: Date.now(), name, pos, email, etype,
+      id: nextId(), name, pos, email, etype,
       role:      document.getElementById('nc-role').value,
       dept:      document.getElementById('nc-dept').value,
       career:    document.getElementById('nc-career').value,
@@ -4978,7 +5080,7 @@ function addCandidate() {
     candidates.push(newCand);
     saveState();
     closeModal('modal-add');
-    updateMetrics(); renderDashboard(); renderTracker(); renderPositions();
+    renderDashboard(); renderTracker(); renderPositions();
     populateSel('int-cand'); populateSel('ob-cand');
     toast(`${name}님 등록 완료`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(newCand);
@@ -5187,7 +5289,7 @@ function addInterview() {
   if(!dt) { alert('면접 일시를 입력해주세요.'); return; }
   const type = document.getElementById('int-type').value;
   const itv = {
-    id: Date.now(), candId: cid, candName: cand.name, type,
+    id: nextId(), candId: cid, candName: cand.name, type,
     date: dt.replace('T',' '),
     loc:  document.getElementById('int-loc').value||'미정',
     panel:document.getElementById('int-panel').value||'미정',
@@ -5218,7 +5320,7 @@ function sendIntNotify(ch) {
   itv.notified = true; cand.notified = true;
   if(GS_CONFIG.scriptUrl) { syncIntToGS(itv); syncCandToGS(cand); }
   logNotify(ch==='teams'?'Teams':'Outlook', `${itv.type}면접안내`, cand.name, cand.email);
-  saveState(); renderIntTable(); renderDashboard(); updateMetrics();
+  saveState(); renderIntTable(); renderDashboard();
   toast(`${cand.name}님 ${itv.type} 면접 ${ch==='teams'?'Teams':'Outlook'} 발송`, ch==='teams'?'tteams':'toutlook');
 }
 
@@ -5232,9 +5334,9 @@ function renderIntTable() {
     <tbody>${list.map(i=>`<tr>
       <td><div class="tname">${esc(i.candName)}</div></td>
       <td><span class="b ${i.type==='1차'?'bblue':'bpurple'}">${i.type} ${i.type==='1차'?'실무':'임원'}면접</span></td>
-      <td style="font-family:'DM Mono',monospace;font-size:11.5px">${i.date}</td>
-      <td>${i.loc}</td>
-      <td style="font-size:12px;color:var(--t2)">${i.panel}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11.5px">${esc(i.date)}</td>
+      <td>${esc(i.loc)}</td>
+      <td style="font-size:12px;color:var(--t2)">${esc(i.panel)}</td>
       <td>${i.notified?'<span class="b bgreen">발송완료</span>':'<span class="b bgray">미발송</span>'}</td>
       <td style="display:flex;gap:4px">
         <button class="btn btn-xs btn-outlook" onclick="sendIntById(${i.id},'outlook')">Outlook 안내</button>
@@ -5259,7 +5361,7 @@ function sendIntById(id, ch) {
   i.notified = true; if(c) c.notified = true;
   if(GS_CONFIG.scriptUrl) { syncIntToGS(i); if(c) syncCandToGS(c); }
   logNotify(ch==='teams'?'Teams':'Outlook', `${i.type}면접안내`, i.candName, c?.email||'');
-  saveState(); renderIntTable(); renderDashboard(); updateMetrics();
+  saveState(); renderIntTable(); renderDashboard();
   toast(`${esc(i.candName)}님 ${ch==='teams'?'Teams':'Outlook'} 발송 (Outlook 창에서 전송하세요)`, ch==='teams'?'tteams':'toutlook');
 }
 function delInt(id) { if(GS_CONFIG.scriptUrl) deleteIntFromGS(id); interviews=interviews.filter(i=>i.id!==id); saveState(); renderIntTable(); updateMetrics(); }
@@ -5745,7 +5847,7 @@ function addOnboarding(){
   if(!jd){alert('입사 예정일을 입력해주세요.');return;}
   if(onboardings.find(o=>o.candId===cid)){alert('이미 등록된 입사 예정자입니다.');return;}
   onboardings.push({
-    id:Date.now(),candId:cid,candName:c.name,pos:c.pos,
+    id:nextId(),candId:cid,candName:c.name,pos:c.pos,
     etype:document.getElementById('ob-etype').value,
     dept:document.getElementById('ob-dept').value,
     deptLead:document.getElementById('ob-dept-lead')?.value||'',
@@ -6195,7 +6297,7 @@ try {
     if(GS_CONFIG.scriptUrl) {
       loadFromGS().then(loaded => {
         if(loaded) {
-          updateMetrics(); renderDashboard(); renderTracker(); renderPositions();
+          renderDashboard(); renderTracker(); renderPositions();
           showSyncStatus('Google Sheets 기준으로 로드됨', 'ok');
         } else {
           showSyncStatus('⚠ GS 응답 없음 — 로컬 캐시로 표시 중', 'warn');
@@ -6220,7 +6322,6 @@ try {
     if(GS_CONFIG.refAutoUrl && typeof syncRefFromGS === 'function') syncRefFromGS();
   });
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
-  updateMetrics();
   renderDashboard();
   renderPositions();
   populateSel('int-cand');
