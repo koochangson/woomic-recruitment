@@ -1569,6 +1569,25 @@ html,body{line-height:1.55;}
   </div>
 </div>
 
+<!-- ── 모집단위 면접 결과 입력 모달 ──────────────────────── -->
+<div class="overlay" id="modal-position-result">
+  <div class="modal" style="width:660px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="pr-title">면접 결과 입력</div>
+      <button class="mclose" onclick="closeModal('modal-position-result')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--t3);padding:8px 10px;background:var(--s2);border-radius:var(--rsm);margin-bottom:10px">지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 일괄 이동할 수 있습니다.</div>
+      <div id="pr-list"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('modal-position-result')">취소</button>
+      <button class="btn" onclick="savePositionResults(false)">판정 저장</button>
+      <button class="btn btn-primary" onclick="savePositionResults(true)">판정 확정 및 단계 이동</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 면접 일괄 일정 배치 모달 ──────────────────────────── -->
 <div class="overlay" id="modal-batch-schedule">
   <div class="modal" style="width:640px;max-height:90vh">
@@ -3680,9 +3699,9 @@ function renderPositionProcessChecklist(positionId) {
   };
   const groups = [
     { title:'준비', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
-    { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots'],'int1_slots'),mergeTask('일정 확정',['int1_confirm'],'int1_confirm'),mergeTask('면접 안내',['int1_panel','int1_cand'],'int1_notice'),mergeTask('면접 실시',['int1_done'],'int1_done'),mergeTask('결과 입력',['int1_result'],'int1_result')] },
+    { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots'],'int1_slots'),mergeTask('일정 확정',['int1_confirm'],'int1_confirm'),mergeTask('면접 안내',['int1_panel','int1_cand'],'int1_notice'),mergeTask('결과 입력',['int1_result'],'int1_result')] },
     { title:'레퍼런스', stage:2, tasks:[mergeTask('레퍼런스 요청',['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
-    { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('일정 확정',['int2_confirm'],'int2_confirm'),mergeTask('면접 안내',['int2_panel','int2_cand'],'int2_notice'),mergeTask('면접 실시',['int2_done'],'int2_done'),mergeTask('결과 입력',['int2_result'],'int2_result')] },
+    { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('일정 확정',['int2_confirm'],'int2_confirm'),mergeTask('면접 안내',['int2_panel','int2_cand'],'int2_notice'),mergeTask('결과 입력',['int2_result'],'int2_result')] },
     { title:'최종 단계', stage:4, tasks:[mergeTask('처우협의',['offer'],'offer'),mergeTask('최종합격',['final'],'final'),mergeTask('입사안내',['onboard'],'onboard')] },
   ];
   const shortNote = d && isShortProcessEtype(d.pos.etype)
@@ -3744,12 +3763,56 @@ async function executePositionProcessTask(positionId, actionKey) {
     return;
   }
   if(actionKey === 'int1_done' || actionKey === 'int2_done') return completePositionInterviews(positionId, stageIdx);
-  if(actionKey === 'int1_result' || actionKey === 'int2_result') return confirmStageDecisions(positionId, stageIdx);
+  if(actionKey === 'int1_result' || actionKey === 'int2_result') return openPositionResultModal(positionId, stageIdx);
   if(actionKey === 'ref_request') return requestPositionReferences(positionId);
   if(actionKey === 'ref_complete') return completePositionReferences(positionId);
   if(actionKey === 'offer') return changePositionProcessStage(positionId, 4);
   if(actionKey === 'final') return changePositionProcessStage(positionId, 5);
   if(actionKey === 'onboard') { closeModal('modal-pos-detail'); nav('onboarding'); return; }
+}
+
+let positionResultCtx = { positionId:null, stageIdx:null };
+
+function openPositionResultModal(positionId, stageIdx) {
+  const pos = positions.find(p=>Number(p.id)===Number(positionId));
+  const list = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===Number(stageIdx));
+  if(!pos || !list.length) { toast('결과를 입력할 면접 대상자가 없습니다.', 'terr'); return; }
+  positionResultCtx = { positionId:Number(positionId), stageIdx:Number(stageIdx) };
+  document.getElementById('pr-title').textContent = `${stageLabel(stageIdx)} 결과 입력 — ${pos.title} (${list.length}명)`;
+  document.getElementById('pr-list').innerHTML = list.map(c=>`
+    <div style="display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border)">
+      <div><div style="font-size:12.5px;font-weight:700">${esc(c.name)}</div><div style="font-size:10.5px;color:var(--t3)">${esc(c.email||'-')}</div></div>
+      <div style="display:flex;gap:5px">
+        <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" onchange="selectPositionResult(this)">합격</label>
+        <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" onchange="selectPositionResult(this)">불합격</label>
+        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" onchange="selectPositionResult(this)">미정</label>
+      </div>
+    </div>`).join('');
+  openModal('modal-position-result');
+}
+
+function selectPositionResult(input) {
+  document.querySelectorAll(`input[name="${input.name}"]`).forEach(r=>{
+    const label = r.closest('label');
+    if(!label) return;
+    label.classList.remove('btn-green','btn-red','btn-primary');
+    if(r.checked) label.classList.add(r.value==='pass'?'btn-green':r.value==='fail'?'btn-red':'btn-primary');
+  });
+}
+
+async function savePositionResults(confirmAndMove) {
+  const { positionId, stageIdx } = positionResultCtx;
+  const list = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===Number(stageIdx));
+  list.forEach(c=>{
+    const selected = document.querySelector(`input[name="pr-${c.id}"]:checked`);
+    c.decision = selected ? selected.value : '';
+  });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>syncCandToGS(c)), '면접 결과 저장 동기화');
+  closeModal('modal-position-result');
+  renderPositionDetail(positionId);
+  if(confirmAndMove) return confirmStageDecisions(positionId, stageIdx);
+  toast(`${stageLabel(stageIdx)} 판정 저장 완료`, 'tok');
 }
 
 async function completePositionInterviews(positionId, stageIdx) {
