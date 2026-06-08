@@ -4006,8 +4006,7 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
   document.getElementById('bs-start').value = '10:00';
   document.getElementById('bs-interval').value = '30';
   document.getElementById('bs-loc').value = '';
-  // 모집단위 상세 모달 위에 겹쳐 표시되지 않도록 닫기
-  closeModal('modal-pos-detail');
+  // 모집단위 상세는 뒤에 유지해 취소·적용 후 즉시 복귀한다.
   renderBatchPreview();
   // 입력 변경 시 미리보기 갱신
   ['bs-date','bs-start','bs-interval','bs-loc'].forEach(id => {
@@ -4114,8 +4113,10 @@ async function applyBatchSchedule() {
   renderDashboard(); renderTracker(); renderPositions();
   if(typeof renderIntTable === 'function') renderIntTable();
   toast(`${round} 면접 공통일정 ${slots.length}명 확정${moveAfterApply?' · 단계 이동 완료':''} (신규 ${created} / 갱신 ${updated})`, 'tok');
-  // 상세 모달 다시 열어 면접관 안내 버튼 갱신
-  setTimeout(() => openPosDetail(posId), 300);
+  // 적용 결과를 반영한 모집단위 상세 화면으로 즉시 복귀
+  renderPositionDetail(posId);
+  const detailModal = document.getElementById('modal-pos-detail');
+  if(detailModal && !detailModal.classList.contains('open')) openModal('modal-pos-detail');
 }
 
 // 확정된 지원자 전체에게 개인별 일정 안내 (순차 발송)
