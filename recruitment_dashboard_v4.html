@@ -518,6 +518,76 @@ html,body{line-height:1.55;}
   .stage-bar{overflow-x:auto;}
   .stage-seg{flex:0 0 82px;}
 }
+/* ── 모집단위 상세: 채용 프로젝트 관리 화면 ───────────────── */
+#modal-pos-detail .modal{width:min(1180px,96vw)!important;max-height:94vh!important;}
+#modal-pos-detail .modal-body{padding:20px 22px;background:#F7F9FC;}
+#modal-pos-detail .modal-ft{padding:12px 20px;align-items:flex-start;}
+.pos-project{display:flex;flex-direction:column;gap:16px;}
+.pp-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:16px 18px;box-shadow:var(--sh);}
+.pp-section-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.pp-section-title{font-size:14px;font-weight:700;color:var(--text);}
+.pp-section-sub{font-size:10.5px;color:var(--t3);}
+.pp-summary-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
+.pp-title{font-size:19px;font-weight:750;letter-spacing:-.35px;}
+.pp-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--t2);}
+.pp-meta span{padding:2px 7px;background:var(--s2);border-radius:4px;}
+.pp-status{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.pp-status.active,.pp-status.partial{color:var(--acc);background:var(--acc-light);}
+.pp-status.filled{color:var(--green);background:var(--gbg);}
+.pp-status.nohire{color:var(--amber);background:var(--abg);}
+.pp-status.stopped{color:var(--red);background:var(--rbg);}
+.pp-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;}
+.pp-kpi{padding:10px 11px;background:#FAFBFC;border:1px solid var(--border);border-radius:var(--r);}
+.pp-kpi-val{font-size:22px;font-weight:750;line-height:1.15;}
+.pp-kpi-lbl{font-size:10px;color:var(--t3);margin-top:4px;}
+.pp-fillbar{height:7px;background:var(--s3);border-radius:10px;overflow:hidden;margin-top:12px;}
+.pp-fillbar>span{display:block;height:100%;background:var(--green);border-radius:10px;}
+.pp-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.pp-action{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:var(--r);background:var(--surface);}
+.pp-action.high{border-left-color:var(--red);background:linear-gradient(90deg,var(--rbg),var(--surface) 24%);}
+.pp-action.medium{border-left-color:var(--amber);}
+.pp-action.low{border-left-color:var(--acc);}
+.pp-action-body{flex:1;min-width:0;}
+.pp-action-title{font-size:12.5px;font-weight:700;}
+.pp-action-desc{font-size:10.5px;color:var(--t3);margin-top:2px;}
+.pp-action-priority{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--t3);}
+.pp-action-empty{display:flex;align-items:center;gap:8px;color:var(--green);font-size:12px;font-weight:600;padding:6px 0;}
+.pp-process{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;}
+.pp-step.upcoming{background:#FAFBFC;border-color:var(--border);}
+.pp-footer-label{font-size:9.5px;font-weight:700;color:var(--t3);margin-right:2px;}
+.pp-step{padding:9px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;min-height:62px;}
+.pp-step.complete{background:var(--gbg);border-color:var(--gbd);}
+.pp-step.current{background:var(--acc-light);border-color:#B8CBE1;box-shadow:0 0 0 2px rgba(15,52,96,.06);}
+.pp-step.delayed{background:var(--rbg);border-color:var(--rbd);}
+.pp-step-num{font-size:9px;font-weight:700;color:var(--t3);}
+.pp-step-title{font-size:10.5px;font-weight:650;line-height:1.3;margin-top:3px;}
+.pp-step-state{font-size:9px;color:var(--t3);margin-top:4px;}
+.pp-cand-list{display:flex;flex-direction:column;gap:7px;}
+.pp-cand{display:grid;grid-template-columns:minmax(160px,1.35fr) 95px 130px 115px 105px auto;gap:10px;align-items:center;padding:10px 11px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;}
+.pp-cand-name{font-size:12.5px;font-weight:700;}
+.pp-cand-email{font-size:10.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pp-cand-cell{font-size:10.5px;color:var(--t2);}
+.pp-cand-cell strong{display:block;font-size:9px;color:var(--t3);margin-bottom:2px;}
+.pp-footer-group{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.pp-step.skipped{background:var(--s2);border-color:var(--border);opacity:.55;}
+.pp-step.skipped .pp-step-title{color:var(--t3);}
+.pp-fill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px;}
+.pp-fill-item{padding:12px 14px;background:#FAFBFC;border:1px solid var(--border);border-radius:var(--r);}
+.pp-fill-val{font-size:20px;font-weight:750;}
+.pp-fill-lbl{font-size:10px;color:var(--t3);margin-top:3px;}
+.pp-batch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm);border:1px dashed var(--border);}
+.pp-process-note{font-size:10.5px;color:var(--t3);margin-bottom:10px;padding:8px 10px;background:var(--acc-light);border-radius:var(--rsm);}
+@media(max-width:1050px){
+  .pp-kpis{grid-template-columns:repeat(3,1fr);}
+  .pp-process{grid-template-columns:repeat(3,1fr);}
+  .pp-cand{grid-template-columns:minmax(180px,1fr) 100px 130px auto;}
+  .pp-cand .pp-secondary{display:none;}
+}
+@media(max-width:720px){
+  .pp-actions,.pp-kpis,.pp-process{grid-template-columns:1fr;}
+  .pp-cand{grid-template-columns:1fr auto;}
+  .pp-cand-cell{display:none;}
+}
 </style>
 </head>
 <body>
@@ -1413,6 +1483,14 @@ html,body{line-height:1.55;}
         <label>면접 장소</label>
         <input id="pos-loc" placeholder="예: 본사 3층 회의실 A"/>
       </div>
+      <div class="fg">
+        <label>담당자</label>
+        <input id="pos-owner" placeholder="예: 홍길동 / 피플팀"/>
+      </div>
+      <div class="fg">
+        <label>목표 충원일</label>
+        <input id="pos-target-date" type="date"/>
+      </div>
       <div class="fg" style="grid-column:1/-1">
         <label>비고</label>
         <input id="pos-memo" placeholder="추가 안내사항"/>
@@ -1427,7 +1505,7 @@ html,body{line-height:1.55;}
 
 <!-- ── 모집단위 상세 모달 ─────────────────────────────────── -->
 <div class="overlay" id="modal-pos-detail">
-  <div class="modal" style="width:760px;max-height:90vh">
+  <div class="modal" style="width:min(1180px,96vw);max-height:94vh">
     <div class="modal-hd">
       <div class="modal-title" id="pos-detail-title">모집단위 상세</div>
       <button class="mclose" onclick="closeModal('modal-pos-detail')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
@@ -1693,6 +1771,8 @@ const TITLES = {
 };
 
 const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격','입사'];
+const STAGE_DISPLAY = { 0:'1차 일정 수립 전' }; // 지원자 단계 표시용 (모집단위 충원완료와 구분)
+function stageLabel(stageIdx){ return STAGE_DISPLAY[stageIdx] || STAGES[stageIdx] || ''; }
 const SBG    = ['bgray','bblue','bteal','bpurple','bamber','bgreen','bred','bgreen'];
 const STAGE_GUIDES = {
   0: { msg:'서류 검토 단계로 이동합니다.', notify:false },
@@ -1708,9 +1788,28 @@ const ROLE_CLS = { 영업직:'r-office', 기술직:'r-tech', 관리직:'r-mgr', 
 function normalizeRole(role){ return role === '사무직' ? '영업직' : (role || '영업직'); }
 const ETYPE_CLS = { 정규직:'et-regular', 전문직:'et-expert', 파견직:'et-dispatch' };
 const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--teal)','var(--purple)','var(--amber)','var(--green)','var(--red)','var(--green)'];
-// 진행 단계 순서 (불합격 6 제외, 입사 7 포함) — 표시·이동용
-const FLOW = [0,1,2,3,4,5]; // 서류→1차→레퍼→2차→처우→최종합격 (입사 단계 폐지: 최종합격=충원 완료)
-function nextFlowStage(cur){ const i=FLOW.indexOf(cur); return i>=0&&i<FLOW.length-1?FLOW[i+1]:cur; }
+// 진행 단계 순서 (불합격 6 제외) — 정규직: 전체 / 전문직·파견직: 1차면접까지만
+const FLOW = [0,1,2,3,4,5];
+const FLOW_SHORT = [0,1,4,5]; // 레퍼런스·2차면접 생략
+function isShortProcessEtype(etype){ return etype === '전문직' || etype === '파견직'; }
+function getPositionFlow(pos){ return pos && isShortProcessEtype(pos.etype) ? FLOW_SHORT : FLOW; }
+function getFlowForCandidate(c){
+  const pos = c && c.posId != null ? positions.find(p => Number(p.id) === Number(c.posId)) : null;
+  return pos ? getPositionFlow(pos) : FLOW;
+}
+function nextFlowStage(cur, posOrId){
+  let flow = FLOW;
+  if(posOrId != null) {
+    const pos = typeof posOrId === 'object' ? posOrId : positions.find(p => Number(p.id) === Number(posOrId));
+    if(pos) flow = getPositionFlow(pos);
+  }
+  const i = flow.indexOf(cur);
+  return i >= 0 && i < flow.length - 1 ? flow[i + 1] : cur;
+}
+function flowIndex(stage, flow){ return (flow || FLOW).indexOf(stage); }
+function isStageSkippedForPos(pos, stageIdx){
+  return isShortProcessEtype(pos?.etype) && (stageIdx === 2 || stageIdx === 3);
+}
 
 // 외부/GS 데이터를 innerHTML에 넣기 전 HTML 이스케이프 (XSS·레이아웃 깨짐 방지)
 function esc(v){
@@ -1939,7 +2038,8 @@ function executeNohireWizard() {
   const np = {
     id: nextId(), title: newTitle,
     etype: pos.etype, role: pos.role, headcount: pos.headcount, dept: pos.dept,
-    panel1: pos.panel1, panel2: pos.panel2, loc: pos.loc, memo: pos.memo,
+    panel1: pos.panel1, panel2: pos.panel2, loc: pos.loc, owner: pos.owner || '',
+    targetDate: pos.targetDate || '', memo: pos.memo,
     status: 'active', createdAt: today(), parentPosId: pos.id,
   };
   positions.push(np);
@@ -2215,6 +2315,8 @@ async function syncPosToGS(pos) {
     panel1:    pos.panel1 || '',
     panel2:    pos.panel2 || '',
     loc:       pos.loc || '',
+    owner:     pos.owner || '',
+    targetDate: pos.targetDate || '',
     memo:      pos.memo || '',
     createdAt: pos.createdAt || '',
     status:    pos.status || 'active',
@@ -2244,6 +2346,8 @@ async function loadPositionsFromGS() {
       panel1:    row.panel1 || '',
       panel2:    row.panel2 || '',
       loc:       row.loc || '',
+      owner:     row.owner || '',
+      targetDate: row.targetDate || '',
       memo:      row.memo || '',
       createdAt: row.createdAt || '',
       status:    (row.status==='done' ? 'filled' : (row.status || 'active')),
@@ -2771,7 +2875,7 @@ async function confirmStageDecisions(posId, stageIdx) {
     if(!confirm(`'${round}' 단계 판정을 확정합니다.\n\n· 합격 ${passers.length}명 → 다음 단계 이동\n· 불합격 ${failers.length}명 → 전형 종료\n\n진행할까요?`)) return;
   }
 
-  const nx = nextFlowStage(stageIdx);
+  const nx = nextFlowStage(stageIdx, posId);
   if(nx === 5 && passers.length) {
     const posId = passers[0].posId;
     if(posId != null) {
@@ -2835,9 +2939,10 @@ function confirmAllInterviews(posId, stageIdx) {
 function passFromPos(candId, posId, stageIdx) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
-  const nextStage = nextFlowStage(stageIdx);  // FLOW 기준 다음 (5→7 입사)
-  const stageName = STAGES[nextStage] || '';
-  if(!confirm(`${esc(c.name)}님을 '${STAGES[stageIdx]}' → '${stageName}'(으)로 이동하시겠습니까?`)) return;
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  const nextStage = nextFlowStage(stageIdx, pos);
+  const stageName = stageLabel(nextStage) || STAGES[nextStage] || '';
+  if(!confirm(`${esc(c.name)}님을 '${stageLabel(stageIdx)}' → '${stageName}'(으)로 이동하시겠습니까?`)) return;
   returnToPosId = posId;
   closeModal('modal-pos-detail');
   requestStageChange(candId, nextStage);  // 합격 안내 메일 + 단계 이동 (모달에서 확정)
@@ -2932,7 +3037,7 @@ function reopenPosition(posId) {
 }
 
 // ── 모집단위 상세 모달 ────────────────────────────────────────
-function openPosDetail(posId) {
+function openPosDetailLegacy(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
 
@@ -3296,6 +3401,304 @@ function openPosDetail(posId) {
     </div>
   `;
 
+  openModal('modal-pos-detail');
+}
+
+// ── 모집단위 상세 v2: 채용 프로젝트 관리 화면 ────────────────
+function getPositionProjectData(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return null;
+  const list = candidates.filter(c => Number(c.posId) === Number(positionId));
+  const target = parseInt(pos.headcount) || 1;
+  const final = list.filter(c => c.stage === 5);
+  const rejected = list.filter(c => c.stage === 6);
+  const active = list.filter(c => c.stage < 5);
+  const filled = Math.min(target, final.length);
+  const remain = Math.max(0, target - filled);
+  const rate = target ? Math.min(100, Math.round(filled / target * 100)) : 0;
+  const rawStatus = posStatus(pos);
+  const projectStatus = rawStatus === 'active' && filled > 0 && remain > 0 ? 'partial' : rawStatus;
+  const statusLabels = { active:'진행중', partial:'부분충원', filled:'충원완료', nohire:'미채용', stopped:'중단' };
+  return { pos, list, target, final, rejected, active, filled, remain, rate, projectStatus, statusLabel:statusLabels[projectStatus] || posStatusLabel(pos) };
+}
+
+function positionRoundData(positionId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const candidateStages = stageIdx === 1 ? [0,1] : [2,3];
+  const roundCands = candidates.filter(c => Number(c.posId) === Number(positionId) && candidateStages.includes(c.stage));
+  const roundIds = new Set(roundCands.map(c => Number(c.id)));
+  const roundInterviews = interviews.filter(i => roundIds.has(Number(i.candId)) && i.type === round);
+  return {
+    round, candidates:roundCands, interviews:roundInterviews,
+    pending:roundInterviews.filter(i => (i.status||'pending') === 'pending'),
+    confirmed:roundInterviews.filter(i => i.status === 'confirmed' || i.status === 'done'),
+    done:roundInterviews.filter(i => i.status === 'done'),
+    candidateNotified:roundInterviews.filter(i => i.candNotified),
+    panelNotified:roundInterviews.filter(i => i.notified),
+  };
+}
+
+function getPositionActionItems(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return [];
+  const { pos, list, target, final, remain, projectStatus } = d;
+  const short = isShortProcessEtype(pos.etype);
+  const r1 = positionRoundData(positionId, 1);
+  const r2 = positionRoundData(positionId, 3);
+  const items = [];
+  const add = (type, priority, title, desc, actionLabel, action, actionCall) =>
+    items.push({ type, priority, title, desc, actionLabel, action, actionCall });
+
+  if(!list.length) add('candidate_register','high','지원자 등록 필요','등록된 지원자가 없어 채용 프로세스를 시작할 수 없습니다.','지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
+
+  const stage0 = list.filter(c => c.stage === 0);
+  if(stage0.length && !r1.interviews.length) add('first_slots','high','1차 후보일정 안내 필요',`${stage0.length}명 · 면접전형 대기 지원자에게 후보일정을 안내하세요.`,'후보일정 안내','openCollectSlots',`openCollectSlots(${positionId},1)`);
+
+  const slotsReplied = r1.interviews.filter(i => i.slots && i.slots.length && (i.status||'pending') === 'pending');
+  if(slotsReplied.length) add('first_schedule_reply','high','1차 면접일정 확정 필요',`후보일정 회신이 완료된 지원자 ${slotsReplied.length}건 · 공동일정을 확정하세요.`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},1)`);
+  else if(r1.pending.length) add('first_schedule','high','1차 공동일정 확정 필요',`회신 대기 또는 미확정 일정 ${r1.pending.length}건이 있습니다.`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},1)`);
+
+  if(r1.confirmed.length && r1.panelNotified.length < r1.confirmed.length) add('first_panel_notice','medium','1차 면접관 안내 미발송',`확정 ${r1.confirmed.length}건 중 면접관 안내 미완료`,'면접관 안내','sendPanelNotice',`sendPanelNotice(${positionId},1)`);
+  if(r1.confirmed.length && r1.candidateNotified.length < r1.confirmed.length) add('first_candidate_notice','medium','1차 면접 지원자 안내 미발송',`확정 ${r1.confirmed.length}건 중 지원자 안내 미완료`,'지원자 안내','sendAllCandSchedule',`sendAllCandSchedule(${positionId},1)`);
+
+  if(r1.confirmed.length > r1.done.length) add('first_interview_done','medium','1차 면접 실시 후 완료 처리 필요',`일정 확정 ${r1.confirmed.length}건 · 완료 ${r1.done.length}건`,'면접 완료 처리','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+
+  const firstResult = list.filter(c => c.stage === 1 && !c.decision);
+  if(r1.done.length && firstResult.length) add('first_result','high','1차 면접 결과 입력 필요',`결과 미입력 ${firstResult.length}명 · 합격/불합격 판정 후 일괄 확정`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},1)`);
+
+  if(!short) {
+    const refReady = list.filter(c => c.stage === 2 && c.ref === '미시작');
+    if(refReady.length) add('reference_request','medium','레퍼런스 체크 요청 필요',`요청 대기 ${refReady.length}명`,'레퍼런스 요청','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+    const refLate = list.filter(c => c.ref === '진행중' && Number(c.refD||0) === 0);
+    if(refLate.length) add('reference_remind','high','레퍼런스 미응답 독촉 필요',`응답 없음 ${refLate.length}명`,'리마인드','remindRef',`remindRef(${refLate[0].id})`);
+    const refIncomplete = list.filter(c => c.stage === 2 && c.ref !== '완료');
+    if(refIncomplete.length && !refReady.length && !refLate.length) add('reference_complete','medium','레퍼런스 완료 확인 필요',`진행중 ${refIncomplete.length}명 · 응답 수집 후 완료 처리`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+
+    if(list.some(c => c.stage === 2 && c.ref === '완료') && !r2.interviews.length) add('second_slots','medium','2차 후보일정 안내 필요','레퍼런스 완료 지원자의 2차 후보일정을 안내하세요.','후보일정 안내','openCollectSlots',`openCollectSlots(${positionId},3)`);
+    if(r2.pending.length) add('second_schedule','high','2차 공동일정 확정 필요',`미확정 ${r2.pending.length}건`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
+    if(r2.confirmed.length && r2.panelNotified.length < r2.confirmed.length) add('second_panel_notice','medium','2차 면접관 안내 미발송','확정된 2차 공동일정을 면접관에게 안내','면접관 안내','sendPanelNotice',`sendPanelNotice(${positionId},2)`);
+    if(r2.confirmed.length && r2.candidateNotified.length < r2.confirmed.length) add('second_candidate_notice','medium','2차 면접 지원자 안내 미발송','확정된 2차 면접일정을 지원자에게 안내','지원자 안내','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
+    const secondResult = list.filter(c => c.stage === 3 && !c.decision);
+    if(r2.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
+  }
+
+  const offerStage = list.filter(c => c.stage === 4);
+  if(offerStage.length) add('offer_negotiation','low','처우협의 진행 중',`${offerStage.length}명 · 협의 후 최종합격 처리`,'지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+
+  if(projectStatus === 'active' || projectStatus === 'partial') {
+    if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 모집단위를 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closeModal('modal-pos-detail');closePosition(${positionId})`);
+    else if(final.length && remain > 0) add('partial_fill','low','부분충원 상태',`최종합격 ${final.length}명 · 잔여 seat ${remain}명`,'지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
+  }
+  if((projectStatus === 'nohire' || projectStatus === 'stopped') && list.some(c => c.stage < 6)) add('residual_candidates','high','종료 모집단위 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+
+  const pri = { high:0, medium:1, low:2 };
+  return items.sort((a,b) => pri[a.priority] - pri[b.priority]);
+}
+
+function getPositionProcessStatus(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return [];
+  const { pos, list, final } = d;
+  const short = isShortProcessEtype(pos.etype);
+  const r1 = positionRoundData(positionId, 1);
+  const r2 = positionRoundData(positionId, 3);
+  const refCands = list.filter(c => c.stage >= 2 && c.stage !== 6);
+  const checks = [
+    { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
+    { key:'int1_slots', title:'1차 후보일정 안내', done:r1.interviews.length > 0, skip:false },
+    { key:'int1_confirm', title:'1차 공동일정 확정', done:r1.confirmed.length > 0, skip:false },
+    { key:'int1_panel', title:'1차 면접관 안내', done:!r1.confirmed.length || r1.panelNotified.length >= r1.confirmed.length, skip:false },
+    { key:'int1_cand', title:'1차 지원자 안내', done:!r1.confirmed.length || r1.candidateNotified.length >= r1.confirmed.length, skip:false },
+    { key:'int1_done', title:'1차 면접 실시', done:r1.done.length > 0, skip:false },
+    { key:'int1_result', title:'1차 결과 입력', done:list.some(c => flowIndex(c.stage, getPositionFlow(pos)) > flowIndex(1, getPositionFlow(pos))), skip:false },
+    { key:'ref_req', title:'레퍼런스 체크 요청', done:refCands.some(c => c.ref !== '미시작'), skip:short },
+    { key:'ref_done', title:'레퍼런스 완료', done:refCands.some(c => c.ref === '완료') || list.some(c => c.stage >= 3 && c.stage !== 6), skip:short },
+    { key:'int2_slots', title:'2차 후보일정 안내', done:r2.interviews.length > 0, skip:short },
+    { key:'int2_confirm', title:'2차 공동일정 확정', done:r2.confirmed.length > 0, skip:short },
+    { key:'int2_panel', title:'2차 면접관 안내', done:!r2.confirmed.length || r2.panelNotified.length >= r2.confirmed.length, skip:short },
+    { key:'int2_cand', title:'2차 지원자 안내', done:!r2.confirmed.length || r2.candidateNotified.length >= r2.confirmed.length, skip:short },
+    { key:'int2_done', title:'2차 면접 실시', done:r2.done.length > 0, skip:short },
+    { key:'int2_result', title:'2차 결과 입력', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:short },
+    { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
+    { key:'final', title:'최종합격', done:final.length > 0, skip:false },
+    { key:'onboard', title:'입사안내', done:final.some(c => c.notified) || final.some(c => onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
+  ];
+  const actions = getPositionActionItems(positionId);
+  const actionKeys = new Set(actions.map(a => a.type));
+  const keyMap = { first_slots:'int1_slots', first_schedule:'int1_confirm', first_schedule_reply:'int1_confirm', first_panel_notice:'int1_panel', first_candidate_notice:'int1_cand', first_interview_done:'int1_done', first_result:'int1_result', reference_request:'ref_req', reference_remind:'ref_done', second_slots:'int2_slots', second_schedule:'int2_confirm', fill_complete:'final' };
+  let firstOpen = -1;
+  checks.forEach((x, i) => {
+    if(x.skip) return;
+    if(!x.done && firstOpen < 0) firstOpen = i;
+  });
+  return checks.map((x, i) => {
+    if(x.skip) return { number:i + 1, title:x.title, status:'skipped', label:'생략', key:x.key };
+    let status = x.done ? 'complete' : (i === firstOpen ? 'current' : 'upcoming');
+    const mapped = Object.entries(keyMap).find(([t,k]) => k === x.key && actionKeys.has(t));
+    if(status === 'current' && mapped && actions.find(a => a.type === mapped[0] && a.priority === 'high')) status = 'delayed';
+    else if(!x.done && actions.some(a => keyMap[a.type] === x.key && a.priority === 'high')) status = 'delayed';
+    return { number:i + 1, title:x.title, status, label:status === 'complete' ? '완료' : status === 'current' ? '진행중' : status === 'delayed' ? '지연' : '예정', key:x.key };
+  });
+}
+
+function renderPositionSummary(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const { pos, target, final, remain, rate, projectStatus, statusLabel, list, active, rejected } = d;
+  const owner = pos.owner || pos.manager || '미지정';
+  const requested = pos.requestDate || pos.createdAt || '';
+  const targetDate = pos.targetDate || pos.dueDate || '미지정';
+  const short = isShortProcessEtype(pos.etype);
+  return `<section class="pp-section">
+    <div class="pp-summary-top">
+      <div><div class="pp-title">${esc(pos.dept ? pos.dept + ' · ' : '')}${esc(pos.title)}</div>
+        <div class="pp-meta"><span>${esc(pos.dept||'부서 미지정')}</span><span>${esc(pos.loc||'근무지 미지정')}</span><span class="etype ${ETYPE_CLS[pos.etype]||''}">${esc(pos.etype||'-')}</span><span>${esc(pos.role||'-')}</span>${short?'<span style="color:var(--acc);font-weight:650">1차면접 프로세스</span>':''}</div>
+      </div>
+      <div style="text-align:right"><span class="pp-status ${projectStatus}">${statusLabel}</span></div>
+    </div>
+    <div class="pp-kpis">
+      <div class="pp-kpi"><div class="pp-kpi-val">${target}<small>명</small></div><div class="pp-kpi-lbl">채용목표</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val" style="color:var(--green)">${final.length}<small>명</small></div><div class="pp-kpi-lbl">최종합격 (충원 seat)</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val" style="color:${remain?'var(--amber)':'var(--green)'}">${remain}<small>명</small></div><div class="pp-kpi-lbl">미충원 seat</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val">${rate}<small>%</small></div><div class="pp-kpi-lbl">충원율</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val">${active.length}<small>명</small></div><div class="pp-kpi-lbl">진행중 지원자</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val">${rejected.length}<small>명</small></div><div class="pp-kpi-lbl">불합격/종료</div></div>
+    </div>
+    <div class="pp-fillbar"><span style="width:${rate}%"></span></div>
+    <div class="pp-meta" style="margin-top:11px"><span>담당자 ${esc(owner)}</span><span>요청/생성일 ${fmtDate(requested)||'-'}</span><span>목표 충원일 ${fmtDate(targetDate)||esc(targetDate)}</span><span>등록 지원자 ${list.length}명</span></div>
+  </section>`;
+}
+
+function renderPositionFillStatus(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const { target, final, remain, list, active, rejected, projectStatus, statusLabel } = d;
+  const partialNote = projectStatus === 'partial' ? '<div class="pp-process-note" style="background:var(--abg);color:var(--amber);margin-top:10px">목표 대비 일부만 충원된 <b>부분충원</b> 상태입니다. 잔여 seat를 채우거나 충원완료·미채용 처리를 진행하세요.</div>' : '';
+  return `<section class="pp-section" id="pp-position-fill">
+    <div class="pp-section-h"><div><div class="pp-section-title">충원현황</div><div class="pp-section-sub">모집단위 seat 기준 · 지원자 「최종합격」과 모집단위 「충원완료」를 구분합니다.</div></div><span class="pp-status ${d.projectStatus}">${statusLabel}</span></div>
+    <div class="pp-fill-grid">
+      <div class="pp-fill-item"><div class="pp-fill-val">${target}<small>명</small></div><div class="pp-fill-lbl">채용목표</div></div>
+      <div class="pp-fill-item"><div class="pp-fill-val" style="color:var(--green)">${final.length}<small>명</small></div><div class="pp-fill-lbl">최종합격 (충원 seat)</div></div>
+      <div class="pp-fill-item"><div class="pp-fill-val" style="color:${remain?'var(--amber)':'var(--green)'}">${remain}<small>명</small></div><div class="pp-fill-lbl">미충원 seat</div></div>
+      <div class="pp-fill-item"><div class="pp-fill-val">${list.length}<small>명</small></div><div class="pp-fill-lbl">등록 지원자</div></div>
+      <div class="pp-fill-item"><div class="pp-fill-val">${active.length}<small>명</small></div><div class="pp-fill-lbl">진행중 지원자</div></div>
+      <div class="pp-fill-item"><div class="pp-fill-val">${rejected.length}<small>명</small></div><div class="pp-fill-lbl">불합격/종료</div></div>
+    </div>
+    <div class="pp-fillbar" style="margin-top:12px"><span style="width:${d.rate}%"></span></div>
+    ${partialNote}
+  </section>`;
+}
+
+function renderPositionBatchToolbar(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d || !d.list.length) return '';
+  const { pos } = d;
+  const short = isShortProcessEtype(pos.etype);
+  const btns = [];
+  if(d.list.some(c => c.stage === 0)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${positionId},1)">1차 후보일정 안내</button>`);
+  if(d.list.some(c => c.stage === 0 || c.stage === 1)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${positionId},1)">1차 공동일정 확정</button>`);
+  if(d.list.some(c => c.stage === 1)) btns.push(`<button class="btn btn-xs btn-primary" onclick="confirmStageDecisions(${positionId},1)">1차 결과 일괄 확정</button>`);
+  if(!short) {
+    if(d.list.some(c => c.stage === 2)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${positionId},3)">2차 후보일정 안내</button>`);
+    if(d.list.some(c => c.stage === 2 || c.stage === 3)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${positionId},3)">2차 공동일정 확정</button>`);
+    if(d.list.some(c => c.stage === 3)) btns.push(`<button class="btn btn-xs btn-primary" onclick="confirmStageDecisions(${positionId},3)">2차 결과 일괄 확정</button>`);
+  }
+  if(!btns.length) return '';
+  return `<div class="pp-batch"><span style="font-size:10.5px;font-weight:700;color:var(--t2);margin-right:4px">모집단위 일괄 처리</span>${btns.join('')}</div>`;
+}
+
+function renderPositionActionCenter(positionId) {
+  const items = getPositionActionItems(positionId);
+  const top = items[0];
+  const topHint = top ? `<div class="pp-process-note" style="margin-bottom:10px;border-left:3px solid ${top.priority==='high'?'var(--red)':'var(--amber)'}"><b>우선 처리:</b> ${esc(top.title)}</div>` : '';
+  return `<section class="pp-section" id="pp-position-actions">
+    <div class="pp-section-h"><div><div class="pp-section-title">현재 해야 할 일 (Action Center)</div><div class="pp-section-sub">구체적인 업무명으로 표시 · 클릭 시 바로 실행</div></div><span class="b ${items.some(x=>x.priority==='high')?'bred':items.length?'bamber':'bgreen'}">${items.length}건</span></div>
+    ${topHint}
+    ${items.length ? `<div class="pp-actions">${items.map(a=>`<div class="pp-action ${a.priority}">
+      <div class="pp-action-body"><div class="pp-action-priority">${a.priority}</div><div class="pp-action-title">${esc(a.title)}</div><div class="pp-action-desc">${esc(a.desc)}</div></div>
+      <button class="btn btn-sm ${a.priority==='high'?'btn-primary':''}" onclick="${a.actionCall}">${esc(a.actionLabel)}</button>
+    </div>`).join('')}</div>` : '<div class="pp-action-empty"><span class="urgent-empty-dot"></span>현재 즉시 처리할 업무가 없습니다.</div>'}
+  </section>`;
+}
+
+function renderPositionProcessChecklist(positionId) {
+  const d = getPositionProjectData(positionId);
+  const steps = getPositionProcessStatus(positionId);
+  const shortNote = d && isShortProcessEtype(d.pos.etype)
+    ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
+    : '';
+  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">업무 프로세스 체크리스트</div><div class="pp-section-sub">1차 후보일정 안내 → 공동일정 확정 → 면접관/지원자 안내 → 면접 → 결과 → … 순서</div></div></div>
+    ${shortNote}
+    <div class="pp-process">${steps.map(s=>`<div class="pp-step ${s.status}"><div class="pp-step-num">${String(s.number).padStart(2,'0')}</div><div class="pp-step-title">${s.title}</div><div class="pp-step-state">${s.label}</div></div>`).join('')}</div>
+    <div style="display:flex;gap:12px;margin-top:10px;font-size:10px;color:var(--t3);flex-wrap:wrap">
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--green);margin-right:4px"></span>완료</span>
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--acc);margin-right:4px"></span>진행중</span>
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--amber);margin-right:4px"></span>처리 필요</span>
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--red);margin-right:4px"></span>지연</span>
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--s3);margin-right:4px"></span>예정/생략</span>
+    </div>
+  </section>`;
+}
+
+function renderPositionCandidates(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const short = isShortProcessEtype(d.pos.etype);
+  const sorted = d.list.slice().sort((a,b)=>a.stage-b.stage||(a.name||'').localeCompare(b.name||'','ko'));
+  const row = c => {
+    const round = c.stage===1?'1차':c.stage===3?'2차':'';
+    const itv = round ? interviews.find(i=>Number(i.candId)===Number(c.id)&&i.type===round) : null;
+    const intState = !round ? '-' : !itv ? '미등록' : itv.status==='done'?'면접완료':itv.status==='confirmed'?'일정확정':'회신대기';
+    const notice = itv ? (itv.candNotified?'지원자 발송완료':'미발송') : (c.notified?'발송':'-');
+    const refCell = short ? '<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>해당없음</div>' : `<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>${esc(c.ref||'미시작')}${c.refT?` ${c.refD||0}/${c.refT}`:''}</div>`;
+    const dec = c.decision ? (c.decision==='pass'?' · 합격표시':' · 불합격표시') : '';
+    return `<div class="pp-cand">
+      <div><div class="pp-cand-name">${esc(c.name)}</div><div class="pp-cand-email">${esc(c.email||'-')}</div></div>
+      <div class="pp-cand-cell"><strong>현재 단계</strong>${stageLabel(c.stage)}${dec}</div>
+      <div class="pp-cand-cell"><strong>면접일정</strong>${intState}${itv&&itv.date?` · ${fmtItv(itv.date)}`:''}</div>
+      ${refCell}
+      <div class="pp-cand-cell pp-secondary"><strong>안내 발송</strong>${notice}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-xs" onclick="closeModal('modal-pos-detail');openDetail(${c.id})">개별 처리</button><button class="btn btn-xs" onclick="closeModal('modal-pos-detail');editCandidate(${c.id})">수정</button></div>
+    </div>`;
+  };
+  return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">보조 영역 · 예외 처리용. 기본 운영은 위 Action Center·일괄 처리를 사용하세요.</div></div><button class="btn btn-sm btn-primary" onclick="addCandToPos(${positionId})">+ 지원자 추가</button></div>
+    ${renderPositionBatchToolbar(positionId)}
+    <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 모집단위에 연결된 지원자가 없습니다. Action Center에서 지원자를 추가하세요.</div>'}</div>
+  </section>`;
+}
+
+function renderPositionOperations(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const active = d.projectStatus === 'active' || d.projectStatus === 'partial';
+  return `<div class="pp-footer-group"><span class="pp-footer-label">보조</span><button class="btn btn-sm" onclick="closeModal('modal-pos-detail')">닫기</button></div>
+    <div class="pp-footer-group"><span class="pp-footer-label">관리</span><button class="btn btn-sm" onclick="closeModal('modal-pos-detail');editPosition(${positionId})">수정</button><button class="btn btn-sm btn-red" onclick="deletePosition(${positionId})">삭제</button></div>
+    <div class="pp-footer-group" style="margin-left:auto"><span class="pp-footer-label">주요 처리</span>${active
+      ? `<button class="btn btn-sm btn-green" onclick="closeModal('modal-pos-detail');closePosition(${positionId})">충원완료</button><button class="btn btn-sm" style="color:var(--amber)" onclick="nohirePosition(${positionId})">미채용 완료</button><button class="btn btn-sm" onclick="stopPosition(${positionId})">채용 중단</button>`
+      : `<button class="btn btn-sm" onclick="reopenPosition(${positionId});closeModal('modal-pos-detail')">진행중으로 복원</button>`}</div>`;
+}
+
+function scrollPositionDetail(id) {
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderPositionDetail(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return;
+  document.getElementById('pos-detail-title').textContent = (d.pos.dept ? d.pos.dept + ' · ' : '') + d.pos.title;
+  document.getElementById('pos-detail-body').innerHTML = `<div class="pos-project">
+    ${renderPositionSummary(positionId)}
+    ${renderPositionActionCenter(positionId)}
+    ${renderPositionProcessChecklist(positionId)}
+    ${renderPositionFillStatus(positionId)}
+    ${renderPositionCandidates(positionId)}
+  </div>`;
+  document.getElementById('pos-detail-ft').innerHTML = renderPositionOperations(positionId);
+}
+
+function openPosDetail(positionId) {
+  renderPositionDetail(Number(positionId));
   openModal('modal-pos-detail');
 }
 
@@ -4069,7 +4472,7 @@ function openAddPosition() {
   try {
     editingPosId = null;
     document.getElementById('pos-modal-title').textContent = '모집단위 추가';
-    ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-memo','pos-dept'].forEach(id => {
+    ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-owner','pos-target-date','pos-memo','pos-dept'].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.value = '';
     });
@@ -4105,6 +4508,8 @@ function editPosition(posId) {
   restorePanelistTags(2, pos.panel2 || '');
   loadInterviewerOptions();
   document.getElementById('pos-loc').value    = pos.loc    || '';
+  document.getElementById('pos-owner').value  = pos.owner  || '';
+  document.getElementById('pos-target-date').value = pos.targetDate || '';
   document.getElementById('pos-memo').value   = pos.memo   || '';
   openModal('modal-position');
 }
@@ -4112,6 +4517,7 @@ function editPosition(posId) {
 function savePosition() {
   const title = document.getElementById('pos-title')?.value.trim();
   if(!title) { toast('포지션명을 입력하세요.', 'terr'); return; }
+  const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
 
   const posData = {
     id:        editingPosId || nextId(),
@@ -4123,8 +4529,15 @@ function savePosition() {
     panel1:    document.getElementById('pos-panel1')?.value  || '',
     panel2:    document.getElementById('pos-panel2')?.value  || '',
     loc:       document.getElementById('pos-loc')?.value     || '',
+    owner:     document.getElementById('pos-owner')?.value   || '',
+    targetDate: document.getElementById('pos-target-date')?.value || '',
     memo:      document.getElementById('pos-memo')?.value    || '',
-    createdAt: editingPosId ? (positions.find(p=>p.id===editingPosId)?.createdAt || today()) : today(),
+    createdAt: existingPos.createdAt || today(),
+    status: existingPos.status || 'active',
+    closedAt: existingPos.closedAt || '',
+    parentPosId: existingPos.parentPosId != null ? existingPos.parentPosId : null,
+    closeReason: existingPos.closeReason || '',
+    closeMemo: existingPos.closeMemo || '',
   };
 
   if(editingPosId) {
@@ -5011,7 +5424,7 @@ function renderStageKanban() {
       </div>
       <div class="stage-drop">
         ${list.length ? list.map(c => {
-          const nextStage = nextFlowStage(c.stage);
+          const nextStage = nextFlowStage(c.stage, c.posId);
           const hasNext = nextStage !== c.stage;
           const refWarn = c.ref === '진행중' && Number(c.refD || 0) === 0;
           const intWarn = intWarnSet.has(Number(c.id));
@@ -5372,10 +5785,8 @@ function confirmStageChange() {
   c.stage = newStage;
   if(newStage === 6) c.rejectedAt = today(); // 불합격 처리
 
-  // ── 단계 이동 시 이전 단계 미완료 데이터 정리 ──────────────
-  // 규칙: 다음 단계로 진행하거나 불합격되면, 진행 중이던 임시(pending) 데이터를 정리
-  //       단, 확정(confirmed)·완료(done) 기록은 이력으로 보존
-  const movingForward = (newStage === 6) || (FLOW.indexOf(newStage) > FLOW.indexOf(oldStage));
+  const candFlow = getFlowForCandidate(c);
+  const movingForward = (newStage === 6) || (flowIndex(newStage, candFlow) > flowIndex(oldStage, candFlow));
   if(movingForward || newStage === 6) {
     // 1) 1차면접(1)을 벗어나면 → 1차 pending 면접 정리
     if(oldStage === 1 && newStage !== 1) {
@@ -5401,7 +5812,7 @@ function confirmStageChange() {
     }
   }
   // ── 뒤로 이동(되돌리기) 시: 현재 단계 이후 데이터 정리 ──────
-  if(FLOW.indexOf(newStage) < FLOW.indexOf(oldStage) && newStage !== 6) {
+  if(flowIndex(newStage, candFlow) < flowIndex(oldStage, candFlow) && newStage !== 6) {
     // 1차면접 이전으로 되돌리면 모든 면접·레퍼런스 정리
     if(newStage <= 1) {
       interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && i.type==='2차'));
