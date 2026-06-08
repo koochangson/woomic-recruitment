@@ -416,7 +416,7 @@ html,body{line-height:1.55;}
 .c-navy .mc-val{color:var(--acc);}
 /* 처리 필요(중단) 카드는 고정 높이 — 칸반이 화면의 주인공 */
 #dash-urgent-card{flex:0 0 auto;}
-/* 모집단위 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 생성일 */
+/* 모집단위 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 면접일 */
 .pk-meta{font-size:10px;color:var(--t2);margin-bottom:5px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
 .pk-meta .pk-dot{color:var(--t3);}
 .pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px;}
@@ -4633,7 +4633,6 @@ function renderKanban() {
       <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
       <div class="pk-stage" style="color:${col}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block"></span>${STAGES[cur]}</div>
       ${itvLine}
-      <div class="pk-date">생성일 ${fmtDate(pos.createdAt)}</div>
     </div>`;
     (colCards[cur] = colCards[cur] || []).push(card);
   });
