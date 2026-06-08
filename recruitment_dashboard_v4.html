@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="version" content="202605260000">
-<title>채용 관리 대시보드 | 우미건설 피플팀</title>
+<meta name="version" content="202606080001">
+<title>채용 관리 ATS Enterprise | 우미건설 피플팀</title>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ── 변수 ──────────────────────────────────────────────── */
@@ -446,6 +446,66 @@ html,body{line-height:1.55;}
   #dash-urgent>div{flex-wrap:wrap;}
   #dash-urgent>div>div{flex:1 1 220px!important;}
 }
+/* ── 전체 운영 화면 정리 ─────────────────────────────────── */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.section-title{font-size:17px;font-weight:700;letter-spacing:-.2px;}
+.section-sub{font-size:11.5px;color:var(--t3);margin-top:2px;}
+/* 모집단위 관리 */
+.pos-manage-card{padding:0;overflow:hidden;}
+.pos-card-main{padding:15px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;}
+.pos-card-actions{border-top:1px solid var(--border);padding:8px 18px;display:flex;gap:6px;background:#FAFBFC;align-items:center;}
+.pos-card-actions .btn{background:transparent;border-color:transparent;color:var(--t2);}
+.pos-card-actions .btn:hover{background:var(--surface);border-color:var(--border);}
+.pos-card-actions .btn-primary,.pos-card-actions .btn-outlook{color:var(--acc);}
+.pos-card-actions .btn-red{color:var(--red);}
+/* 지원자 트래커 */
+.stage-bar{background:var(--surface);box-shadow:var(--sh);}
+.stage-seg{padding:9px 6px;}
+.filter-bar{padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);}
+.search-inp{width:240px;border-radius:var(--rsm);}
+.advanced-filter{position:relative;}
+.advanced-filter summary{list-style:none;cursor:pointer;padding:5px 11px;border:1px solid var(--border2);border-radius:var(--rsm);font-size:11.5px;font-weight:600;color:var(--t2);background:var(--surface);}
+.advanced-filter summary::-webkit-details-marker{display:none;}
+.advanced-filter[open] summary{border-color:var(--acc);color:var(--acc);}
+.advanced-filter-panel{position:absolute;z-index:20;right:0;top:34px;width:430px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shm);display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.cl-wrap{overflow-x:auto;background:var(--surface);}
+.cl-header,.cl-row{min-width:980px;}
+/* 고용형태·직군은 중립 태그, 상태 색상에 집중 */
+.etype,.role{background:var(--s2)!important;color:var(--t2)!important;border:1px solid var(--border);}
+/* 안내문은 접이식 도움말 */
+.help-details{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);}
+.help-details summary{cursor:pointer;padding:9px 12px;font-size:11.5px;font-weight:700;color:var(--t2);}
+.help-details-body{padding:0 12px 11px;font-size:11.5px;line-height:1.65;color:var(--t2);}
+/* 레퍼런스 체크 */
+#sect-reference .ref-kpis{grid-template-columns:repeat(3,1fr);}
+#sect-reference .ref-kpi-secondary{display:none;}
+#sect-reference .mc{min-height:74px;}
+/* 면접·입사 안내: 입력이 주인공 */
+#sect-interview .grid.g23,#sect-onboarding .grid.g23{grid-template-columns:minmax(420px,1.25fr) minmax(320px,.75fr);}
+#sect-interview .notify-card,#sect-onboarding .notify-card{box-shadow:none;}
+/* 설정: 연결 항목을 구분된 카드처럼 표현 */
+#sect-settings>.card{max-width:1120px;margin:0 auto;}
+#sect-settings .fgrid.f2>.fg:has(#cfg-openai-key),
+#sect-settings .fgrid.f2>.fg:has(#cfg-notify-teams),
+#sect-settings .fgrid.f2>.fg:has(#cfg-gs-url),
+#sect-settings .fgrid.f2>.fg:has(#cfg-interviewer-url),
+#sect-settings .fgrid.f2>.fg:has(#cfg-ref-auto-url){
+  margin-top:8px!important;padding:14px!important;border:1px solid var(--border)!important;border-top:3px solid var(--acc)!important;border-radius:var(--r);background:#FAFBFC;
+}
+@media (max-width:1100px){
+  .g5,.g6{grid-template-columns:repeat(3,1fr);}
+  #sect-interview .grid.g23,#sect-onboarding .grid.g23,.grid.g32{grid-template-columns:1fr;}
+  .pos-card-main{align-items:flex-start;flex-wrap:wrap;}
+  .pos-card-main>div:nth-last-child(-n+2){margin-left:58px;}
+}
+@media (max-width:760px){
+  .g5,.g6,.g4,.g3,.g2,.f2,.f3{grid-template-columns:1fr;}
+  .advanced-filter-panel{position:fixed;left:18px;right:18px;top:auto;width:auto;}
+  .search-inp{width:100%;flex:1 1 100%;}
+  .pos-card-actions{overflow-x:auto;}
+  .stage-bar{overflow-x:auto;}
+  .stage-seg{flex:0 0 82px;}
+}
 </style>
 </head>
 <body>
@@ -574,10 +634,10 @@ html,body{line-height:1.55;}
     <!-- ② 지원자 트래커 ──────────────────────────────────── -->
     <!-- ── 모집단위 관리 섹션 ─────────────────────────────────── -->
 <div id="sect-position" class="sect">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+  <div class="section-head">
     <div>
-      <div style="font-size:15px;font-weight:700;">모집단위 관리</div>
-      <div style="font-size:12px;color:var(--t3);margin-top:2px;" id="pos-count-label">전체 0개 포지션</div>
+      <div class="section-title">모집단위 관리</div>
+      <div class="section-sub" id="pos-count-label">전체 0개 포지션</div>
     </div>
     <div>
       <button class="btn btn-primary" onclick="openAddPosition()">
@@ -612,25 +672,30 @@ html,body{line-height:1.55;}
       </div>
       <div class="filter-bar">
         <input class="search-inp" id="cand-search" placeholder="🔍  이름·직무·부서 검색" oninput="renderTracker()">
-        <button class="fbtn fon" onclick="filterRole('all',this)" data-group="role">전체</button>
-        <button class="fbtn" onclick="filterRole('현장직',this)" data-group="role">현장직</button>
-        <button class="fbtn" onclick="filterRole('사무직',this)" data-group="role">사무직</button>
-        <button class="fbtn" onclick="filterRole('기술직',this)" data-group="role">기술직</button>
-        <button class="fbtn" onclick="filterRole('관리직',this)" data-group="role">관리직</button>
-        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
-        <button class="fbtn fon" onclick="filterEtype('all',this)" data-group="etype">전체</button>
-        <button class="fbtn" onclick="filterEtype('정규직',this)" data-group="etype">정규직</button>
-        <button class="fbtn" onclick="filterEtype('전문직',this)" data-group="etype">전문직</button>
-        <button class="fbtn" onclick="filterEtype('파견직',this)" data-group="etype">파견직</button>
         <select id="sort-by" onchange="renderTracker()" style="font-size:11.5px;padding:4px 10px;border:1px solid var(--border2);border-radius:20px;font-family:'Pretendard',sans-serif;color:var(--t2)">
           <option value="stage-desc">단계↑순</option>
           <option value="stage-asc">단계↓순</option>
           <option value="name">이름순</option>
           <option value="date">접수일순</option>
         </select>
-        <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);cursor:pointer">
-          <input type="checkbox" id="show-rejected" onchange="renderTracker()" style="width:auto;margin:0"> 불합격 포함
-        </label>
+        <details class="advanced-filter">
+          <summary>상세 필터</summary>
+          <div class="advanced-filter-panel">
+            <button class="fbtn fon" onclick="filterRole('all',this)" data-group="role">전체 직군</button>
+            <button class="fbtn" onclick="filterRole('현장직',this)" data-group="role">현장직</button>
+            <button class="fbtn" onclick="filterRole('사무직',this)" data-group="role">사무직</button>
+            <button class="fbtn" onclick="filterRole('기술직',this)" data-group="role">기술직</button>
+            <button class="fbtn" onclick="filterRole('관리직',this)" data-group="role">관리직</button>
+            <span style="width:100%;height:1px;background:var(--border)"></span>
+            <button class="fbtn fon" onclick="filterEtype('all',this)" data-group="etype">전체 형태</button>
+            <button class="fbtn" onclick="filterEtype('정규직',this)" data-group="etype">정규직</button>
+            <button class="fbtn" onclick="filterEtype('전문직',this)" data-group="etype">전문직</button>
+            <button class="fbtn" onclick="filterEtype('파견직',this)" data-group="etype">파견직</button>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);cursor:pointer;margin-left:auto">
+              <input type="checkbox" id="show-rejected" onchange="renderTracker()" style="width:auto;margin:0"> 불합격 포함
+            </label>
+          </div>
+        </details>
         <button class="btn btn-sm btn-primary" onclick="openAddCand()" style="margin-left:auto">+ 지원자 추가</button>
       </div>
       <div class="cl-wrap">
@@ -643,10 +708,10 @@ html,body{line-height:1.55;}
 
     <!-- ③ 면접 관리 ──────────────────────────────────────── -->
     <div id="sect-interview" class="sect">
-      <div class="alert ai">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 7v4M8 5v.5"/></svg>
-        <span><strong>면접 안내는 2가지로 운영됩니다.</strong> ① <strong>지원자 참석 안내</strong> — 이 탭/단계변경에서 지원자 본인에게 발송 (외부 지원자는 이메일만) · ② <strong>면접관 참석 안내</strong> — 모집단위 상세에서 일정 전원 확정 후 면접위원에게 일괄 발송(공문 양식·이력서 첨부). 모두 수동 발송 버튼 방식입니다.</span>
-      </div>
+      <details class="help-details">
+        <summary>면접 안내 운영 방식 보기</summary>
+        <div class="help-details-body"><strong>지원자 참석 안내</strong>는 이 화면 또는 단계 변경에서 지원자에게 발송합니다. <strong>면접관 참석 안내</strong>는 모집단위 상세에서 일정을 전원 확정한 뒤 면접위원에게 일괄 발송합니다. 모든 안내는 발송 버튼을 눌러 실행합니다.</div>
+      </details>
       <div class="grid g23">
         <div class="card">
           <div class="ch"><div class="ch-l">면접 일정 등록</div></div>
@@ -699,12 +764,12 @@ html,body{line-height:1.55;}
 
     <!-- ④ 레퍼런스 체크 ──────────────────────────────────── -->
     <div id="sect-reference" class="sect">
-      <div class="mrow g5" style="margin-bottom:14px">
-        <div class="mc c-blue" onclick="setRefFilter('ready')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">발송 대기</div><div class="mc-val" id="ref-m-ready">0</div><div class="mc-sub">↗ 클릭</div></div>
+      <div class="mrow g5 ref-kpis" style="margin-bottom:14px">
+        <div class="mc c-blue ref-kpi-secondary" onclick="setRefFilter('ready')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">발송 대기</div><div class="mc-val" id="ref-m-ready">0</div><div class="mc-sub">↗ 클릭</div></div>
         <div class="mc c-amber" onclick="setRefFilter('ing')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">진행 중</div><div class="mc-val" id="ref-m-ing">0</div><div class="mc-sub">↗ 클릭</div></div>
         <div class="mc c-red" onclick="setRefFilter('zero')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">전무응답</div><div class="mc-val" id="ref-m-zero">0</div><div class="mc-sub">↗ 클릭</div></div>
         <div class="mc c-green" onclick="setRefFilter('done')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">완료</div><div class="mc-val" id="ref-m-done">0</div><div class="mc-sub">↗ 클릭</div></div>
-        <div class="mc c-purple" onclick="setRefFilter('pend')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">총 미응답</div><div class="mc-val" id="ref-m-pend">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-purple ref-kpi-secondary" onclick="setRefFilter('pend')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">총 미응답</div><div class="mc-val" id="ref-m-pend">0</div><div class="mc-sub">↗ 클릭</div></div>
       </div>
       <div class="card" style="margin-bottom:12px;padding:14px 18px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -757,7 +822,9 @@ html,body{line-height:1.55;}
         </div>
       </div>
 
-      <div class="card" style="margin-top:12px">
+      <details class="help-details" style="margin-top:12px">
+        <summary>전체 레퍼런스 현황 보기</summary>
+        <div class="help-details-body">
         <div class="ch">
           <div class="ch-l">전체 현황</div>
           <div style="display:flex;gap:6px">
@@ -768,15 +835,16 @@ html,body{line-height:1.55;}
           </div>
         </div>
         <div id="ref-table"></div>
-      </div>
+        </div>
+      </details>
     </div>
 
     <!-- ⑤ 입사 안내 ──────────────────────────────────────── -->
     <div id="sect-onboarding" class="sect">
-      <div class="alert ai">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 7v4M8 5v.5"/></svg>
-        Teams 또는 Outlook으로 <strong>지원자 본인에게 합격 안내</strong>를 발송합니다.
-      </div>
+      <details class="help-details">
+        <summary>입사 안내 발송 방식 보기</summary>
+        <div class="help-details-body">등록된 최종 합격자에게 Outlook으로 합격 및 입사 안내를 발송하고, 필요한 경우 사내 부서에도 별도로 통보합니다.</div>
+      </details>
       <div class="grid g23">
         <div class="card">
           <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
@@ -927,8 +995,9 @@ html,body{line-height:1.55;}
             </div>
           </div>
         </div>
-        <div class="div"></div>
-        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:10px">메시지 템플릿</div>
+        <details class="help-details" style="margin-top:16px">
+          <summary>메시지 템플릿 편집</summary>
+          <div class="help-details-body">
         <div class="fgrid" style="gap:10px">
           <div class="fg"><label>1차 면접 안내</label><textarea id="tpl-int1" style="min-height:80px;font-family:'DM Mono',monospace;font-size:11.5px">📅 [1차 면접 안내 - 우미건설]
 안녕하세요 {지원자명}님,
@@ -1006,6 +1075,8 @@ html,body{line-height:1.55;}
         <div style="font-size:11px;color:var(--t3);margin-top:8px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
           💡 사용 가능한 치환 변수: <b>{지원자명}</b> <b>{포지션}</b> <b>{면접유형}</b> <b>{후보일정}</b> <b>{면접일시}</b> <b>{장소}</b> <b>{면접관}</b> <b>{메모}</b> <b>{추천인명}</b> <b>{추천인폼링크}</b> <b>{결과설문링크}</b> — 발송 시 실제 값으로 자동 변환됩니다.
         </div>
+          </div>
+        </details>
         <div class="brow" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
           <button class="btn btn-primary" onclick="saveSettings()">💾 설정 저장</button>
           <span style="font-size:11.5px;color:var(--t3)">메일 템플릿·URL·서명 등 모든 설정을 저장합니다 (Google Sheets에도 동기화).</span>
@@ -1901,8 +1972,8 @@ function renderPositions() {
     const done = isDone(pos);
     const targetMet = passed.length >= (pos.headcount||1);
 
-    return `<div class="card" style="padding:0;overflow:hidden${done?';opacity:.75':''}">
-      <div style="padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:16px" onclick="openPosDetail(${pos.id})">
+    return `<div class="card pos-manage-card" style="${done?'opacity:.75':''}">
+      <div class="pos-card-main" onclick="openPosDetail(${pos.id})">
         <div style="width:44px;height:44px;border-radius:10px;background:${done?'var(--s3)':'var(--bbg)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:${done?'var(--t3)':'var(--blue)'};flex-shrink:0">
           ${esc(pos.title.charAt(0))}
         </div>
@@ -1939,7 +2010,7 @@ function renderPositions() {
       </div>
 
       <!-- 빠른 액션 바 -->
-      <div style="border-top:1px solid var(--border);padding:10px 20px;display:flex;gap:8px;background:var(--s2)">
+      <div class="pos-card-actions">
         <button class="btn btn-sm" onclick="openPosDetail(${pos.id})">📊 상세 보기</button>
         ${!done && int1Ready.length ? `<button class="btn btn-sm" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${pos.id},1)">📧 1차 면접관 안내</button>` : ''}
         ${!done && int2Ready.length ? `<button class="btn btn-sm" style="background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${pos.id},2)">📧 2차 면접관 안내</button>` : ''}
