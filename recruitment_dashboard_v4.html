@@ -577,6 +577,8 @@ html,body{line-height:1.55;}
 .pp-fill-lbl{font-size:10px;color:var(--t3);margin-top:3px;}
 .pp-batch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm);border:1px dashed var(--border);}
 .pp-process-note{font-size:10.5px;color:var(--t3);margin-bottom:10px;padding:8px 10px;background:var(--acc-light);border-radius:var(--rsm);}
+.pp-step-action{margin-top:8px;width:100%;justify-content:center;}
+.pp-step.current,.pp-step.delayed{box-shadow:0 4px 12px rgba(15,52,96,.08);}
 @media(max-width:1050px){
   .pp-kpis{grid-template-columns:repeat(3,1fr);}
   .pp-process{grid-template-columns:repeat(3,1fr);}
@@ -682,18 +684,12 @@ html,body{line-height:1.55;}
 
     <!-- ① 대시보드 ──────────────────────────────────────── -->
     <div id="sect-dash" class="sect on">
-      <div class="mrow g5" style="margin-bottom:10px">
-        <div class="mc kpi-active"><div class="mc-lbl">Active Seat 목표</div><div class="mc-val" id="m-active-seats">0</div><div class="mc-sub">진행중 모집단위 headcount</div></div>
-        <div class="mc c-green"><div class="mc-lbl">충원 Seat</div><div class="mc-val" id="m-filled-seats">0</div><div class="mc-sub">진행중 모집단위 충원</div></div>
-        <div class="mc kpi-warning"><div class="mc-lbl">미충원 Seat</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">Active 목표−충원</div></div>
-        <div class="mc"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">Active 기준</div></div>
-        <div class="mc kpi-unlinked" onclick="showUnlinkedList()" title="미연결 합격자 보기" style="cursor:pointer"><div class="mc-lbl">미연결 합격자</div><div class="mc-val" id="m-unlinked">0</div><div class="mc-sub">모집단위 미연결 ↗</div></div>
-      </div>
       <div class="mrow g5" style="margin-bottom:14px">
+        <div class="mc kpi-active"><div class="mc-lbl">채용목표</div><div class="mc-val" id="m-active-seats">0</div><div class="mc-sub">진행중+충원완료 인원</div></div>
+        <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled-seats">0</div><div class="mc-sub">최종합격 인원</div></div>
+        <div class="mc kpi-warning"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
+        <div class="mc"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
         <div class="mc kpi-operational" onclick="nav('position')" title="모집단위 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행중 모집단위</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
-        <div class="mc"><div class="mc-lbl">면접전형 진행</div><div class="mc-val" id="m-pipeline">0</div><div class="mc-sub">활성 파이프라인</div></div>
-        <div class="mc c-amber"><div class="mc-lbl">메일 발송 대기</div><div class="mc-val" id="m-mail-pending">0</div><div class="mc-sub">Outlook 전송 확인</div></div>
-        <div class="mc" style="grid-column:span 2"><div class="mc-lbl">Funnel (면접전형)</div><div id="dash-funnel" style="margin-top:4px"></div></div>
       </div>
 
       <!-- 처리 필요 -->
@@ -3507,16 +3503,16 @@ function getPositionProcessStatus(positionId) {
     { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
     { key:'int1_slots', title:'1차 후보일정 안내', done:r1.interviews.length > 0, skip:false },
     { key:'int1_confirm', title:'1차 공동일정 확정', done:r1.confirmed.length > 0, skip:false },
-    { key:'int1_panel', title:'1차 면접관 안내', done:!r1.confirmed.length || r1.panelNotified.length >= r1.confirmed.length, skip:false },
-    { key:'int1_cand', title:'1차 지원자 안내', done:!r1.confirmed.length || r1.candidateNotified.length >= r1.confirmed.length, skip:false },
+    { key:'int1_panel', title:'1차 면접관 안내', done:r1.confirmed.length > 0 && r1.panelNotified.length >= r1.confirmed.length, skip:false },
+    { key:'int1_cand', title:'1차 지원자 안내', done:r1.confirmed.length > 0 && r1.candidateNotified.length >= r1.confirmed.length, skip:false },
     { key:'int1_done', title:'1차 면접 실시', done:r1.done.length > 0, skip:false },
     { key:'int1_result', title:'1차 결과 입력', done:list.some(c => flowIndex(c.stage, getPositionFlow(pos)) > flowIndex(1, getPositionFlow(pos))), skip:false },
     { key:'ref_req', title:'레퍼런스 체크 요청', done:refCands.some(c => c.ref !== '미시작'), skip:short },
     { key:'ref_done', title:'레퍼런스 완료', done:refCands.some(c => c.ref === '완료') || list.some(c => c.stage >= 3 && c.stage !== 6), skip:short },
     { key:'int2_slots', title:'2차 후보일정 안내', done:r2.interviews.length > 0, skip:short },
     { key:'int2_confirm', title:'2차 공동일정 확정', done:r2.confirmed.length > 0, skip:short },
-    { key:'int2_panel', title:'2차 면접관 안내', done:!r2.confirmed.length || r2.panelNotified.length >= r2.confirmed.length, skip:short },
-    { key:'int2_cand', title:'2차 지원자 안내', done:!r2.confirmed.length || r2.candidateNotified.length >= r2.confirmed.length, skip:short },
+    { key:'int2_panel', title:'2차 면접관 안내', done:r2.confirmed.length > 0 && r2.panelNotified.length >= r2.confirmed.length, skip:short },
+    { key:'int2_cand', title:'2차 지원자 안내', done:r2.confirmed.length > 0 && r2.candidateNotified.length >= r2.confirmed.length, skip:short },
     { key:'int2_done', title:'2차 면접 실시', done:r2.done.length > 0, skip:short },
     { key:'int2_result', title:'2차 결과 입력', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:short },
     { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
@@ -3525,7 +3521,16 @@ function getPositionProcessStatus(positionId) {
   ];
   const actions = getPositionActionItems(positionId);
   const actionKeys = new Set(actions.map(a => a.type));
-  const keyMap = { first_slots:'int1_slots', first_schedule:'int1_confirm', first_schedule_reply:'int1_confirm', first_panel_notice:'int1_panel', first_candidate_notice:'int1_cand', first_interview_done:'int1_done', first_result:'int1_result', reference_request:'ref_req', reference_remind:'ref_done', second_slots:'int2_slots', second_schedule:'int2_confirm', fill_complete:'final' };
+  const keyMap = {
+    candidate_register:'register',
+    first_slots:'int1_slots', first_schedule:'int1_confirm', first_schedule_reply:'int1_confirm',
+    first_panel_notice:'int1_panel', first_candidate_notice:'int1_cand',
+    first_interview_done:'int1_done', first_result:'int1_result',
+    reference_request:'ref_req', reference_remind:'ref_done', reference_complete:'ref_done',
+    second_slots:'int2_slots', second_schedule:'int2_confirm',
+    second_panel_notice:'int2_panel', second_candidate_notice:'int2_cand',
+    second_result:'int2_result', offer_negotiation:'offer', fill_complete:'final'
+  };
   let firstOpen = -1;
   checks.forEach((x, i) => {
     if(x.skip) return;
@@ -3537,7 +3542,14 @@ function getPositionProcessStatus(positionId) {
     const mapped = Object.entries(keyMap).find(([t,k]) => k === x.key && actionKeys.has(t));
     if(status === 'current' && mapped && actions.find(a => a.type === mapped[0] && a.priority === 'high')) status = 'delayed';
     else if(!x.done && actions.some(a => keyMap[a.type] === x.key && a.priority === 'high')) status = 'delayed';
-    return { number:i + 1, title:x.title, status, label:status === 'complete' ? '완료' : status === 'current' ? '진행중' : status === 'delayed' ? '지연' : '예정', key:x.key };
+    const action = actions.find(a => keyMap[a.type] === x.key);
+    return {
+      number:i + 1, title:x.title, status,
+      label:status === 'complete' ? '완료' : status === 'current' ? '현재 단계' : status === 'delayed' ? '처리 필요' : '예정',
+      key:x.key,
+      actionLabel:action ? action.actionLabel : '',
+      actionCall:action ? action.actionCall : ''
+    };
   });
 }
 
@@ -3624,12 +3636,15 @@ function renderPositionActionCenter(positionId) {
 function renderPositionProcessChecklist(positionId) {
   const d = getPositionProjectData(positionId);
   const steps = getPositionProcessStatus(positionId);
+  const current = steps.find(s => s.status === 'delayed') || steps.find(s => s.status === 'current');
   const shortNote = d && isShortProcessEtype(d.pos.etype)
     ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
     : '';
-  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">업무 프로세스 체크리스트</div><div class="pp-section-sub">1차 후보일정 안내 → 공동일정 확정 → 면접관/지원자 안내 → 면접 → 결과 → … 순서</div></div></div>
+  const currentNote = current ? `<div class="pp-process-note" style="border-left:3px solid ${current.status==='delayed'?'var(--amber)':'var(--acc)'}"><b>현재 위치:</b> ${esc(current.title)}${current.actionLabel ? ` · 버튼을 눌러 다음 업무를 진행하세요.` : ''}</div>` : '';
+  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">전체 채용 프로세스</div><div class="pp-section-sub">완료된 업무, 현재 진행 위치, 이후 순서를 한 화면에서 확인하고 처리합니다.</div></div></div>
     ${shortNote}
-    <div class="pp-process">${steps.map(s=>`<div class="pp-step ${s.status}"><div class="pp-step-num">${String(s.number).padStart(2,'0')}</div><div class="pp-step-title">${s.title}</div><div class="pp-step-state">${s.label}</div></div>`).join('')}</div>
+    ${currentNote}
+    <div class="pp-process">${steps.map(s=>`<div class="pp-step ${s.status}"><div class="pp-step-num">${String(s.number).padStart(2,'0')}</div><div class="pp-step-title">${s.title}</div><div class="pp-step-state">${s.label}</div>${s.actionCall&&s.status!=='complete'&&s.status!=='upcoming' ? `<button class="btn btn-xs btn-primary pp-step-action" onclick="${s.actionCall}">${esc(s.actionLabel)}</button>` : ''}</div>`).join('')}</div>
     <div style="display:flex;gap:12px;margin-top:10px;font-size:10px;color:var(--t3);flex-wrap:wrap">
       <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--green);margin-right:4px"></span>완료</span>
       <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--acc);margin-right:4px"></span>진행중</span>
@@ -3661,7 +3676,7 @@ function renderPositionCandidates(positionId) {
       <div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-xs" onclick="closeModal('modal-pos-detail');openDetail(${c.id})">개별 처리</button><button class="btn btn-xs" onclick="closeModal('modal-pos-detail');editCandidate(${c.id})">수정</button></div>
     </div>`;
   };
-  return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">보조 영역 · 예외 처리용. 기본 운영은 위 Action Center·일괄 처리를 사용하세요.</div></div><button class="btn btn-sm btn-primary" onclick="addCandToPos(${positionId})">+ 지원자 추가</button></div>
+  return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">개별 지원자 상태 확인 및 예외 처리</div></div><button class="btn btn-sm btn-primary" onclick="addCandToPos(${positionId})">+ 지원자 추가</button></div>
     ${renderPositionBatchToolbar(positionId)}
     <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 모집단위에 연결된 지원자가 없습니다. Action Center에서 지원자를 추가하세요.</div>'}</div>
   </section>`;
@@ -3689,9 +3704,7 @@ function renderPositionDetail(positionId) {
   document.getElementById('pos-detail-title').textContent = (d.pos.dept ? d.pos.dept + ' · ' : '') + d.pos.title;
   document.getElementById('pos-detail-body').innerHTML = `<div class="pos-project">
     ${renderPositionSummary(positionId)}
-    ${renderPositionActionCenter(positionId)}
     ${renderPositionProcessChecklist(positionId)}
-    ${renderPositionFillStatus(positionId)}
     ${renderPositionCandidates(positionId)}
   </div>`;
   document.getElementById('pos-detail-ft').innerHTML = renderPositionOperations(positionId);
@@ -5463,19 +5476,20 @@ function updateMetrics() {
   candidates.forEach(c => {
     if(c.stage === 5) filledByPos[Number(c.posId)] = (filledByPos[Number(c.posId)] || 0) + 1;
   });
-  // P1 Active Seat KPI — 진행중 모집단위만 집계
+  // 운영 KPI — 진행중·충원완료 모집단위를 채용계획 범위로 집계
   const activePos = positions.filter(p => posStatus(p) === 'active');
-  const activeTargetN = activePos.reduce((s,p) => s + hc(p), 0);
-  const activeFilledN = activePos.reduce((s,p) => s + Math.min(hc(p), filledByPos[Number(p.id)] || 0), 0);
+  const plannedPos = positions.filter(p => ['active','filled'].includes(posStatus(p)));
+  const activeTargetN = plannedPos.reduce((s,p) => s + hc(p), 0);
+  const activeFilledN = plannedPos.reduce((s,p) => s + Math.min(hc(p), filledByPos[Number(p.id)] || 0), 0);
   const activeOpenN = Math.max(0, activeTargetN - activeFilledN);
   const fillPct = activeTargetN > 0 ? (activeFilledN/activeTargetN*100).toFixed(1) : '0.0';
   const activePosN = activePos.length;
   const unlinkedN = getUnlinkedCandidates().length;
   const mailPendingN = getMailPendingItems().length;
   const unit = (n,u) => `${n}<span class="mc-u">${u}</span>`;
-  set('m-active-seats', unit(activeTargetN,'석'));
-  set('m-filled-seats', unit(activeFilledN,'석'));
-  set('m-open',         unit(activeOpenN,'석'));
+  set('m-active-seats', unit(activeTargetN,'명'));
+  set('m-filled-seats', unit(activeFilledN,'명'));
+  set('m-open',         unit(activeOpenN,'명'));
   set('m-fillrate',     unit(fillPct,'%'));
   set('m-unlinked',     unit(unlinkedN,'명'));
   set('m-pos-active',   unit(activePosN,'개'));
