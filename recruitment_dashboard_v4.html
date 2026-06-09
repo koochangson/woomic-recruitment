@@ -2666,7 +2666,7 @@ function sendOnboardToDept(candId) {
     if(lead) { deptLead = lead.email; deptLeadName = `${lead.name} ${lead.rank}`; }
   }
 
-  const toEmails = [deptLead, ...teams.map(t => t.email), hrEmail].filter(Boolean).join(';');
+  const toEmails = groupMailRecipients([deptLead, ...teams.map(t => t.email), hrEmail]);
   if(!toEmails) {
     alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: ${dept||'부서 미정'} 의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.\n\n둘 중 하나를 설정해주세요.`);
     return;
@@ -4307,8 +4307,8 @@ ${targetText}
 
  ⚠ 본 메일 발송 전 면접조서·이력서 파일을 첨부해 주세요.`;
 
-  const emails = panelists.map(p => p.email).filter(Boolean);
-  const sent = openMailto(emails.join(','), subject, body);
+  const emails = groupMailRecipients(panelists.map(p => p.email));
+  const sent = openMailto(emails, subject, body);
   if(sent === false) return;
 
   schedule.forEach(i => { i.notified = true; });
@@ -5176,6 +5176,11 @@ function logNotify(ch, type, target, to) {
   saveState();
 }
 
+// 내부 직원 단체메일 수신자: 유효한 이메일만 중복 없이 한 메일에 묶는다.
+function groupMailRecipients(emails) {
+  return [...new Set((emails||[]).flatMap(e=>String(e||'').split(/[;,]/)).map(e=>e.trim()).filter(e=>e.includes('@')))].join(';');
+}
+
 // ── mailto 이메일 발송 헬퍼 ─────────────────────────────────
 function openMailto(toEmail, subject, body, sequential) {
   if(!toEmail || !toEmail.includes('@')) {
@@ -5718,7 +5723,7 @@ function renderUrgent() {
       ${items.length ? items.slice(0,4).map((item,idx)=>render(item,idx)).join('') + (items.length>4?`<div style="font-size:10.5px;color:var(--t3);padding:2px 0">외 ${items.length-4}건</div>`:'')
         : '<div style="font-size:10.5px;color:var(--t3);padding:3px 0">없음</div>'}
     </div>`;
-  const row = (name, sub) => `<div style="font-size:11.5px;padding:3px 0;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)} <span style="color:var(--t3)">${esc(sub)}</span></div>`;
+  const row = (name, sub) => `<div style="font-size:11.5px;padding:3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)} <span style="color:var(--t3)">${esc(sub)}</span></div>`;
   el.innerHTML = `<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
     ${unlinked.length ? col('미연결 합격자', unlinked, 'var(--red)', c=>`<div style="font-size:11.5px;padding:3px 0;cursor:pointer" onclick="showUnlinkedList()">${esc(c.name)} <span style="color:var(--t3)">${esc(c.pos)}</span></div>`) : ''}
     ${mailPending.length ? col('메일 발송 확인', mailPending, 'var(--purple)', (m,idx)=>`<div style="font-size:11.5px;padding:3px 0;display:flex;align-items:center;gap:6px">${esc(m.label)} <button class="btn btn-xs btn-primary" onclick="confirmMailPendingAt(${idx})">발송완료</button></div>`) : ''}
@@ -6906,8 +6911,7 @@ function sendJoinNotice(obId) {
   }
 
   // 수신자: 배치 부서장 + 유관 팀 이메일 + HR
-  const toEmails = [deptLead, ...teams.map(t => t.email), hrEmail]
-    .filter(Boolean).join(';');
+  const toEmails = groupMailRecipients([deptLead, ...teams.map(t => t.email), hrEmail]);
   if(!toEmails) {
     alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: '${dept||'부서 미정'}'의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.`);
     return;
@@ -7142,11 +7146,13 @@ function sendBulk(){
   const ch=document.getElementById('bulk-channel').value;
   const targets=si===-1?candidates.filter(c=>c.stage!==6):candidates.filter(c=>c.stage===si&&c.stage!==6);
   if(!targets.length){alert('발송 대상이 없습니다.');return;}
+  let outlookTargetCount=0;
 
   if(ch==='outlook'||ch==='both'){
-    // Outlook은 한 번에 한 창만 열림 - BCC 방식으로 일괄 발송
-    const emails = targets.map(c=>c.email).filter(e=>e&&e.includes('@'));
-    if(emails.length===0){alert('이메일 주소가 등록된 지원자가 없습니다.');return;}
+    // 지원자 메일은 개인정보 보호와 개인화 안내를 위해 지원자별로 개별 작성한다.
+    const mailTargets = targets.filter(c=>c.email&&c.email.includes('@'));
+    if(mailTargets.length===0){alert('이메일 주소가 등록된 지원자가 없습니다.');return;}
+    outlookTargetCount=mailTargets.length;
     const msgs={
       int1:'[우미건설] 1차 면접 일정 안내',
       int2:'[우미건설] 2차 면접 일정 안내',
@@ -7154,23 +7160,20 @@ function sendBulk(){
       remind:'[우미건설] 레퍼런스 체크 안내',
     };
     const subject = msgs[type] || '[우미건설] 채용 진행 안내';
-    const body = document.getElementById('bulk-preview-msg')?.textContent || '';
-    const sign    = document.getElementById('cfg-sign')?.value    || '우미건설 피플팀';
-    const hrEmail = document.getElementById('cfg-hr-email')?.value || 'hr@woomic.co.kr';
-    // BCC로 일괄 발송 (개인정보 보호)
-    const url = 'mailto:?bcc=' + encodeURIComponent(emails.join(';'))
-      + '&subject=' + encodeURIComponent(subject)
-      + '&body=' + encodeURIComponent(body + '\n\n' + sign + '\n' + (document.getElementById('cfg-hr-email')?.value || ''));
-    window.open(url, '_blank');
+    const template = document.getElementById('bulk-preview-msg')?.textContent || '';
+    mailTargets.forEach((c,idx)=>{
+      const body = template.replace(/\{지원자명\}/g,c.name||'').replace(/\{포지션\}/g,c.pos||'');
+      setTimeout(()=>openMailto(c.email,subject,body,true),idx*600);
+    });
   }
 
   targets.forEach(c=>{
     if(ch==='both'||ch==='teams') logNotify('Teams',type,c.name,c.email);
-    if(ch==='both'||ch==='outlook') logNotify('Outlook',type,c.name,c.email);
-    c.notified=true;
+    if((ch==='both'||ch==='outlook')&&c.email&&c.email.includes('@')) logNotify('Outlook',type,c.name,c.email);
+    if(ch==='teams'||ch==='both'||(ch==='outlook'&&c.email&&c.email.includes('@'))) c.notified=true;
   });
   saveState();closeModal('modal-bulk-notify');renderDashboard();renderTracker();renderNotifyLog();updateMetrics();
-  const msg = (ch==='outlook'||ch==='both') ? `${targets.length}명 Outlook 창이 열렸습니다. 전송 버튼을 눌러주세요.` : `${targets.length}명 발송 완료`;
+  const msg = (ch==='outlook'||ch==='both') ? `${outlookTargetCount}명 지원자 개인 메일 작성창을 순차적으로 엽니다.` : `${targets.length}명 발송 완료`;
   toast(msg, ch==='teams'?'tteams':'toutlook');
 }
 
