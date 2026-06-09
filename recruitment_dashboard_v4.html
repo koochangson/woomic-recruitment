@@ -1772,6 +1772,7 @@ html,body{line-height:1.55;}
         <label>잔여 지원자 처리</label>
         <select id="nh-remain-action">
           <option value="reject">전원 불합격 처리 + 안내 메일</option>
+          <option value="hold">전원 보류 처리</option>
           <option value="unlink">모집단위 연결 해제 (보류 풀)</option>
           <option value="keep">현 상태 유지 (수동 처리)</option>
         </select>
@@ -2144,6 +2145,10 @@ function executeNohireWizard() {
   } else if(action === 'unlink' && remain.length) {
     remain.forEach(c => { c.posId = null; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
     toast(`진행중 ${remain.length}명 모집단위 연결 해제`, 'tok');
+  } else if(action === 'hold' && remain.length) {
+    remain.forEach(c => { c.held = true; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
+    logActivity('지원자 보류', `${pos.title} 잔여 지원자 ${remain.length}명`, 'position', posId);
+    toast(`진행중 ${remain.length}명 보류 처리`, 'tok');
   }
 
   pos.status = 'nohire';
@@ -2286,7 +2291,7 @@ function posStatus(p){
 function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
 // 모집단위의 현재 단계 = 비탈락(≠6) 지원자 중 최고 단계 (지원자 없으면 null)
 function posCurrentStage(p){
-  const cs = candidates.filter(c => Number(c.posId)===Number(p.id) && c.stage!==6).map(c=>c.stage);
+  const cs = candidates.filter(c => Number(c.posId)===Number(p.id) && c.stage!==6 && !c.held).map(c=>c.stage);
   return cs.length ? Math.max(...cs) : null;
 }
 // YYYY-MM-DD → YYYY.MM.DD 표시용
@@ -2302,6 +2307,7 @@ function fmtItv(d){
 // 실제 '진행 중' 파이프라인 지원자: 불합격 제외 + 종료(충원완료/미채용완료/채용중단) 모집단위 소속 제외
 function isActivePipelineCand(c){
   if(c.stage===6) return false;                 // 불합격
+  if(c.held) return false;                      // 종료 모집단위 등에서 보류 처리
   if(c.posId==null || c.posId==='') return true; // 미연결 지원자는 유지
   const p = positions.find(x=>Number(x.id)===Number(c.posId));
   if(p && posStatus(p)!=='active') return false; // 종료 모집단위 소속 제외
@@ -2339,19 +2345,106 @@ const GS_CONFIG = {
   scriptUrl:      FIXED_URLS.scriptUrl,
   interviewerUrl: FIXED_URLS.interviewerUrl,
   refAutoUrl:     FIXED_URLS.refAutoUrl,
+  // 기존 Apps Script가 doGet 전용일 수 있어 기본값은 false. doPost 배포 후 true로 전환한다.
+  usePostWrites:  false,
 };
 
-async function gsFetch(action, sheet, data={}) {
+// GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
+const GS_SCHEMA = {
+  Candidates: ['id','name','pos','email','etype','role','dept','career','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','notified','posId','intDate','held','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','status','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','dept','panel1','panel2','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
+  Settings: ['id','value'],
+};
+const GS_RETRY_KEY = 'woomic_gs_retry_v1';
+let gsRetryRunning = false;
+
+function gsSchemaPayload(sheet, source) {
+  const fields = GS_SCHEMA[sheet] || Object.keys(source || {});
+  const payload = {};
+  fields.forEach(key => { payload[key] = source?.[key] ?? ''; });
+  return payload;
+}
+
+function markUpdated(obj) {
+  if(obj) obj.updatedAt = new Date().toISOString();
+  return obj;
+}
+
+function mergeGsRecords(sheet, remote, local) {
+  const locals = new Map((local || []).map(x => [String(x.id), x]));
+  const remoteIds = new Set(remote.map(x => String(x.id)));
+  const merged = remote.map(r => {
+    const l = locals.get(String(r.id));
+    if(!l || !l.updatedAt || !r.updatedAt) return r; // 구형 시트는 GS 데이터를 우선
+    return String(l.updatedAt) > String(r.updatedAt) ? l : r;
+  });
+  const queuedIds = new Set(getGsRetryQueue().filter(x => x.sheet===sheet && x.action==='upsert').map(x => String(x.data?.id)));
+  (local || []).forEach(l => {
+    if(!remoteIds.has(String(l.id)) && queuedIds.has(String(l.id))) merged.push(l);
+  });
+  return merged;
+}
+
+function getGsRetryQueue() {
+  try { return JSON.parse(localStorage.getItem(GS_RETRY_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function queueGsRetry(action, sheet, data) {
+  const queue = getGsRetryQueue();
+  const key = `${action}:${sheet}:${data?.id ?? ''}`;
+  const item = { key, action, sheet, data, queuedAt: new Date().toISOString(), attempts: 0 };
+  const idx = queue.findIndex(x => x.key === key);
+  if(idx >= 0) queue[idx] = item; else queue.push(item);
+  localStorage.setItem(GS_RETRY_KEY, JSON.stringify(queue.slice(-200)));
+  showSyncStatus(`GS 재시도 대기 ${queue.length}건`, 'warn');
+}
+
+async function flushGsRetryQueue() {
+  if(gsRetryRunning || !GS_CONFIG.scriptUrl) return;
+  const queue = getGsRetryQueue();
+  if(!queue.length) return;
+  gsRetryRunning = true;
+  const remain = [];
+  for(const item of queue) {
+    const result = await gsFetch(item.action, item.sheet, item.data, { allowQueue:false });
+    if(result == null) remain.push({ ...item, attempts:(item.attempts||0)+1 });
+  }
+  localStorage.setItem(GS_RETRY_KEY, JSON.stringify(remain.slice(-200)));
+  gsRetryRunning = false;
+  showSyncStatus(remain.length ? `GS 재시도 대기 ${remain.length}건` : 'GS 동기화 완료', remain.length ? 'warn' : 'ok');
+}
+
+async function gsFetch(action, sheet, data={}, options={}) {
   if(!GS_CONFIG.scriptUrl) return null;
   const url = new URL(GS_CONFIG.scriptUrl);
   url.searchParams.set('action', action);
   url.searchParams.set('sheet', sheet);
-  if(Object.keys(data).length) url.searchParams.set('data', JSON.stringify(data));
+  const hasData = Object.keys(data).length > 0;
+  const isWrite = action === 'upsert' || action === 'deleteRow';
   try {
+    if(isWrite && hasData && GS_CONFIG.usePostWrites) {
+      const postRes = await fetch(url.toString(), {
+        method:'POST',
+        redirect:'follow',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action, sheet, data}),
+      });
+      const postText = await postRes.text();
+      try { if(postRes.ok) return JSON.parse(postText); } catch(e) {
+        // 기존 doGet 전용 Apps Script와의 호환을 위해 아래 GET 방식으로 재시도
+      }
+    }
+    if(action === 'deleteRow' && data.id != null) url.searchParams.set('id', data.id);
+    else if(hasData) url.searchParams.set('data', JSON.stringify(data));
     const res = await fetch(url.toString(), {redirect:'follow'});
-    return await res.json();
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    return JSON.parse(text);
   } catch(e) {
     console.warn('[GS] fetch 오류:', e.message);
+    if(isWrite && options.allowQueue !== false) queueGsRetry(action, sheet, data);
     return null;
   }
 }
@@ -2362,22 +2455,20 @@ async function gsGetAll(sheet) {
 }
 
 async function gsUpsert(sheet, item) {
-  return await gsFetch('upsert', sheet, item);
+  const payload = gsSchemaPayload(sheet, item);
+  const result = await gsFetch('upsert', sheet, payload);
+  if(result != null) setTimeout(flushGsRetryQueue, 500);
+  return result;
 }
 
 async function gsDelete(sheet, id) {
-  const url = new URL(GS_CONFIG.scriptUrl);
-  url.searchParams.set('action', 'deleteRow');
-  url.searchParams.set('sheet', sheet);
-  url.searchParams.set('id', id);
-  try {
-    const res = await fetch(url.toString(), {redirect:'follow'});
-    return await res.json();
-  } catch(e) { return null; }
+  return await gsFetch('deleteRow', sheet, {id});
 }
 
 async function syncCandToGS(cand) {
   if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(cand);
+  saveState();
   const result = await gsUpsert('Candidates', {
     id:         cand.id,
     name:       cand.name,
@@ -2398,6 +2489,8 @@ async function syncCandToGS(cand) {
     notified:   cand.notified?'Y':'N',
     posId:      cand.posId != null ? cand.posId : '',
     intDate:    cand.intDate || '',
+    held:       cand.held ? 'Y' : 'N',
+    updatedAt:  cand.updatedAt,
   });
   if(result != null) showSyncStatus('GS 동기화 완료', 'ok');
   return result;
@@ -2406,6 +2499,8 @@ async function syncCandToGS(cand) {
 // ── 면접(Interviews) GS 동기화 ──────────────────────────────
 async function syncIntToGS(itv) {
   if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(itv);
+  saveState();
   return await gsUpsert('Interviews', {
     id:        itv.id,
     candId:    itv.candId != null ? itv.candId : '',
@@ -2417,6 +2512,7 @@ async function syncIntToGS(itv) {
     memo:      itv.memo || '',
     notified:  itv.notified ? 'Y' : 'N',
     status:    itv.status || 'pending',
+    updatedAt: itv.updatedAt,
   });
 }
 async function deleteIntFromGS(id) {
@@ -2427,6 +2523,8 @@ async function deleteIntFromGS(id) {
 // ── 모집단위(Positions) GS 동기화 ───────────────────────────
 async function syncPosToGS(pos) {
   if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(pos);
+  saveState();
   await gsUpsert('Positions', {
     id:        pos.id,
     title:     pos.title || '',
@@ -2446,6 +2544,7 @@ async function syncPosToGS(pos) {
     parentPosId: pos.parentPosId != null ? pos.parentPosId : '',
     closeReason: pos.closeReason || '',
     closeMemo:   pos.closeMemo || '',
+    updatedAt:   pos.updatedAt,
   });
   showSyncStatus('모집단위 GS 동기화 완료', 'ok');
 }
@@ -2458,7 +2557,7 @@ async function loadPositionsFromGS() {
   try {
     const data = await gsGetAll('Positions');
     if(!data || !data.length) return false;
-    positions = data.map(row => ({
+    const remote = data.map(row => ({
       id:        Number(row.id),
       title:     row.title || '',
       etype:     row.etype || '정규직',
@@ -2477,7 +2576,9 @@ async function loadPositionsFromGS() {
       parentPosId: row.parentPosId ? Number(row.parentPosId) : null,
       closeReason: row.closeReason || '',
       closeMemo:   row.closeMemo || '',
+      updatedAt:   row.updatedAt || '',
     }));
+    positions = mergeGsRecords('Positions', remote, positions);
     saveState();
     return true;
   } catch(e) { console.warn('모집단위 로드 실패', e); return false; }
@@ -2488,7 +2589,7 @@ async function loadInterviewsFromGS() {
   try {
     const data = await gsGetAll('Interviews');
     if(!data || !data.length) return false;
-    interviews = data.map(row => ({
+    const remote = data.map(row => ({
       id:       Number(row.id),
       candId:   row.candId !== '' && row.candId != null ? Number(row.candId) : null,
       candName: row.candName,
@@ -2499,7 +2600,9 @@ async function loadInterviewsFromGS() {
       memo:     row.memo,
       notified: row.notified === 'Y',
       status:   row.status || 'pending',
+      updatedAt: row.updatedAt || '',
     }));
+    interviews = mergeGsRecords('Interviews', remote, interviews);
     saveState();
     return true;
   } catch(e) { console.warn('면접 로드 실패', e); return false; }
@@ -2510,7 +2613,7 @@ async function loadFromGS() {
   showSyncStatus('Google Sheets에서 로드 중...', '');
   const data = await gsGetAll('Candidates');
   if(!data.length) return false;
-  candidates = data.map(row => ({
+  const remote = data.map(row => ({
     id:         Number(row.id),
     name:       row.name,
     pos:        row.pos,
@@ -2530,7 +2633,10 @@ async function loadFromGS() {
     notified:   row.notified==='Y',
     posId:      (row.posId !== '' && row.posId != null) ? Number(row.posId) : null,
     intDate:    row.intDate || '',
+    held:       row.held === 'Y',
+    updatedAt:  row.updatedAt || '',
   }));
+  candidates = mergeGsRecords('Candidates', remote, candidates);
   saveState();
   showSyncStatus('GS 로드 완료 (' + candidates.length + '명)', 'ok');
   return true;
@@ -3102,17 +3208,27 @@ function setPosFilter(f, btn) {
   renderPositions();
 }
 
+function holdResidualCandidates(posId, label) {
+  const residual = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held);
+  if(!residual.length) return 0;
+  if(!confirm(`진행중 지원자 ${residual.length}명을 보류 처리할까요?\n취소를 선택하면 현재 상태를 유지합니다.`)) return 0;
+  residual.forEach(c => { c.held = true; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
+  logActivity('지원자 보류', `${label} 잔여 지원자 ${residual.length}명`, 'position', posId);
+  return residual.length;
+}
+
 // 채용 완료 처리
 function closePosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const hc = parseInt(pos.headcount) || 1;
   const passed = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === 5).length;
-  const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5).length;
+  const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held).length;
   let msg = `'${pos.title}' 모집을 완료 처리하시겠습니까?`;
   if(active > 0) msg += `\n\n⚠ 아직 진행중인 지원자가 ${active}명 있습니다.`;
   if(passed < hc) msg += `\n⚠ 최종합격 ${passed}명 / 목표 ${hc}명 (부분 충원)`;
   if(!confirm(msg)) return;
+  holdResidualCandidates(posId, pos.title);
   pos.status = (passed > 0 && passed < hc) ? 'partial' : 'filled';
   pos.closedAt = new Date().toISOString().slice(0,10);
   logActivity(pos.status === 'partial' ? '부분충원 완료' : '충원완료', `${pos.title} ${passed}/${hc}명`, 'position', posId);
@@ -3130,6 +3246,7 @@ function stopPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   if(!confirm(`'${pos.title}' 모집단위를 채용 중단 처리하시겠습니까?`)) return;
+  holdResidualCandidates(posId, pos.title);
   pos.status = 'stopped';
   pos.closedAt = today();
   saveState();
@@ -3532,7 +3649,7 @@ function getPositionProjectData(positionId) {
   const target = parseInt(pos.headcount) || 1;
   const final = list.filter(c => c.stage === 5);
   const rejected = list.filter(c => c.stage === 6);
-  const active = list.filter(c => c.stage < 5);
+  const active = list.filter(c => c.stage < 5 && !c.held);
   const filled = Math.min(target, final.length);
   const remain = Math.max(0, target - filled);
   const rate = target ? Math.min(100, Math.round(filled / target * 100)) : 0;
@@ -4893,155 +5010,9 @@ const LS_KEY = 'woomic_recruit_v4';
 
 
 
-// ── SharePoint 설정 ──────────────────────────────────────────
-// 설정 탭에서 입력하거나 아래에 직접 입력
-const SP_CONFIG = {
-  siteUrl:   '',   // 예: https://woomic.sharepoint.com/sites/people
-  listName:  'Candidates',  // SharePoint 리스트 이름
-  get headers() {
-    return {
-      'Accept':       'application/json;odata=verbose',
-      'Content-Type': 'application/json;odata=verbose',
-      'X-RequestDigest': SP_CONFIG._digest || '',
-    };
-  },
-  _digest: '',
-};
-
-// ── SharePoint REST API 헬퍼 ─────────────────────────────────
-async function spGetDigest() {
-  if(!SP_CONFIG.siteUrl) return false;
-  try {
-    const res = await fetch(`${SP_CONFIG.siteUrl}/_api/contextinfo`, {
-      method: 'POST',
-      headers: { 'Accept': 'application/json;odata=verbose' },
-      credentials: 'include',
-    });
-    const data = await res.json();
-    SP_CONFIG._digest = data?.d?.GetContextWebInformation?.FormDigestValue || '';
-    return !!SP_CONFIG._digest;
-  } catch(e) {
-    console.warn('SP digest 실패:', e);
-    return false;
-  }
-}
-
-async function spGetItems(listName, filter='') {
-  if(!SP_CONFIG.siteUrl) return null;
-  try {
-    const url = `${SP_CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/items${filter?'?$filter='+encodeURIComponent(filter):''}`;
-    const res = await fetch(url, { headers: SP_CONFIG.headers, credentials: 'include' });
-    const data = await res.json();
-    return data?.d?.results || null;
-  } catch(e) { console.warn('SP get 실패:', e); return null; }
-}
-
-async function spAddItem(listName, item) {
-  if(!SP_CONFIG.siteUrl) return null;
-  await spGetDigest();
-  try {
-    const url = `${SP_CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { ...SP_CONFIG.headers, 'X-RequestDigest': SP_CONFIG._digest },
-      credentials: 'include',
-      body: JSON.stringify({ __metadata: { type: `SP.Data.${listName}ListItem` }, ...item }),
-    });
-    const data = await res.json();
-    return data?.d || null;
-  } catch(e) { console.warn('SP add 실패:', e); return null; }
-}
-
-async function spUpdateItem(listName, itemId, item) {
-  if(!SP_CONFIG.siteUrl) return false;
-  await spGetDigest();
-  try {
-    const url = `${SP_CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${itemId})`;
-    await fetch(url, {
-      method: 'POST',
-      headers: {
-        ...SP_CONFIG.headers,
-        'X-RequestDigest': SP_CONFIG._digest,
-        'X-HTTP-Method': 'MERGE',
-        'If-Match': '*',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ __metadata: { type: `SP.Data.${listName}ListItem` }, ...item }),
-    });
-    return true;
-  } catch(e) { console.warn('SP update 실패:', e); return false; }
-}
-
-// ── SP ↔ 대시보드 데이터 변환 ────────────────────────────────
-function candToSP(cand) {
-  return {
-    Title:        cand.name,
-    CandID:       String(cand.id),
-    CandPos:      cand.pos,
-    CandEmail:    cand.email,
-    EType:        cand.etype,
-    Role:         cand.role,
-    Dept:         cand.dept || '',
-    Career:       cand.career,
-    Stage:        STAGES[cand.stage] || '서류합격',
-    RefStatus:    cand.ref,
-    RefDone:      cand.refD,
-    RefTotal:     cand.refT,
-    ReceivedAt:   cand.receivedAt,
-    Memo:         cand.memo || '',
-  };
-}
-
-function spToCand(item) {
-  return {
-    id:         parseInt(item.CandID) || item.ID,
-    spId:       item.ID,  // SP 업데이트용
-    name:       item.Title || '',
-    pos:        item.CandPos || '',
-    email:      item.CandEmail || '',
-    etype:      item.EType || '정규직',
-    role:       normalizeRole(item.Role),
-    dept:       item.Dept || '',
-    career:     item.Career || '경력직',
-    stage:      STAGES.indexOf(item.Stage) >= 0 ? STAGES.indexOf(item.Stage) : 0,
-    ref:        item.RefStatus || '미시작',
-    refD:       parseInt(item.RefDone) || 0,
-    refT:       parseInt(item.RefTotal) || 0,
-    receivedAt: item.ReceivedAt || '',
-    memo:       item.Memo || '',
-    intDate:    '',
-    notified:   false,
-  };
-}
-
-// ── SP 동기화 함수 ────────────────────────────────────────────
-async function syncFromSP() {
-  if(!SP_CONFIG.siteUrl) return false;
-  showSyncStatus('SP에서 데이터 로드 중...');
-  const items = await spGetItems('Candidates');
-  if(!items) { showSyncStatus('SP 연결 실패 — localStorage 사용', 'warn'); return false; }
-  candidates = items.map(spToCand);
-  saveState(); // localStorage에도 캐시
-  showSyncStatus(`SP 동기화 완료 — ${candidates.length}명`, 'ok');
-  return true;
-}
-
-async function syncCandToSP(cand) {
-  if(!SP_CONFIG.siteUrl) return; // SP 미설정 시 localStorage만
-  const item = candToSP(cand);
-  if(cand.spId) {
-    // 기존 항목 업데이트
-    await spUpdateItem('Candidates', cand.spId, item);
-  } else {
-    // 신규 항목 추가
-    const result = await spAddItem('Candidates', item);
-    if(result) cand.spId = result.ID;
-  }
-}
-
 function showSyncStatus(msg, type='') {
   const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
-  const el = document.getElementById('sp-sync-status');
+  const el = document.getElementById('gs-conn-status');
   if(el) { el.textContent = msg; el.style.color = colors[type]||colors['']; }
   console.log('[GS]', msg);
 }
@@ -5052,25 +5023,6 @@ function loadState() {
     if (raw) return JSON.parse(raw);
   } catch(e) {}
   return null;
-}
-
-async function loadStateWithSP() {
-  // SP 설정이 있으면 SP 우선, 없으면 localStorage
-  if(SP_CONFIG.siteUrl) {
-    const ok = await syncFromSP();
-    if(ok) return true;
-  }
-  // SP 실패 또는 미설정 시 localStorage
-  const saved = loadState();
-  if(saved && saved.candidates) {
-    ({ candidates, interviews, onboardings, notifyLog, refDetails } = saved);
-    refReports = saved.refReports || {};
-    if(saved.positions) positions = saved.positions;
-    candidates.forEach(c => { c.role = normalizeRole(c.role); });
-    positions.forEach(p => { p.role = normalizeRole(p.role); });
-    return true;
-  }
-  return false;
 }
 
 function saveState() {
@@ -5410,8 +5362,8 @@ function openMetricDetail(type) {
     total: {
       title: '전체 진행 지원자',
       color: 'var(--blue)', bg: 'var(--bbg)', icon: '👥',
-      filter: c => c.stage !== 6,
-      sub: () => `활성 지원자 ${candidates.filter(c=>c.stage!==6).length}명`,
+      filter: c => c.stage !== 6 && !c.held,
+      sub: () => `활성 지원자 ${candidates.filter(c=>c.stage!==6 && !c.held).length}명`,
     },
     int1: {
       title: '1차 면접 대상',
@@ -6272,7 +6224,7 @@ function confirmStageChange() {
   pendingStageChange = null;
   renderTracker(); renderDashboard(); renderPositions();
   toast(`${esc(c.name)} → ${STAGES[newStage]}`, 'tok');
-  syncCandToSP(c).then(()=>saveState());
+  saveState();
   // 모집단위 상세에서 진입한 경우 복귀
   if(returnToPosId != null) {
     const pid = returnToPosId;
@@ -6384,7 +6336,7 @@ function addCandidate() {
     populateSel('int-cand'); populateSel('ob-cand');
     toast(`${name}님 정보 수정 완료`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(existing);
-    syncCandToSP(existing).then(()=>saveState());
+    saveState();
   } else {
     // 신규 등록 모드
     const newCand = {
@@ -6408,7 +6360,7 @@ function addCandidate() {
     populateSel('int-cand'); populateSel('ob-cand');
     toast(`${name}님 등록 완료`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(newCand);
-    syncCandToSP(newCand).then(()=>saveState());
+    saveState();
     // 모집단위 상세에서 추가한 경우 → 모집단위 상세로 복귀
     const rp = modal.dataset.returnPosId;
     if(rp) {
@@ -6444,9 +6396,9 @@ function filterEtype(e, el) {
 
 function updateStageBar() {
   const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  const active = candidates.filter(c=>c.stage!==6);
+  const active = candidates.filter(c=>c.stage!==6 && !c.held);
   set('sf-all', active.length);
-  STAGES.forEach((_,i) => set('sf-'+i, candidates.filter(c=>c.stage===i).length));
+  STAGES.forEach((_,i) => set('sf-'+i, candidates.filter(c=>c.stage===i && (i===6 || !c.held)).length));
 }
 
 function renderTracker() {
@@ -6945,12 +6897,19 @@ function sendRefRequest(id){
   if(pid!=null) setTimeout(()=>openPosDetail(Number(pid)),300);
 }
 function startAllEligible(){
-  const el=candidates.filter(c=>c.stage>=2&&c.ref==='미시작');
+  const el=candidates.filter(c=>c.stage>=2&&c.stage<=5&&c.ref==='미시작');
   if(!el.length){alert('일괄 시작할 대상이 없습니다.');return;}
   if(!confirm(`2차면접 이상 미시작 ${el.length}명에게 일괄 발송하시겠습니까?`))return;
-  el.forEach(c=>{c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);logNotify('Outlook','레퍼런스발송',c.name,c.email);if(GS_CONFIG.scriptUrl)syncCandToGS(c);});
+  el.forEach((c,idx)=>{
+    c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);
+    const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 추천인 등록 안내`;
+    const body=buildRefRequestEmail(c);
+    setTimeout(()=>openMailto(c.email,subject,body,true),idx*650);
+    logNotify('Outlook','레퍼런스발송',c.name,c.email);
+    if(GS_CONFIG.scriptUrl)syncCandToGS(c);
+  });
   saveState();renderReference();updateMetrics();
-  toast(`${el.length}명 레퍼런스 체크 일괄 발송`,'toutlook');
+  toast(`${el.length}명 레퍼런스 안내 개인 메일을 순차적으로 엽니다.`,'toutlook');
 }
 // 레퍼런스 리마인드 메일 본문 (템플릿 기반)
 function buildRefRemindEmail(candName, refName) {
@@ -6966,7 +6925,7 @@ function buildRefRemindEmail(candName, refName) {
 function remindRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   ensureRefDetails(c);
-  const pendingRefs=refDetails[id].filter(r=>r.status==='대기');
+  const pendingRefs=refDetails[id].filter(r=>r.status==='대기'||r.status==='등록');
   if(!pendingRefs.length){toast('미응답 추천인이 없습니다.');return;}
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'[레퍼런스 체크 설문 URL]';
   pendingRefs.forEach((r,i)=>{
@@ -6993,9 +6952,19 @@ function completeRef(id){
 function remindAllRef(){
   const p=candidates.filter(c=>c.ref==='진행중');
   if(!p.length){alert('진행 중인 건이 없습니다.');return;}
-  p.forEach(c=>{ensureRefDetails(c);refDetails[c.id].filter(r=>r.status==='대기').forEach(r=>{r.remindCnt=(r.remindCnt||0)+1;logNotify('Outlook','전체리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);});});
+  const mails=[];
+  p.forEach(c=>{
+    ensureRefDetails(c);
+    refDetails[c.id].filter(r=>r.status==='대기'||r.status==='등록').forEach(r=>{
+      r.remindCnt=(r.remindCnt||0)+1;
+      mails.push({c,r,subject:`[레퍼런스 체크 리마인드] ${esc(c.name)}님 레퍼런스 체크 응답 부탁드립니다`,body:buildRefRemindEmail(c.name,r.name)});
+      logNotify('Outlook','전체리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);
+    });
+  });
+  if(!mails.length){toast('미응답 추천인이 없습니다.','tw');return;}
+  mails.forEach((m,idx)=>setTimeout(()=>openMailto(m.r.email,m.subject,m.body,true),idx*650));
   saveState();renderReference();
-  toast(`${p.length}명 전체 리마인드 발송`,'toutlook');
+  toast(`미응답 추천인 ${mails.length}명 리마인드 메일을 순차적으로 엽니다.`,'toutlook');
 }
 
 async function generateAI(){
@@ -7458,7 +7427,6 @@ async function loadSettingsWithGS() {
       set('cfg-ref-days',        gsCfg.refDays);
       set('cfg-remind-days',     gsCfg.remindDays);
       set('cfg-hr-email',        gsCfg.hrEmail);
-      set('cfg-sp-url',          gsCfg.spUrl);
       set('cfg-gs-url',          gsCfg.gsUrl);
       set('cfg-interviewer-url', gsCfg.interviewerUrl);
       set('cfg-ref-auto-url',    gsCfg.refAutoUrl);
@@ -7472,7 +7440,6 @@ async function loadSettingsWithGS() {
       set('tpl-ref-remind',      gsCfg.tplRefRemind);
       set('tpl-reject',          gsCfg.tplReject);
       set('tpl-collect',         gsCfg.tplCollect);
-      if(gsCfg.spUrl)          SP_CONFIG.siteUrl = gsCfg.spUrl;
       if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
       if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
       if(gsCfg.refAutoUrl)     GS_CONFIG.refAutoUrl = gsCfg.refAutoUrl;
@@ -7481,71 +7448,6 @@ async function loadSettingsWithGS() {
   }
 }
 
-
-// ── SharePoint 연결 테스트 ───────────────────────────────────
-async function testSPConnection() {
-  const urlEl = document.getElementById('cfg-sp-url');
-  const statusEl = document.getElementById('sp-conn-status');
-  if(!urlEl || !statusEl) return;
-
-  const url = urlEl.value.trim().replace(/\/+$/, '');
-  if(!url) { statusEl.textContent = '⚠ URL을 먼저 입력하세요.'; statusEl.style.color='var(--amber)'; return; }
-
-  statusEl.textContent = '🔄 연결 중...'; statusEl.style.color='var(--t3)';
-
-  try {
-    const res = await fetch(`${url}/_api/web/title`, {
-      headers: { 'Accept': 'application/json;odata=verbose' },
-      credentials: 'include',
-    });
-    if(res.ok) {
-      const data = await res.json();
-      const title = data?.d?.Title || 'SharePoint';
-      SP_CONFIG.siteUrl = url;
-      statusEl.textContent = `✅ 연결 성공 — "${title}"`;
-      statusEl.style.color = 'var(--green)';
-      // 설정 자동 저장
-      document.getElementById('cfg-sp-url').value = url;
-      saveSettings();
-      toast('SharePoint 연결 성공! 이제 지원자 데이터가 자동 동기화됩니다.', 'tok');
-      // 기존 데이터 SP에 업로드
-      if(candidates.length > 0 && confirm(`현재 대시보드의 지원자 ${candidates.length}명을 SharePoint에 업로드하시겠습니까?`)) {
-        uploadAllToSP();
-      }
-    } else if(res.status === 401) {
-      statusEl.textContent = '❌ 인증 실패 (401) — 브라우저에서 Microsoft 365 로그인 확인';
-      statusEl.style.color = 'var(--red)';
-    } else if(res.status === 403) {
-      statusEl.textContent = '❌ 권한 없음 (403) — SharePoint 사이트 기여자 권한 확인';
-      statusEl.style.color = 'var(--red)';
-    } else {
-      statusEl.textContent = `❌ 연결 실패 (${res.status}) — URL 확인`;
-      statusEl.style.color = 'var(--red)';
-    }
-  } catch(e) {
-    if(e.message.includes('CORS') || e.message.includes('Failed to fetch')) {
-      statusEl.textContent = '❌ CORS 오류 — HTML 파일을 SharePoint에 업로드 후 실행하세요';
-    } else {
-      statusEl.textContent = `❌ 연결 오류: ${e.message}`;
-    }
-    statusEl.style.color = 'var(--red)';
-  }
-}
-
-// ── 전체 지원자 SP 업로드 ─────────────────────────────────────
-async function uploadAllToSP() {
-  if(!SP_CONFIG.siteUrl) return;
-  showSyncStatus('전체 업로드 중...', '');
-  let success = 0;
-  for(const cand of candidates) {
-    await syncCandToSP(cand);
-    success++;
-    showSyncStatus(`업로드 중... ${success}/${candidates.length}명`, '');
-  }
-  saveState();
-  showSyncStatus(`업로드 완료 — ${success}명`, 'ok');
-  toast(`SharePoint 업로드 완료 (${success}명)`, 'tok');
-}
 
 // ══════════════════════════════════════════════════════════════
 // 설정 저장
@@ -7560,7 +7462,6 @@ function saveSettings() {
     refDays: document.getElementById('cfg-ref-days')?.value || '7',
     remindDays: document.getElementById('cfg-remind-days')?.value || '3',
     hrEmail: document.getElementById('cfg-hr-email')?.value || '',
-    spUrl:   document.getElementById('cfg-sp-url')?.value  || '',
     gsUrl:        document.getElementById('cfg-gs-url')?.value        || '',
     interviewerUrl: document.getElementById('cfg-interviewer-url')?.value || '',
     refAutoUrl: document.getElementById('cfg-ref-auto-url')?.value || '',
@@ -7606,8 +7507,6 @@ function loadSettings() {
     set('cfg-ref-days',         cfg.refDays);
     set('cfg-remind-days',      cfg.remindDays);
     set('cfg-hr-email',         cfg.hrEmail);
-    set('cfg-sp-url',           cfg.spUrl);
-    if(cfg.spUrl) SP_CONFIG.siteUrl = cfg.spUrl; // SP 연동 복원
     set('cfg-gs-url', cfg.gsUrl);
     if(cfg.gsUrl) GS_CONFIG.scriptUrl = cfg.gsUrl; // GS 연동 복원
     set('cfg-interviewer-url', cfg.interviewerUrl);
@@ -7654,14 +7553,22 @@ try {
   // overlay 클릭 시 모달 닫기
   document.querySelectorAll('.overlay').forEach(o => {
     o.addEventListener('click', e => {
-      if(e.target===o) { o.style.display='none'; o.classList.remove('open'); }
+      if(e.target===o) closeModal(o.id);
     });
   });
-  // ESC 키로 모달 닫기
+  // ESC 닫기 + 모달 내부 Tab 포커스 순환
   document.addEventListener('keydown', e => {
+    const open = [...document.querySelectorAll('.overlay.open')].pop();
+    if(!open) return;
     if(e.key === 'Escape') {
-      const open = document.querySelector('.overlay.open');
-      if(open) { open.style.display='none'; open.classList.remove('open'); }
+      closeModal(open.id);
+    } else if(e.key === 'Tab') {
+      const focusable = [...open.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if(!focusable.length) { e.preventDefault(); open.focus(); return; }
+      const first = focusable[0], last = focusable[focusable.length-1];
+      if(e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
   });
   // ob 이벤트 리스너
@@ -7728,6 +7635,8 @@ try {
     if(GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function') loadInterviewers();
     // 레퍼런스 상태 자동 동기화
     if(GS_CONFIG.refAutoUrl && typeof syncRefFromGS === 'function') syncRefFromGS();
+    // 이전 세션에서 실패한 GS 저장 요청 재시도
+    if(GS_CONFIG.scriptUrl) setTimeout(flushGsRetryQueue, 1500);
   });
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   renderDashboard();
