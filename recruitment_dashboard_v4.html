@@ -1634,21 +1634,21 @@ html,body{line-height:1.55;}
   </div>
 </div>
 
-<!-- ── 모집단위 면접 결과 입력 모달 ──────────────────────── -->
+<!-- ── 모집단위 지원자 판정 입력 모달 ─────────────────────── -->
 <div class="overlay" id="modal-position-result">
   <div class="modal" style="width:660px;max-height:90vh">
     <div class="modal-hd">
-      <div class="modal-title" id="pr-title">면접 결과 입력</div>
+      <div class="modal-title" id="pr-title">지원자 판정 입력</div>
       <button class="mclose" onclick="closeModal('modal-position-result')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
-      <div style="font-size:11px;color:var(--t3);padding:8px 10px;background:var(--s2);border-radius:var(--rsm);margin-bottom:10px">지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 일괄 이동할 수 있습니다.</div>
+      <div id="pr-help" style="font-size:11px;color:var(--t3);padding:8px 10px;background:var(--s2);border-radius:var(--rsm);margin-bottom:10px">지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 이동할 수 있습니다.</div>
       <div id="pr-list"></div>
     </div>
     <div class="modal-ft">
       <button class="btn" onclick="closeModal('modal-position-result')">취소</button>
-      <button class="btn" onclick="savePositionResults(false)">판정 저장</button>
-      <button class="btn btn-primary" onclick="savePositionResults(true)">판정 확정 및 단계 이동</button>
+      <button class="btn" id="pr-save-btn" onclick="savePositionResults(false)">판정 저장</button>
+      <button class="btn btn-primary" id="pr-confirm-btn" onclick="savePositionResults(true)">판정 확정 및 단계 이동</button>
     </div>
   </div>
 </div>
@@ -1896,8 +1896,8 @@ const STAGE_GUIDES = {
   1: { msg:'1차 실무면접 단계로 이동합니다.\n면접 일정을 등록하고 지원자에게 안내 메시지를 발송하세요.', notify:true, tpl:'int1' },
   2: { msg:'레퍼런스 체크 단계로 이동합니다.\n지원자에게 추천인 등록 안내를 발송하고 체크를 시작합니다.', notify:true, tpl:'ref' },
   3: { msg:'2차 임원면접 단계로 이동합니다.\n레퍼런스 체크 완료 확인 후 면접 일정을 등록하세요.', notify:true, tpl:'int2' },
-  4: { msg:'처우 협의 단계로 이동합니다.\n처우 조건을 확인 후 지원자와 협의를 시작하세요.', notify:false },
-  5: { msg:'🎉 최종 합격 처리입니다!\n다음 단계(입사)로 이동 시 입사 안내가 발송됩니다.', notify:false },
+  4: { msg:'처우협의 단계로 이동합니다.\n연봉·직급·입사일 등 조건 협의 후 최종 판정을 진행하세요.', notify:false },
+  5: { msg:'🎉 처우협의가 완료되어 최종합격으로 확정됩니다.\n입사 안내는 최종합격 확정 후 별도로 발송합니다.', notify:false },
   6: { msg:'불합격 처리합니다.\n지원자에게 불합격 안내 메시지를 발송하시겠습니까?', notify:true, tpl:'reject' },
   7: { msg:'입사 단계로 이동합니다.\n지원자에게 입사 안내를 발송하세요.', notify:true, tpl:'onboard' },
 };
@@ -2957,7 +2957,8 @@ function setDecision(candId, decision, posId) {
 
 // 모집단위 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
 async function confirmStageDecisions(posId, stageIdx) {
-  const round = STAGES[stageIdx];
+  const isFinalDecision = Number(stageIdx) === 4;
+  const round = isFinalDecision ? '처우협의 결과' : STAGES[stageIdx];
   const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
   if(!posCands.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
 
@@ -2973,9 +2974,13 @@ async function confirmStageDecisions(posId, stageIdx) {
   const failers = posCands.filter(c => c.decision === 'fail');
 
   if(undecided.length) {
-    if(!confirm(`아직 판정하지 않은 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n판정된 인원만 이동시키고, 미판정자는 현재 단계에 남깁니다.\n계속할까요?`)) return;
+    if(!confirm(isFinalDecision
+      ? `처우협의 중인 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n결과가 선택된 인원만 확정하고, 협의중인 지원자는 처우협의 단계에 남깁니다.\n계속할까요?`
+      : `아직 판정하지 않은 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n판정된 인원만 이동시키고, 미판정자는 현재 단계에 남깁니다.\n계속할까요?`)) return;
   } else {
-    if(!confirm(`'${round}' 단계 판정을 확정합니다.\n\n· 합격 ${passers.length}명 → 다음 단계 이동\n· 불합격 ${failers.length}명 → 전형 종료\n\n진행할까요?`)) return;
+    if(!confirm(isFinalDecision
+      ? `처우협의 결과를 확정합니다.\n\n· 최종합격 ${passers.length}명 → 충원 seat 반영\n· 불합격 ${failers.length}명 → 전형 종료\n· 협의중 ${undecided.length}명 → 처우협의 유지\n\n진행할까요?`
+      : `'${round}' 단계 판정을 확정합니다.\n\n· 합격 ${passers.length}명 → 다음 단계 이동\n· 불합격 ${failers.length}명 → 전형 종료\n\n진행할까요?`)) return;
   }
 
   const nx = nextFlowStage(stageIdx, posId);
@@ -3008,7 +3013,9 @@ async function confirmStageDecisions(posId, stageIdx) {
   if(GS_CONFIG.scriptUrl) await settleSync([...passers, ...failers].map(c => syncCandToGS(c)), '판정 결과 동기화');
   renderPositions(); renderDashboard();
   openPosDetail(Number(posId));
-  toast(`판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
+  toast(isFinalDecision
+    ? `처우협의 결과 확정: 최종합격 ${passCnt}명, 불합격 ${failCnt}명 종료`
+    : `판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
 }
 
 // 모집단위 단계의 미확정 면접 일정을 전체 확정
@@ -3263,10 +3270,10 @@ function openPosDetailLegacy(posId) {
       const stageActionDone = (cd) => {
         switch(stageIdx){
           case 0: return interviews.some(i=>Number(i.candId)===Number(cd.id) && i.type==='1차'); // 1차 일정 처리 시작
-          case 1: case 3: return !!cd.decision;                                 // 합/불 판정 완료
+          case 1: case 3: case 4: return !!cd.decision;                         // 면접/최종 판정 완료
           case 2: return cd.ref==='완료';                                       // 레퍼런스 완료
           case 5: return onboardings.some(o=>Number(o.candId)===Number(cd.id)); // 입사 안내 발송됨
-          default: return null;                                                 // 4(처우)·7(입사): 분리 없음
+          default: return null;                                                 // 7(입사): 분리 없음
         }
       };
       const splitOn = stageActionDone(stageCands[0]) !== null;
@@ -3395,11 +3402,16 @@ function openPosDetailLegacy(posId) {
                     return `<button class="btn btn-sm ${dec==='pass'?'btn-green':''}" style="font-size:11px;${dec==='pass'?'':'color:var(--green);border-color:var(--green)'}" onclick="setDecision(${cand.id},'pass',${posId})">${dec==='pass'?'✓ 합격 ●':'합격'}</button>`
                       + `<button class="btn btn-sm" style="font-size:11px;${dec==='fail'?'background:var(--red);color:#fff;border-color:var(--red)':'color:var(--red);border-color:var(--red)'}" onclick="setDecision(${cand.id},'fail',${posId})">${dec==='fail'?'✗ 불합격 ●':'불합격'}</button>`;
                   }
-                  // 레퍼런스(2)·처우협의(4): 다음 단계 진행 (+불합격 선택)
-                  if(stageIdx === 2 || stageIdx === 4) {
+                  // 레퍼런스(2): 다음 단계 진행 (+불합격 선택)
+                  if(stageIdx === 2) {
                     const nx = nextFlowStage(stageIdx);
                     return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ ${STAGES[nx]}</button>`
                       + `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>`;
+                  }
+                  // 처우협의(4): 조건 협의 후 최종 판정 화면에서 최종합격/불합격 결정
+                  if(stageIdx === 4) {
+                    const dec = cand.decision || '';
+                    return `<button class="btn btn-sm ${dec?'btn-primary':''}" style="font-size:11px" onclick="openPositionResultModal(${posId},4)">${dec==='pass'?'최종합격 선택됨':dec==='fail'?'불합격 선택됨':'처우협의 결과'}</button>`;
                   }
                   // 최종합격(5) = 충원 완료(입사 단계 폐지) → 입사 안내·사내부서 통보를 이 단계에서 처리
                   if(stageIdx === 5) {
@@ -3586,7 +3598,7 @@ function getPositionActionItems(positionId) {
   }
 
   const offerStage = list.filter(c => c.stage === 4);
-  if(offerStage.length) add('offer_negotiation','low','처우협의 진행 중',`${offerStage.length}명 · 협의 후 최종합격 처리`,'지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+  if(offerStage.length) add('offer_negotiation','medium','처우협의 결과 입력 필요',`${offerStage.length}명 · 협의 결과를 최종합격/불합격/협의중으로 입력하세요.`,'결과 입력','openPositionResultModal',`openPositionResultModal(${positionId},4)`);
 
   if(projectStatus === 'active' || projectStatus === 'partial') {
     if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 모집단위를 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closeModal('modal-pos-detail');closePosition(${positionId})`);
@@ -3719,6 +3731,7 @@ function renderPositionBatchToolbar(positionId) {
     if(d.list.some(c => c.stage === 2 || c.stage === 3)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${positionId},3)">2차 공동일정 확정</button>`);
     if(d.list.some(c => c.stage === 3)) btns.push(`<button class="btn btn-xs btn-primary" onclick="confirmStageDecisions(${positionId},3)">2차 결과 일괄 확정</button>`);
   }
+  if(d.list.some(c => c.stage === 4)) btns.push(`<button class="btn btn-xs btn-green" onclick="openPositionResultModal(${positionId},4)">처우협의 결과 입력</button>`);
   if(!btns.length) return '';
   return `<div class="pp-batch"><span style="font-size:10.5px;font-weight:700;color:var(--t2);margin-right:4px">모집단위 일괄 처리</span>${btns.join('')}</div>`;
 }
@@ -3754,12 +3767,13 @@ function renderPositionProcessChecklist(positionId) {
     { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots'],'int1_slots'),mergeTask('일정 확정',['int1_confirm'],'int1_confirm'),mergeTask('면접 안내',['int1_panel','int1_cand'],'int1_notice'),mergeTask('결과 입력',['int1_result'],'int1_result')] },
     { title:'레퍼런스', stage:2, tasks:[mergeTask('레퍼런스 요청',['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
     { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('일정 확정',['int2_confirm'],'int2_confirm'),mergeTask('면접 안내',['int2_panel','int2_cand'],'int2_notice'),mergeTask('결과 입력',['int2_result'],'int2_result')] },
-    { title:'최종 단계', stage:4, tasks:[mergeTask('처우협의',['offer'],'offer'),mergeTask('최종합격',['final'],'final'),mergeTask('입사안내',['onboard'],'onboard')] },
+    { title:'처우협의', stage:4, tasks:[mergeTask('처우협의 및 결과 판단',['offer','final'],'offer_decision'),mergeTask('입사안내',['onboard'],'onboard')] },
   ];
   const shortNote = d && isShortProcessEtype(d.pos.etype)
     ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
     : '';
   return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">프로세스 진행현황</div><div class="pp-section-sub">상위 단계를 클릭하면 세부 진행상태를 확인할 수 있습니다.</div></div></div>
+    <div class="pp-process-note" style="margin-bottom:8px"><b>처우협의</b>에서 연봉·직급·입사일 등 조건을 협의하고, 같은 화면에서 지원자별 결과를 <b>최종합격·불합격·협의중</b>으로 판단합니다.</div>
     ${shortNote}
     <div class="pp-process-groups">${groups.map(g=>{
       const tasks = g.tasks;
@@ -3819,7 +3833,15 @@ async function executePositionProcessTask(positionId, actionKey) {
   if(actionKey === 'ref_request') return requestPositionReferences(positionId);
   if(actionKey === 'ref_complete') return completePositionReferences(positionId);
   if(actionKey === 'offer') return changePositionProcessStage(positionId, 4);
-  if(actionKey === 'final') return changePositionProcessStage(positionId, 5);
+  if(actionKey === 'offer_decision') {
+    if(d.list.some(c=>c.stage===4)) return openPositionResultModal(positionId,4);
+    const flow=getPositionFlow(d.pos);
+    const offerIndex=flow.indexOf(4);
+    const previousStage=offerIndex>0?flow[offerIndex-1]:-1;
+    if(previousStage>=0 && d.list.some(c=>c.stage===previousStage)) return changePositionProcessStage(positionId,4);
+    return toast('처우협의 결과가 이미 확정되었거나 이동할 대상자가 없습니다.','tok');
+  }
+  if(actionKey === 'final') return openPositionResultModal(positionId, 4);
   if(actionKey === 'onboard') return openOnboardingFromPosition(positionId);
 }
 
@@ -3828,16 +3850,25 @@ let positionResultCtx = { positionId:null, stageIdx:null };
 function openPositionResultModal(positionId, stageIdx) {
   const pos = positions.find(p=>Number(p.id)===Number(positionId));
   const list = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===Number(stageIdx));
-  if(!pos || !list.length) { toast('결과를 입력할 면접 대상자가 없습니다.', 'terr'); return; }
+  if(!pos || !list.length) { toast(stageIdx===4?'결과를 입력할 처우협의 대상자가 없습니다.':'결과를 입력할 면접 대상자가 없습니다.', 'terr'); return; }
   positionResultCtx = { positionId:Number(positionId), stageIdx:Number(stageIdx) };
-  document.getElementById('pr-title').textContent = `${stageLabel(stageIdx)} 결과 입력 — ${pos.title} (${list.length}명)`;
+  const isFinal = Number(stageIdx) === 4;
+  document.getElementById('pr-title').textContent = `${isFinal?'처우협의 결과 입력':stageLabel(stageIdx)+' 결과 입력'} — ${pos.title} (${list.length}명)`;
+  const help=document.getElementById('pr-help');
+  if(help) help.textContent=isFinal
+    ? '지원자별 처우협의 결과를 선택하세요. 최종합격자는 충원 seat에 반영되고, 불합격자는 전형 종료되며, 협의중인 지원자는 처우협의 단계에 남습니다.'
+    : '지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 이동할 수 있습니다.';
+  const saveBtn=document.getElementById('pr-save-btn');
+  const confirmBtn=document.getElementById('pr-confirm-btn');
+  if(saveBtn) saveBtn.textContent=isFinal?'협의 결과 임시 저장':'판정 저장';
+  if(confirmBtn) confirmBtn.textContent=isFinal?'처우협의 결과 확정':'판정 확정 및 단계 이동';
   document.getElementById('pr-list').innerHTML = list.map(c=>`
     <div style="display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border)">
       <div><div style="font-size:12.5px;font-weight:700">${esc(c.name)}</div><div style="font-size:10.5px;color:var(--t3)">${esc(c.email||'-')}</div></div>
       <div style="display:flex;gap:5px">
-        <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" onchange="selectPositionResult(this)">합격</label>
+        <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
         <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" onchange="selectPositionResult(this)">불합격</label>
-        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" onchange="selectPositionResult(this)">미정</label>
+        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" onchange="selectPositionResult(this)">${isFinal?'협의중':'미정'}</label>
       </div>
     </div>`).join('');
   openModal('modal-position-result');
@@ -3860,11 +3891,11 @@ async function savePositionResults(confirmAndMove) {
     c.decision = selected ? selected.value : '';
   });
   saveState();
-  if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>syncCandToGS(c)), '면접 결과 저장 동기화');
+  if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>syncCandToGS(c)), stageIdx===4?'처우협의 결과 저장 동기화':'면접 결과 저장 동기화');
   closeModal('modal-position-result');
   renderPositionDetail(positionId);
   if(confirmAndMove) return confirmStageDecisions(positionId, stageIdx);
-  toast(`${stageLabel(stageIdx)} 판정 저장 완료`, 'tok');
+  toast(`${stageIdx===4?'처우협의 결과':stageLabel(stageIdx)+' 판정'} 저장 완료`, 'tok');
 }
 
 async function completePositionInterviews(positionId, stageIdx) {
