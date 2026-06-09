@@ -440,7 +440,7 @@ html,body{line-height:1.55;}
 /* 모집단위 칸반: 동일 배경, 충분한 폭과 읽기 쉬운 정보 밀도 */
 .position-kanban{gap:12px;padding:4px 2px 12px;}
 .position-kanban-col{flex:1 0 145px;min-width:145px;background:var(--s2);border:1px solid var(--border);padding:11px 10px;}
-.position-kanban-card{padding:10px 11px;margin-bottom:9px;}
+.position-kanban-card{padding:10px 11px;margin-bottom:9px;height:88px;overflow:hidden;}
 .position-kanban-title{font-size:13px;font-weight:650;line-height:1.35;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .position-kanban-title.is-long{font-size:11.5px;letter-spacing:-.2px;}
 .position-kanban-title.is-xlong{font-size:10.5px;letter-spacing:-.35px;}
@@ -586,7 +586,6 @@ html,body{line-height:1.55;}
 .pp-task{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:5px;align-items:center;min-height:29px;padding:4px 2px;border-bottom:1px solid var(--border);}
 .pp-task.actionable{cursor:pointer;border-radius:4px;}
 .pp-task.actionable:hover{background:var(--acc-light);}
-.pp-task.actionable::after{content:'실행 ›';grid-column:2/4;font-size:8px;font-weight:700;color:var(--acc);margin-top:-2px;}
 .pp-task:last-child{border-bottom:0;}
 .pp-task-dot{width:7px;height:7px;border-radius:50%;background:var(--s3);border:1px solid var(--border2);}
 .pp-task-title{font-size:9.5px;font-weight:600;color:var(--t2);line-height:1.2;}
@@ -3772,8 +3771,7 @@ function renderPositionProcessChecklist(positionId) {
   const shortNote = d && isShortProcessEtype(d.pos.etype)
     ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
     : '';
-  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">프로세스 진행현황</div><div class="pp-section-sub">상위 단계를 클릭하면 세부 진행상태를 확인할 수 있습니다.</div></div></div>
-    <div class="pp-process-note" style="margin-bottom:8px"><b>처우협의</b>에서 연봉·직급·입사일 등 조건을 협의하고, 같은 화면에서 지원자별 결과를 <b>최종합격·불합격·협의중</b>으로 판단합니다.</div>
+  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">프로세스 진행현황</div></div></div>
     ${shortNote}
     <div class="pp-process-groups">${groups.map(g=>{
       const tasks = g.tasks;
@@ -5842,6 +5840,48 @@ function renderUrgent() {
 // 대시보드
 // ══════════════════════════════════════════════════════════════
 // 모집단위별 단계 칸반보드
+function getPositionKanbanStatus(pos, cands, cur) {
+  const current = cands.filter(c=>c.stage===cur);
+  if(cur===0) {
+    const scheduled=current.filter(c=>interviews.some(i=>Number(i.candId)===Number(c.id)&&i.type==='1차')).length;
+    return scheduled ? `일정수립 ${scheduled}/${current.length}` : `일정수립대기 ${current.length}명`;
+  }
+  if(cur===1 || cur===3) {
+    const round=cur===1?'1차':'2차';
+    const ids=new Set(current.map(c=>Number(c.id)));
+    const list=interviews.filter(i=>ids.has(Number(i.candId))&&String(i.type||'').startsWith(round));
+    const done=list.filter(i=>i.status==='done').length;
+    const confirmed=list.filter(i=>i.status==='confirmed').length;
+    const pending=list.filter(i=>(i.status||'pending')==='pending').length;
+    const decided=current.filter(c=>c.decision).length;
+    if(done && decided<current.length) return `결과대기 ${current.length-decided}명`;
+    if(decided) return `판정완료 ${decided}/${current.length}`;
+    if(confirmed) {
+      const dates=[...new Set(list.filter(i=>i.status==='confirmed'&&i.date).map(i=>i.date))].sort();
+      return dates.length ? `면접예정 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}` : `일정확정 ${confirmed}명`;
+    }
+    if(pending) return `회신대기 ${pending}명`;
+    return `일정미등록 ${current.length}명`;
+  }
+  if(cur===2) {
+    const total=current.reduce((n,c)=>n+(Number(c.refT)||3),0);
+    const answered=current.reduce((n,c)=>n+(Number(c.refD)||0),0);
+    const notStarted=current.filter(c=>c.ref==='미시작').length;
+    if(notStarted===current.length) return `요청대기 ${notStarted}명`;
+    if(answered<total) return `응답 ${answered}/${total}`;
+    return `응답완료 ${answered}/${total}`;
+  }
+  if(cur===4) {
+    const decided=current.filter(c=>c.decision).length;
+    return decided ? `결과입력 ${decided}/${current.length}` : `협의중 ${current.length}명`;
+  }
+  if(cur===5) {
+    const sent=current.filter(c=>c.notified||onboardings.some(o=>Number(o.candId)===Number(c.id)&&o.notified)).length;
+    return sent<current.length ? `안내대기 ${current.length-sent}명` : `안내완료 ${sent}명`;
+  }
+  return `${current.length}명 진행중`;
+}
+
 function renderKanban() {
   const el = document.getElementById('dash-kanban');
   if(!el) return;
@@ -5870,23 +5910,11 @@ function renderKanban() {
     const col = stageColor(cur);
     const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
     const titleSizeClass = title.length > 20 ? ' is-xlong' : (title.length > 14 ? ' is-long' : '');
-    // 면접 단계(1·2차)면 현재 단계명 옆에 가장 이른 면접일 표기
-    let stageDate = '';
-    if(cur===1 || cur===3){
-      const round = cur===1 ? '1차' : '2차';
-      const candIds = new Set(cands.filter(c=>c.stage===cur).map(c=>Number(c.id)));
-      const dates = [...new Set(interviews
-        .filter(i=>candIds.has(Number(i.candId)) && String(i.type||'').startsWith(round) && i.date)
-        .map(i=>i.date))]
-        .sort();
-      stageDate = dates.length
-        ? `<span class="pk-stage-date">(${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''})</span>`
-        : `<span class="pk-stage-date warn">(일정 미확정)</span>`;
-    }
+    const progressStatus = getPositionKanbanStatus(pos,cands,cur);
     const card = `<div class="position-kanban-card" role="button" tabindex="0" onkeydown="kbActivate(event)" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
       <div class="position-kanban-title${titleSizeClass}" title="${esc(title)}">${esc(title)}</div>
       <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
-      <div class="pk-stage" style="color:${col}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block;flex:0 0 auto"></span>${STAGES[cur]} ${stageDate}</div>
+      <div class="pk-stage" style="color:${col}" title="${esc(progressStatus)}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block;flex:0 0 auto"></span>${esc(progressStatus)}</div>
     </div>`;
     (colCards[cur] = colCards[cur] || []).push(card);
   });
