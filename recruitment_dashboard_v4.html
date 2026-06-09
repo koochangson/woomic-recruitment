@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -419,7 +419,7 @@ html,body{line-height:1.55;}
 /* (D) 칸반 단계 헤더 굵기 정리 (800 → 700) */
 .position-kanban-col-h{font-weight:700;}
 
-/* ── ATS 대시보드 최종 디자인 (모집단위 중심) ───────────────── */
+/* ── ATS 대시보드 최종 디자인 (포지션 중심) ───────────────── */
 /* KPI: 일반 현황은 차분하게, 운영·처리 항목은 명확하게 */
 .mc{min-height:78px;padding:12px 15px;border-left-color:var(--border2);}
 .mc-lbl{font-size:10px;margin-bottom:4px;}
@@ -437,7 +437,7 @@ html,body{line-height:1.55;}
 #dash-urgent-card.is-empty{padding:10px 14px;border-style:dashed;background:var(--surface);}
 .urgent-empty{display:flex;align-items:center;gap:7px;color:var(--green);font-size:11.5px;font-weight:600;}
 .urgent-empty-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto;}
-/* 모집단위 칸반: 동일 배경, 충분한 폭과 읽기 쉬운 정보 밀도 */
+/* 포지션 칸반: 동일 배경, 충분한 폭과 읽기 쉬운 정보 밀도 */
 .position-kanban{gap:12px;padding:4px 2px 12px;}
 .position-kanban-col{flex:1 0 145px;min-width:145px;background:var(--s2);border:1px solid var(--border);padding:11px 10px;}
 .position-kanban-card{padding:7px 9px;margin-bottom:7px;height:72px;overflow:hidden;}
@@ -448,7 +448,7 @@ html,body{line-height:1.55;}
 .position-kanban-col-sub{font-size:11px;margin-bottom:9px;}
 .stage-col{background:var(--s2);}
 .stage-col-title{font-size:12.5px;font-weight:700;}
-/* 모집단위 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 면접일 */
+/* 포지션 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 면접일 */
 .pk-meta{font-size:10.5px;color:var(--t2);margin-bottom:3px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
 .pk-meta .pk-dot{color:var(--t3);}
 .pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -463,7 +463,7 @@ html,body{line-height:1.55;}
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .section-title{font-size:17px;font-weight:700;letter-spacing:-.2px;}
 .section-sub{font-size:11.5px;color:var(--t3);margin-top:2px;}
-/* 모집단위 관리 */
+/* 포지션 관리 */
 .pos-manage-card{padding:0;overflow:hidden;}
 .pos-card-main{padding:15px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;}
 .pos-card-actions{border-top:1px solid var(--border);padding:8px 18px;display:flex;gap:6px;background:#FAFBFC;align-items:center;}
@@ -531,7 +531,7 @@ html,body{line-height:1.55;}
   .stage-bar{overflow-x:auto;}
   .stage-seg{flex:0 0 82px;}
 }
-/* ── 모집단위 상세: 채용 프로젝트 관리 화면 ───────────────── */
+/* ── 포지션 상세: 채용 프로젝트 관리 화면 ───────────────── */
 #modal-pos-detail .modal{width:min(940px,92vw)!important;max-height:95vh!important;}
 #modal-pos-detail .modal-hd{padding:12px 18px;}
 #modal-pos-detail .modal-body{padding:9px 11px;background:#F7F9FC;}
@@ -657,40 +657,40 @@ html,body{line-height:1.55;}
   <nav class="sb-nav">
     <div class="ng">
       <div class="ng-label">메인</div>
-      <button class="nb on" onclick="nav('dash',this)">
+      <button class="nb on" data-action="nav" data-target="dash">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
         대시보드
       </button>
-      <button class="nb" onclick="nav('position',this)">
+      <button class="nb" data-action="nav" data-target="position">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="2"/><path d="M5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 7v4M6 9h4"/></svg>
-        모집단위 관리
+        포지션 관리
         <span class="nbb" id="nb-pos">0</span>
       </button>
     </div>
     <div class="ng">
       <div class="ng-label">전체 조회</div>
-      <button class="nb" onclick="nav('tracker',this)">
+      <button class="nb" data-action="nav" data-target="tracker">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h10M2 12h6"/></svg>
         지원자 트래커
         <span class="nbb" id="nb-total">0</span>
       </button>
-      <button class="nb" onclick="nav('interview',this)">
+      <button class="nb" data-action="nav" data-target="interview">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 1v3M11 1v3M2 6h12"/></svg>
         면접 관리
         <span class="nbb warn" id="nb-int" style="display:none"></span>
       </button>
-      <button class="nb" onclick="nav('reference',this)">
+      <button class="nb" data-action="nav" data-target="reference">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2 13c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M10 8.5l1.5 1.5 2.5-3"/></svg>
         레퍼런스 체크
       </button>
-      <button class="nb" onclick="nav('onboarding',this)">
+      <button class="nb" data-action="nav" data-target="onboarding">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v7l3 3"/><circle cx="8" cy="8" r="7"/></svg>
         입사 안내
       </button>
     </div>
     <div class="ng">
       <div class="ng-label">알림 내역</div>
-      <button class="nb" onclick="nav('notifylog',this)">
+      <button class="nb" data-action="nav" data-target="notifylog">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H2v10l3-2h9V2z"/></svg>
         발송 내역
         <span class="nbb" id="nb-notify" style="display:none"></span>
@@ -698,7 +698,7 @@ html,body{line-height:1.55;}
     </div>
     <div class="ng">
       <div class="ng-label">설정</div>
-      <button class="nb" onclick="nav('settings',this)">
+      <button class="nb" data-action="nav" data-target="settings">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
         알림 설정
       </button>
@@ -713,7 +713,7 @@ html,body{line-height:1.55;}
     <div class="sb-std-row"><div class="sb-std-dot" style="background:#0078D4"></div><div class="sb-std-text">Outlook — 이메일 발송</div></div>
     <div class="sb-std-row"><div class="sb-std-dot" style="background:#EA4335"></div><div class="sb-std-text">Apps Script — 자동화</div></div>
   </div>
-  <div class="sb-foot">모집단위 베이스 운영</div>
+  <div class="sb-foot">포지션 베이스 운영</div>
 </aside>
 
 <!-- ── 메인 ─────────────────────────────────────────────── -->
@@ -741,7 +741,7 @@ html,body{line-height:1.55;}
         <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled-seats">0</div><div class="mc-sub">최종합격 인원</div></div>
         <div class="mc kpi-warning"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
         <div class="mc"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
-        <div class="mc kpi-operational" onclick="nav('position')" title="모집단위 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행중 모집단위</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
+        <div class="mc kpi-operational" onclick="nav('position')" title="포지션 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행중 포지션</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
       </div>
 
       <!-- 처리 필요 -->
@@ -757,9 +757,9 @@ html,body{line-height:1.55;}
           <div style="display:flex;gap:8px;align-items:center">
             <div class="seg">
               <button class="seg-btn"    id="kb-tab-stage" onclick="switchKanban('stage')">단계별 지원자</button>
-              <button class="seg-btn on" id="kb-tab-pos"   onclick="switchKanban('pos')">모집단위별</button>
+              <button class="seg-btn on" id="kb-tab-pos"   onclick="switchKanban('pos')">포지션별</button>
             </div>
-            <button class="btn btn-xs btn-ghost" onclick="nav('position')">모집단위 관리 →</button>
+            <button class="btn btn-xs btn-ghost" onclick="nav('position')">포지션 관리 →</button>
           </div>
         </div>
         <div id="dash-stage-kanban" style="display:none"></div>
@@ -768,17 +768,17 @@ html,body{line-height:1.55;}
     </div>
 
     <!-- ② 지원자 트래커 ──────────────────────────────────── -->
-    <!-- ── 모집단위 관리 섹션 ─────────────────────────────────── -->
+    <!-- ── 포지션 관리 섹션 ─────────────────────────────────── -->
 <div id="sect-position" class="sect">
   <div class="section-head">
     <div>
-      <div class="section-title">모집단위 관리</div>
+      <div class="section-title">포지션 관리</div>
       <div class="section-sub" id="pos-count-label">전체 0개 포지션</div>
     </div>
     <div>
       <button class="btn btn-primary" onclick="openAddPosition()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 2v12M2 8h12"/></svg>
-        모집단위 추가
+        포지션 추가
       </button>
     </div>
   </div>
@@ -790,7 +790,7 @@ html,body{line-height:1.55;}
     <button class="btn btn-sm pos-tab" data-posfilter="all" onclick="setPosFilter('all',this)">전체 <span id="pos-cnt-all" style="opacity:.7"></span></button>
   </div>
 
-  <!-- 모집단위 목록 -->
+  <!-- 포지션 목록 -->
   <div id="pos-list" style="display:flex;flex-direction:column;gap:12px;"></div>
 </div>
 
@@ -847,7 +847,7 @@ html,body{line-height:1.55;}
     <div id="sect-interview" class="sect">
       <details class="help-details">
         <summary>면접 안내 운영 방식 보기</summary>
-        <div class="help-details-body"><strong>지원자 참석 안내</strong>는 이 화면 또는 단계 변경에서 지원자에게 발송합니다. <strong>면접관 참석 안내</strong>는 모집단위 상세에서 일정을 전원 확정한 뒤 면접위원에게 일괄 발송합니다. 모든 안내는 발송 버튼을 눌러 실행합니다.</div>
+        <div class="help-details-body"><strong>지원자 참석 안내</strong>는 이 화면 또는 단계 변경에서 지원자에게 발송합니다. <strong>면접관 참석 안내</strong>는 포지션 상세에서 일정을 전원 확정한 뒤 면접위원에게 일괄 발송합니다. 모든 안내는 발송 버튼을 눌러 실행합니다.</div>
       </details>
       <div class="grid g23">
         <div class="card">
@@ -1013,7 +1013,7 @@ html,body{line-height:1.55;}
           <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
           <div class="fgrid f2" style="gap:10px">
             <div class="fg full"><label>최종 합격자</label><select id="ob-cand" onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
-            <div class="fg full"><label>모집단위 / 포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
+            <div class="fg full"><label>포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
             <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" onchange="updateObPreview()"/></div>
             <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" oninput="updateObPreview()"/></div>
             <div class="fg"><label>부서장/소장 이메일 (입사 통보)</label><input id="ob-dept-lead" placeholder="teamlead@wm.co.kr; sitelead@wm.co.kr" oninput="updateObPreview()"/></div>
@@ -1063,6 +1063,17 @@ html,body{line-height:1.55;}
 
     <!-- ⑥ 알림 내역 ──────────────────────────────────────── -->
     <div id="sect-notifylog" class="sect">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ch">
+          <div class="ch-l">채용 기간 리포트</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="report-month" type="month" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px"/>
+            <button class="btn btn-xs" data-action="render-period-report">조회</button>
+            <button class="btn btn-xs btn-primary" data-action="export-period-report">CSV 다운로드</button>
+          </div>
+        </div>
+        <div id="period-report"></div>
+      </div>
       <div class="card" style="margin-bottom:12px">
         <div class="ch"><div class="ch-l">활동 로그</div><button class="btn btn-xs btn-ghost" onclick="renderActivityLog()">새로고침</button></div>
         <div id="activity-log-list" style="max-height:320px;overflow-y:auto"></div>
@@ -1216,7 +1227,7 @@ html,body{line-height:1.55;}
 아래와 같이 신규 입사자를 공유드리오니 입사 준비를 부탁드립니다.
 
 ■ 성명: {지원자명}
-■ 모집단위: {포지션}
+■ 포지션: {포지션}
 ■ 배치 부서: {부서}
 ■ 입사 예정일: {입사일}
 ■ 직책/직급: {직책}
@@ -1315,9 +1326,9 @@ html,body{line-height:1.55;}
         <div class="fg"><label>접수일</label><input type="date" id="nc-date"/></div>
         <div class="fg"><label>서류합격일 *</label><input type="date" id="nc-doc-passed"/></div>
         <div class="fg full">
-          <label>모집단위 연결 *</label>
+          <label>포지션 연결 *</label>
           <select id="nc-pos-id" onchange="updateAddCandSeatHint()">
-            <option value="">— 모집단위를 선택하세요 —</option>
+            <option value="">— 포지션를 선택하세요 —</option>
           </select>
           <div id="nc-seat-hint" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
         </div>
@@ -1510,11 +1521,11 @@ html,body{line-height:1.55;}
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
 
-<!-- ── 모집단위 추가/편집 모달 ──────────────────────────── -->
+<!-- ── 포지션 추가/편집 모달 ──────────────────────────── -->
 <div class="overlay" id="modal-position">
   <div class="modal" style="width:680px">
     <div class="modal-hd">
-      <div class="modal-title" id="pos-modal-title">모집단위 추가</div>
+      <div class="modal-title" id="pos-modal-title">포지션 추가</div>
       <button class="mclose" onclick="closeModal('modal-position')">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
       </button>
@@ -1605,11 +1616,11 @@ html,body{line-height:1.55;}
   </div>
 </div>
 
-<!-- ── 모집단위 상세 모달 ─────────────────────────────────── -->
+<!-- ── 포지션 상세 모달 ─────────────────────────────────── -->
 <div class="overlay" id="modal-pos-detail">
   <div class="modal" style="width:min(940px,92vw);max-height:95vh">
     <div class="modal-hd">
-      <div class="modal-title" id="pos-detail-title">모집단위 상세</div>
+      <div class="modal-title" id="pos-detail-title">포지션 상세</div>
       <button class="mclose" onclick="closeModal('modal-pos-detail')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body" id="pos-detail-body"></div>
@@ -1639,7 +1650,7 @@ html,body{line-height:1.55;}
   </div>
 </div>
 
-<!-- ── 모집단위 지원자 판정 입력 모달 ─────────────────────── -->
+<!-- ── 포지션 지원자 판정 입력 모달 ─────────────────────── -->
 <div class="overlay" id="modal-position-result">
   <div class="modal" style="width:660px;max-height:90vh">
     <div class="modal-hd">
@@ -1667,7 +1678,7 @@ html,body{line-height:1.55;}
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
-        모집단위 공통 면접 날짜를 기준으로 지원자 전원의 일정을 확정합니다. 특별한 사유가 있는 경우에만 확정 후 개인 시간을 수정하세요.
+        포지션 공통 면접 날짜를 기준으로 지원자 전원의 일정을 확정합니다. 특별한 사유가 있는 경우에만 확정 후 개인 시간을 수정하세요.
       </div>
       <div class="fgrid" style="gap:10px;margin-bottom:14px">
         <div class="fg"><label>면접 날짜</label><input type="date" id="bs-date"/></div>
@@ -1701,7 +1712,7 @@ html,body{line-height:1.55;}
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
-        이 모집단위 면접 대상 전원에게 <b>동일한 후보일정 3안</b>을 안내하고 가능한 일시를 회신받습니다. 회신이 오면 [공통일정 확정] 또는 개별 [일정 확정]으로 확정하세요.
+        이 포지션 면접 대상 전원에게 <b>동일한 후보일정 3안</b>을 안내하고 가능한 일시를 회신받습니다. 회신이 오면 [공통일정 확정] 또는 개별 [일정 확정]으로 확정하세요.
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">📅 공통 후보일정 (최대 3안)</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
@@ -1773,7 +1784,7 @@ html,body{line-height:1.55;}
         <select id="nh-remain-action">
           <option value="reject">전원 불합격 처리 + 안내 메일</option>
           <option value="hold">전원 보류 처리</option>
-          <option value="unlink">모집단위 연결 해제 (보류 풀)</option>
+          <option value="unlink">포지션 연결 해제 (보류 풀)</option>
           <option value="keep">현 상태 유지 (수동 처리)</option>
         </select>
       </div>
@@ -1782,7 +1793,7 @@ html,body{line-height:1.55;}
         <textarea id="nh-memo" rows="2" placeholder="미채용 사유 상세"></textarea>
       </div>
       <div style="margin-top:12px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm);font-size:11.5px;color:var(--t2)">
-        확인 시 이 모집단위는 <b>미채용완료</b> 처리되고, 동일 조건의 <b>(재채용N)</b> 모집단위가 자동 생성됩니다.
+        확인 시 이 포지션는 <b>미채용완료</b> 처리되고, 동일 조건의 <b>(재채용N)</b> 포지션가 자동 생성됩니다.
       </div>
     </div>
     <div class="modal-ft">
@@ -1801,7 +1812,7 @@ html,body{line-height:1.55;}
     </div>
     <div class="modal-body">
       <div class="fg" style="margin-bottom:12px">
-        <label>모집단위 *</label>
+        <label>포지션 *</label>
         <select id="bulk-pos-id" onchange="updateBulkSeatHint()"></select>
         <div id="bulk-seat-hint" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
       </div>
@@ -1884,7 +1895,7 @@ let lastMailPendingItems = [];
 // ══════════════════════════════════════════════════════════════
 const TITLES = {
   dash:       '대시보드',
-  position:   '모집단위 관리',
+  position:   '포지션 관리',
   tracker:    '지원자 트래커',
   interview:  '면접 관리',
   reference:  '레퍼런스 체크',
@@ -1894,7 +1905,7 @@ const TITLES = {
 };
 
 const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격','입사'];
-const STAGE_DISPLAY = { 0:'1차 일정 수립 전' }; // 지원자 단계 표시용 (모집단위 충원완료와 구분)
+const STAGE_DISPLAY = { 0:'1차 일정 수립 전' }; // 지원자 단계 표시용 (포지션 충원완료와 구분)
 function stageLabel(stageIdx){ return STAGE_DISPLAY[stageIdx] || STAGES[stageIdx] || ''; }
 const SBG    = ['bgray','bblue','bteal','bpurple','bamber','bgreen','bred','bgreen'];
 const STAGE_GUIDES = {
@@ -1955,6 +1966,70 @@ function logActivity(action, detail, entityType, entityId) {
   saveState();
 }
 
+const REJECT_REASONS = ['역량부족','처우불일치','지원자포기','포지션취소','기타'];
+function recordRejection(cand, reason, memo='') {
+  if(!cand) return;
+  cand.rejectedAt = today();
+  cand.rejectReason = REJECT_REASONS.includes(reason) ? reason : '기타';
+  cand.rejectMemo = memo || '';
+  logActivity('불합격', `${cand.name} · ${cand.rejectReason}${memo ? ' · '+memo : ''}`, 'candidate', cand.id);
+}
+function askRejectReason(count=1) {
+  const input = prompt(`불합격 사유를 선택하세요.\n1. 역량부족\n2. 처우불일치\n3. 지원자포기\n4. 포지션취소\n5. 기타\n\n대상 ${count}명`, '1');
+  if(input === null) return null;
+  const idx = Number(input) - 1;
+  const reason = REJECT_REASONS[idx] || (REJECT_REASONS.includes(input.trim()) ? input.trim() : '기타');
+  const memo = prompt('불합격 사유 메모 (선택):', '') ?? '';
+  return { reason, memo };
+}
+
+function getPeriodReport(monthValue) {
+  const month = monthValue || today().slice(0,7);
+  const inMonth = d => String(d || '').slice(0,7) === month;
+  const created = positions.filter(p => inMonth(p.createdAt));
+  const closed = positions.filter(p => inMonth(p.closedAt));
+  const filled = closed.filter(p => ['filled','partial'].includes(posStatus(p)));
+  const target = created.reduce((sum,p) => sum + (parseInt(p.headcount)||0), 0);
+  const hired = candidates.filter(c => c.stage===5 && inMonth(c.finalAt || c.updatedAt || c.receivedAt)).length;
+  const ttfDays = filled.map(p => {
+    const a = new Date(p.createdAt), b = new Date(p.closedAt);
+    return Number.isFinite(a.getTime()) && Number.isFinite(b.getTime()) ? Math.max(0, Math.round((b-a)/86400000)) : null;
+  }).filter(v => v != null);
+  const avgTtf = ttfDays.length ? Math.round(ttfDays.reduce((a,b)=>a+b,0)/ttfDays.length) : 0;
+  const rejected = candidates.filter(c => inMonth(c.rejectedAt));
+  const reasons = REJECT_REASONS.map(reason => ({reason, count:rejected.filter(c=>c.rejectReason===reason).length}));
+  return { month, newPositions:created.length, closedPositions:closed.length, filledPositions:filled.length, target, hired, fillRate:target?Math.round(hired/target*100):0, avgTtf, rejected:rejected.length, reasons };
+}
+
+function renderPeriodReport() {
+  const monthEl = document.getElementById('report-month');
+  if(monthEl && !monthEl.value) monthEl.value = today().slice(0,7);
+  const r = getPeriodReport(monthEl?.value);
+  const el = document.getElementById('period-report');
+  if(!el) return;
+  const metric = (label,value,sub='') => `<div class="mc" style="min-height:68px"><div class="mc-lbl">${label}</div><div class="mc-val" style="font-size:22px">${value}</div><div class="mc-sub">${sub}</div></div>`;
+  el.innerHTML = `<div class="metrics" style="grid-template-columns:repeat(6,1fr);margin-bottom:10px">
+    ${metric('신규 포지션',r.newPositions+'개',r.month)}
+    ${metric('종료 포지션',r.closedPositions+'개','충원·미채용·중단')}
+    ${metric('충원 포지션',r.filledPositions+'개','부분충원 포함')}
+    ${metric('충원율',r.fillRate+'%',`${r.hired}/${r.target}명`)}
+    ${metric('평균 채용 소요일',r.avgTtf+'일','생성일→종료일')}
+    ${metric('불합격',r.rejected+'명','사유 기록 기준')}
+  </div>
+  <div style="font-size:11.5px;color:var(--t2)">불합격 사유: ${r.reasons.map(x=>`${x.reason} ${x.count}명`).join(' · ')}</div>`;
+}
+
+function exportPeriodReport() {
+  const r = getPeriodReport(document.getElementById('report-month')?.value);
+  const rows = [['기간','신규 포지션','종료 포지션','충원 포지션','목표 인원','최종합격','충원율','평균 채용 소요일','불합격'],
+    [r.month,r.newPositions,r.closedPositions,r.filledPositions,r.target,r.hired,r.fillRate+'%',r.avgTtf,r.rejected],
+    [],['불합격 사유','건수'],...r.reasons.map(x=>[x.reason,x.count])];
+  const csv = '\uFEFF' + rows.map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  a.download = `채용리포트_${r.month}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
 function getUnlinkedCandidates() {
   return candidates.filter(c => c.stage < 6 && (c.posId == null || c.posId === ''));
 }
@@ -1966,6 +2041,42 @@ function getPosSeatInfo(posId) {
   const passed = candidates.filter(c => Number(c.posId) === Number(pos.id) && c.stage === 5).length;
   const registered = candidates.filter(c => Number(c.posId) === Number(pos.id) && c.stage < 6).length;
   return { pos, headcount: hc, passed, registered, remaining: Math.max(0, hc - passed), isFull: passed >= hc, isOver: passed > hc };
+}
+
+function buildRehireTitle(title, allPositions) {
+  const base = String(title || '').replace(/\s*\(재채용\d+\)\s*$/, '').trim();
+  const reEsc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^' + reEsc + '\\s*\\(재채용(\\d+)\\)$');
+  let n = 1;
+  (allPositions || []).forEach(p => { const m = String(p.title || '').match(re); if(m) n = Math.max(n, parseInt(m[1]) + 1); });
+  return `${base} (재채용${n})`;
+}
+
+function calculateOperationalMetrics(positionList, candidateList) {
+  const filledByPos = {};
+  candidateList.forEach(c => { if(c.stage === 5) filledByPos[Number(c.posId)] = (filledByPos[Number(c.posId)] || 0) + 1; });
+  const activePos = positionList.filter(p => posStatus(p) === 'active');
+  const plannedPos = positionList.filter(p => ['active','filled'].includes(posStatus(p)));
+  const target = plannedPos.reduce((s,p) => s + (parseInt(p.headcount)||0), 0);
+  const filled = plannedPos.reduce((s,p) => s + Math.min(parseInt(p.headcount)||0, filledByPos[Number(p.id)] || 0), 0);
+  return { target, filled, open:Math.max(0,target-filled), fillRate:target ? (filled/target*100).toFixed(1) : '0.0', activePositions:activePos.length };
+}
+
+function runCoreRegressionTests() {
+  const assert = (ok, msg) => { if(!ok) throw new Error(`[core test] ${msg}`); };
+  assert(posStatus({status:'done'}) === 'filled', '레거시 done 상태 정규화');
+  assert(getPositionFlow({etype:'전문직'}).join(',') === FLOW_SHORT.join(','), '단축 프로세스 해석');
+  assert(buildRehireTitle('개발자', [{title:'개발자 (재채용1)'},{title:'개발자 (재채용3)'}]) === '개발자 (재채용4)', '재채용 명칭');
+  const m = calculateOperationalMetrics([{id:1,status:'active',headcount:2}], [{posId:1,stage:5}]);
+  assert(m.target===2 && m.filled===1 && m.open===1 && m.fillRate==='50.0', '운영 KPI 계산');
+  assert(uniqueInterviewRecords([{id:1,candId:1,type:'1차',status:'pending'},{id:2,candId:1,type:'1차',status:'confirmed'}]).length===1, '면접 중복 방지');
+  const oldPositions = positions, oldCandidates = candidates;
+  positions = [{id:1,status:'active'}]; candidates = [];
+  assert(isActivePipelineCand({stage:1,posId:1}) && !isActivePipelineCand({stage:1,posId:1,held:true}), '보류 파이프라인 제외');
+  positions = oldPositions; candidates = oldCandidates;
+  assert(getActionItems().total===0, '빈 데이터 처리 필요 계산');
+  console.info('[core test] 7개 회귀 테스트 통과');
+  return true;
 }
 
 function warnSeatOverflow(posId, extraPassed) {
@@ -1986,7 +2097,7 @@ function updateAddCandSeatHint() {
   const sel = document.getElementById('nc-pos-id');
   if(!hint || !sel) return;
   const info = getPosSeatInfo(sel.value);
-  if(!info) { hint.textContent = '모집단위를 선택하면 잔여 seat가 표시됩니다.'; hint.style.color = 'var(--t3)'; return; }
+  if(!info) { hint.textContent = '포지션를 선택하면 잔여 seat가 표시됩니다.'; hint.style.color = 'var(--t3)'; return; }
   const color = info.isFull ? 'var(--amber)' : 'var(--green)';
   hint.innerHTML = `잔여 seat <b style="color:${color}">${info.remaining}</b> / 목표 ${info.headcount}명 · 등록 ${info.registered}명 · 최종합격 ${info.passed}명`;
   if(info.isFull) hint.innerHTML += ' <span style="color:var(--amber)">(목표 달성)</span>';
@@ -2006,7 +2117,7 @@ function showUnlinkedList() {
           <div style="font-size:11px;color:var(--t3)">${esc(c.pos)} · ${esc(c.email)} · ${STAGES[c.stage]}</div>
         </div>
         <select id="ulink-${c.id}" style="font-size:11px;padding:4px 8px;max-width:200px">
-          <option value="">모집단위 선택</option>
+          <option value="">포지션 선택</option>
           ${positions.filter(p=>posStatus(p)==='active').map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join('')}
         </select>
         <button class="btn btn-xs btn-primary" onclick="linkCandFromUnlinked(${c.id})">연결</button>
@@ -2018,9 +2129,9 @@ function showUnlinkedList() {
 function linkCandFromUnlinked(candId) {
   const sel = document.getElementById('ulink-' + candId);
   const posId = sel ? parseInt(sel.value) : null;
-  if(!posId) { toast('모집단위를 선택하세요.', 'terr'); return; }
+  if(!posId) { toast('포지션를 선택하세요.', 'terr'); return; }
   linkCandToPos(candId, posId);
-  logActivity('모집단위 연결', `미연결 합격자 연결`, 'candidate', candId);
+  logActivity('포지션 연결', `미연결 합격자 연결`, 'candidate', candId);
   showUnlinkedList();
   renderDashboard(); renderTracker(); updateMetrics();
 }
@@ -2137,14 +2248,15 @@ function executeNohireWizard() {
   if(action === 'reject' && remain.length) {
     if(!confirm(`진행중 지원자 ${remain.length}명을 불합격 처리하고 안내 메일을 엽니다.\n계속할까요?`)) return;
     remain.forEach(c => {
-      c.stage = 6; c.rejectedAt = today(); c.decision = '';
+      c.stage = 6; c.decision = '';
+      recordRejection(c, '포지션취소', memo || reason);
       if(GS_CONFIG.scriptUrl) syncCandToGS(c);
       const subject = `[우미건설] ${c.name}님 채용 결과 안내`;
       openMailtoWithConfirm({ type:'cand', id:c.id, candId:c.id, label:`${c.name} 불합격 안내`, logType:'불합격안내' }, c.email, subject, buildRejectEmail(c));
     });
   } else if(action === 'unlink' && remain.length) {
     remain.forEach(c => { c.posId = null; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
-    toast(`진행중 ${remain.length}명 모집단위 연결 해제`, 'tok');
+    toast(`진행중 ${remain.length}명 포지션 연결 해제`, 'tok');
   } else if(action === 'hold' && remain.length) {
     remain.forEach(c => { c.held = true; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
     logActivity('지원자 보류', `${pos.title} 잔여 지원자 ${remain.length}명`, 'position', posId);
@@ -2156,12 +2268,7 @@ function executeNohireWizard() {
   pos.closeReason = reason;
   if(memo) pos.closeMemo = memo;
 
-  const base = (pos.title || '').replace(/\s*\(재채용\d+\)\s*$/, '').trim();
-  const reEsc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp('^' + reEsc + '\\s*\\(재채용(\\d+)\\)$');
-  let n = 1;
-  positions.forEach(p => { const m = (p.title || '').match(re); if(m) n = Math.max(n, parseInt(m[1]) + 1); });
-  const newTitle = `${base} (재채용${n})`;
+  const newTitle = buildRehireTitle(pos.title, positions);
   const np = {
     id: nextId(), title: newTitle,
     etype: pos.etype, role: pos.role, headcount: pos.headcount, dept: pos.dept,
@@ -2208,7 +2315,7 @@ function updateBulkSeatHint() {
 function executeBulkAdd() {
   const posId = parseInt(document.getElementById('bulk-pos-id')?.value);
   const pos = positions.find(p => Number(p.id) === posId);
-  if(!pos) { toast('모집단위를 선택하세요.', 'terr'); return; }
+  if(!pos) { toast('포지션를 선택하세요.', 'terr'); return; }
   const docPassed = document.getElementById('bulk-doc-passed')?.value || today();
   const lines = (document.getElementById('bulk-lines')?.value || '').split('\n').map(l => l.trim()).filter(Boolean);
   if(!lines.length) { toast('등록할 합격자를 입력하세요.', 'terr'); return; }
@@ -2277,7 +2384,7 @@ async function settleSync(tasks, label='GS 동기화'){
   return { ok:results.length-failed, failed };
 }
 
-// ── 모집단위 상태 모델 (진행중/충원완료/미채용완료/채용중단) ──────────────
+// ── 포지션 상태 모델 (진행중/충원완료/미채용완료/채용중단) ──────────────
 // 레거시 'done'→충원완료, 'active'/미지정→진행중
 const POS_STATUS = { active:'진행중', filled:'충원완료', partial:'부분충원', nohire:'미채용완료', stopped:'채용중단' };
 function posStatus(p){
@@ -2289,7 +2396,7 @@ function posStatus(p){
   return 'active';
 }
 function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
-// 모집단위의 현재 단계 = 비탈락(≠6) 지원자 중 최고 단계 (지원자 없으면 null)
+// 포지션의 현재 단계 = 비탈락(≠6) 지원자 중 최고 단계 (지원자 없으면 null)
 function posCurrentStage(p){
   const cs = candidates.filter(c => Number(c.posId)===Number(p.id) && c.stage!==6 && !c.held).map(c=>c.stage);
   return cs.length ? Math.max(...cs) : null;
@@ -2304,13 +2411,13 @@ function fmtItv(d){
   return md + (time ? ' ' + time.slice(0,5) : '');
 }
 
-// 실제 '진행 중' 파이프라인 지원자: 불합격 제외 + 종료(충원완료/미채용완료/채용중단) 모집단위 소속 제외
+// 실제 '진행 중' 파이프라인 지원자: 불합격 제외 + 종료(충원완료/미채용완료/채용중단) 포지션 소속 제외
 function isActivePipelineCand(c){
   if(c.stage===6) return false;                 // 불합격
-  if(c.held) return false;                      // 종료 모집단위 등에서 보류 처리
+  if(c.held) return false;                      // 종료 포지션 등에서 보류 처리
   if(c.posId==null || c.posId==='') return true; // 미연결 지원자는 유지
   const p = positions.find(x=>Number(x.id)===Number(c.posId));
-  if(p && posStatus(p)!=='active') return false; // 종료 모집단위 소속 제외
+  if(p && posStatus(p)!=='active') return false; // 종료 포지션 소속 제외
   return true;
 }
 // 처리 필요 항목 단일 산출 (KPI 숫자와 처리필요 카드가 공유 → 항상 일치)
@@ -2351,8 +2458,8 @@ const GS_CONFIG = {
 
 // GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
 const GS_SCHEMA = {
-  Candidates: ['id','name','pos','email','etype','role','dept','career','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','notified','posId','intDate','held','updatedAt'],
-  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','status','updatedAt'],
+  Candidates: ['id','name','pos','email','etype','role','dept','career','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','result','note','evaluatedAt','updatedAt'],
   Positions: ['id','title','etype','role','headcount','dept','panel1','panel2','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
   Settings: ['id','value'],
 };
@@ -2364,6 +2471,15 @@ function gsSchemaPayload(sheet, source) {
   const payload = {};
   fields.forEach(key => { payload[key] = source?.[key] ?? ''; });
   return payload;
+}
+
+function checkGsSchemaCoverage() {
+  const groups = [['Candidates',candidates],['Interviews',interviews],['Positions',positions]];
+  groups.forEach(([sheet,list]) => {
+    const keys = new Set((list || []).flatMap(x => Object.keys(x || {})));
+    const missing = [...keys].filter(k => !GS_SCHEMA[sheet].includes(k));
+    if(missing.length) console.warn(`[GS schema] ${sheet} 미등록 필드: ${missing.join(', ')}`);
+  });
 }
 
 function markUpdated(obj) {
@@ -2384,6 +2500,18 @@ function mergeGsRecords(sheet, remote, local) {
     if(!remoteIds.has(String(l.id)) && queuedIds.has(String(l.id))) merged.push(l);
   });
   return merged;
+}
+
+function uniqueInterviewRecords(list) {
+  const rank = { done:3, confirmed:2, pending:1 };
+  const best = new Map();
+  (list || []).forEach(i => {
+    const key = `${i.candId}|${i.type}`;
+    const cur = best.get(key);
+    if(!cur || (rank[i.status||'pending']||1) > (rank[cur.status||'pending']||1) ||
+      ((rank[i.status||'pending']||1) === (rank[cur.status||'pending']||1) && Number(i.id) > Number(cur.id))) best.set(key, i);
+  });
+  return [...best.values()];
 }
 
 function getGsRetryQueue() {
@@ -2486,7 +2614,13 @@ async function syncCandToGS(cand) {
     docPassedAt: cand.docPassedAt || '',
     memo:       cand.memo||'',
     rejectedAt: cand.rejectedAt||'',
+    rejectReason: cand.rejectReason || '',
+    rejectMemo:   cand.rejectMemo || '',
+    finalAt:      cand.finalAt || '',
+    decision:   cand.decision || '',
     notified:   cand.notified?'Y':'N',
+    mailPending: cand.mailPending ? 'Y' : 'N',
+    mailPendingLabel: cand.mailPendingLabel || '',
     posId:      cand.posId != null ? cand.posId : '',
     intDate:    cand.intDate || '',
     held:       cand.held ? 'Y' : 'N',
@@ -2511,7 +2645,14 @@ async function syncIntToGS(itv) {
     panel:     itv.panel || '',
     memo:      itv.memo || '',
     notified:  itv.notified ? 'Y' : 'N',
+    candidateNotified: itv.candidateNotified ? 'Y' : 'N',
+    panelNotified: itv.panelNotified ? 'Y' : 'N',
+    mailPending: itv.mailPending ? 'Y' : 'N',
     status:    itv.status || 'pending',
+    slots:     JSON.stringify(itv.slots || []),
+    result:    itv.result || '',
+    note:      itv.note || '',
+    evaluatedAt: itv.evaluatedAt || '',
     updatedAt: itv.updatedAt,
   });
 }
@@ -2520,7 +2661,7 @@ async function deleteIntFromGS(id) {
   await gsDelete('Interviews', id);
 }
 
-// ── 모집단위(Positions) GS 동기화 ───────────────────────────
+// ── 포지션(Positions) GS 동기화 ───────────────────────────
 async function syncPosToGS(pos) {
   if(!GS_CONFIG.scriptUrl) return;
   markUpdated(pos);
@@ -2546,7 +2687,7 @@ async function syncPosToGS(pos) {
     closeMemo:   pos.closeMemo || '',
     updatedAt:   pos.updatedAt,
   });
-  showSyncStatus('모집단위 GS 동기화 완료', 'ok');
+  showSyncStatus('포지션 GS 동기화 완료', 'ok');
 }
 async function deletePosFromGS(id) {
   if(!GS_CONFIG.scriptUrl) return;
@@ -2581,7 +2722,7 @@ async function loadPositionsFromGS() {
     positions = mergeGsRecords('Positions', remote, positions);
     saveState();
     return true;
-  } catch(e) { console.warn('모집단위 로드 실패', e); return false; }
+  } catch(e) { console.warn('포지션 로드 실패', e); return false; }
 }
 
 async function loadInterviewsFromGS() {
@@ -2599,10 +2740,17 @@ async function loadInterviewsFromGS() {
       panel:    row.panel,
       memo:     row.memo,
       notified: row.notified === 'Y',
+      candidateNotified: row.candidateNotified === 'Y',
+      panelNotified: row.panelNotified === 'Y',
+      mailPending: row.mailPending === 'Y',
       status:   row.status || 'pending',
+      slots:    (()=>{try{return JSON.parse(row.slots||'[]')}catch(e){return []}})(),
+      result:   row.result || '',
+      note:     row.note || '',
+      evaluatedAt: row.evaluatedAt || '',
       updatedAt: row.updatedAt || '',
     }));
-    interviews = mergeGsRecords('Interviews', remote, interviews);
+    interviews = uniqueInterviewRecords(mergeGsRecords('Interviews', remote, interviews));
     saveState();
     return true;
   } catch(e) { console.warn('면접 로드 실패', e); return false; }
@@ -2630,7 +2778,13 @@ async function loadFromGS() {
     docPassedAt: formatDate(row.docPassedAt || row.receivedAt),
     memo:       row.memo,
     rejectedAt: row.rejectedAt||'',
+    rejectReason: row.rejectReason || '',
+    rejectMemo:   row.rejectMemo || '',
+    finalAt:      row.finalAt || '',
+    decision:    row.decision || '',
     notified:   row.notified==='Y',
+    mailPending: row.mailPending === 'Y',
+    mailPendingLabel: row.mailPendingLabel || '',
     posId:      (row.posId !== '' && row.posId != null) ? Number(row.posId) : null,
     intDate:    row.intDate || '',
     held:       row.held === 'Y',
@@ -2688,11 +2842,11 @@ async function uploadAllToGS() {
 
 
 // ══════════════════════════════════════════════════════════════
-// 모집단위 관리
+// 포지션 관리
 // ══════════════════════════════════════════════════════════════
 // positions, editingPosId: 전역 선언됨
 
-// ── 모집단위 렌더링 ───────────────────────────────────────────
+// ── 포지션 렌더링 ───────────────────────────────────────────
 function renderPositions() {
   const list = document.getElementById('pos-list');
   const countLabel = document.getElementById('pos-count-label');
@@ -2728,14 +2882,14 @@ function renderPositions() {
   if(!positions.length) {
     list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--t3)">
       <div style="font-size:40px;margin-bottom:12px">📋</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:8px">등록된 모집단위가 없습니다</div>
-      <div style="font-size:13px">[+ 모집단위 추가] 버튼으로 포지션을 등록하세요</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">등록된 포지션가 없습니다</div>
+      <div style="font-size:13px">[+ 포지션 추가] 버튼으로 포지션을 등록하세요</div>
     </div>`;
     return;
   }
   if(!filtered.length) {
     list.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:13px">
-      ${posFilter==='done' ? '완료된 모집단위가 없습니다.' : '진행중인 모집단위가 없습니다.'}
+      ${posFilter==='done' ? '완료된 포지션가 없습니다.' : '진행중인 포지션가 없습니다.'}
     </div>`;
     return;
   }
@@ -2807,7 +2961,7 @@ function renderPositions() {
   }).join('');
 }
 
-// 모집단위 상세에서 입사 안내 - 지원자 본인
+// 포지션 상세에서 입사 안내 - 지원자 본인
 function sendOnboardToCand(candId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
@@ -2841,7 +2995,7 @@ function getOnboardInternalRecipients(cand, onboarding) {
   return { dept, leads, teams, hrEmail, recipients, recipientNames };
 }
 
-// 모집단위 상세에서 입사 안내 - 사내 관련 부서(팀장·전산 등)
+// 포지션 상세에서 입사 안내 - 사내 관련 부서(팀장·전산 등)
 function sendOnboardToDept(candId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
@@ -2868,7 +3022,7 @@ function sendOnboardToDept(candId) {
 }
 
 
-// ── 후보일정 일괄 수집 (모집단위 단위) ──────────────────────
+// ── 후보일정 일괄 수집 (포지션 단위) ──────────────────────
 let collectSlotsCtx = { posId: null, stageIdx: null };
 
 function openCollectSlots(posId, stageIdx) {
@@ -3066,7 +3220,7 @@ function setDecision(candId, decision, posId) {
   openPosDetail(Number(posId));
 }
 
-// 모집단위 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
+// 포지션 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
 async function confirmStageDecisions(posId, stageIdx) {
   const isFinalDecision = Number(stageIdx) === 4;
   const round = isFinalDecision ? '처우협의 결과' : STAGES[stageIdx];
@@ -3105,15 +3259,18 @@ async function confirmStageDecisions(posId, stageIdx) {
     }
   }
   let passCnt = 0, failCnt = 0;
+  const rejectionInfo = failers.length ? askRejectReason(failers.length) : null;
+  if(failers.length && !rejectionInfo) return;
   passers.forEach(c => {
     c.stage = nx;
+    if(nx === 5) c.finalAt = today();
     c.decision = '';  // 판정 초기화 (다음 단계에서 새로 판정)
     passCnt++;
   });
   // 불합격자 → 탈락(6)
   failers.forEach(c => {
     c.stage = 6;
-    c.rejectedAt = today();
+    recordRejection(c, rejectionInfo.reason, rejectionInfo.memo);
     c.decision = '';
     // 진행중 면접·레퍼런스 정리
     interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && (i.status||'pending')==='pending'));
@@ -3129,7 +3286,7 @@ async function confirmStageDecisions(posId, stageIdx) {
     : `판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
 }
 
-// 모집단위 단계의 미확정 면접 일정을 전체 확정
+// 포지션 단계의 미확정 면접 일정을 전체 확정
 function confirmAllInterviews(posId, stageIdx) {
   const round = stageIdx === 1 ? '1차' : '2차';
   const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
@@ -3156,7 +3313,7 @@ function confirmAllInterviews(posId, stageIdx) {
   toast(`${cnt}명 일정 확정 완료. 지원자 안내를 발송하세요.`, 'tok');
 }
 
-// 모집단위 상세에서 합격 처리 (다음 단계로 + 복귀)
+// 포지션 상세에서 합격 처리 (다음 단계로 + 복귀)
 function passFromPos(candId, posId, stageIdx) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
@@ -3169,7 +3326,7 @@ function passFromPos(candId, posId, stageIdx) {
   requestStageChange(candId, nextStage);  // 합격 안내 메일 + 단계 이동 (모달에서 확정)
 }
 
-// 모집단위 상세에서 불합격 처리 (전형 종료 + 복귀)
+// 포지션 상세에서 불합격 처리 (전형 종료 + 복귀)
 function rejectFromPos(candId, posId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
@@ -3179,12 +3336,12 @@ function rejectFromPos(candId, posId) {
   requestStageChange(candId, 6);  // 불합격 단계 (전형 종료)
 }
 
-// 지원자를 모집단위에 연결
+// 지원자를 포지션에 연결
 function linkCandToPos(candId, posId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!c) { toast('지원자를 찾을 수 없습니다 (id: '+candId+')', 'terr'); return; }
-  if(!pos) { toast('모집단위를 찾을 수 없습니다 (id: '+posId+')', 'terr'); return; }
+  if(!pos) { toast('포지션를 찾을 수 없습니다 (id: '+posId+')', 'terr'); return; }
   c.posId = Number(posId);
   saveState();
   if(GS_CONFIG.scriptUrl) {
@@ -3199,7 +3356,7 @@ function linkCandToPos(candId, posId) {
   toast(`${esc(c.name)}님을 '${esc(pos.title)}'에 연결했습니다.`, 'tok');
 }
 
-// ── 모집단위 상태 필터 ──
+// ── 포지션 상태 필터 ──
 let posFilter = 'active';
 function setPosFilter(f, btn) {
   posFilter = f;
@@ -3245,7 +3402,7 @@ function nohirePosition(posId) { openNohireWizard(posId); }
 function stopPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
-  if(!confirm(`'${pos.title}' 모집단위를 채용 중단 처리하시겠습니까?`)) return;
+  if(!confirm(`'${pos.title}' 포지션를 채용 중단 처리하시겠습니까?`)) return;
   holdResidualCandidates(posId, pos.title);
   pos.status = 'stopped';
   pos.closedAt = today();
@@ -3268,7 +3425,7 @@ function reopenPosition(posId) {
   toast(`'${esc(pos.title)}' 진행중으로 복원`, 'tok');
 }
 
-// ── 모집단위 상세 모달 ────────────────────────────────────────
+// ── 포지션 상세 모달 ────────────────────────────────────────
 function openPosDetailLegacy(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
@@ -3315,9 +3472,9 @@ function openPosDetailLegacy(posId) {
       </div>
     </div>
 
-    <!-- 모집단위 진행 타임라인 (전체 프로세스 + 진행 음영) -->
+    <!-- 포지션 진행 타임라인 (전체 프로세스 + 진행 음영) -->
     <div style="margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:12px">모집단위 진행 단계</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">포지션 진행 단계</div>
       <div style="display:flex;align-items:flex-start;overflow-x:auto;padding:4px 0">
         ${(()=>{
           // 각 단계 통과 여부 판정: 현재 그 단계에 있거나, 더 앞선 단계로 간 인원이 있으면 "도달함"
@@ -3376,7 +3533,7 @@ function openPosDetailLegacy(posId) {
         <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--amber);border-color:var(--abd)" onclick="openCollectSlots(${posId},3)">📨 후보일정 안내</button>
         <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${posId},3)">📅 2차 공통일정 확정</button>
       </div>
-      <div style="font-size:10.5px;color:var(--t3);margin-top:6px">※ 모집단위별 동일 면접 날짜가 기본입니다. 일정 확정 후 해당 단계 대상자가 일괄 이동하며, 개인 일정 수정은 예외적으로 사용합니다.</div>
+      <div style="font-size:10.5px;color:var(--t3);margin-top:6px">※ 포지션별 동일 면접 날짜가 기본입니다. 일정 확정 후 해당 단계 대상자가 일괄 이동하며, 개인 일정 수정은 예외적으로 사용합니다.</div>
     </div>
 
     <!-- 단계별 지원자 목록 -->
@@ -3518,7 +3675,7 @@ function openPosDetailLegacy(posId) {
                 ${(() => {
                   // 서류합격(0): 이미 합격해서 등록됨 → 합격/불합격 없음 (다음 단계 이동만)
                   if(stageIdx === 0) return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ 1차면접</button>`;
-                  // 1차(1)·2차(3) 면접: 합격/불합격 '판정 표시'만 (단계 이동은 모집단위 일괄 확정으로)
+                  // 1차(1)·2차(3) 면접: 합격/불합격 '판정 표시'만 (단계 이동은 포지션 일괄 확정으로)
                   if(stageIdx === 1 || stageIdx === 3) {
                     const dec = cand.decision || '';
                     return `<button class="btn btn-sm ${dec==='pass'?'btn-green':''}" style="font-size:11px;${dec==='pass'?'':'color:var(--green);border-color:var(--green)'}" onclick="setDecision(${cand.id},'pass',${posId})">${dec==='pass'?'✓ 합격 ●':'합격'}</button>`
@@ -3597,14 +3754,14 @@ function openPosDetailLegacy(posId) {
           `;}).join('')}
         </div>
       </div>`;
-    }).join('') || '<div style="color:var(--t3);font-size:13px;padding:20px 0">이 모집단위에 연결된 지원자가 없습니다. 아래에서 지원자를 연결하세요.</div>'}
+    }).join('') || '<div style="color:var(--t3);font-size:13px;padding:20px 0">이 포지션에 연결된 지원자가 없습니다. 아래에서 지원자를 연결하세요.</div>'}
 
     <!-- 지원자 연결 (미연결 지원자) -->
     ${(()=>{
       const unlinked = candidates.filter(c => (c.posId == null || c.posId === '') && c.stage < 6);
       if(!unlinked.length) return '';
       return `<div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border)">
-        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">📎 미연결 지원자를 이 모집단위에 연결</div>
+        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">📎 미연결 지원자를 이 포지션에 연결</div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${unlinked.map(c => `
             <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
@@ -3641,7 +3798,7 @@ function openPosDetailLegacy(posId) {
   openModal('modal-pos-detail');
 }
 
-// ── 모집단위 상세 v2: 채용 프로젝트 관리 화면 ────────────────
+// ── 포지션 상세 v2: 채용 프로젝트 관리 화면 ────────────────
 function getPositionProjectData(positionId) {
   const pos = positions.find(p => Number(p.id) === Number(positionId));
   if(!pos) return null;
@@ -3723,10 +3880,10 @@ function getPositionActionItems(positionId) {
   if(offerStage.length) add('offer_negotiation','medium','처우협의 결과 입력 필요',`${offerStage.length}명 · 협의 결과를 최종합격/불합격/협의중으로 입력하세요.`,'결과 입력','openPositionResultModal',`openPositionResultModal(${positionId},4)`);
 
   if(projectStatus === 'active' || projectStatus === 'partial') {
-    if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 모집단위를 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closeModal('modal-pos-detail');closePosition(${positionId})`);
+    if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 포지션를 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closeModal('modal-pos-detail');closePosition(${positionId})`);
     else if(final.length && remain > 0) add('partial_fill','low','부분충원 상태',`최종합격 ${final.length}명 · 잔여 seat ${remain}명`,'지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
   }
-  if((projectStatus === 'nohire' || projectStatus === 'stopped') && list.some(c => c.stage < 6)) add('residual_candidates','high','종료 모집단위 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+  if((projectStatus === 'nohire' || projectStatus === 'stopped') && list.some(c => c.stage < 6)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
 
   const pri = { high:0, medium:1, low:2 };
   return items.sort((a,b) => pri[a.priority] - pri[b.priority]);
@@ -3825,7 +3982,7 @@ function renderPositionFillStatus(positionId) {
   const { target, final, remain, list, active, rejected, projectStatus, statusLabel } = d;
   const partialNote = projectStatus === 'partial' ? '<div class="pp-process-note" style="background:var(--abg);color:var(--amber);margin-top:10px">목표 대비 일부만 충원된 <b>부분충원</b> 상태입니다. 잔여 seat를 채우거나 충원완료·미채용 처리를 진행하세요.</div>' : '';
   return `<section class="pp-section" id="pp-position-fill">
-    <div class="pp-section-h"><div><div class="pp-section-title">충원현황</div><div class="pp-section-sub">모집단위 seat 기준 · 지원자 「최종합격」과 모집단위 「충원완료」를 구분합니다.</div></div><span class="pp-status ${d.projectStatus}">${statusLabel}</span></div>
+    <div class="pp-section-h"><div><div class="pp-section-title">충원현황</div><div class="pp-section-sub">포지션 seat 기준 · 지원자 「최종합격」과 포지션 「충원완료」를 구분합니다.</div></div><span class="pp-status ${d.projectStatus}">${statusLabel}</span></div>
     <div class="pp-fill-grid">
       <div class="pp-fill-item"><div class="pp-fill-val">${target}<small>명</small></div><div class="pp-fill-lbl">채용목표</div></div>
       <div class="pp-fill-item"><div class="pp-fill-val" style="color:var(--green)">${final.length}<small>명</small></div><div class="pp-fill-lbl">최종합격 (충원 seat)</div></div>
@@ -3855,7 +4012,7 @@ function renderPositionBatchToolbar(positionId) {
   }
   if(d.list.some(c => c.stage === 4)) btns.push(`<button class="btn btn-xs btn-green" onclick="openPositionResultModal(${positionId},4)">처우협의 결과 입력</button>`);
   if(!btns.length) return '';
-  return `<div class="pp-batch"><span style="font-size:10.5px;font-weight:700;color:var(--t2);margin-right:4px">모집단위 일괄 처리</span>${btns.join('')}</div>`;
+  return `<div class="pp-batch"><span style="font-size:10.5px;font-weight:700;color:var(--t2);margin-right:4px">포지션 일괄 처리</span>${btns.join('')}</div>`;
 }
 
 function renderPositionActionCenter(positionId) {
@@ -4075,7 +4232,7 @@ function renderPositionCandidates(positionId) {
     </div>`;
   };
   return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">개별 지원자 상태 확인 및 예외 처리</div></div><button class="btn btn-sm btn-primary" onclick="addCandToPos(${positionId})">+ 지원자 추가</button></div>
-    <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 모집단위에 연결된 지원자가 없습니다. 지원자를 추가해 채용 프로세스를 시작하세요.</div>'}</div>
+    <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 포지션에 연결된 지원자가 없습니다. 지원자를 추가해 채용 프로세스를 시작하세요.</div>'}</div>
   </section>`;
 }
 
@@ -4121,17 +4278,7 @@ let returnToPosId = null;
 // 중복 면접 정리: 같은 지원자+같은 type은 1건만 유지
 // 우선순위: done > confirmed > pending, 동일 상태면 최신(가장 큰 id)
 function dedupeInterviews() {
-  const rank = { done: 3, confirmed: 2, pending: 1 };
-  const best = {};   // key: candId|type → 면접객체
-  interviews.forEach(i => {
-    const key = i.candId + '|' + i.type;
-    const cur = best[key];
-    const iRank = rank[i.status || 'pending'] || 1;
-    if(!cur) { best[key] = i; return; }
-    const cRank = rank[cur.status || 'pending'] || 1;
-    if(iRank > cRank || (iRank === cRank && i.id > cur.id)) best[key] = i;
-  });
-  const cleaned = Object.values(best);
+  const cleaned = uniqueInterviewRecords(interviews);
   const removed = interviews.length - cleaned.length;
   if(removed > 0) {
     interviews.length = 0;
@@ -4141,7 +4288,7 @@ function dedupeInterviews() {
   return removed;
 }
 
-// 확정 취소 (모집단위에서 진입한 경우 복귀)
+// 확정 취소 (포지션에서 진입한 경우 복귀)
 function cancelInterviewConfirm() {
   closeModal('modal-confirm-int');
   if(returnToPosId != null) {
@@ -4209,7 +4356,7 @@ function applyInterviewConfirm() {
   if(typeof renderIntTable === 'function') renderIntTable();
   renderTracker(); updateMetrics(); renderPositions();
   toast(`${itv.candName} ${itv.type} 면접 일정 확정 (${itv.date})`, 'tok');
-  // 모집단위 상세에서 진입한 경우 다시 열기
+  // 포지션 상세에서 진입한 경우 다시 열기
   if(returnToPosId != null) {
     const pid = returnToPosId;
     returnToPosId = null;
@@ -4229,7 +4376,7 @@ function markInterviewDone(intId) {
   toast(`${itv.candName} ${itv.type} 면접 완료 처리`, 'tok');
 }
 
-// 모집단위 상세에서 일정 확정 (확정 후 모집단위 상세로 복귀)
+// 포지션 상세에서 일정 확정 (확정 후 포지션 상세로 복귀)
 function confirmInterviewFromPos(intId, posId) {
   returnToPosId = posId;
   closeModal('modal-pos-detail');
@@ -4276,7 +4423,7 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
   document.getElementById('bs-start').value = '10:00';
   document.getElementById('bs-interval').value = '30';
   document.getElementById('bs-loc').value = '';
-  // 모집단위 상세는 뒤에 유지해 취소·적용 후 즉시 복귀한다.
+  // 포지션 상세는 뒤에 유지해 취소·적용 후 즉시 복귀한다.
   renderBatchPreview();
   // 입력 변경 시 미리보기 갱신
   ['bs-date','bs-start','bs-interval','bs-loc'].forEach(id => {
@@ -4359,7 +4506,7 @@ async function applyBatchSchedule() {
         date: s.datetime,
         loc: loc,
         panel: panel || '미정',
-        memo: `모집단위 일괄 배치 (${pos.title})`,
+        memo: `포지션 일괄 배치 (${pos.title})`,
         status: 'confirmed',
         notified: false,
       });
@@ -4383,7 +4530,7 @@ async function applyBatchSchedule() {
   renderDashboard(); renderTracker(); renderPositions();
   if(typeof renderIntTable === 'function') renderIntTable();
   toast(`${round} 면접 공통일정 ${slots.length}명 확정${moveAfterApply?' · 단계 이동 완료':''} (신규 ${created} / 갱신 ${updated})`, 'tok');
-  // 적용 결과를 반영한 모집단위 상세 화면으로 즉시 복귀
+  // 적용 결과를 반영한 포지션 상세 화면으로 즉시 복귀
   renderPositionDetail(posId);
   const detailModal = document.getElementById('modal-pos-detail');
   if(detailModal && !detailModal.classList.contains('open')) openModal('modal-pos-detail');
@@ -4871,7 +5018,7 @@ async function batchStageChange(posId, fromStage, toStage) {
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === fromStage);
   if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
 
-  // 면접 단계 진입은 모집단위 공통일정을 먼저 확정한 뒤 일괄 이동한다.
+  // 면접 단계 진입은 포지션 공통일정을 먼저 확정한 뒤 일괄 이동한다.
   if(toStage === 1 || toStage === 3) {
     const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, toStage));
     if(missing.length) {
@@ -4895,12 +5042,12 @@ async function batchStageChange(posId, fromStage, toStage) {
   toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
 }
 
-// ── 모집단위 추가/편집 모달 열기 ─────────────────────────────
+// ── 포지션 추가/편집 모달 열기 ─────────────────────────────
 function openAddPosition() {
   console.log('[openAddPosition] called');
   try {
     editingPosId = null;
-    document.getElementById('pos-modal-title').textContent = '모집단위 추가';
+    document.getElementById('pos-modal-title').textContent = '포지션 추가';
     ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-owner','pos-target-date','pos-memo','pos-dept'].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.value = '';
@@ -4927,7 +5074,7 @@ function editPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   editingPosId = posId;
-  document.getElementById('pos-modal-title').textContent = '모집단위 수정';
+  document.getElementById('pos-modal-title').textContent = '포지션 수정';
   document.getElementById('pos-title').value  = pos.title || '';
   document.getElementById('pos-etype').value  = pos.etype || '정규직';
   document.getElementById('pos-role').value   = normalizeRole(pos.role);
@@ -4975,7 +5122,7 @@ function savePosition() {
     toast(`${title} 수정 완료`, 'tok');
   } else {
     positions.push(posData);
-    logActivity('모집단위 등록', title, 'position', posData.id);
+    logActivity('포지션 등록', title, 'position', posData.id);
     toast(`${title} 등록 완료`, 'tok');
   }
 
@@ -4991,7 +5138,7 @@ async function deletePosition(posId) {
   if(!pos) return;
   const linked = candidates.filter(c => Number(c.posId) === Number(posId)).length;
   if(linked > 0) {
-    if(!confirm(`이 모집단위에 연결된 지원자 ${linked}명이 있습니다. 삭제하면 연결이 해제됩니다. 계속할까요?`)) return;
+    if(!confirm(`이 포지션에 연결된 지원자 ${linked}명이 있습니다. 삭제하면 연결이 해제됩니다. 계속할까요?`)) return;
     const unlinked = candidates.filter(c => Number(c.posId) === Number(posId));
     unlinked.forEach(c => { c.posId = null; });
     if(GS_CONFIG.scriptUrl && typeof syncCandToGS === 'function') await settleSync(unlinked.map(c => syncCandToGS(c)), '지원자 연결 해제 동기화');
@@ -5054,6 +5201,7 @@ function nav(id, btn) {
   if(id==='reference') { renderReference(); }
   if(id==='onboarding') { populateSel('ob-cand'); renderOnboarding(); }
   if(id==='notifylog') { renderNotifyLog(); renderActivityLog(); }
+  if(id==='notifylog') renderPeriodReport();
   if(id==='position') renderPositions();
 }
 function navBtn(id) {
@@ -5104,6 +5252,12 @@ function openModal(id) {
   // 접근성: 다이얼로그 역할 + 포커스 이동(이전 포커스 저장)
   el.setAttribute('role','dialog');
   el.setAttribute('aria-modal','true');
+  const title = el.querySelector('.modal-title');
+  if(title) {
+    if(!title.id) title.id = `${id}-title`;
+    el.setAttribute('aria-labelledby', title.id);
+  }
+  document.querySelectorAll('.sb,.main').forEach(x => { x.inert = true; });
   el._prevFocus = document.activeElement;
   setTimeout(() => {
     const f = el.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
@@ -5117,11 +5271,12 @@ function closeModal(id) {
   if(!el) return;
   el.style.display = 'none';
   el.classList.remove('open');
+  if(!document.querySelector('.overlay.open')) document.querySelectorAll('.sb,.main').forEach(x => { x.inert = false; });
   if(el._prevFocus && el._prevFocus.focus){ try{ el._prevFocus.focus(); }catch(e){} el._prevFocus=null; } // 포커스 복귀
 }
 
-// 신규 지원자 등록 모달 열기 (모집단위 드롭다운 자동 채움)
-// 모집단위 상세에서 신규 지원자 바로 추가 (모집단위 정보 자동 채움)
+// 신규 지원자 등록 모달 열기 (포지션 드롭다운 자동 채움)
+// 포지션 상세에서 신규 지원자 바로 추가 (포지션 정보 자동 채움)
 function addCandToPos(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
@@ -5130,15 +5285,15 @@ function addCandToPos(posId) {
   delete modal.dataset.editId;
   modal.dataset.returnPosId = posId;   // 저장 후 복귀용
   document.querySelector('#modal-add .modal-title').textContent = `신규 지원자 등록 — ${esc(pos.title)}`;
-  // 입력 초기화 후 모집단위 정보 자동 채움
+  // 입력 초기화 후 포지션 정보 자동 채움
   const setv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
   setv('nc-name','');  setv('nc-email',''); setv('nc-memo',''); setv('nc-date','');
   setv('nc-pos', pos.title);
   setv('nc-dept', pos.dept || '');
-  // 직군/채용형태 select가 있으면 모집단위 값으로
+  // 직군/채용형태 select가 있으면 포지션 값으로
   const roleEl = document.getElementById('nc-role'); if(roleEl) roleEl.value = pos.role || roleEl.value;
   const etypeEl = document.getElementById('nc-etype'); if(etypeEl) etypeEl.value = pos.etype || etypeEl.value;
-  populatePosSelect(posId);            // 이 모집단위 선택 고정
+  populatePosSelect(posId);            // 이 포지션 선택 고정
   const dp = document.getElementById('nc-doc-passed');
   if(dp) dp.value = today();
   updateAddCandSeatHint();
@@ -5163,11 +5318,11 @@ function openAddCand() {
   openModal('modal-add');
 }
 
-// nc-pos-id 드롭다운에 모집단위 목록 채우기
+// nc-pos-id 드롭다운에 포지션 목록 채우기
 function populatePosSelect(selectedId) {
   const sel = document.getElementById('nc-pos-id');
   if(!sel) return;
-  sel.innerHTML = '<option value="">— 모집단위를 선택하세요 —</option>' +
+  sel.innerHTML = '<option value="">— 포지션를 선택하세요 —</option>' +
     positions.filter(p => posStatus(p) === 'active').map(p => `<option value="${p.id}">${esc(p.title)} (${esc(p.etype)})</option>`).join('');
   if(selectedId !== undefined && selectedId !== null) sel.value = selectedId;
   sel.onchange = () => {
@@ -5330,7 +5485,7 @@ function buildInternalOnboardEmail(ob, cand) {
       .replace(/\{근무지\}/g,   ob.loc || '미정')
       .replace(/\{준비사항\}/g, ob.notes || '');
   }
-  return `안녕하세요.\n\n아래와 같이 신규 입사자를 공유드리오니 입사 준비를 부탁드립니다.\n\n성명: ${ob.candName || cand?.name || ''}\n모집단위: ${ob.pos || cand?.pos || ''}\n배치 부서: ${ob.dept || '미정'}\n입사 예정일: ${ob.joinDate || '미정'}\n\n우미건설 피플팀 드림`;
+  return `안녕하세요.\n\n아래와 같이 신규 입사자를 공유드리오니 입사 준비를 부탁드립니다.\n\n성명: ${ob.candName || cand?.name || ''}\n포지션: ${ob.pos || cand?.pos || ''}\n배치 부서: ${ob.dept || '미정'}\n입사 예정일: ${ob.joinDate || '미정'}\n\n우미건설 피플팀 드림`;
 }
 
 function buildRejectEmail(cand) {
@@ -5649,7 +5804,7 @@ function renderDashPipeList() {
 }
 
 
-// ── 칸반 뷰 토글 (모집단위별 ↔ 단계별 지원자) ────────────────
+// ── 칸반 뷰 토글 (포지션별 ↔ 단계별 지원자) ────────────────
 let kanbanView = 'pos'; // 'pos'(기본) | 'stage'
 function switchKanban(view){
   kanbanView = view;
@@ -5746,19 +5901,9 @@ function renderStageKanban() {
 function updateMetrics() {
   const set = (id, v) => { const el=document.getElementById(id); if(el) el.innerHTML=v; };
   const active = candidates.filter(isActivePipelineCand);
-  const hc = p => parseInt(p.headcount)||0;
-  const filledByPos = {};
-  candidates.forEach(c => {
-    if(c.stage === 5) filledByPos[Number(c.posId)] = (filledByPos[Number(c.posId)] || 0) + 1;
-  });
-  // 운영 KPI — 진행중·충원완료 모집단위를 채용계획 범위로 집계
-  const activePos = positions.filter(p => posStatus(p) === 'active');
-  const plannedPos = positions.filter(p => ['active','filled'].includes(posStatus(p)));
-  const activeTargetN = plannedPos.reduce((s,p) => s + hc(p), 0);
-  const activeFilledN = plannedPos.reduce((s,p) => s + Math.min(hc(p), filledByPos[Number(p.id)] || 0), 0);
-  const activeOpenN = Math.max(0, activeTargetN - activeFilledN);
-  const fillPct = activeTargetN > 0 ? (activeFilledN/activeTargetN*100).toFixed(1) : '0.0';
-  const activePosN = activePos.length;
+  const metrics = calculateOperationalMetrics(positions, candidates);
+  const activeTargetN = metrics.target, activeFilledN = metrics.filled, activeOpenN = metrics.open;
+  const fillPct = metrics.fillRate, activePosN = metrics.activePositions;
   const unlinkedN = getUnlinkedCandidates().length;
   const mailPendingN = getMailPendingItems().length;
   const unit = (n,u) => `${n}<span class="mc-u">${u}</span>`;
@@ -5816,7 +5961,7 @@ function renderUrgent() {
 // ══════════════════════════════════════════════════════════════
 // 대시보드
 // ══════════════════════════════════════════════════════════════
-// 모집단위별 단계 칸반보드
+// 포지션별 단계 칸반보드
 function getPositionKanbanStatus(pos, cands, cur) {
   const current = cands.filter(c=>c.stage===cur);
   if(cur===0) {
@@ -5863,23 +6008,23 @@ function renderKanban() {
   const el = document.getElementById('dash-kanban');
   if(!el) return;
   if(!positions.length) {
-    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">등록된 모집단위가 없습니다. 모집단위 관리에서 추가하세요.</div>';
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">등록된 포지션가 없습니다. 포지션 관리에서 추가하세요.</div>';
     return;
   }
   // 칸반 열: FLOW 단계 (서류합격~입사)
   const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
   const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
 
-  // 진행중 모집단위만 (충원완료/미채용완료/채용중단 제외)
+  // 진행중 포지션만 (충원완료/미채용완료/채용중단 제외)
   const activePos = positions.filter(p => posStatus(p) === 'active');
 
   // posId → 비탈락 지원자 배열
   const byPos = {};
   candidates.forEach(x => { if(x.stage===6) return; (byPos[Number(x.posId)] = byPos[Number(x.posId)] || []).push(x); });
 
-  // 각 진행중 모집단위를 현재 단계(최고 단계) 컬럼에 1장씩 배치
+  // 각 진행중 포지션를 현재 단계(최고 단계) 컬럼에 1장씩 배치
   const colCards = {};            // stageIdx → [html]
-  const emptyPos = [];            // 지원자 없는 진행중 모집단위
+  const emptyPos = [];            // 지원자 없는 진행중 포지션
   activePos.forEach(pos => {
     const cands = byPos[Number(pos.id)] || [];
     if(!cands.length) { emptyPos.push(pos); return; }
@@ -5902,16 +6047,16 @@ function renderKanban() {
     const cards = (colCards[c.idx] || []);
     html += `<div class="position-kanban-col">
       <div class="position-kanban-col-h" style="color:${col}">${esc(c.name)}</div>
-      <div class="position-kanban-col-sub">${cards.length}개 모집단위</div>
+      <div class="position-kanban-col-sub">${cards.length}개 포지션</div>
       <div class="position-kanban-list">${cards.join('') || '<div style="font-size:10px;color:var(--t3);text-align:center;padding:14px 0;opacity:.6">—</div>'}</div>
     </div>`;
   });
   html += '</div>';
 
-  // 지원자 미배정(0명) 진행중 모집단위 — 별도 스트립
+  // 지원자 미배정(0명) 진행중 포지션 — 별도 스트립
   if(emptyPos.length) {
     html += `<div style="margin-top:10px;padding:10px 12px;background:var(--s2);border:1px dashed var(--border2);border-radius:var(--r)">
-      <div style="font-size:10.5px;font-weight:700;color:var(--t3);margin-bottom:7px;letter-spacing:.3px">지원자 미배정 모집단위 · ${emptyPos.length}건 <span style="font-weight:500">(지원자 등록 시 위 단계 보드에 표시됩니다)</span></div>
+      <div style="font-size:10.5px;font-weight:700;color:var(--t3);margin-bottom:7px;letter-spacing:.3px">지원자 미배정 포지션 · ${emptyPos.length}건 <span style="font-weight:500">(지원자 등록 시 위 단계 보드에 표시됩니다)</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${emptyPos.map(p=>`<button class="btn btn-xs" style="background:var(--surface)" onclick="openPosDetail(${p.id})">${esc((p.dept?p.dept+' · ':'')+p.title)} <span style="color:var(--t3);font-weight:500">채용 ${parseInt(p.headcount)||1}명</span></button>`).join('')}
       </div>
@@ -6070,7 +6215,7 @@ function buildStageNotifyMsg(c, newStage) {
   return msgs[newStage] || `${esc(c.name)}님, ${STAGES[newStage]} 단계로 안내드립니다.\n우미건설 피플팀 드림`;
 }
 
-// 단계 변경 취소 (모집단위에서 진입한 경우 복귀)
+// 단계 변경 취소 (포지션에서 진입한 경우 복귀)
 function cancelStageChange() {
   closeModal('modal-confirm-stage');
   pendingStageChange = null;
@@ -6093,16 +6238,19 @@ function confirmStageChange() {
     const hasSlot = [1,2,3].some(n => getSlotValue(n));
     const hasItv  = interviews.some(i => Number(i.candId)===Number(candId) && i.type===round && i.date);
     if(!hasSlot && !hasItv) {
-      if(!confirm(`모집단위 공통 면접일정이 확정되지 않았습니다.\n특별한 사유로 이 지원자만 '${STAGES[newStage]}' 단계로 예외 이동할까요?\n\n일반적인 단계 이동은 모집단위 상세의 '공통일정 확정 후 이동'을 사용하세요.`)) return;
+      if(!confirm(`포지션 공통 면접일정이 확정되지 않았습니다.\n특별한 사유로 이 지원자만 '${STAGES[newStage]}' 단계로 예외 이동할까요?\n\n일반적인 단계 이동은 포지션 상세의 '공통일정 확정 후 이동'을 사용하세요.`)) return;
     }
   }
 
   const oldStage = c.stage;
+  const rejectionInfo = newStage === 6 ? askRejectReason(1) : null;
+  if(newStage === 6 && !rejectionInfo) return;
   if(newStage === 5 && c.posId != null) {
     if(!warnSeatOverflow(c.posId, 1)) return;
   }
   c.stage = newStage;
-  if(newStage === 6) c.rejectedAt = today(); // 불합격 처리
+  if(newStage === 5) c.finalAt = today();
+  if(newStage === 6) recordRejection(c, rejectionInfo.reason, rejectionInfo.memo);
 
   const candFlow = getFlowForCandidate(c);
   const movingForward = (newStage === 6) || (flowIndex(newStage, candFlow) > flowIndex(oldStage, candFlow));
@@ -6225,7 +6373,7 @@ function confirmStageChange() {
   renderTracker(); renderDashboard(); renderPositions();
   toast(`${esc(c.name)} → ${STAGES[newStage]}`, 'tok');
   saveState();
-  // 모집단위 상세에서 진입한 경우 복귀
+  // 포지션 상세에서 진입한 경우 복귀
   if(returnToPosId != null) {
     const pid = returnToPosId;
     returnToPosId = null;
@@ -6263,7 +6411,7 @@ function editCandidate(id) {
   if(dp) dp.value = c.docPassedAt || c.receivedAt || today();
   document.getElementById('modal-add').dataset.editId = id;
   document.querySelector('#modal-add .modal-title').textContent = '지원자 정보 수정';
-  // 모집단위 드롭다운 채우기
+  // 포지션 드롭다운 채우기
   populatePosSelect(c.posId);
   openModal('modal-add');
 }
@@ -6302,12 +6450,12 @@ function addCandidate() {
   const fromPos = modal.dataset.returnPosId ? parseInt(modal.dataset.returnPosId) : null;
   const finalPosId = editId ? (parseInt(document.getElementById('nc-pos-id')?.value) || null) : (posIdVal || fromPos);
   if(!editId && !finalPosId) {
-    alert('모집단위 연결이 필수입니다.\n모집단위 상세에서 등록하거나, 드롭다운에서 모집단위를 선택해주세요.');
+    alert('포지션 연결이 필수입니다.\n포지션 상세에서 등록하거나, 드롭다운에서 포지션를 선택해주세요.');
     return;
   }
   const seatInfo = finalPosId ? getPosSeatInfo(finalPosId) : null;
   if(seatInfo && seatInfo.isFull && !editId) {
-    if(!confirm(`⚠ 이 모집단위는 목표 인원(${seatInfo.headcount}명)에 이미 도달했습니다.\n추가 등록을 계속할까요?`)) return;
+    if(!confirm(`⚠ 이 포지션는 목표 인원(${seatInfo.headcount}명)에 이미 도달했습니다.\n추가 등록을 계속할까요?`)) return;
   }
   const dupEmail = candidates.find(c=>c.email.toLowerCase()===email.toLowerCase() && c.id !== editId);
   if(dupEmail) { if(!confirm(`${dupEmail.name}님과 동일한 이메일(${email})이 이미 등록되어 있습니다.\n계속 등록하시겠습니까?`)) return; }
@@ -6361,7 +6509,7 @@ function addCandidate() {
     toast(`${name}님 등록 완료`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(newCand);
     saveState();
-    // 모집단위 상세에서 추가한 경우 → 모집단위 상세로 복귀
+    // 포지션 상세에서 추가한 경우 → 포지션 상세로 복귀
     const rp = modal.dataset.returnPosId;
     if(rp) {
       delete modal.dataset.returnPosId;
@@ -6483,6 +6631,7 @@ function openDetail(id) {
         <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">채용 현황</div>
         <div style="margin-bottom:8px">${badge(c.stage)}</div>
         <div style="font-size:11px;color:var(--t3);margin-bottom:4px">레퍼런스: ${c.ref==='완료'?'<span style="color:var(--green);font-weight:700">완료</span>':c.ref==='진행중'?`<span style="color:var(--amber);font-weight:700">${c.refD}/${c.refT}</span>`:'미시작'}</div>
+        ${c.stage===6?`<div style="font-size:11px;color:var(--red);margin-bottom:4px">불합격 사유: <b>${esc(c.rejectReason||'미기록')}</b>${c.rejectMemo?` · ${esc(c.rejectMemo)}`:''}</div>`:''}
         ${ob?`<div style="font-size:11px;color:var(--green);font-weight:700">입사일: ${ob.joinDate}</div>`:''}
       </div>
     </div>
@@ -6888,7 +7037,7 @@ function startRef(id){
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();
   toast(`${esc(c.name)}님 레퍼런스 안내 Outlook이 열렸습니다.`,'toutlook');
 }
-// 모집단위 상세에서 추천인 접수 요청 (startRef + 모집단위 복귀)
+// 포지션 상세에서 추천인 접수 요청 (startRef + 포지션 복귀)
 function sendRefRequest(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const pid=c.posId;
@@ -7062,7 +7211,7 @@ function renderOnboardingPositionFinalists(positionId, selectedId) {
   if(!wrap) return;
   const finals = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===5);
   if(!finals.length) { wrap.innerHTML=''; return; }
-  wrap.innerHTML=`<div class="ob-finalists"><span class="ob-finalists-label">동일 모집단위 합격자 ${finals.length}명</span>${finals.map(c=>{
+  wrap.innerHTML=`<div class="ob-finalists"><span class="ob-finalists-label">동일 포지션 합격자 ${finals.length}명</span>${finals.map(c=>{
     const registered=onboardings.some(o=>Number(o.candId)===Number(c.id));
     return `<button type="button" class="ob-finalist ${registered?'registered':''} ${Number(c.id)===Number(selectedId)?'active':''}" onclick="fillOnboardingDefaults(${c.id})">${esc(c.name)}${registered?' · 등록':''}</button>`;
   }).join('')}</div>`;
@@ -7092,7 +7241,7 @@ function openOnboardingFromPosition(positionId) {
   populateSel('ob-cand');
   fillOnboardingDefaults(candidate.id);
   document.getElementById('sect-onboarding')?.scrollIntoView({behavior:'smooth',block:'start'});
-  toast(`${candidate.name}님을 선택하고 모집단위 기본정보를 불러왔습니다.`, 'tok');
+  toast(`${candidate.name}님을 선택하고 포지션 기본정보를 불러왔습니다.`, 'tok');
 }
 
 function updateObPreview(){
@@ -7534,6 +7683,15 @@ function loadSettings() {
 // ══════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
 try {
+  // data-action 기반 단일 이벤트 위임: 정적 내비게이션과 신규 리포트 영역부터 점진 적용
+  document.addEventListener('click', e => {
+    const target = e.target.closest?.('[data-action]');
+    if(!target) return;
+    const action = target.dataset.action;
+    if(action === 'nav') nav(target.dataset.target, target);
+    else if(action === 'render-period-report') renderPeriodReport();
+    else if(action === 'export-period-report') exportPeriodReport();
+  });
   // ── 데이터 로드 (localStorage → GS 순서) ──────────────────
   const saved = loadState();
   if(saved && saved.candidates) {
@@ -7546,23 +7704,17 @@ try {
     positions   = saved.positions   || [];
     activityLog = saved.activityLog || [];
   }
+  checkGsSchemaCoverage();
   // 기존 중복 면접 데이터 정리 (같은 지원자+type 1건만)
   const dups = dedupeInterviews();
   if(dups > 0) console.log(`[init] 중복 면접 ${dups}건 정리 완료`);
 
-  // overlay 클릭 시 모달 닫기
-  document.querySelectorAll('.overlay').forEach(o => {
-    o.addEventListener('click', e => {
-      if(e.target===o) closeModal(o.id);
-    });
-  });
-  // ESC 닫기 + 모달 내부 Tab 포커스 순환
+  // 모달은 X·닫기·취소 같은 명시적 버튼으로만 닫고, 배경 클릭과 ESC로는 닫지 않는다.
+  // 모달 내부 Tab 포커스 순환
   document.addEventListener('keydown', e => {
     const open = [...document.querySelectorAll('.overlay.open')].pop();
     if(!open) return;
-    if(e.key === 'Escape') {
-      closeModal(open.id);
-    } else if(e.key === 'Tab') {
+    if(e.key === 'Tab') {
       const focusable = [...open.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
         .filter(el => !el.disabled && el.offsetParent !== null);
       if(!focusable.length) { e.preventDefault(); open.focus(); return; }
@@ -7620,7 +7772,7 @@ try {
       }).catch(() => {
         showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
       });
-      // 모집단위 로드
+      // 포지션 로드
       if(typeof loadPositionsFromGS === 'function') {
         loadPositionsFromGS().then(loaded => { if(loaded) renderPositions(); });
       }
