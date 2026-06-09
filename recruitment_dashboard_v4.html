@@ -531,6 +531,30 @@ html,body{line-height:1.55;}
   .stage-bar{overflow-x:auto;}
   .stage-seg{flex:0 0 82px;}
 }
+/* 포지션 관리: 컴팩트 다열 카드 */
+#pos-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch;}
+.pos-manage-card{min-width:0;height:100%;display:flex;flex-direction:column;}
+.pos-card-main{padding:12px;display:grid;grid-template-columns:36px minmax(0,1fr);gap:9px 10px;align-items:start;}
+.pos-card-avatar{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;}
+.pos-card-info{min-width:0;}
+.pos-card-title{font-size:13px;font-weight:700;line-height:1.35;margin-bottom:4px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.pos-card-meta{display:flex;gap:5px;align-items:center;flex-wrap:wrap;line-height:1.25;}
+.pos-card-metrics{grid-column:1/-1;display:grid!important;grid-template-columns:repeat(3,1fr);gap:0!important;padding-top:8px;border-top:1px solid var(--border);}
+.pos-card-metrics>div{padding:0 5px;border-right:1px solid var(--border);}
+.pos-card-metrics>div:last-child{border-right:0;}
+.pos-card-metrics>div>div:first-child{font-size:16px!important;line-height:1.15;}
+.pos-card-flags{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap;min-height:0;}
+.pos-card-flags:empty{display:none;}
+.pos-card-actions{padding:6px 9px;gap:3px;flex-wrap:wrap;margin-top:auto;}
+.pos-card-actions .btn{padding:3px 6px;font-size:10.5px;}
+.pos-card-actions .btn[style*="margin-left:auto"]{margin-left:0!important;}
+@media (max-width:980px){
+  #pos-list{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .pos-card-main>div:nth-last-child(-n+2){margin-left:0;}
+}
+@media (max-width:720px){
+  #pos-list{grid-template-columns:1fr;}
+}
 /* ── 포지션 상세: 채용 프로젝트 관리 화면 ───────────────── */
 #modal-pos-detail .modal{width:min(940px,92vw)!important;max-height:95vh!important;}
 #modal-pos-detail .modal-hd{padding:12px 18px;}
@@ -724,7 +748,7 @@ html,body{line-height:1.55;}
       <span class="b bblue" id="tb-date" style="font-size:11px;font-weight:500"></span>
     </div>
     <div class="tb-right">
-      <button class="btn btn-sm" onclick="openAddCand()">
+      <button class="btn btn-sm" data-action="call" data-call="openAddCand()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
         지원자 추가
       </button>
@@ -741,7 +765,7 @@ html,body{line-height:1.55;}
         <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled-seats">0</div><div class="mc-sub">최종합격 인원</div></div>
         <div class="mc kpi-warning"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
         <div class="mc"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
-        <div class="mc kpi-operational" onclick="nav('position')" title="포지션 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행중 포지션</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
+        <div class="mc kpi-operational" data-action="nav" data-target="position" title="포지션 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행중 포지션</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
       </div>
 
       <!-- 처리 필요 -->
@@ -756,10 +780,10 @@ html,body{line-height:1.55;}
           <div class="ch-l">진행 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(칸반)</span> <span id="kb-progress" style="font-size:11px;font-weight:700;color:var(--acc);background:var(--acc-light);padding:2px 9px;border-radius:20px;margin-left:4px">진행 0명</span></div>
           <div style="display:flex;gap:8px;align-items:center">
             <div class="seg">
-              <button class="seg-btn"    id="kb-tab-stage" onclick="switchKanban('stage')">단계별 지원자</button>
-              <button class="seg-btn on" id="kb-tab-pos"   onclick="switchKanban('pos')">포지션별</button>
+              <button class="seg-btn"    id="kb-tab-stage" data-action="switch-kanban" data-view="stage">단계별 지원자</button>
+              <button class="seg-btn on" id="kb-tab-pos"   data-action="switch-kanban" data-view="pos">포지션별</button>
             </div>
-            <button class="btn btn-xs btn-ghost" onclick="nav('position')">포지션 관리 →</button>
+            <button class="btn btn-xs btn-ghost" data-action="nav" data-target="position">포지션 관리 →</button>
           </div>
         </div>
         <div id="dash-stage-kanban" style="display:none"></div>
@@ -776,7 +800,7 @@ html,body{line-height:1.55;}
       <div class="section-sub" id="pos-count-label">전체 0개 포지션</div>
     </div>
     <div>
-      <button class="btn btn-primary" onclick="openAddPosition()">
+      <button class="btn btn-primary" data-action="call" data-call="openAddPosition()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 2v12M2 8h12"/></svg>
         포지션 추가
       </button>
@@ -785,30 +809,30 @@ html,body{line-height:1.55;}
 
   <!-- 진행중/완료 필터 탭 -->
   <div style="display:flex;gap:6px;margin-bottom:14px">
-    <button class="btn btn-sm pos-tab pos-tab-on" data-posfilter="active" onclick="setPosFilter('active',this)">진행중 <span id="pos-cnt-active" style="opacity:.7"></span></button>
-    <button class="btn btn-sm pos-tab" data-posfilter="done" onclick="setPosFilter('done',this)">완료 <span id="pos-cnt-done" style="opacity:.7"></span></button>
-    <button class="btn btn-sm pos-tab" data-posfilter="all" onclick="setPosFilter('all',this)">전체 <span id="pos-cnt-all" style="opacity:.7"></span></button>
+    <button class="btn btn-sm pos-tab pos-tab-on" data-posfilter="active" data-action="filter-position" data-value="active">진행중 <span id="pos-cnt-active" style="opacity:.7"></span></button>
+    <button class="btn btn-sm pos-tab" data-posfilter="done" data-action="filter-position" data-value="done">완료 <span id="pos-cnt-done" style="opacity:.7"></span></button>
+    <button class="btn btn-sm pos-tab" data-posfilter="all" data-action="filter-position" data-value="all">전체 <span id="pos-cnt-all" style="opacity:.7"></span></button>
   </div>
 
   <!-- 포지션 목록 -->
-  <div id="pos-list" style="display:flex;flex-direction:column;gap:12px;"></div>
+  <div id="pos-list"></div>
 </div>
 
 <div id="sect-tracker" class="sect">
       <!-- 6단계 필터 바 -->
       <div class="stage-bar" id="stage-filter-bar">
-        <div class="stage-seg act" onclick="filterStage(-1,this)"><div class="ss-lbl">전체</div><div class="ss-cnt" id="sf-all">0</div></div>
-        <div class="stage-seg" onclick="filterStage(0,this)"><div class="ss-lbl">서류합격</div><div class="ss-cnt" id="sf-0">0</div></div>
-        <div class="stage-seg" onclick="filterStage(1,this)"><div class="ss-lbl">1차면접</div><div class="ss-cnt" id="sf-1">0</div></div>
-        <div class="stage-seg" onclick="filterStage(2,this)"><div class="ss-lbl">레퍼런스</div><div class="ss-cnt" id="sf-2">0</div></div>
-        <div class="stage-seg" onclick="filterStage(3,this)"><div class="ss-lbl">2차면접</div><div class="ss-cnt" id="sf-3">0</div></div>
-        <div class="stage-seg" onclick="filterStage(4,this)"><div class="ss-lbl">처우협의</div><div class="ss-cnt" id="sf-4">0</div></div>
-        <div class="stage-seg" onclick="filterStage(5,this)"><div class="ss-lbl">최종합격</div><div class="ss-cnt" id="sf-5">0</div></div>
-        <div class="stage-seg" onclick="filterStage(6,this)" style="background:var(--rbg)"><div class="ss-lbl" style="color:var(--red)">불합격</div><div class="ss-cnt" id="sf-6" style="color:var(--red)">0</div></div>
+        <div class="stage-seg act" data-action="filter-stage" data-value="-1"><div class="ss-lbl">전체</div><div class="ss-cnt" id="sf-all">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="0"><div class="ss-lbl">서류합격</div><div class="ss-cnt" id="sf-0">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="1"><div class="ss-lbl">1차면접</div><div class="ss-cnt" id="sf-1">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="2"><div class="ss-lbl">레퍼런스</div><div class="ss-cnt" id="sf-2">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="3"><div class="ss-lbl">2차면접</div><div class="ss-cnt" id="sf-3">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="4"><div class="ss-lbl">처우협의</div><div class="ss-cnt" id="sf-4">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="5"><div class="ss-lbl">최종합격</div><div class="ss-cnt" id="sf-5">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="6" style="background:var(--rbg)"><div class="ss-lbl" style="color:var(--red)">불합격</div><div class="ss-cnt" id="sf-6" style="color:var(--red)">0</div></div>
       </div>
       <div class="filter-bar">
-        <input class="search-inp" id="cand-search" placeholder="🔍  이름·직무·부서 검색" oninput="renderTracker()">
-        <select id="sort-by" onchange="renderTracker()" style="font-size:11.5px;padding:4px 10px;border:1px solid var(--border2);border-radius:20px;font-family:'Pretendard',sans-serif;color:var(--t2)">
+        <input class="search-inp" id="cand-search" placeholder="🔍  이름·직무·부서 검색" data-oninput="renderTracker()">
+        <select id="sort-by" data-onchange="renderTracker()" style="font-size:11.5px;padding:4px 10px;border:1px solid var(--border2);border-radius:20px;font-family:'Pretendard',sans-serif;color:var(--t2)">
           <option value="stage-desc">단계↑순</option>
           <option value="stage-asc">단계↓순</option>
           <option value="name">이름순</option>
@@ -817,23 +841,23 @@ html,body{line-height:1.55;}
         <details class="advanced-filter">
           <summary>상세 필터</summary>
           <div class="advanced-filter-panel">
-            <button class="fbtn fon" onclick="filterRole('all',this)" data-group="role">전체 직군</button>
-            <button class="fbtn" onclick="filterRole('영업직',this)" data-group="role">영업직</button>
-            <button class="fbtn" onclick="filterRole('기술직',this)" data-group="role">기술직</button>
-            <button class="fbtn" onclick="filterRole('관리직',this)" data-group="role">관리직</button>
-            <button class="fbtn" onclick="filterRole('현장직',this)" data-group="role">현장직</button>
+            <button class="fbtn fon" data-action="filter-role" data-value="all" data-group="role">전체 직군</button>
+            <button class="fbtn" data-action="filter-role" data-value="영업직" data-group="role">영업직</button>
+            <button class="fbtn" data-action="filter-role" data-value="기술직" data-group="role">기술직</button>
+            <button class="fbtn" data-action="filter-role" data-value="관리직" data-group="role">관리직</button>
+            <button class="fbtn" data-action="filter-role" data-value="현장직" data-group="role">현장직</button>
             <span style="width:100%;height:1px;background:var(--border)"></span>
-            <button class="fbtn fon" onclick="filterEtype('all',this)" data-group="etype">전체 형태</button>
-            <button class="fbtn" onclick="filterEtype('정규직',this)" data-group="etype">정규직</button>
-            <button class="fbtn" onclick="filterEtype('전문직',this)" data-group="etype">전문직</button>
-            <button class="fbtn" onclick="filterEtype('파견직',this)" data-group="etype">파견직</button>
+            <button class="fbtn fon" data-action="filter-etype" data-value="all" data-group="etype">전체 형태</button>
+            <button class="fbtn" data-action="filter-etype" data-value="정규직" data-group="etype">정규직</button>
+            <button class="fbtn" data-action="filter-etype" data-value="전문직" data-group="etype">전문직</button>
+            <button class="fbtn" data-action="filter-etype" data-value="파견직" data-group="etype">파견직</button>
             <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);cursor:pointer;margin-left:auto">
-              <input type="checkbox" id="show-rejected" onchange="renderTracker()" style="width:auto;margin:0"> 불합격 포함
+              <input type="checkbox" id="show-rejected" data-onchange="renderTracker()" style="width:auto;margin:0"> 불합격 포함
             </label>
           </div>
         </details>
-        <button class="btn btn-sm" onclick="openBulkAddCand()" style="margin-left:auto">일괄 등록</button>
-        <button class="btn btn-sm btn-primary" onclick="openAddCand()">+ 지원자 추가</button>
+        <button class="btn btn-sm" data-action="call" data-call="openBulkAddCand()" style="margin-left:auto">일괄 등록</button>
+        <button class="btn btn-sm btn-primary" data-action="call" data-call="openAddCand()">+ 지원자 추가</button>
       </div>
       <div class="cl-wrap">
         <div class="cl-header">
@@ -853,21 +877,21 @@ html,body{line-height:1.55;}
         <div class="card">
           <div class="ch"><div class="ch-l">면접 일정 등록</div></div>
           <div class="fgrid f2" style="gap:10px">
-            <div class="fg full"><label>지원자</label><select id="int-cand" onchange="updateIntPreview()"><option value="">-- 선택 --</option></select></div>
+            <div class="fg full"><label>지원자</label><select id="int-cand" data-onchange="updateIntPreview()"><option value="">-- 선택 --</option></select></div>
             <div class="fg"><label>면접 유형</label>
-              <select id="int-type" onchange="updateIntPreview()">
+              <select id="int-type" data-onchange="updateIntPreview()">
                 <option value="1차">1차 실무면접</option>
                 <option value="2차">2차 임원면접</option>
               </select>
             </div>
-            <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" onchange="snapTo10(this);updateIntPreview()"/></div>
-            <div class="fg full"><label>장소 / 방식</label><input id="int-loc" placeholder="본사 3층 A실 / Teams 화상" oninput="updateIntPreview()"/></div>
-            <div class="fg full"><label>면접관</label><input id="int-panel" placeholder="김부장, 이팀장" oninput="updateIntPreview()"/></div>
-            <div class="fg full"><label>지원자 안내 메모</label><textarea id="int-memo" placeholder="포트폴리오 지참, 기술 테스트 포함 등" oninput="updateIntPreview()"></textarea></div>
+            <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" data-onchange="snapTo10(this);updateIntPreview()"/></div>
+            <div class="fg full"><label>장소 / 방식</label><input id="int-loc" placeholder="본사 3층 A실 / Teams 화상" data-oninput="updateIntPreview()"/></div>
+            <div class="fg full"><label>면접관</label><input id="int-panel" placeholder="김부장, 이팀장" data-oninput="updateIntPreview()"/></div>
+            <div class="fg full"><label>지원자 안내 메모</label><textarea id="int-memo" placeholder="포트폴리오 지참, 기술 테스트 포함 등" data-oninput="updateIntPreview()"></textarea></div>
           </div>
           <div class="brow">
-            <button class="btn btn-primary" onclick="addInterview()">등록</button>
-            <button class="btn btn-outlook" onclick="sendIntNotify('outlook')">
+            <button class="btn btn-primary" data-action="call" data-call="addInterview()">등록</button>
+            <button class="btn btn-outlook" data-action="call" data-call="sendIntNotify('outlook')">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12l-1 8H3L2 4z"/><path d="M6 4V3a2 2 0 014 0v1"/></svg>
               Outlook 발송
             </button>
@@ -891,7 +915,7 @@ html,body{line-height:1.55;}
       <div class="card" style="margin-top:12px">
         <div class="ch">
           <div class="ch-l">면접 현황</div>
-          <select id="int-filter" onchange="renderIntTable()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
+          <select id="int-filter" data-onchange="renderIntTable()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
             <option value="">전체</option><option value="1차">1차 실무면접</option><option value="2차">2차 임원면접</option>
           </select>
         </div>
@@ -902,11 +926,11 @@ html,body{line-height:1.55;}
     <!-- ④ 레퍼런스 체크 ──────────────────────────────────── -->
     <div id="sect-reference" class="sect">
       <div class="mrow g5 ref-kpis" style="margin-bottom:14px">
-        <div class="mc c-blue ref-kpi-secondary" onclick="setRefFilter('ready')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">발송 대기</div><div class="mc-val" id="ref-m-ready">0</div><div class="mc-sub">↗ 클릭</div></div>
-        <div class="mc c-amber" onclick="setRefFilter('ing')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">진행 중</div><div class="mc-val" id="ref-m-ing">0</div><div class="mc-sub">↗ 클릭</div></div>
-        <div class="mc c-red" onclick="setRefFilter('zero')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">전무응답</div><div class="mc-val" id="ref-m-zero">0</div><div class="mc-sub">↗ 클릭</div></div>
-        <div class="mc c-green" onclick="setRefFilter('done')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">완료</div><div class="mc-val" id="ref-m-done">0</div><div class="mc-sub">↗ 클릭</div></div>
-        <div class="mc c-purple ref-kpi-secondary" onclick="setRefFilter('pend')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">총 미응답</div><div class="mc-val" id="ref-m-pend">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-blue ref-kpi-secondary" data-action="call" data-call="setRefFilter('ready')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">발송 대기</div><div class="mc-val" id="ref-m-ready">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-amber" data-action="call" data-call="setRefFilter('ing')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">진행 중</div><div class="mc-val" id="ref-m-ing">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-red" data-action="call" data-call="setRefFilter('zero')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">전무응답</div><div class="mc-val" id="ref-m-zero">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-green" data-action="call" data-call="setRefFilter('done')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">완료</div><div class="mc-val" id="ref-m-done">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-purple ref-kpi-secondary" data-action="call" data-call="setRefFilter('pend')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">총 미응답</div><div class="mc-val" id="ref-m-pend">0</div><div class="mc-sub">↗ 클릭</div></div>
       </div>
       <div class="card" style="margin-bottom:12px;padding:14px 18px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -920,10 +944,10 @@ html,body{line-height:1.55;}
           <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
             <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">레퍼런스 진행 현황</div>
             <div style="display:flex;gap:6px;align-items:center">
-              <select id="ref-sort" onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
+              <select id="ref-sort" data-onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
                 <option value="name">이름순</option><option value="rate">응답률순</option>
               </select>
-              <button class="btn btn-xs" onclick="syncRefFromGS()" style="background:#E9F7F2;color:var(--teal);border-color:#A8E0C0">↻ 구글시트 동기화</button>
+              <button class="btn btn-xs" data-action="call" data-call="syncRefFromGS()" style="background:#E9F7F2;color:var(--teal);border-color:#A8E0C0">↻ 구글시트 동기화</button>
             </div>
           </div>
           <div id="ref-urgency-list" style="max-height:480px;overflow-y:auto"></div>
@@ -942,9 +966,9 @@ html,body{line-height:1.55;}
             </div>
             <div id="ref-ai-output" style="display:none">
               <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);padding:12px;font-size:12px;line-height:1.75;white-space:pre-wrap;max-height:180px;overflow-y:auto" id="ref-ai-text"></div>
-              <div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-xs" onclick="document.getElementById('ref-ai-output').style.display='none'">닫기</button></div>
+              <div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-xs" data-action="call" data-call="document.getElementById('ref-ai-output').style.display='none'">닫기</button></div>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="generateAI()">AI 요약 생성</button>
+            <button class="btn btn-primary btn-sm" data-action="call" data-call="generateAI()">AI 요약 생성</button>
           </div>
         </div>
       </div>
@@ -952,8 +976,8 @@ html,body{line-height:1.55;}
         <div class="ch">
           <div><div class="ch-l">레퍼런스 결과 정리</div><div style="font-size:11px;color:var(--t3);margin-top:2px">추천인 응답을 지원자 단위의 항목별 종합 의견으로 정리합니다.</div></div>
           <div style="display:flex;gap:6px;align-items:center">
-            <select id="ref-report-cand" onchange="renderRefReport()" style="font-size:11px;padding:5px 9px;border-radius:20px;border:1px solid var(--border2)"><option value="">-- 지원자 선택 --</option></select>
-            <button class="btn btn-sm btn-primary" onclick="saveRefReport()">결과 저장</button>
+            <select id="ref-report-cand" data-onchange="renderRefReport()" style="font-size:11px;padding:5px 9px;border-radius:20px;border:1px solid var(--border2)"><option value="">-- 지원자 선택 --</option></select>
+            <button class="btn btn-sm btn-primary" data-action="call" data-call="saveRefReport()">결과 저장</button>
           </div>
         </div>
         <div id="ref-report-empty" style="padding:28px;text-align:center;font-size:12px;color:var(--t3)">지원자를 선택하면 결과 정리표가 표시됩니다.</div>
@@ -970,7 +994,7 @@ html,body{line-height:1.55;}
           </table>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
             <div id="ref-report-saved" style="font-size:11px;color:var(--t3)">아직 저장되지 않았습니다.</div>
-            <button class="btn btn-sm btn-primary" onclick="saveRefReport()">결과 저장</button>
+            <button class="btn btn-sm btn-primary" data-action="call" data-call="saveRefReport()">결과 저장</button>
           </div>
         </div>
       </div>
@@ -979,7 +1003,7 @@ html,body{line-height:1.55;}
         <div class="card" style="padding:0;overflow:hidden">
           <div style="padding:12px 16px;background:var(--acc-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
             <div style="font-size:12px;font-weight:700;color:var(--acc)" id="ref-filter-panel-title"></div>
-            <button class="btn btn-xs btn-ghost" onclick="setRefFilter('')">✕ 필터 해제</button>
+            <button class="btn btn-xs btn-ghost" data-action="call" data-call="setRefFilter('')">✕ 필터 해제</button>
           </div>
           <div id="ref-filter-panel-body"></div>
         </div>
@@ -991,10 +1015,10 @@ html,body{line-height:1.55;}
         <div class="ch">
           <div class="ch-l">전체 현황</div>
           <div style="display:flex;gap:6px">
-            <select id="ref-filter-status" onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
+            <select id="ref-filter-status" data-onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
               <option value="">전체</option><option value="미시작">미시작</option><option value="진행중">진행중</option><option value="완료">완료</option>
             </select>
-            <button class="btn btn-xs btn-ghost" onclick="startAllEligible()">2차합격+ 일괄 시작</button>
+            <button class="btn btn-xs btn-ghost" data-action="call" data-call="startAllEligible()">2차합격+ 일괄 시작</button>
           </div>
         </div>
         <div id="ref-table"></div>
@@ -1012,24 +1036,24 @@ html,body{line-height:1.55;}
         <div class="card">
           <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
           <div class="fgrid f2" style="gap:10px">
-            <div class="fg full"><label>최종 합격자</label><select id="ob-cand" onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
+            <div class="fg full"><label>최종 합격자</label><select id="ob-cand" data-onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
             <div class="fg full"><label>포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
-            <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" onchange="updateObPreview()"/></div>
-            <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" oninput="updateObPreview()"/></div>
-            <div class="fg"><label>부서장/소장 이메일 (입사 통보)</label><input id="ob-dept-lead" placeholder="teamlead@wm.co.kr; sitelead@wm.co.kr" oninput="updateObPreview()"/></div>
-            <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" oninput="updateObPreview()"/></div>
-            <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" oninput="updateObPreview()"/></div>
+            <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="updateObPreview()"/></div>
+            <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" data-oninput="updateObPreview()"/></div>
+            <div class="fg"><label>부서장/소장 이메일 (입사 통보)</label><input id="ob-dept-lead" placeholder="teamlead@wm.co.kr; sitelead@wm.co.kr" data-oninput="updateObPreview()"/></div>
+            <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" data-oninput="updateObPreview()"/></div>
+            <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" data-oninput="updateObPreview()"/></div>
             <div class="fg"><label>채용형태</label>
-              <select id="ob-etype" onchange="updateObPreview()">
+              <select id="ob-etype" data-onchange="updateObPreview()">
                 <option>정규직</option><option>전문직</option><option>파견직</option>
               </select>
             </div>
-            <div class="fg full"><label>입사 전 준비 안내</label><textarea id="ob-notes" placeholder="건강검진, 서류 목록, 출입증 등" oninput="updateObPreview()"></textarea></div>
+            <div class="fg full"><label>입사 전 준비 안내</label><textarea id="ob-notes" placeholder="건강검진, 서류 목록, 출입증 등" data-oninput="updateObPreview()"></textarea></div>
           </div>
           <div class="brow">
-            <button class="btn btn-primary" onclick="addOnboarding()">등록</button>
-            <button class="btn btn-outlook" onclick="sendObNotify('outlook')">지원자 입사안내 발송</button>
-            <button class="btn btn-ghost" onclick="sendCurrentOnboardInternal()">내부 직원 공유</button>
+            <button class="btn btn-primary" data-action="call" data-call="addOnboarding()">등록</button>
+            <button class="btn btn-outlook" data-action="call" data-call="sendObNotify('outlook')">지원자 입사안내 발송</button>
+            <button class="btn btn-ghost" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
           </div>
         </div>
         <div>
@@ -1075,13 +1099,13 @@ html,body{line-height:1.55;}
         <div id="period-report"></div>
       </div>
       <div class="card" style="margin-bottom:12px">
-        <div class="ch"><div class="ch-l">활동 로그</div><button class="btn btn-xs btn-ghost" onclick="renderActivityLog()">새로고침</button></div>
+        <div class="ch"><div class="ch-l">활동 로그</div><button class="btn btn-xs btn-ghost" data-action="call" data-call="renderActivityLog()">새로고침</button></div>
         <div id="activity-log-list" style="max-height:320px;overflow-y:auto"></div>
       </div>
       <div class="card">
         <div class="ch">
           <div class="ch-l">알림 발송 전체 내역</div>
-          <select id="log-filter" onchange="renderNotifyLog()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
+          <select id="log-filter" data-onchange="renderNotifyLog()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
             <option value="">전체</option><option value="Outlook">Outlook</option>
           </select>
         </div>
@@ -1153,7 +1177,7 @@ html,body{line-height:1.55;}
             <input id="cfg-gs-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
             <div style="font-size:11px;color:var(--t3);margin-top:4px">Apps Script 배포 URL 입력 · STEP 2에서 복사한 URL</div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-              <button class="btn btn-sm" onclick="testGSConnection()" style="background:#34A853;color:#fff;border-color:#34A853">📊 연결 테스트</button>
+              <button class="btn btn-sm" data-action="call" data-call="testGSConnection()" style="background:#34A853;color:#fff;border-color:#34A853">📊 연결 테스트</button>
               <div id="gs-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
             </div>
             <div style="font-size:11px;color:var(--t3);margin-top:8px;padding:8px;background:var(--s2);border-radius:var(--rsm)">
@@ -1166,8 +1190,8 @@ html,body{line-height:1.55;}
             <input id="cfg-interviewer-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
             <div style="font-size:11px;color:var(--t3);margin-top:4px">면접관 DB Apps Script 배포 URL</div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-              <button class="btn btn-sm" onclick="testInterviewerConnection()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">👥 연결 테스트</button>
-              <button class="btn btn-sm" onclick="loadInterviewers()">🔄 면접관 새로고침</button>
+              <button class="btn btn-sm" data-action="call" data-call="testInterviewerConnection()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">👥 연결 테스트</button>
+              <button class="btn btn-sm" data-action="call" data-call="loadInterviewers()">🔄 면접관 새로고침</button>
               <div id="interviewer-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
             </div>
           </div>
@@ -1176,8 +1200,8 @@ html,body{line-height:1.55;}
             <input id="cfg-ref-auto-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:'DM Mono',monospace;font-size:12px"/>
             <div style="font-size:11px;color:var(--t3);margin-top:4px">레퍼런스 자동화 Apps Script 배포 URL (구글폼 연동)</div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-              <button class="btn btn-sm" onclick="testRefAutoConnection()" style="background:#1D9E75;color:#fff;border-color:#1D9E75">📋 연결 테스트</button>
-              <button class="btn btn-sm" onclick="syncRefFromGS()">↻ 레퍼런스 상태 가져오기</button>
+              <button class="btn btn-sm" data-action="call" data-call="testRefAutoConnection()" style="background:#1D9E75;color:#fff;border-color:#1D9E75">📋 연결 테스트</button>
+              <button class="btn btn-sm" data-action="call" data-call="syncRefFromGS()">↻ 레퍼런스 상태 가져오기</button>
               <div id="ref-auto-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
             </div>
           </div>
@@ -1283,8 +1307,18 @@ html,body{line-height:1.55;}
         </div>
           </div>
         </details>
+        <div class="card" style="margin-top:14px;background:var(--s1)">
+          <div class="ch"><div class="ch-l">개인정보 보호 설정</div><button class="btn btn-xs" data-action="call" data-call="renderExpiredPii()">보존기한 점검</button></div>
+          <div class="form-grid">
+            <div class="fg"><label>공유 화면 마스킹</label><select id="cfg-mask-pii" data-onchange="setPrivacyMaskFromControl(this)"><option value="false">사용 안 함</option><option value="true">이름·이메일 마스킹</option></select></div>
+            <div class="fg"><label>지원자 정보 보존기한</label><select id="cfg-retention-months" data-onchange="renderExpiredPii()"><option value="3">3개월</option><option value="6" selected>6개월</option><option value="12">12개월</option><option value="24">24개월</option></select></div>
+            <div class="fg"><label>유휴 화면 잠금</label><select id="cfg-idle-minutes" data-onchange="resetIdleLock()"><option value="0">사용 안 함</option><option value="5">5분</option><option value="10" selected>10분</option><option value="30">30분</option></select></div>
+          </div>
+          <div class="alert aw" style="margin-top:8px"><span>Google Sheets 공유 권한은 피플팀 최소 인원으로 제한하고, 지원자 동의 및 회사 보존 정책에 맞춰 기한을 설정하세요.</span></div>
+          <div id="privacy-expired-list" style="font-size:11.5px;color:var(--t2)"></div>
+        </div>
         <div class="brow" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-          <button class="btn btn-primary" onclick="saveSettings()">💾 설정 저장</button>
+          <button class="btn btn-primary" data-action="call" data-call="saveSettings()">💾 설정 저장</button>
           <span style="font-size:11.5px;color:var(--t3)">메일 템플릿·URL·서명 등 모든 설정을 저장합니다 (Google Sheets에도 동기화).</span>
         </div>
       </div>
@@ -1299,7 +1333,7 @@ html,body{line-height:1.55;}
   <div class="modal">
     <div class="modal-hd">
       <div class="modal-title">신규 지원자 등록</div>
-      <button class="mclose" onclick="closeModal('modal-add')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="fgrid f2" style="gap:11px">
@@ -1327,8 +1361,8 @@ html,body{line-height:1.55;}
         <div class="fg"><label>서류합격일 *</label><input type="date" id="nc-doc-passed"/></div>
         <div class="fg full">
           <label>포지션 연결 *</label>
-          <select id="nc-pos-id" onchange="updateAddCandSeatHint()">
-            <option value="">— 포지션를 선택하세요 —</option>
+          <select id="nc-pos-id" data-onchange="updateAddCandSeatHint()">
+            <option value="">— 포지션을 선택하세요 —</option>
           </select>
           <div id="nc-seat-hint" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
         </div>
@@ -1336,8 +1370,8 @@ html,body{line-height:1.55;}
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-add')">취소</button>
-      <button class="btn btn-primary" onclick="addCandidate()">등록</button>
+      <button class="btn" data-action="close-modal" data-id="modal-add">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="addCandidate()">등록</button>
     </div>
   </div>
 </div>
@@ -1347,7 +1381,7 @@ html,body{line-height:1.55;}
   <div class="modal confirm-modal">
     <div class="modal-hd">
       <div class="modal-title" id="cs-title">단계 전환 확인</div>
-      <button class="mclose" onclick="cancelStageChange()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="call" data-call="cancelStageChange()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <!-- 지원자 정보 -->
@@ -1430,8 +1464,8 @@ html,body{line-height:1.55;}
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="cancelStageChange()">취소</button>
-      <button class="btn btn-primary" id="cs-confirm-btn" onclick="confirmStageChange()">단계 변경 확인</button>
+      <button class="btn" data-action="call" data-call="cancelStageChange()">취소</button>
+      <button class="btn btn-primary" id="cs-confirm-btn" data-action="call" data-call="confirmStageChange()">단계 변경 확인</button>
     </div>
   </div>
 </div>
@@ -1441,11 +1475,11 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:700px">
     <div class="modal-hd">
       <div class="modal-title" id="detail-title">지원자 상세</div>
-      <button class="mclose" onclick="closeModal('modal-detail')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-detail"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body" id="detail-body"></div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-detail')">닫기</button>
+      <button class="btn" data-action="close-modal" data-id="modal-detail">닫기</button>
     </div>
   </div>
 </div>
@@ -1455,12 +1489,12 @@ html,body{line-height:1.55;}
   <div class="modal">
     <div class="modal-hd">
       <div class="modal-title">Teams / Outlook 일괄 알림</div>
-      <button class="mclose" onclick="closeModal('modal-bulk-notify')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-bulk-notify"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="fgrid" style="gap:10px;margin-bottom:12px">
         <div class="fg"><label>발송 유형</label>
-          <select id="bulk-type" onchange="updateBulkPreview()">
+          <select id="bulk-type" data-onchange="updateBulkPreview()">
             <option value="int1">1차 면접 안내</option>
             <option value="int2">2차 면접 안내</option>
             <option value="offer">최종 합격 안내</option>
@@ -1468,7 +1502,7 @@ html,body{line-height:1.55;}
           </select>
         </div>
         <div class="fg"><label>단계 필터</label>
-          <select id="bulk-stage" onchange="updateBulkPreview()">
+          <select id="bulk-stage" data-onchange="updateBulkPreview()">
             <option value="-1">전체</option>
             <option value="0">서류합격</option><option value="1">1차면접</option>
             <option value="2">레퍼런스</option><option value="3">2차면접</option>
@@ -1490,8 +1524,8 @@ html,body{line-height:1.55;}
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-bulk-notify')">취소</button>
-      <button class="btn btn-outlook" onclick="sendBulk()">일괄 발송</button>
+      <button class="btn" data-action="close-modal" data-id="modal-bulk-notify">취소</button>
+      <button class="btn btn-outlook" data-action="call" data-call="sendBulk()">일괄 발송</button>
     </div>
   </div>
 </div>
@@ -1507,13 +1541,13 @@ html,body{line-height:1.55;}
           <div style="font-size:11px;color:var(--t3)" id="metric-modal-sub"></div>
         </div>
       </div>
-      <button class="mclose" onclick="closeModal('modal-metric')">
+      <button class="mclose" data-action="close-modal" data-id="modal-metric">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
       </button>
     </div>
     <div class="modal-body" id="metric-modal-body" style="padding:0;max-height:70vh;overflow-y:auto"></div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-metric')">닫기</button>
+      <button class="btn" data-action="close-modal" data-id="modal-metric">닫기</button>
       <button class="btn btn-primary btn-sm" id="metric-modal-action-btn" style="display:none"></button>
     </div>
   </div>
@@ -1526,7 +1560,7 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:680px">
     <div class="modal-hd">
       <div class="modal-title" id="pos-modal-title">포지션 추가</div>
-      <button class="mclose" onclick="closeModal('modal-position')">
+      <button class="mclose" data-action="close-modal" data-id="modal-position">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
       </button>
     </div>
@@ -1560,7 +1594,7 @@ html,body{line-height:1.55;}
         <label>부서</label>
         <div style="position:relative">
           <input id="pos-dept" placeholder="부서명 검색 또는 직접 입력 (예: 현장지원1팀)" autocomplete="off"
-            oninput="filterDepts()" onfocus="filterDepts()" onblur="setTimeout(()=>{const l=document.getElementById('pos-dept-list');if(l)l.style.display='none';},200)"/>
+            data-oninput="filterDepts()" data-onfocus="filterDepts()" data-onblur="setTimeout(()=>{const l=document.getElementById('pos-dept-list');if(l)l.style.display='none';},200)"/>
           <div id="pos-dept-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:200px;overflow-y:auto;margin-top:2px"></div>
         </div>
       </div>
@@ -1569,11 +1603,11 @@ html,body{line-height:1.55;}
         <div style="display:flex;gap:8px;align-items:flex-start">
           <div style="flex:1;position:relative">
             <input id="pos-panel1-search" placeholder="이름·부서·직급으로 검색…" autocomplete="off"
-              oninput="filterInterviewers(1)" onfocus="filterInterviewers(1)"
-              onblur="setTimeout(()=>hideInterviewerList(1),200)" style="width:100%;box-sizing:border-box"/>
+              data-oninput="filterInterviewers(1)" data-onfocus="filterInterviewers(1)"
+              data-onblur="setTimeout(()=>hideInterviewerList(1),200)" style="width:100%;box-sizing:border-box"/>
             <div id="pos-panel1-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:200px;overflow-y:auto;margin-top:2px"></div>
           </div>
-          <button class="btn btn-sm" onclick="loadInterviewers()" style="white-space:nowrap;flex-shrink:0">🔄 새로고침</button>
+          <button class="btn btn-sm" data-action="call" data-call="loadInterviewers()" style="white-space:nowrap;flex-shrink:0">🔄 새로고침</button>
         </div>
         <div id="pos-panel1-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:28px"></div>
         <input type="hidden" id="pos-panel1"/>
@@ -1584,8 +1618,8 @@ html,body{line-height:1.55;}
         <div style="display:flex;gap:8px;align-items:flex-start">
           <div style="flex:1;position:relative">
             <input id="pos-panel2-search" placeholder="이름·부서·직급으로 검색…" autocomplete="off"
-              oninput="filterInterviewers(2)" onfocus="filterInterviewers(2)"
-              onblur="setTimeout(()=>hideInterviewerList(2),200)" style="width:100%;box-sizing:border-box"/>
+              data-oninput="filterInterviewers(2)" data-onfocus="filterInterviewers(2)"
+              data-onblur="setTimeout(()=>hideInterviewerList(2),200)" style="width:100%;box-sizing:border-box"/>
             <div id="pos-panel2-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:200px;overflow-y:auto;margin-top:2px"></div>
           </div>
         </div>
@@ -1610,8 +1644,8 @@ html,body{line-height:1.55;}
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-position')">취소</button>
-      <button class="btn btn-primary" onclick="savePosition()">저장</button>
+      <button class="btn" data-action="close-modal" data-id="modal-position">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="savePosition()">저장</button>
     </div>
   </div>
 </div>
@@ -1621,7 +1655,7 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:min(940px,92vw);max-height:95vh">
     <div class="modal-hd">
       <div class="modal-title" id="pos-detail-title">포지션 상세</div>
-      <button class="mclose" onclick="closeModal('modal-pos-detail')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-pos-detail"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body" id="pos-detail-body"></div>
     <div class="modal-ft" id="pos-detail-ft"></div>
@@ -1633,19 +1667,19 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:520px">
     <div class="modal-hd">
       <div class="modal-title">면접 일정 확정</div>
-      <button class="mclose" onclick="closeModal('modal-confirm-int')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-confirm-int"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div id="ci-cand-info" style="font-size:13px;font-weight:600;margin-bottom:14px"></div>
       <div id="ci-slot-picker" style="margin-bottom:14px"></div>
       <div class="fgrid" style="gap:10px">
-        <div class="fg full"><label>확정 일시</label><input type="datetime-local" id="ci-datetime" step="600" onchange="snapTo10(this)"/></div>
+        <div class="fg full"><label>확정 일시</label><input type="datetime-local" id="ci-datetime" step="600" data-onchange="snapTo10(this)"/></div>
         <div class="fg full"><label>면접 장소</label><input id="ci-loc" placeholder="예: 본사 3층 회의실 A"/></div>
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="cancelInterviewConfirm()">취소</button>
-      <button class="btn btn-primary" onclick="applyInterviewConfirm()">일정 확정</button>
+      <button class="btn" data-action="call" data-call="cancelInterviewConfirm()">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="applyInterviewConfirm()">일정 확정</button>
     </div>
   </div>
 </div>
@@ -1655,16 +1689,16 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:660px;max-height:90vh">
     <div class="modal-hd">
       <div class="modal-title" id="pr-title">지원자 판정 입력</div>
-      <button class="mclose" onclick="closeModal('modal-position-result')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-position-result"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div id="pr-help" style="font-size:11px;color:var(--t3);padding:8px 10px;background:var(--s2);border-radius:var(--rsm);margin-bottom:10px">지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 이동할 수 있습니다.</div>
       <div id="pr-list"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-position-result')">취소</button>
-      <button class="btn" id="pr-save-btn" onclick="savePositionResults(false)">판정 저장</button>
-      <button class="btn btn-primary" id="pr-confirm-btn" onclick="savePositionResults(true)">판정 확정 및 단계 이동</button>
+      <button class="btn" data-action="close-modal" data-id="modal-position-result">취소</button>
+      <button class="btn" id="pr-save-btn" data-action="call" data-call="savePositionResults(false)">판정 저장</button>
+      <button class="btn btn-primary" id="pr-confirm-btn" data-action="call" data-call="savePositionResults(true)">판정 확정 및 단계 이동</button>
     </div>
   </div>
 </div>
@@ -1674,7 +1708,7 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:640px;max-height:90vh">
     <div class="modal-hd">
       <div class="modal-title" id="bs-title">1차 면접 공통일정 확정</div>
-      <button class="mclose" onclick="closeModal('modal-batch-schedule')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-batch-schedule"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
@@ -1682,7 +1716,7 @@ html,body{line-height:1.55;}
       </div>
       <div class="fgrid" style="gap:10px;margin-bottom:14px">
         <div class="fg"><label>면접 날짜</label><input type="date" id="bs-date"/></div>
-        <div class="fg"><label>시작 시간</label><input type="time" id="bs-start" step="600" value="10:00" onchange="snapTo10(this)"/></div>
+        <div class="fg"><label>시작 시간</label><input type="time" id="bs-start" step="600" value="10:00" data-onchange="snapTo10(this)"/></div>
         <div class="fg"><label>면접 간격</label>
           <select id="bs-interval">
             <option value="20">20분</option>
@@ -1697,8 +1731,8 @@ html,body{line-height:1.55;}
       <div id="bs-preview" style="border:1px solid var(--border);border-radius:var(--rsm);padding:10px;max-height:240px;overflow-y:auto;font-size:12.5px"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-batch-schedule')">취소</button>
-      <button class="btn btn-primary" onclick="applyBatchSchedule()">일정 확정</button>
+      <button class="btn" data-action="close-modal" data-id="modal-batch-schedule">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="applyBatchSchedule()">일정 확정</button>
     </div>
   </div>
 </div>
@@ -1708,7 +1742,7 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:600px;max-height:90vh">
     <div class="modal-hd">
       <div class="modal-title" id="csl-title">면접 후보일정 일괄 안내</div>
-      <button class="mclose" onclick="closeModal('modal-collect-slots')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-collect-slots"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
@@ -1740,8 +1774,8 @@ html,body{line-height:1.55;}
       <div id="csl-targets" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rsm);padding:8px;font-size:12px"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-collect-slots')">취소</button>
-      <button class="btn btn-outlook" onclick="sendCollectSlots()">✉ 대상 전원에게 안내 발송</button>
+      <button class="btn" data-action="close-modal" data-id="modal-collect-slots">취소</button>
+      <button class="btn btn-outlook" data-action="call" data-call="sendCollectSlots()">✉ 대상 전원에게 안내 발송</button>
     </div>
   </div>
 </div>
@@ -1753,7 +1787,7 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:420px">
     <div class="modal-hd">
       <div class="modal-title">후보일정 안내 — 순차 발송</div>
-      <button class="mclose" onclick="closeCollectSend()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="call" data-call="closeCollectSend()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body" id="csend-body"></div>
     <div class="modal-ft" id="csend-footer"></div>
@@ -1765,7 +1799,7 @@ html,body{line-height:1.55;}
   <div class="modal confirm-modal">
     <div class="modal-hd">
       <div class="modal-title">미채용 완료 마법사</div>
-      <button class="mclose" onclick="closeModal('modal-nohire-wizard')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-nohire-wizard"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div id="nh-wiz-info" style="font-size:12.5px;color:var(--t2);margin-bottom:14px;line-height:1.6"></div>
@@ -1793,12 +1827,12 @@ html,body{line-height:1.55;}
         <textarea id="nh-memo" rows="2" placeholder="미채용 사유 상세"></textarea>
       </div>
       <div style="margin-top:12px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm);font-size:11.5px;color:var(--t2)">
-        확인 시 이 포지션는 <b>미채용완료</b> 처리되고, 동일 조건의 <b>(재채용N)</b> 포지션가 자동 생성됩니다.
+        확인 시 이 포지션은 <b>미채용완료</b> 처리되고, 동일 조건의 <b>(재채용N)</b> 포지션이 자동 생성됩니다.
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-nohire-wizard')">취소</button>
-      <button class="btn btn-primary" onclick="executeNohireWizard()">미채용 완료 실행</button>
+      <button class="btn" data-action="close-modal" data-id="modal-nohire-wizard">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="executeNohireWizard()">미채용 완료 실행</button>
     </div>
   </div>
 </div>
@@ -1808,12 +1842,12 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:620px">
     <div class="modal-hd">
       <div class="modal-title">서류합격자 일괄 등록</div>
-      <button class="mclose" onclick="closeModal('modal-bulk-add')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-bulk-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="fg" style="margin-bottom:12px">
         <label>포지션 *</label>
-        <select id="bulk-pos-id" onchange="updateBulkSeatHint()"></select>
+        <select id="bulk-pos-id" data-onchange="updateBulkSeatHint()"></select>
         <div id="bulk-seat-hint" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
       </div>
       <div class="fg">
@@ -1826,8 +1860,8 @@ html,body{line-height:1.55;}
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-bulk-add')">취소</button>
-      <button class="btn btn-primary" onclick="executeBulkAdd()">일괄 등록</button>
+      <button class="btn" data-action="close-modal" data-id="modal-bulk-add">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="executeBulkAdd()">일괄 등록</button>
     </div>
   </div>
 </div>
@@ -1837,11 +1871,11 @@ html,body{line-height:1.55;}
   <div class="modal" style="width:640px">
     <div class="modal-hd">
       <div class="modal-title">미연결 합격자</div>
-      <button class="mclose" onclick="closeModal('modal-unlinked')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <button class="mclose" data-action="close-modal" data-id="modal-unlinked"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body" id="unlinked-list-body" style="max-height:60vh;overflow-y:auto"></div>
     <div class="modal-ft">
-      <button class="btn" onclick="closeModal('modal-unlinked')">닫기</button>
+      <button class="btn" data-action="close-modal" data-id="modal-unlinked">닫기</button>
     </div>
   </div>
 </div>
@@ -1849,8 +1883,8 @@ html,body{line-height:1.55;}
 <!-- ── Outlook 발송 확인 바 ─────────────────────────────── -->
 <div class="mail-pending-bar" id="mail-pending-bar">
   <span id="mail-pending-text">Outlook 전송 후 [발송 완료]를 눌러주세요.</span>
-  <button class="btn btn-sm" style="background:#fff;color:var(--acc);border-color:#fff;font-weight:700" id="mail-pending-btn" onclick="confirmPendingMail()">발송 완료</button>
-  <button class="btn btn-sm btn-ghost" style="color:rgba(255,255,255,.8)" onclick="dismissPendingMail()">나중에</button>
+  <button class="btn btn-sm" style="background:#fff;color:var(--acc);border-color:#fff;font-weight:700" id="mail-pending-btn" data-action="call" data-call="confirmPendingMail()">발송 완료</button>
+  <button class="btn btn-sm btn-ghost" style="color:rgba(255,255,255,.8)" data-action="call" data-call="dismissPendingMail()">나중에</button>
 </div>
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
@@ -1887,6 +1921,14 @@ let activityLog       = [];   // P2 활동 로그
 let pendingNohirePosId = null;
 let pendingMailMeta   = null; // Outlook 발송완료 체크 대기
 let lastMailPendingItems = [];
+let auxUpdatedAt = '';
+let auxSyncTimer = null;
+let auxSyncSuspended = true;
+let lastAuxFingerprint = '';
+let privacyMode = false;
+let privacyMasking = false;
+let privacyObserver = null;
+let idleLockTimer = null;
 
 
 // ═════════════════
@@ -2070,12 +2112,43 @@ function runCoreRegressionTests() {
   const m = calculateOperationalMetrics([{id:1,status:'active',headcount:2}], [{posId:1,stage:5}]);
   assert(m.target===2 && m.filled===1 && m.open===1 && m.fillRate==='50.0', '운영 KPI 계산');
   assert(uniqueInterviewRecords([{id:1,candId:1,type:'1차',status:'pending'},{id:2,candId:1,type:'1차',status:'confirmed'}]).length===1, '면접 중복 방지');
-  const oldPositions = positions, oldCandidates = candidates;
+  const oldPositions = positions, oldCandidates = candidates, oldInterviews = interviews;
   positions = [{id:1,status:'active'}]; candidates = [];
   assert(isActivePipelineCand({stage:1,posId:1}) && !isActivePipelineCand({stage:1,posId:1,held:true}), '보류 파이프라인 제외');
   positions = oldPositions; candidates = oldCandidates;
   assert(getActionItems().total===0, '빈 데이터 처리 필요 계산');
-  console.info('[core test] 7개 회귀 테스트 통과');
+  assert(chunkText('abcdef',2).join('')==='abcdef' && chunkText('abcdef',2).length===3, '보조 데이터 청크 분할');
+  assert(maskEmail('person@example.com')==='pe****@example.com', '개인정보 이메일 마스킹');
+  assert(maskName('김지원')==='김○○', '개인정보 이름 마스킹');
+  const oldTombstones = localStorage.getItem(GS_TOMBSTONE_KEY);
+  try {
+    localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify({'Candidates:7':'2026-06-09T00:00:00.000Z'}));
+    assert(mergeGsRecords('Candidates', [{id:7},{id:8}], []).length===1, '삭제 tombstone 재등장 방지');
+    localStorage.removeItem(GS_TOMBSTONE_KEY);
+    const newerLocal = mergeGsRecords('Candidates',
+      [{id:1,name:'원격',updatedAt:'2026-01-01T00:00:00.000Z'}],
+      [{id:1,name:'로컬',updatedAt:'2026-01-02T00:00:00.000Z'}]);
+    assert(newerLocal[0].name==='로컬', '최신 수정 데이터 우선 병합');
+  } finally {
+    if(oldTombstones == null) localStorage.removeItem(GS_TOMBSTONE_KEY);
+    else localStorage.setItem(GS_TOMBSTONE_KEY, oldTombstones);
+  }
+  const oldNotify = notifyLog, oldActivity = activityLog;
+  notifyLog = [{date:'2000-01-01'}]; activityLog = [{date:'2000-01-01'}];
+  const retention = applyPrivacyRetention();
+  assert(retention.removedNotify===1 && retention.removedActivity===1, '개인정보 보존기간 정리');
+  notifyLog = oldNotify; activityLog = oldActivity;
+  assert(nextFlowStage(1, null) > 1, '다음 채용 단계 해석');
+  positions = [{id:11,etype:'정규직',status:'active'}];
+  candidates = [{id:21,posId:11,stage:2,ref:'미시작'}];
+  interviews = [{id:31,candId:21,type:'1차',status:'done',candidateNotified:true,panelNotified:true}];
+  const roundHistory = positionRoundData(11,1);
+  assert(roundHistory.done.length===1 && roundHistory.candidateNotified.length===1 && roundHistory.panelNotified.length===1, '다음 단계 이동 후 면접 이력 유지');
+  interviews = [];
+  const progressedSteps = getPositionProcessStatus(11);
+  assert(progressedSteps.find(x=>x.key==='int1_result')?.status==='complete', '다음 단계 진입 시 이전 면접 완료 유지');
+  positions = oldPositions; candidates = oldCandidates; interviews = oldInterviews;
+  console.info('[core test] 16개 회귀 테스트 통과');
   return true;
 }
 
@@ -2097,7 +2170,7 @@ function updateAddCandSeatHint() {
   const sel = document.getElementById('nc-pos-id');
   if(!hint || !sel) return;
   const info = getPosSeatInfo(sel.value);
-  if(!info) { hint.textContent = '포지션를 선택하면 잔여 seat가 표시됩니다.'; hint.style.color = 'var(--t3)'; return; }
+  if(!info) { hint.textContent = '포지션을 선택하면 잔여 seat가 표시됩니다.'; hint.style.color = 'var(--t3)'; return; }
   const color = info.isFull ? 'var(--amber)' : 'var(--green)';
   hint.innerHTML = `잔여 seat <b style="color:${color}">${info.remaining}</b> / 목표 ${info.headcount}명 · 등록 ${info.registered}명 · 최종합격 ${info.passed}명`;
   if(info.isFull) hint.innerHTML += ' <span style="color:var(--amber)">(목표 달성)</span>';
@@ -2120,7 +2193,7 @@ function showUnlinkedList() {
           <option value="">포지션 선택</option>
           ${positions.filter(p=>posStatus(p)==='active').map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join('')}
         </select>
-        <button class="btn btn-xs btn-primary" onclick="linkCandFromUnlinked(${c.id})">연결</button>
+        <button class="btn btn-xs btn-primary" data-action="call" data-call="linkCandFromUnlinked(${c.id})">연결</button>
       </div>`).join('');
   }
   openModal('modal-unlinked');
@@ -2129,7 +2202,7 @@ function showUnlinkedList() {
 function linkCandFromUnlinked(candId) {
   const sel = document.getElementById('ulink-' + candId);
   const posId = sel ? parseInt(sel.value) : null;
-  if(!posId) { toast('포지션를 선택하세요.', 'terr'); return; }
+  if(!posId) { toast('포지션을 선택하세요.', 'terr'); return; }
   linkCandToPos(candId, posId);
   logActivity('포지션 연결', `미연결 합격자 연결`, 'candidate', candId);
   showUnlinkedList();
@@ -2315,7 +2388,7 @@ function updateBulkSeatHint() {
 function executeBulkAdd() {
   const posId = parseInt(document.getElementById('bulk-pos-id')?.value);
   const pos = positions.find(p => Number(p.id) === posId);
-  if(!pos) { toast('포지션를 선택하세요.', 'terr'); return; }
+  if(!pos) { toast('포지션을 선택하세요.', 'terr'); return; }
   const docPassed = document.getElementById('bulk-doc-passed')?.value || today();
   const lines = (document.getElementById('bulk-lines')?.value || '').split('\n').map(l => l.trim()).filter(Boolean);
   if(!lines.length) { toast('등록할 합격자를 입력하세요.', 'terr'); return; }
@@ -2370,6 +2443,122 @@ function renderActivityLog() {
       <span style="color:var(--t2)"> — ${esc(a.detail)}</span>
       <span style="float:right;font-size:10.5px;color:var(--t3)">${a.date} ${a.time}</span>
     </div>`).join('');
+}
+
+const PRIVACY_POLICY = Object.freeze({ notifyLogDays:365, activityLogDays:730 });
+function daysSince(date) {
+  const t = new Date(date).getTime();
+  return Number.isFinite(t) ? Math.floor((Date.now()-t)/86400000) : 0;
+}
+function maskEmail(email) {
+  const s = String(email || '');
+  const [local, domain] = s.split('@');
+  if(!domain) return s;
+  return `${local.slice(0,2)}${'*'.repeat(Math.max(2,local.length-2))}@${domain}`;
+}
+function maskName(name) {
+  const s = String(name || '');
+  return s ? `${s[0]}${'○'.repeat(Math.max(1,s.length-1))}` : '';
+}
+function setPrivacyMaskFromControl(control) {
+  setPrivacyMask(control?.value === 'true');
+}
+function setPrivacyMask(enabled) {
+  privacyMode = !!enabled;
+  localStorage.setItem('woomic_privacy_mask', privacyMode ? 'true' : 'false');
+  if(privacyMode) maskVisiblePii();
+  else {
+    renderDashboard(); renderPositions(); renderTracker(); renderReference(); renderOnboarding(); renderNotifyLog(); renderActivityLog();
+  }
+}
+function maskVisiblePii(root=document.body) {
+  if(!privacyMode || privacyMasking || !root || typeof document.createTreeWalker !== 'function') return;
+  privacyMasking = true;
+  try {
+    const replacements = [];
+    candidates.forEach(c => {
+      if(c.name) replacements.push([String(c.name), maskName(c.name)]);
+      if(c.email) replacements.push([String(c.email), maskEmail(c.email)]);
+    });
+    Object.values(refDetails || {}).flat().forEach(r => {
+      if(r?.name) replacements.push([String(r.name), maskName(r.name)]);
+      if(r?.email) replacements.push([String(r.email), maskEmail(r.email)]);
+    });
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node;
+    while((node = walker.nextNode())) {
+      if(['SCRIPT','STYLE','TEXTAREA','OPTION'].includes(node.parentElement?.tagName)) continue;
+      let text = node.nodeValue;
+      replacements.forEach(([raw,masked]) => { if(raw && text.includes(raw)) text = text.split(raw).join(masked); });
+      if(text !== node.nodeValue) node.nodeValue = text;
+    }
+  } finally { privacyMasking = false; }
+}
+function candidateRetentionDate(c) {
+  if(c.rejectedAt) return c.rejectedAt;
+  const pos = positions.find(p => Number(p.id)===Number(c.posId));
+  return pos && posStatus(pos)!=='active' ? pos.closedAt : '';
+}
+function expiredPII() {
+  const months = Math.max(1, Number(document.getElementById('cfg-retention-months')?.value || 6));
+  const cutoff = Date.now() - months * 30 * 86400000;
+  return candidates.filter(c => {
+    const date = candidateRetentionDate(c);
+    const time = new Date(date).getTime();
+    return Number.isFinite(time) && time < cutoff;
+  });
+}
+function renderExpiredPii() {
+  const el = document.getElementById('privacy-expired-list');
+  if(!el) return;
+  const list = expiredPII();
+  el.innerHTML = list.length
+    ? `<div style="margin-top:8px"><b style="color:var(--red)">보존기한 경과 ${list.length}명</b> · ${list.slice(0,8).map(c=>`${esc(maskName(c.name))} (${fmtDate(candidateRetentionDate(c))})`).join(' · ')}
+       <button class="btn btn-xs btn-red" style="margin-left:8px" data-action="call" data-call="purgeExpiredPii()">경과 정보 일괄 파기</button></div>`
+    : '<div style="margin-top:8px;color:var(--green)">보존기한이 경과한 지원자 정보가 없습니다.</div>';
+}
+async function purgeExpiredPii() {
+  const expired = expiredPII();
+  if(!expired.length) return toast('파기 대상이 없습니다.','tok');
+  if(!confirm(`보존기한이 경과한 지원자 ${expired.length}명의 개인정보와 연결된 면접·레퍼런스 정보를 파기할까요?\\n이 작업은 되돌릴 수 없습니다.`)) return;
+  const ids = new Set(expired.map(c => Number(c.id)));
+  const removedInterviews = interviews.filter(i => ids.has(Number(i.candId)));
+  candidates = candidates.filter(c => !ids.has(Number(c.id)));
+  interviews = interviews.filter(i => !ids.has(Number(i.candId)));
+  onboardings = onboardings.filter(o => !ids.has(Number(o.candId)));
+  ids.forEach(id => { delete refDetails[id]; delete refReports[id]; });
+  logActivity('개인정보 파기', `보존기한 경과 지원자 ${ids.size}명`, 'privacy', 'retention');
+  saveState(); renderExpiredPii(); renderDashboard(); renderTracker(); renderPositions(); renderReference(); renderOnboarding();
+  if(GS_CONFIG.scriptUrl) {
+    await settleSync([
+      ...expired.map(c => gsDelete('Candidates', c.id)),
+      ...removedInterviews.map(i => gsDelete('Interviews', i.id)),
+    ], '개인정보 파기 동기화');
+  }
+  toast(`지원자 ${ids.size}명의 개인정보를 파기했습니다.`,'tok');
+}
+function lockPrivacyScreen() {
+  if(document.getElementById('privacy-lock')) return;
+  const lock = document.createElement('div');
+  lock.id = 'privacy-lock';
+  lock.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0F2942;display:flex;align-items:center;justify-content:center;color:white;text-align:center';
+  lock.innerHTML = `<div><div style="font-size:18px;font-weight:800;margin-bottom:8px">채용관리 화면 잠금</div><div style="font-size:12px;opacity:.72;margin-bottom:16px">유휴 시간 동안 지원자 정보를 보호합니다.</div><button class="btn btn-primary" data-action="call" data-call="unlockPrivacyScreen()">화면 다시 열기</button></div>`;
+  document.body.appendChild(lock);
+}
+function unlockPrivacyScreen() {
+  document.getElementById('privacy-lock')?.remove();
+  resetIdleLock();
+}
+function resetIdleLock() {
+  clearTimeout(idleLockTimer);
+  const minutes = Number(document.getElementById('cfg-idle-minutes')?.value || 0);
+  if(minutes > 0) idleLockTimer = setTimeout(lockPrivacyScreen, minutes * 60000);
+}
+function applyPrivacyRetention() {
+  const beforeNotify = notifyLog.length, beforeActivity = activityLog.length;
+  notifyLog = notifyLog.filter(x => daysSince(x.date) <= PRIVACY_POLICY.notifyLogDays);
+  activityLog = activityLog.filter(x => daysSince(x.date) <= PRIVACY_POLICY.activityLogDays);
+  return { removedNotify:beforeNotify-notifyLog.length, removedActivity:beforeActivity-activityLog.length };
 }
 
 // 일괄 GS 동기화 결과를 집계해 일부 실패를 사용자에게 알림
@@ -2458,12 +2647,13 @@ const GS_CONFIG = {
 
 // GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
 const GS_SCHEMA = {
-  Candidates: ['id','name','pos','email','etype','role','dept','career','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','updatedAt'],
+  Candidates: ['id','name','pos','email','etype','role','dept','career','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','result','note','evaluatedAt','updatedAt'],
   Positions: ['id','title','etype','role','headcount','dept','panel1','panel2','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
   Settings: ['id','value'],
 };
 const GS_RETRY_KEY = 'woomic_gs_retry_v1';
+const GS_TOMBSTONE_KEY = 'woomic_gs_tombstones_v1';
 let gsRetryRunning = false;
 
 function gsSchemaPayload(sheet, source) {
@@ -2487,7 +2677,27 @@ function markUpdated(obj) {
   return obj;
 }
 
+function getGsTombstones() {
+  try { return JSON.parse(localStorage.getItem(GS_TOMBSTONE_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function recordGsTombstone(sheet, id) {
+  const tombstones = getGsTombstones();
+  tombstones[`${sheet}:${id}`] = new Date().toISOString();
+  localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify(tombstones));
+  if(GS_CONFIG.scriptUrl) gsUpsert('Settings', {id:`tombstone:${sheet}:${id}`, value:tombstones[`${sheet}:${id}`]});
+}
+
+function clearGsTombstone(sheet, id) {
+  const tombstones = getGsTombstones();
+  delete tombstones[`${sheet}:${id}`];
+  localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify(tombstones));
+}
+
 function mergeGsRecords(sheet, remote, local) {
+  const tombstones = getGsTombstones();
+  remote = remote.filter(r => !tombstones[`${sheet}:${r.id}`]);
   const locals = new Map((local || []).map(x => [String(x.id), x]));
   const remoteIds = new Set(remote.map(x => String(x.id)));
   const merged = remote.map(r => {
@@ -2590,6 +2800,7 @@ async function gsUpsert(sheet, item) {
 }
 
 async function gsDelete(sheet, id) {
+  recordGsTombstone(sheet, id);
   return await gsFetch('deleteRow', sheet, {id});
 }
 
@@ -2624,6 +2835,8 @@ async function syncCandToGS(cand) {
     posId:      cand.posId != null ? cand.posId : '',
     intDate:    cand.intDate || '',
     held:       cand.held ? 'Y' : 'N',
+    lastCompletedStage: cand.lastCompletedStage != null ? cand.lastCompletedStage : '',
+    lastStageChangedAt: cand.lastStageChangedAt || '',
     updatedAt:  cand.updatedAt,
   });
   if(result != null) showSyncStatus('GS 동기화 완료', 'ok');
@@ -2788,6 +3001,8 @@ async function loadFromGS() {
     posId:      (row.posId !== '' && row.posId != null) ? Number(row.posId) : null,
     intDate:    row.intDate || '',
     held:       row.held === 'Y',
+    lastCompletedStage: row.lastCompletedStage !== '' && row.lastCompletedStage != null ? Number(row.lastCompletedStage) : null,
+    lastStageChangedAt: row.lastStageChangedAt || '',
     updatedAt:  row.updatedAt || '',
   }));
   candidates = mergeGsRecords('Candidates', remote, candidates);
@@ -2882,14 +3097,14 @@ function renderPositions() {
   if(!positions.length) {
     list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--t3)">
       <div style="font-size:40px;margin-bottom:12px">📋</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:8px">등록된 포지션가 없습니다</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">등록된 포지션이 없습니다</div>
       <div style="font-size:13px">[+ 포지션 추가] 버튼으로 포지션을 등록하세요</div>
     </div>`;
     return;
   }
   if(!filtered.length) {
     list.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:13px">
-      ${posFilter==='done' ? '완료된 포지션가 없습니다.' : '진행중인 포지션가 없습니다.'}
+      ${posFilter==='done' ? '완료된 포지션이 없습니다.' : '진행중인 포지션이 없습니다.'}
     </div>`;
     return;
   }
@@ -2907,17 +3122,17 @@ function renderPositions() {
     const parentPos = pos.parentPosId ? positions.find(p => Number(p.id) === Number(pos.parentPosId)) : null;
 
     return `<div class="card pos-manage-card" style="${done?'opacity:.75':''}">
-      <div class="pos-card-main" onclick="openPosDetail(${pos.id})">
-        <div style="width:44px;height:44px;border-radius:10px;background:${done?'var(--s3)':'var(--bbg)'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:${done?'var(--t3)':'var(--blue)'};flex-shrink:0">
+      <div class="pos-card-main" data-action="open-position" data-id="${pos.id}">
+        <div class="pos-card-avatar" style="background:${done?'var(--s3)':'var(--bbg)'};color:${done?'var(--t3)':'var(--blue)'}">
           ${esc(pos.title.charAt(0))}
         </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+        <div class="pos-card-info">
+          <div class="pos-card-title">
             ${pos.dept ? esc(pos.dept) + ' · ' : ''}${esc(pos.title)}
             ${done ? `<span class="b ${posStatus(pos)==='partial'?'bamber':'bgreen'}" style="font-size:10px">${posStatusLabel(pos)}</span>` : '<span class="b bblue" style="font-size:10px">진행중</span>'}
             ${pos.parentPosId ? `<span class="b bgray" style="font-size:10px" title="재채용 체인">↳ 재채용</span>` : ''}
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="pos-card-meta">
             <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'expert':'dispatch'}">${esc(pos.etype)}</span>
             <span style="font-size:11px;color:var(--t3)">${esc(pos.role)}</span>
             <span style="font-size:11px;color:var(--t3)">모집 ${hc}명</span>
@@ -2925,7 +3140,7 @@ function renderPositions() {
             ${parentPos ? `<span style="font-size:10px;color:var(--t3)" title="재채용 출처">← ${esc(parentPos.title)}</span>` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:16px;flex-shrink:0">
+        <div class="pos-card-metrics">
           <div style="text-align:center">
             <div style="font-size:20px;font-weight:800;color:var(--blue)">${active.length}</div>
             <div style="font-size:10px;color:var(--t3)">진행중</div>
@@ -2939,7 +3154,7 @@ function renderPositions() {
             <div style="font-size:10px;color:var(--t3)">목표</div>
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
+        <div class="pos-card-flags">
           ${!done && int1Ready.length ? `<span style="background:#EBF3FD;color:var(--blue);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">1차 ${int1Ready.length}명</span>` : ''}
           ${!done && int2Ready.length ? `<span style="background:#FFF8EC;color:var(--amber);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">2차 ${int2Ready.length}명</span>` : ''}
           ${!done && targetMet ? `<span style="background:#EDFAF3;color:var(--green);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">목표달성</span>` : ''}
@@ -2948,14 +3163,14 @@ function renderPositions() {
 
       <!-- 빠른 액션 바 -->
       <div class="pos-card-actions">
-        <button class="btn btn-sm" onclick="openPosDetail(${pos.id})">📊 상세 보기</button>
-        ${!done && int1Ready.length ? `<button class="btn btn-sm" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${pos.id},1)">📧 1차 면접관 안내</button>` : ''}
-        ${!done && int2Ready.length ? `<button class="btn btn-sm" style="background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${pos.id},2)">📧 2차 면접관 안내</button>` : ''}
+        <button class="btn btn-sm" data-action="open-position" data-id="${pos.id}">📊 상세 보기</button>
+        ${!done && int1Ready.length ? `<button class="btn btn-sm" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" data-action="call" data-call="sendPanelNotice(${pos.id},1)">📧 1차 면접관 안내</button>` : ''}
+        ${!done && int2Ready.length ? `<button class="btn btn-sm" style="background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" data-action="call" data-call="sendPanelNotice(${pos.id},2)">📧 2차 면접관 안내</button>` : ''}
         ${done
-          ? `<button class="btn btn-sm" onclick="reopenPosition(${pos.id})" style="margin-left:auto">↻ 진행중으로 복원</button>`
-          : `<button class="btn btn-sm" onclick="closePosition(${pos.id})" style="margin-left:auto;background:#EDFAF3;color:var(--green);border-color:#A8E0C0">✓ 채용 완료${targetMet?' (목표달성)':''}</button>`}
-        <button class="btn btn-sm" onclick="editPosition(${pos.id})">✏ 수정</button>
-        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="deletePosition(${pos.id})">삭제</button>
+          ? `<button class="btn btn-sm" data-action="reopen-position" data-id="${pos.id}" style="margin-left:auto">↻ 진행중으로 복원</button>`
+          : `<button class="btn btn-sm" data-action="close-position" data-id="${pos.id}" style="margin-left:auto;background:#EDFAF3;color:var(--green);border-color:#A8E0C0">✓ 채용 완료${targetMet?' (목표달성)':''}</button>`}
+        <button class="btn btn-sm" data-action="edit-position" data-id="${pos.id}">✏ 수정</button>
+        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" data-action="delete-position" data-id="${pos.id}">삭제</button>
       </div>
     </div>`;
   }).join('');
@@ -3137,7 +3352,7 @@ function renderCollectSendStep() {
       <div style="font-size:12px;color:var(--t3)">각 메일 창에서 [보내기]를 눌렀는지 확인하세요.</div>
     </div>`;
     document.getElementById('csend-footer').innerHTML =
-      `<button class="btn btn-primary" onclick="closeCollectSend()">완료</button>`;
+      `<button class="btn btn-primary" data-action="call" data-call="closeCollectSend()">완료</button>`;
     return;
   }
 
@@ -3160,8 +3375,8 @@ function renderCollectSendStep() {
 
   const remaining = total - done;
   document.getElementById('csend-footer').innerHTML = `
-    <button class="btn" onclick="skipCollectSend()" style="font-size:12px">이 사람 건너뛰기</button>
-    <button class="btn btn-outlook" onclick="doCollectSendCurrent()">✉ ${cur.name}님 메일 열기</button>`;
+    <button class="btn" data-action="call" data-call="skipCollectSend()" style="font-size:12px">이 사람 건너뛰기</button>
+    <button class="btn btn-outlook" data-action="call" data-call="doCollectSendCurrent()">✉ ${cur.name}님 메일 열기</button>`;
 }
 
 // 현재 대상 메일 작성창 열기
@@ -3188,7 +3403,7 @@ function doCollectSendCurrent() {
   // 메일 연 뒤 "다음 사람" 버튼으로 전환
   document.getElementById('csend-footer').innerHTML = `
     <span style="font-size:11.5px;color:var(--t3);align-self:center">${cur.name}님 메일 창에서 전송하셨나요?</span>
-    <button class="btn btn-primary" onclick="nextCollectSend()">다음 사람 →</button>`;
+    <button class="btn btn-primary" data-action="call" data-call="nextCollectSend()">다음 사람 →</button>`;
 }
 
 function nextCollectSend() {
@@ -3221,7 +3436,8 @@ function setDecision(candId, decision, posId) {
 }
 
 // 포지션 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
-async function confirmStageDecisions(posId, stageIdx) {
+async function confirmStageDecisions(posId, stageIdx, options={}) {
+  const skipConfirm = !!options.skipConfirm;
   const isFinalDecision = Number(stageIdx) === 4;
   const round = isFinalDecision ? '처우협의 결과' : STAGES[stageIdx];
   const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
@@ -3238,11 +3454,11 @@ async function confirmStageDecisions(posId, stageIdx) {
   const passers = posCands.filter(c => c.decision === 'pass');
   const failers = posCands.filter(c => c.decision === 'fail');
 
-  if(undecided.length) {
+  if(undecided.length && !skipConfirm) {
     if(!confirm(isFinalDecision
       ? `처우협의 중인 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n결과가 선택된 인원만 확정하고, 협의중인 지원자는 처우협의 단계에 남깁니다.\n계속할까요?`
       : `아직 판정하지 않은 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n판정된 인원만 이동시키고, 미판정자는 현재 단계에 남깁니다.\n계속할까요?`)) return;
-  } else {
+  } else if(!skipConfirm) {
     if(!confirm(isFinalDecision
       ? `처우협의 결과를 확정합니다.\n\n· 최종합격 ${passers.length}명 → 충원 seat 반영\n· 불합격 ${failers.length}명 → 전형 종료\n· 협의중 ${undecided.length}명 → 처우협의 유지\n\n진행할까요?`
       : `'${round}' 단계 판정을 확정합니다.\n\n· 합격 ${passers.length}명 → 다음 단계 이동\n· 불합격 ${failers.length}명 → 전형 종료\n\n진행할까요?`)) return;
@@ -3261,6 +3477,11 @@ async function confirmStageDecisions(posId, stageIdx) {
   let passCnt = 0, failCnt = 0;
   const rejectionInfo = failers.length ? askRejectReason(failers.length) : null;
   if(failers.length && !rejectionInfo) return;
+  const decidedInterviews = [];
+  [...passers, ...failers].forEach(c => {
+    const itv = preserveCompletedStage(c, stageIdx, c.decision);
+    if(itv) decidedInterviews.push(itv);
+  });
   passers.forEach(c => {
     c.stage = nx;
     if(nx === 5) c.finalAt = today();
@@ -3278,7 +3499,10 @@ async function confirmStageDecisions(posId, stageIdx) {
     failCnt++;
   });
   saveState();
-  if(GS_CONFIG.scriptUrl) await settleSync([...passers, ...failers].map(c => syncCandToGS(c)), '판정 결과 동기화');
+  if(GS_CONFIG.scriptUrl) await settleSync([
+    ...[...passers, ...failers].map(c => syncCandToGS(c)),
+    ...decidedInterviews.map(i => syncIntToGS(i)),
+  ], '판정 결과 동기화');
   renderPositions(); renderDashboard();
   openPosDetail(Number(posId));
   toast(isFinalDecision
@@ -3341,7 +3565,7 @@ function linkCandToPos(candId, posId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!c) { toast('지원자를 찾을 수 없습니다 (id: '+candId+')', 'terr'); return; }
-  if(!pos) { toast('포지션를 찾을 수 없습니다 (id: '+posId+')', 'terr'); return; }
+  if(!pos) { toast('포지션을 찾을 수 없습니다 (id: '+posId+')', 'terr'); return; }
   c.posId = Number(posId);
   saveState();
   if(GS_CONFIG.scriptUrl) {
@@ -3402,7 +3626,7 @@ function nohirePosition(posId) { openNohireWizard(posId); }
 function stopPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
-  if(!confirm(`'${pos.title}' 포지션를 채용 중단 처리하시겠습니까?`)) return;
+  if(!confirm(`'${pos.title}' 포지션을 채용 중단 처리하시겠습니까?`)) return;
   holdResidualCandidates(posId, pos.title);
   pos.status = 'stopped';
   pos.closedAt = today();
@@ -3426,378 +3650,6 @@ function reopenPosition(posId) {
 }
 
 // ── 포지션 상세 모달 ────────────────────────────────────────
-function openPosDetailLegacy(posId) {
-  const pos = positions.find(p => Number(p.id) === Number(posId));
-  if(!pos) return;
-
-  const posCands = candidates.filter(c => Number(c.posId) === Number(posId));
-  const byStage = STAGES.map((s,i) => ({stage:s, idx:i, list:posCands.filter(c=>c.stage===i)}));
-  const active = byStage.filter(s => s.idx < 6 && s.list.length > 0);
-
-  document.getElementById('pos-detail-title').textContent = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
-
-  const body = document.getElementById('pos-detail-body');
-  body.innerHTML = `
-    <!-- 기본 정보 -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-      <div class="card" style="padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--blue)">${posCands.filter(c=>c.stage<6).length}</div>
-        <div style="font-size:11px;color:var(--t3)">진행중</div>
-      </div>
-      <div class="card" style="padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--green)">${posCands.filter(c=>c.stage===5).length}</div>
-        <div style="font-size:11px;color:var(--t3)">최종합격</div>
-      </div>
-      <div class="card" style="padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--red)">${posCands.filter(c=>c.stage===6).length}</div>
-        <div style="font-size:11px;color:var(--t3)">불합격</div>
-      </div>
-      <div class="card" style="padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--amber)">${pos.headcount||1}</div>
-        <div style="font-size:11px;color:var(--t3)">목표인원</div>
-      </div>
-    </div>
-
-    <!-- 면접관 정보 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-      <div class="card" style="padding:14px">
-        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">1차 면접관</div>
-        ${parsePanelists(pos.panel1).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px">${esc(p.email)}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
-        ${parsePanelists(pos.panel1).length ? `<button class="btn btn-sm" style="margin-top:8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="sendPanelNotice(${posId},1)">📧 1차 면접관 안내 발송</button>` : ''}
-      </div>
-      <div class="card" style="padding:14px">
-        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px">2차 면접관</div>
-        ${parsePanelists(pos.panel2).map(p=>`<div style="font-size:13px;margin-bottom:4px">👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px">${esc(p.email)}</span></div>`).join('') || '<div style="color:var(--t3);font-size:12px">미등록</div>'}
-        ${parsePanelists(pos.panel2).length ? `<button class="btn btn-sm" style="margin-top:8px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendPanelNotice(${posId},2)">📧 2차 면접관 안내 발송</button>` : ''}
-      </div>
-    </div>
-
-    <!-- 포지션 진행 타임라인 (전체 프로세스 + 진행 음영) -->
-    <div style="margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:12px">포지션 진행 단계</div>
-      <div style="display:flex;align-items:flex-start;overflow-x:auto;padding:4px 0">
-        ${(()=>{
-          // 각 단계 통과 여부 판정: 현재 그 단계에 있거나, 더 앞선 단계로 간 인원이 있으면 "도달함"
-          // 활성 후보(불합격 제외) 기준으로 가장 앞선 진행 위치 계산
-          const activeCands = posCands.filter(c => c.stage !== 6);
-          const maxFlowIdx = activeCands.length
-            ? Math.max(...activeCands.map(c => { const fi = FLOW.indexOf(c.stage); return fi < 0 ? -1 : fi; }))
-            : -1;
-          return FLOW.map((stageIdx, fi) => {
-            const cnt = posCands.filter(c => c.stage === stageIdx).length;
-            const col = STAGE_COLORS[stageIdx] || 'var(--t3)';
-            const hasNext = fi < FLOW.length - 1;
-            const nextStage = hasNext ? FLOW[fi+1] : null;
-            const canMove = cnt > 0 && hasNext;
-            // 상태 판정
-            const isCurrent = cnt > 0;                       // 현재 인원이 있는 단계
-            const isPassed  = fi < maxFlowIdx;               // 이미 통과한(지나간) 단계
-            const isFuture  = fi > maxFlowIdx;               // 아직 도달 안 한 단계
-            // 음영 스타일
-            let circleBg, circleBd, circleColor, lblColor, opacity;
-            if(isCurrent) {
-              circleBg = col; circleBd = col; circleColor = '#fff'; lblColor = 'var(--t1)'; opacity = '1';
-            } else if(isPassed) {
-              circleBg = col; circleBd = col; circleColor = '#fff'; lblColor = 'var(--t2)'; opacity = '0.55';
-            } else { // future
-              circleBg = 'var(--surface)'; circleBd = 'var(--border2)'; circleColor = 'var(--t3)'; lblColor = 'var(--t3)'; opacity = '0.4';
-            }
-            // 연결선: 통과했거나 현재까지 진행된 구간만 색칠
-            const lineDone = fi < maxFlowIdx;
-            return `<div style="flex:1;min-width:88px;text-align:center;position:relative;opacity:${opacity}">
-              ${hasNext ? `<div style="position:absolute;top:18px;left:50%;width:100%;height:2px;background:${lineDone?col:'var(--border2)'};z-index:0"></div>` : ''}
-              <div style="position:relative;z-index:1;width:38px;height:38px;border-radius:50%;margin:0 auto 6px;background:${circleBg};border:2px solid ${circleBd};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${circleColor};${isCurrent?'box-shadow:0 0 0 4px '+col+'22':''}">${isPassed&&cnt===0?'✓':(cnt||'·')}</div>
-              <div style="font-size:10.5px;font-weight:${isCurrent?'800':'600'};color:${lblColor};line-height:1.3">${STAGES[stageIdx]}</div>
-              ${cnt>0?`<div style="font-size:9px;color:${col};font-weight:700;margin-top:1px">${cnt}명</div>`:''}
-              ${canMove ? `<button class="btn btn-xs" style="margin-top:4px;font-size:9px;padding:1px 6px" onclick="batchStageChange(${posId},${stageIdx},${nextStage})">단계 전체 → ${STAGES[nextStage]}</button>` : ''}
-            </div>`;
-          }).join('');
-        })()}
-      </div>
-      <div style="display:flex;gap:14px;margin-top:10px;font-size:10px;color:var(--t3)">
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--acc)"></span>진행 중</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--acc);opacity:.55"></span>완료(통과)</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--surface);border:1px solid var(--border2)"></span>예정</span>
-      </div>
-    </div>
-
-    <!-- 면접일정 관리 액션 바 (상시 노출) -->
-    <div style="margin-bottom:20px;padding:12px 14px;background:var(--abg);border:1px solid var(--abd);border-radius:var(--r)">
-      <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">📅 면접일정 관리 (후보일정을 직접 정해서 안내 → 회신 후 확정)</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--t2);align-self:center;font-weight:600">1차:</span>
-        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--amber);border-color:var(--abd)" onclick="openCollectSlots(${posId},1)">📨 후보일정 안내</button>
-        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${posId},1)">📅 1차 공통일정 확정</button>
-        <span style="width:1px;background:var(--abd);margin:0 4px"></span>
-        <span style="font-size:11px;color:var(--t2);align-self:center;font-weight:600">2차:</span>
-        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--amber);border-color:var(--abd)" onclick="openCollectSlots(${posId},3)">📨 후보일정 안내</button>
-        <button class="btn btn-sm" style="font-size:11px;background:#fff;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${posId},3)">📅 2차 공통일정 확정</button>
-      </div>
-      <div style="font-size:10.5px;color:var(--t3);margin-top:6px">※ 포지션별 동일 면접 날짜가 기본입니다. 일정 확정 후 해당 단계 대상자가 일괄 이동하며, 개인 일정 수정은 예외적으로 사용합니다.</div>
-    </div>
-
-    <!-- 단계별 지원자 목록 -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span style="font-size:13px;font-weight:700">지원자 현황</span>
-      <button class="btn btn-sm btn-primary" onclick="addCandToPos(${posId})">+ 지원자 추가</button>
-    </div>
-    ${FLOW.map((stageIdx) => {
-      const stageName = STAGES[stageIdx];
-      let stageCands = posCands.filter(c => c.stage === stageIdx);
-      if(!stageCands.length) return '';
-      // ── 단계별 '처리 완료(된 것)' vs '처리 필요(안 된 것)' 판정 ──
-      const stageActionDone = (cd) => {
-        switch(stageIdx){
-          case 0: return interviews.some(i=>Number(i.candId)===Number(cd.id) && i.type==='1차'); // 1차 일정 처리 시작
-          case 1: case 3: case 4: return !!cd.decision;                         // 면접/최종 판정 완료
-          case 2: return cd.ref==='완료';                                       // 레퍼런스 완료
-          case 5: return onboardings.some(o=>Number(o.candId)===Number(cd.id)); // 입사 안내 발송됨
-          default: return null;                                                 // 7(입사): 분리 없음
-        }
-      };
-      const splitOn = stageActionDone(stageCands[0]) !== null;
-      if(splitOn){
-        stageCands = stageCands.slice().sort((a,b)=>{
-          const da = stageActionDone(a)?1:0, db = stageActionDone(b)?1:0;
-          return da - db || (a.name||'').localeCompare(b.name||'','ko');
-        });
-      }
-      const needCnt = splitOn ? stageCands.filter(c=>!stageActionDone(c)).length : 0;
-      const doneCnt = splitOn ? stageCands.length - needCnt : 0;
-      const firstDoneIdx = splitOn ? stageCands.findIndex(c=>stageActionDone(c)) : -1;
-      return `<div style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-          <span style="font-size:12px;font-weight:700;color:var(--t2)">${stageName}</span>
-          <span style="background:var(--s3);padding:2px 8px;border-radius:20px;font-size:11px">${stageCands.length}명</span>
-          ${splitOn ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:${needCnt>0?'var(--amber)':'var(--t3)'}"><span style="width:6px;height:6px;border-radius:50%;background:${needCnt>0?'var(--amber)':'var(--border2)'}"></span>처리 필요 ${needCnt}</span><span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:${doneCnt>0?'var(--green)':'var(--t3)'}"><span style="width:6px;height:6px;border-radius:50%;border:1.5px solid ${doneCnt>0?'var(--green)':'var(--border2)'};box-sizing:border-box"></span>완료 ${doneCnt}</span>` : ''}
-          ${(()=>{
-            // 서류합격(0): 전체 1차 면접 일정 일괄 배치
-            if(stageIdx===0) {
-              return `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${posId},1)">📨 후보일정 일괄 안내(수집)</button>`
-                + `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},1,0,true)">📅 공통일정 확정 후 전체 1차면접 이동</button>`;
-            }
-            if(stageIdx!==1 && stageIdx!==3) return '';
-            const round = stageIdx===1?'1차':'2차';
-            const confirmedCnt = stageCands.filter(cd => interviews.some(i=>i.candId===cd.id && i.type===round && (i.status==='confirmed'||i.status==='done'))).length;
-            const allConfirmed = stageCands.length>0 && confirmedCnt===stageCands.length;
-            const panelExists = (stageIdx===1?parsePanelists(pos.panel1):parsePanelists(pos.panel2)).length>0;
-            let btns = `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${posId},${stageIdx})">📨 후보일정 안내(수집)</button>`;
-            btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openBatchSchedule(${posId},${stageIdx})">📅 공통일정 확정</button>`;
-            btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="batchStageChange(${posId},${stageIdx},${stageIdx+1})">단계 전체 → ${STAGES[stageIdx+1]}</button>`;
-            // 일정 확정 진행률 표시
-            btns += `<span style="font-size:10px;color:${allConfirmed?'var(--green)':'var(--t3)'};font-weight:600">일정확정 ${confirmedCnt}/${stageCands.length}</span>`;
-            // 미확정 일정이 있으면 전체 일정 확정 버튼
-            const pendingCnt = stageCands.filter(cd => interviews.some(i=>i.candId===cd.id && i.type===round && i.status==='pending')).length;
-            if(pendingCnt > 0) {
-              btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="confirmAllInterviews(${posId},${stageIdx})">✓ 전체 일정 확정 (${pendingCnt}명)</button>`;
-            }
-            // 확정된 지원자가 있으면 지원자 일괄 안내 버튼
-            if(confirmedCnt > 0) {
-              btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendAllCandSchedule(${posId},${stageIdx})">✉ 지원자 일괄 안내 (${confirmedCnt}명)</button>`;
-            }
-            // 전원 확정 + 면접관 등록 시 → 면접관 안내 버튼 강조
-            if(allConfirmed && panelExists) {
-              btns += `<button class="btn btn-sm" style="font-size:10px;padding:3px 10px;background:var(--green);color:#fff;border-color:var(--green);font-weight:700" onclick="sendPanelSchedule(${posId},${stageIdx})">📧 면접관에게 일정 일괄 안내</button>`;
-            } else if(panelExists && confirmedCnt>0) {
-              btns += `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;opacity:.5" title="전원 일정 확정 후 활성화됩니다" disabled>📧 면접관 안내 (확정 대기)</button>`;
-            }
-            // 판정 확정 (합격/불합격 일괄 이동) — 1·2차 면접 단계
-            const decided = stageCands.filter(c => c.decision).length;
-            const passN = stageCands.filter(c => c.decision === 'pass').length;
-            const failN = stageCands.filter(c => c.decision === 'fail').length;
-            btns += `<span style="font-size:10px;color:var(--t3);align-self:center;margin-left:4px">판정 ${decided}/${stageCands.length} (합격 ${passN}·불합격 ${failN})</span>`;
-            if(decided > 0) {
-              btns += `<button class="btn btn-sm" style="font-size:10px;padding:3px 10px;background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700" onclick="confirmStageDecisions(${posId},${stageIdx})">⚖ 판정 확정 → 일괄 이동</button>`;
-            }
-            return btns;
-          })()}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${stageCands.map((cand, ci) => {
-            // 처리 필요 / 완료 구분선
-            const _needHdr = (splitOn && needCnt>0 && ci===0)
-              ? `<div style="display:flex;align-items:center;gap:7px;margin:2px 0 5px;font-size:10px;font-weight:700;color:var(--amber)"><span style="width:5px;height:5px;border-radius:50%;background:var(--amber)"></span>처리 필요 ${needCnt}건<span style="flex:1;height:1px;background:var(--abd)"></span></div>`
-              : '';
-            const _doneHdr = (splitOn && firstDoneIdx>=0 && ci===firstDoneIdx)
-              ? `<div style="display:flex;align-items:center;gap:7px;margin:12px 0 5px;font-size:10px;font-weight:700;color:var(--green)"><span style="width:5px;height:5px;border-radius:50%;border:1.5px solid var(--green);box-sizing:border-box"></span>처리 완료 ${doneCnt}건<span style="flex:1;height:1px;background:var(--gbd)"></span></div>`
-              : '';
-            const _stageDone = splitOn ? stageActionDone(cand) : false;
-            const round = stageIdx===1?'1차':stageIdx===3?'2차':'';
-            const itv = round ? interviews.find(i => i.candId === cand.id && i.type === round) : null;
-            const st = itv ? (itv.status||'pending') : null;
-            const stBadge = st==='done' ? '<span class="b bgreen" style="font-size:9px">면접완료</span>'
-              : st==='confirmed' ? '<span class="b bblue" style="font-size:9px">일정확정</span>'
-              : st==='pending' ? '<span class="b bamber" style="font-size:9px">회신대기</span>' : '';
-            const timeInfo = itv ? `<div style="font-size:11px;color:${st==='confirmed'||st==='done'?'var(--blue)':'var(--amber)'};font-family:'DM Mono',monospace;margin-top:2px">📅 ${itv.date} ${itv.loc&&itv.loc.indexOf('미정')===-1?'· '+itv.loc:''}</div>` : '';
-            // 면접 단계에서 확정 전이면 일정확정 버튼 노출
-            const confirmBtn = (round && itv && st!=='done')
-              ? `<button class="btn btn-sm" style="font-size:11px;background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="confirmInterviewFromPos(${itv.id},${posId})">${st==='confirmed'?'일정 수정':'📅 일정 확정'}</button>`
-              : '';
-            const doneBtn = (round && st==='confirmed')
-              ? `<button class="btn btn-sm" style="font-size:11px" onclick="markIntDoneFromPos(${itv.id},${posId})">완료처리</button>`
-              : '';
-            // 확정된 일정이 있으면 지원자에게 확정 일정 안내(개인) 버튼
-            const candNoticeBtn = (round && itv && (st==='confirmed'||st==='done'))
-              ? `<button class="btn btn-sm" style="font-size:11px;background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" onclick="sendCandSchedule(${itv.id})">✉ 지원자 안내</button>`
-              : '';
-            // 레퍼런스 단계(stageIdx===2) 전용 정보/버튼
-            let refInfo = '', refBtns = '';
-            if(stageIdx === 2) {
-              const refs = refDetails[cand.id] || [];
-              const reg = refs.filter(r=>r.status==='등록'||r.status==='응답').length;
-              const resp = refs.filter(r=>r.status==='응답').length;
-              const tot = cand.refT || refs.length || 3;
-              const refBadge = cand.ref==='완료' ? '<span class="b bgreen" style="font-size:9px">완료</span>'
-                : reg===0 ? '<span class="b bgray" style="font-size:9px">미접수</span>'
-                : resp>=tot ? '<span class="b bgreen" style="font-size:9px">응답완료</span>'
-                : `<span class="b bamber" style="font-size:9px">접수 ${reg} · 응답 ${resp}/${tot}</span>`;
-              refInfo = `<div style="font-size:11px;color:var(--teal);margin-top:2px">📋 ${refBadge}</div>`;
-              if(cand.ref==='미시작') {
-                refBtns = `<button class="btn btn-sm" style="font-size:11px;background:#E9F7F2;color:var(--teal);border-color:#A8E0C0" onclick="sendRefRequest(${cand.id})">📋 추천인 요청</button>`;
-              } else {
-                refBtns = `<button class="btn btn-sm" style="font-size:11px" onclick="syncRefFromGS()">↻ 상태 갱신</button>`;
-              }
-            }
-            return `${_needHdr}${_doneHdr}
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm)${_stageDone?';opacity:.62':''}">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0">${esc(cand.name.charAt(0))}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">${esc(cand.name)} ${stBadge}</div>
-                <div style="font-size:11px;color:var(--t3)">${esc(cand.email)}</div>
-                ${timeInfo}${refInfo}
-              </div>
-              <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
-                <button class="btn btn-sm" style="font-size:11px" onclick="closeModal('modal-pos-detail');openDetail(${cand.id})">상세</button>
-                ${confirmBtn}
-                ${candNoticeBtn}
-                ${doneBtn}
-                ${refBtns}
-                ${(() => {
-                  // 서류합격(0): 이미 합격해서 등록됨 → 합격/불합격 없음 (다음 단계 이동만)
-                  if(stageIdx === 0) return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ 1차면접</button>`;
-                  // 1차(1)·2차(3) 면접: 합격/불합격 '판정 표시'만 (단계 이동은 포지션 일괄 확정으로)
-                  if(stageIdx === 1 || stageIdx === 3) {
-                    const dec = cand.decision || '';
-                    return `<button class="btn btn-sm ${dec==='pass'?'btn-green':''}" style="font-size:11px;${dec==='pass'?'':'color:var(--green);border-color:var(--green)'}" onclick="setDecision(${cand.id},'pass',${posId})">${dec==='pass'?'✓ 합격 ●':'합격'}</button>`
-                      + `<button class="btn btn-sm" style="font-size:11px;${dec==='fail'?'background:var(--red);color:#fff;border-color:var(--red)':'color:var(--red);border-color:var(--red)'}" onclick="setDecision(${cand.id},'fail',${posId})">${dec==='fail'?'✗ 불합격 ●':'불합격'}</button>`;
-                  }
-                  // 레퍼런스(2): 다음 단계 진행 (+불합격 선택)
-                  if(stageIdx === 2) {
-                    const nx = nextFlowStage(stageIdx);
-                    return `<button class="btn btn-sm btn-green" style="font-size:11px" onclick="passFromPos(${cand.id},${posId},${stageIdx})">→ ${STAGES[nx]}</button>`
-                      + `<button class="btn btn-sm" style="font-size:11px;color:var(--red);border-color:var(--red)" onclick="rejectFromPos(${cand.id},${posId})">✗ 불합격</button>`;
-                  }
-                  // 처우협의(4): 조건 협의 후 최종 판정 화면에서 최종합격/불합격 결정
-                  if(stageIdx === 4) {
-                    const dec = cand.decision || '';
-                    return `<button class="btn btn-sm ${dec?'btn-primary':''}" style="font-size:11px" onclick="openPositionResultModal(${posId},4)">${dec==='pass'?'최종합격 선택됨':dec==='fail'?'불합격 선택됨':'처우협의 결과'}</button>`;
-                  }
-                  // 최종합격(5) = 충원 완료(입사 단계 폐지) → 입사 안내·사내부서 통보를 이 단계에서 처리
-                  if(stageIdx === 5) {
-                    return `<button class="btn btn-sm btn-outlook" style="font-size:11px" onclick="sendOnboardToCand(${cand.id})">✉ 입사 안내(지원자)</button>`
-                      + `<button class="btn btn-sm" style="font-size:11px;background:#E9F7F2;color:var(--teal);border-color:#A8E0C0" onclick="sendOnboardToDept(${cand.id})">🏢 사내부서 통보</button>`;
-                  }
-                  return '';
-                })()}
-              </div>
-            </div>
-            ${(stageIdx===1||stageIdx===3) ? (()=>{
-              // 면접 단계 세부 타임라인
-              const rnd = stageIdx===1 ? '1차' : '2차';
-              const itvT = interviews.find(i => Number(i.candId)===Number(cand.id) && i.type===rnd);
-              const steps = [
-                { label:'합격·일정 후보 안내', done: !!itvT, note: itvT?'일정 후보 등록됨':'미등록' },
-                { label:'면접 일정 확정', done: itvT && (itvT.status==='confirmed'||itvT.status==='done'), note: (itvT&&(itvT.status==='confirmed'||itvT.status==='done'))?(itvT.date||''):'미확정' },
-                { label:'지원자 면접 안내', done: itvT && itvT.candNotified, note: (itvT&&itvT.candNotified)?'발송완료':'미발송' },
-                { label:'면접관 면접 안내', done: itvT && itvT.notified, note: (itvT&&itvT.notified)?'발송완료':'미발송' },
-              ];
-              return `<div style="margin:6px 0 2px 38px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
-                <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">${rnd} 면접 진행 단계</div>
-                <div style="display:flex;align-items:flex-start;gap:0">
-                  ${steps.map((s,si)=>`
-                    <div style="flex:1;text-align:center;position:relative">
-                      ${si<steps.length-1?`<div style="position:absolute;top:9px;left:50%;width:100%;height:2px;background:${steps[si+1].done||s.done?'var(--green)':'var(--border2)'}"></div>`:''}
-                      <div style="position:relative;width:18px;height:18px;border-radius:50%;margin:0 auto 5px;background:${s.done?'var(--green)':'#fff'};border:2px solid ${s.done?'var(--green)':'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;z-index:1">${s.done?'✓':''}</div>
-                      <div style="font-size:10px;font-weight:600;color:${s.done?'var(--t1)':'var(--t3)'};line-height:1.3">${s.label}</div>
-                      <div style="font-size:9px;color:${s.done?'var(--green)':'var(--t3)'};margin-top:2px">${s.note}</div>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>`;
-            })() : ''}
-            ${stageIdx===2 ? (()=>{
-              // 레퍼런스 단계 세부 타임라인
-              const refs = refDetails[cand.id] || [];
-              const reg = refs.filter(r=>r.status==='등록'||r.status==='응답').length;
-              const resp = refs.filter(r=>r.status==='응답').length;
-              const tot = cand.refT || refs.length || 3;
-              const steps = [
-                { label:'추천인 요청 발송', done: cand.ref!=='미시작', note: cand.ref!=='미시작'?'발송완료':'미발송' },
-                { label:'추천인 접수', done: reg>0, note: reg>0?`${reg}/${tot}명 접수`:'미접수' },
-                { label:'응답 수집', done: resp>0, note: resp>0?`${resp}/${tot}명 응답`:'대기' },
-                { label:'체크 완료', done: cand.ref==='완료', note: cand.ref==='완료'?'완료':'진행중' },
-              ];
-              return `<div style="margin:6px 0 2px 38px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
-                <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">레퍼런스 진행 단계</div>
-                <div style="display:flex;align-items:flex-start;gap:0">
-                  ${steps.map((s,si)=>`
-                    <div style="flex:1;text-align:center;position:relative">
-                      ${si<steps.length-1?`<div style="position:absolute;top:9px;left:50%;width:100%;height:2px;background:${steps[si+1].done||s.done?'var(--teal)':'var(--border2)'}"></div>`:''}
-                      <div style="position:relative;width:18px;height:18px;border-radius:50%;margin:0 auto 5px;background:${s.done?'var(--teal)':'#fff'};border:2px solid ${s.done?'var(--teal)':'var(--border2)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;z-index:1">${s.done?'✓':''}</div>
-                      <div style="font-size:10px;font-weight:600;color:${s.done?'var(--t1)':'var(--t3)'};line-height:1.3">${s.label}</div>
-                      <div style="font-size:9px;color:${s.done?'var(--teal)':'var(--t3)'};margin-top:2px">${s.note}</div>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>`;
-            })() : ''}
-          `;}).join('')}
-        </div>
-      </div>`;
-    }).join('') || '<div style="color:var(--t3);font-size:13px;padding:20px 0">이 포지션에 연결된 지원자가 없습니다. 아래에서 지원자를 연결하세요.</div>'}
-
-    <!-- 지원자 연결 (미연결 지원자) -->
-    ${(()=>{
-      const unlinked = candidates.filter(c => (c.posId == null || c.posId === '') && c.stage < 6);
-      if(!unlinked.length) return '';
-      return `<div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border)">
-        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">📎 미연결 지원자를 이 포지션에 연결</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${unlinked.map(c => `
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm)">
-              <div style="flex:1">
-                <span style="font-size:13px;font-weight:600">${esc(c.name)}</span>
-                <span style="font-size:11px;color:var(--t3)">· ${esc(c.pos)} · ${STAGES[c.stage]}</span>
-              </div>
-              <button class="btn btn-xs btn-primary" onclick="linkCandToPos(${c.id},${posId})">+ 연결</button>
-            </div>
-          `).join('')}
-        </div>
-      </div>`;
-    })()}
-  `;
-
-  const ft = document.getElementById('pos-detail-ft');
-  const _st = posStatus(pos);
-  const _passed = candidates.filter(c => Number(c.posId)===Number(pos.id) && c.stage===5).length;
-  const _targetMet = _passed >= (parseInt(pos.headcount)||1);
-  ft.innerHTML = `
-    <button class="btn" onclick="closeModal('modal-pos-detail')">닫기</button>
-    <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--s2);color:var(--t2)">${posStatusLabel(pos)}</span>
-    ${(_st==='active' && _targetMet) ? `<span style="font-size:11px;font-weight:700;color:var(--green)">✓ 최종합격 ${_passed}/${parseInt(pos.headcount)||1} — 충원완료 처리 가능</span>` : ''}
-    <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-      ${_st!=='active'
-        ? `<button class="btn btn-sm" onclick="reopenPosition(${posId});closeModal('modal-pos-detail')">↻ 진행중으로 복원</button>`
-        : `<button class="btn btn-sm${_targetMet?' btn-primary':''}" style="${_targetMet?'':'background:#EDFAF3;color:var(--green);border-color:#A8E0C0'}" onclick="closeModal('modal-pos-detail');closePosition(${posId})">✓ 충원 완료${_targetMet?' (목표 달성)':''}</button>
-           <button class="btn btn-sm" style="background:var(--abg);color:var(--amber);border-color:var(--abd)" onclick="nohirePosition(${posId})">↻ 미채용 완료(재모집)</button>
-           <button class="btn btn-sm" style="color:var(--t2)" onclick="stopPosition(${posId})">■ 채용 중단</button>`}
-      <button class="btn btn-sm" onclick="closeModal('modal-pos-detail');editPosition(${posId})">✏ 수정</button>
-    </div>
-  `;
-
-  openModal('modal-pos-detail');
-}
-
 // ── 포지션 상세 v2: 채용 프로젝트 관리 화면 ────────────────
 function getPositionProjectData(positionId) {
   const pos = positions.find(p => Number(p.id) === Number(positionId));
@@ -3819,16 +3671,17 @@ function getPositionProjectData(positionId) {
 function positionRoundData(positionId, stageIdx) {
   const round = stageIdx === 1 ? '1차' : '2차';
   const candidateStages = stageIdx === 1 ? [0,1] : [2,3];
-  const roundCands = candidates.filter(c => Number(c.posId) === Number(positionId) && candidateStages.includes(c.stage));
-  const roundIds = new Set(roundCands.map(c => Number(c.id)));
-  const roundInterviews = interviews.filter(i => roundIds.has(Number(i.candId)) && i.type === round);
+  const positionCands = candidates.filter(c => Number(c.posId) === Number(positionId));
+  const roundCands = positionCands.filter(c => candidateStages.includes(c.stage));
+  const positionIds = new Set(positionCands.map(c => Number(c.id)));
+  const roundInterviews = interviews.filter(i => positionIds.has(Number(i.candId)) && i.type === round);
   return {
     round, candidates:roundCands, interviews:roundInterviews,
     pending:roundInterviews.filter(i => (i.status||'pending') === 'pending'),
     confirmed:roundInterviews.filter(i => i.status === 'confirmed' || i.status === 'done'),
     done:roundInterviews.filter(i => i.status === 'done'),
-    candidateNotified:roundInterviews.filter(i => i.candNotified),
-    panelNotified:roundInterviews.filter(i => i.notified),
+    candidateNotified:roundInterviews.filter(i => i.candidateNotified || i.candNotified),
+    panelNotified:roundInterviews.filter(i => i.panelNotified || i.notified),
   };
 }
 
@@ -3880,7 +3733,7 @@ function getPositionActionItems(positionId) {
   if(offerStage.length) add('offer_negotiation','medium','처우협의 결과 입력 필요',`${offerStage.length}명 · 협의 결과를 최종합격/불합격/협의중으로 입력하세요.`,'결과 입력','openPositionResultModal',`openPositionResultModal(${positionId},4)`);
 
   if(projectStatus === 'active' || projectStatus === 'partial') {
-    if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 포지션를 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closeModal('modal-pos-detail');closePosition(${positionId})`);
+    if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 포지션을 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closeModal('modal-pos-detail');closePosition(${positionId})`);
     else if(final.length && remain > 0) add('partial_fill','low','부분충원 상태',`최종합격 ${final.length}명 · 잔여 seat ${remain}명`,'지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
   }
   if((projectStatus === 'nohire' || projectStatus === 'stopped') && list.some(c => c.stage < 6)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
@@ -3897,22 +3750,29 @@ function getPositionProcessStatus(positionId) {
   const r1 = positionRoundData(positionId, 1);
   const r2 = positionRoundData(positionId, 3);
   const refCands = list.filter(c => c.stage >= 2 && c.stage !== 6);
+  const flow = getPositionFlow(pos);
+  const activeOrPassed = list.filter(c => c.stage !== 6);
+  const allPast = stage => activeOrPassed.length > 0 && activeOrPassed.every(c =>
+    flowIndex(c.stage, flow) > flowIndex(stage, flow) || Number(c.lastCompletedStage) >= Number(stage)
+  );
+  const pastInt1 = allPast(1);
+  const pastInt2 = !short && allPast(3);
   const checks = [
     { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
-    { key:'int1_slots', title:'1차 후보일정 안내', done:r1.interviews.length > 0, skip:false },
-    { key:'int1_confirm', title:'1차 공동일정 확정', done:r1.confirmed.length > 0, skip:false },
-    { key:'int1_panel', title:'1차 면접관 안내', done:r1.confirmed.length > 0 && r1.panelNotified.length >= r1.confirmed.length, skip:false },
-    { key:'int1_cand', title:'1차 지원자 안내', done:r1.confirmed.length > 0 && r1.candidateNotified.length >= r1.confirmed.length, skip:false },
-    { key:'int1_done', title:'1차 면접 실시', done:r1.done.length > 0, skip:false },
-    { key:'int1_result', title:'1차 결과 입력', done:list.some(c => flowIndex(c.stage, getPositionFlow(pos)) > flowIndex(1, getPositionFlow(pos))), skip:false },
+    { key:'int1_slots', title:'1차 후보일정 안내', done:r1.interviews.length > 0 || pastInt1, skip:false },
+    { key:'int1_confirm', title:'1차 공동일정 확정', done:r1.confirmed.length > 0 || pastInt1, skip:false },
+    { key:'int1_panel', title:'1차 면접관 안내', done:(r1.confirmed.length > 0 && r1.panelNotified.length >= r1.confirmed.length) || pastInt1, skip:false },
+    { key:'int1_cand', title:'1차 지원자 안내', done:(r1.confirmed.length > 0 && r1.candidateNotified.length >= r1.confirmed.length) || pastInt1, skip:false },
+    { key:'int1_done', title:'1차 면접 실시', done:r1.done.length > 0 || pastInt1, skip:false },
+    { key:'int1_result', title:'1차 결과 입력', done:pastInt1, skip:false },
     { key:'ref_req', title:'레퍼런스 체크 요청', done:refCands.some(c => c.ref !== '미시작'), skip:short },
     { key:'ref_done', title:'레퍼런스 완료', done:refCands.some(c => c.ref === '완료') || list.some(c => c.stage >= 3 && c.stage !== 6), skip:short },
-    { key:'int2_slots', title:'2차 후보일정 안내', done:r2.interviews.length > 0, skip:short },
-    { key:'int2_confirm', title:'2차 공동일정 확정', done:r2.confirmed.length > 0, skip:short },
-    { key:'int2_panel', title:'2차 면접관 안내', done:r2.confirmed.length > 0 && r2.panelNotified.length >= r2.confirmed.length, skip:short },
-    { key:'int2_cand', title:'2차 지원자 안내', done:r2.confirmed.length > 0 && r2.candidateNotified.length >= r2.confirmed.length, skip:short },
-    { key:'int2_done', title:'2차 면접 실시', done:r2.done.length > 0, skip:short },
-    { key:'int2_result', title:'2차 결과 입력', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:short },
+    { key:'int2_slots', title:'2차 후보일정 안내', done:r2.interviews.length > 0 || pastInt2, skip:short },
+    { key:'int2_confirm', title:'2차 공동일정 확정', done:r2.confirmed.length > 0 || pastInt2, skip:short },
+    { key:'int2_panel', title:'2차 면접관 안내', done:(r2.confirmed.length > 0 && r2.panelNotified.length >= r2.confirmed.length) || pastInt2, skip:short },
+    { key:'int2_cand', title:'2차 지원자 안내', done:(r2.confirmed.length > 0 && r2.candidateNotified.length >= r2.confirmed.length) || pastInt2, skip:short },
+    { key:'int2_done', title:'2차 면접 실시', done:r2.done.length > 0 || pastInt2, skip:short },
+    { key:'int2_result', title:'2차 결과 입력', done:pastInt2, skip:short },
     { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
     { key:'final', title:'최종합격', done:final.length > 0 && !list.some(c => c.stage === 4), skip:false },
     { key:'onboard', title:'입사안내', done:final.some(c => c.notified) || final.some(c => onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
@@ -4002,15 +3862,15 @@ function renderPositionBatchToolbar(positionId) {
   const { pos } = d;
   const short = isShortProcessEtype(pos.etype);
   const btns = [];
-  if(d.list.some(c => c.stage === 0)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${positionId},1)">1차 후보일정 안내</button>`);
-  if(d.list.some(c => c.stage === 0 || c.stage === 1)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${positionId},1)">1차 공동일정 확정</button>`);
-  if(d.list.some(c => c.stage === 1)) btns.push(`<button class="btn btn-xs btn-primary" onclick="confirmStageDecisions(${positionId},1)">1차 결과 일괄 확정</button>`);
+  if(d.list.some(c => c.stage === 0)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" data-action="call" data-call="openCollectSlots(${positionId},1)">1차 후보일정 안내</button>`);
+  if(d.list.some(c => c.stage === 0 || c.stage === 1)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" data-action="call" data-call="openPositionRoundSchedule(${positionId},1)">1차 공동일정 확정</button>`);
+  if(d.list.some(c => c.stage === 1)) btns.push(`<button class="btn btn-xs btn-primary" data-action="call" data-call="confirmStageDecisions(${positionId},1)">1차 결과 일괄 확정</button>`);
   if(!short) {
-    if(d.list.some(c => c.stage === 2)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" onclick="openCollectSlots(${positionId},3)">2차 후보일정 안내</button>`);
-    if(d.list.some(c => c.stage === 2 || c.stage === 3)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" onclick="openPositionRoundSchedule(${positionId},3)">2차 공동일정 확정</button>`);
-    if(d.list.some(c => c.stage === 3)) btns.push(`<button class="btn btn-xs btn-primary" onclick="confirmStageDecisions(${positionId},3)">2차 결과 일괄 확정</button>`);
+    if(d.list.some(c => c.stage === 2)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" data-action="call" data-call="openCollectSlots(${positionId},3)">2차 후보일정 안내</button>`);
+    if(d.list.some(c => c.stage === 2 || c.stage === 3)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" data-action="call" data-call="openPositionRoundSchedule(${positionId},3)">2차 공동일정 확정</button>`);
+    if(d.list.some(c => c.stage === 3)) btns.push(`<button class="btn btn-xs btn-primary" data-action="call" data-call="confirmStageDecisions(${positionId},3)">2차 결과 일괄 확정</button>`);
   }
-  if(d.list.some(c => c.stage === 4)) btns.push(`<button class="btn btn-xs btn-green" onclick="openPositionResultModal(${positionId},4)">처우협의 결과 입력</button>`);
+  if(d.list.some(c => c.stage === 4)) btns.push(`<button class="btn btn-xs btn-green" data-action="call" data-call="openPositionResultModal(${positionId},4)">처우협의 결과 입력</button>`);
   if(!btns.length) return '';
   return `<div class="pp-batch"><span style="font-size:10.5px;font-weight:700;color:var(--t2);margin-right:4px">포지션 일괄 처리</span>${btns.join('')}</div>`;
 }
@@ -4024,7 +3884,7 @@ function renderPositionActionCenter(positionId) {
     ${topHint}
     ${items.length ? `<div class="pp-actions">${items.map(a=>`<div class="pp-action ${a.priority}">
       <div class="pp-action-body"><div class="pp-action-priority">${a.priority}</div><div class="pp-action-title">${esc(a.title)}</div><div class="pp-action-desc">${esc(a.desc)}</div></div>
-      <button class="btn btn-sm ${a.priority==='high'?'btn-primary':''}" onclick="${a.actionCall}">${esc(a.actionLabel)}</button>
+      <button class="btn btn-sm ${a.priority==='high'?'btn-primary':''}" data-action="call" data-call="${a.actionCall}">${esc(a.actionLabel)}</button>
     </div>`).join('')}</div>` : '<div class="pp-action-empty"><span class="urgent-empty-dot"></span>현재 즉시 처리할 업무가 없습니다.</div>'}
   </section>`;
 }
@@ -4056,8 +3916,6 @@ function renderPositionProcessChecklist(positionId) {
     <div class="pp-process-groups">${groups.map(g=>{
       const tasks = g.tasks;
       const activeTasks = tasks.filter(s=>s.status!=='skipped');
-      const completed = activeTasks.filter(s=>s.status==='complete').length;
-      const groupCount = activeTasks.length ? `${completed}/${activeTasks.length} 완료` : '생략';
       const groupStatus = !activeTasks.length ? 'skipped'
         : activeTasks.every(s=>s.status==='complete') ? 'complete'
         : activeTasks.some(s=>s.status==='delayed') ? 'delayed'
@@ -4068,9 +3926,9 @@ function renderPositionProcessChecklist(positionId) {
       const targetIndex = flow.indexOf(g.stage);
       const fromStage = targetIndex > 0 ? flow[targetIndex-1] : -1;
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
-      const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" onclick="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
-      return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" onclick="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel} · ${groupCount}</span>${moveButton}</div>
-        <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}${s.status!=='skipped'?' actionable':''}" ${s.status!=='skipped'?`onclick="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
+      const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" data-action="call" data-call="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
+      return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" data-action="call" data-call="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel}</span>${moveButton}</div>
+        <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}${s.status!=='skipped'?' actionable':''}" ${s.status!=='skipped'?`data-action="call" data-call="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
       </div>`;
     }).join('')}</div>
   </section>`;
@@ -4146,9 +4004,9 @@ function openPositionResultModal(positionId, stageIdx) {
     <div style="display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border)">
       <div><div style="font-size:12.5px;font-weight:700">${esc(c.name)}</div><div style="font-size:10.5px;color:var(--t3)">${esc(c.email||'-')}</div></div>
       <div style="display:flex;gap:5px">
-        <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
-        <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" onchange="selectPositionResult(this)">불합격</label>
-        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" onchange="selectPositionResult(this)">${isFinal?'협의중':'미정'}</label>
+        <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
+        <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">불합격</label>
+        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'협의중':'미정'}</label>
       </div>
     </div>`).join('');
   openModal('modal-position-result');
@@ -4170,11 +4028,14 @@ async function savePositionResults(confirmAndMove) {
     const selected = document.querySelector(`input[name="pr-${c.id}"]:checked`);
     c.decision = selected ? selected.value : '';
   });
+  if(confirmAndMove) {
+    closeModal('modal-position-result');
+    return confirmStageDecisions(positionId, stageIdx, {skipConfirm:true});
+  }
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>syncCandToGS(c)), stageIdx===4?'처우협의 결과 저장 동기화':'면접 결과 저장 동기화');
   closeModal('modal-position-result');
   renderPositionDetail(positionId);
-  if(confirmAndMove) return confirmStageDecisions(positionId, stageIdx);
   toast(`${stageIdx===4?'처우협의 결과':stageLabel(stageIdx)+' 판정'} 저장 완료`, 'tok');
 }
 
@@ -4228,10 +4089,10 @@ function renderPositionCandidates(positionId) {
       <div class="pp-cand-cell"><strong>면접일정</strong>${intState}${itv&&itv.date?` · ${fmtItv(itv.date)}`:''}</div>
       ${refCell}
       <div class="pp-cand-cell pp-secondary"><strong>안내 발송</strong>${notice}</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-xs" onclick="closeModal('modal-pos-detail');openDetail(${c.id})">개별 처리</button><button class="btn btn-xs" onclick="closeModal('modal-pos-detail');editCandidate(${c.id})">수정</button></div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-close="modal-pos-detail">개별 처리</button><button class="btn btn-xs" data-action="edit-candidate" data-id="${c.id}" data-close="modal-pos-detail">수정</button></div>
     </div>`;
   };
-  return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">개별 지원자 상태 확인 및 예외 처리</div></div><button class="btn btn-sm btn-primary" onclick="addCandToPos(${positionId})">+ 지원자 추가</button></div>
+  return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">개별 지원자 상태 확인 및 예외 처리</div></div><button class="btn btn-sm btn-primary" data-action="call" data-call="addCandToPos(${positionId})">+ 지원자 추가</button></div>
     <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 포지션에 연결된 지원자가 없습니다. 지원자를 추가해 채용 프로세스를 시작하세요.</div>'}</div>
   </section>`;
 }
@@ -4240,11 +4101,11 @@ function renderPositionOperations(positionId) {
   const d = getPositionProjectData(positionId);
   if(!d) return '';
   const active = d.projectStatus === 'active' || d.projectStatus === 'partial';
-  return `<div class="pp-footer-group"><span class="pp-footer-label">보조</span><button class="btn btn-sm" onclick="closeModal('modal-pos-detail')">닫기</button></div>
-    <div class="pp-footer-group"><span class="pp-footer-label">관리</span><button class="btn btn-sm" onclick="closeModal('modal-pos-detail');editPosition(${positionId})">수정</button><button class="btn btn-sm btn-red" onclick="deletePosition(${positionId})">삭제</button></div>
+  return `<div class="pp-footer-group"><span class="pp-footer-label">보조</span><button class="btn btn-sm" data-action="close-modal" data-id="modal-pos-detail">닫기</button></div>
+    <div class="pp-footer-group"><span class="pp-footer-label">관리</span><button class="btn btn-sm" data-action="call" data-call="closeModal('modal-pos-detail');editPosition(${positionId})">수정</button><button class="btn btn-sm btn-red" data-action="call" data-call="deletePosition(${positionId})">삭제</button></div>
     <div class="pp-footer-group" style="margin-left:auto"><span class="pp-footer-label">주요 처리</span>${active
-      ? `<button class="btn btn-sm btn-green" onclick="closeModal('modal-pos-detail');closePosition(${positionId})">충원완료</button><button class="btn btn-sm" style="color:var(--amber)" onclick="nohirePosition(${positionId})">미채용 완료</button><button class="btn btn-sm" onclick="stopPosition(${positionId})">채용 중단</button>`
-      : `<button class="btn btn-sm" onclick="reopenPosition(${positionId});closeModal('modal-pos-detail')">진행중으로 복원</button>`}</div>`;
+      ? `<button class="btn btn-sm btn-green" data-action="call" data-call="closeModal('modal-pos-detail');closePosition(${positionId})">충원완료</button><button class="btn btn-sm" style="color:var(--amber)" data-action="call" data-call="nohirePosition(${positionId})">미채용 완료</button><button class="btn btn-sm" data-action="call" data-call="stopPosition(${positionId})">채용 중단</button>`
+      : `<button class="btn btn-sm" data-action="call" data-call="reopenPosition(${positionId});closeModal('modal-pos-detail')">진행중으로 복원</button>`}</div>`;
 }
 
 function scrollPositionDetail(id) {
@@ -4313,7 +4174,7 @@ function confirmInterview(intId) {
         const d = new Date(s);
         const label = d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'}) + ' ' +
                       d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-        return `<button class="btn btn-sm" style="margin:0 6px 6px 0" onclick="document.getElementById('ci-datetime').value='${s.slice(0,16)}'">${label}</button>`;
+        return `<button class="btn btn-sm" style="margin:0 6px 6px 0" data-action="call" data-call="document.getElementById('ci-datetime').value='${s.slice(0,16)}'">${label}</button>`;
       }).join('');
   } else {
     picker.innerHTML = '';
@@ -4607,10 +4468,12 @@ function sendCandSchedule(intId, sequential) {
   const sent = openMailto(c.email, subject, body, sequential);
   if(sent === false) return;
 
-  itv.candNotified = true;
+  itv.candidateNotified = true;
+  itv.candNotified = true; // 기존 로컬 데이터 호환
   c.notified = true;
   logNotify('Outlook', `${itv.type}면접지원자안내`, c.name, c.email);
   saveState();
+  if(GS_CONFIG.scriptUrl) { syncIntToGS(itv); syncCandToGS(c); }
   toast(`${esc(c.name)}님에게 ${roundLabel} 일정 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
 }
 
@@ -4683,9 +4546,10 @@ ${targetText}
   const sent = openMailto(emails, subject, body);
   if(sent === false) return;
 
-  schedule.forEach(i => { i.notified = true; });
+  schedule.forEach(i => { i.notified = true; i.panelNotified = true; });
   panelists.forEach(p => logNotify('Outlook', `${round}면접관일정안내`, p.name, p.email));
   saveState();
+  if(GS_CONFIG.scriptUrl) schedule.forEach(i => syncIntToGS(i));
   toast(`면접위원 ${panelists.length}명에게 ${roundLabel} 안내 (Outlook 창에서 파일 첨부 후 전송)`, 'toutlook');
   setTimeout(() => openPosDetail(posId), 300);
 }
@@ -4746,7 +4610,7 @@ function filterDepts() {
   listEl.innerHTML = depts.map(d => {
     const leads = deptMap[d];
     const leadLabel = leads.length ? `<span style="color:var(--teal);font-size:11px">· 부서장 ${leads.join(', ')}</span>` : '<span style="color:var(--t3);font-size:11px">· 부서장 미등록</span>';
-    return `<div onclick="selectDept('${d.replace(/'/g,"\\'")}')" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='transparent'">
+    return `<div data-action="call" data-call="selectDept('${d.replace(/'/g,"\\'")}')" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px">
       <b>${d}</b> ${leadLabel}
     </div>`;
   }).join('');
@@ -4789,9 +4653,9 @@ function filterInterviewers(round) {
 
   listEl.innerHTML = matched.map(iv => {
     const payload = encodeURIComponent(JSON.stringify({ id: iv.id, name: iv.name, email: iv.email, rank: iv.rank }));
-    return `<div onmousedown="selectInterviewer(${round}, '${payload}')"
+    return `<div data-action="select-interviewer" data-round="${round}" data-payload="${payload}"
       style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
-      onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='transparent'">
+     >
       👤 ${esc(iv.name)} <span style="color:var(--t3);font-size:11px">${esc(iv.rank)} · ${esc(iv.dept)}</span><br>
       <span style="color:var(--t3);font-size:11px">${esc(iv.email)}</span>
     </div>`;
@@ -4821,7 +4685,7 @@ function selectInterviewer(round, payloadStr) {
   const tagsEl = document.getElementById('pos-panel' + round + '-tags');
   const tag = document.createElement('span');
   tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
-  tag.innerHTML = `👤 ${esc(iv.name)} <span style="color:var(--t3);font-size:11px">${esc(iv.rank)}</span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+  tag.innerHTML = `👤 ${esc(iv.name)} <span style="color:var(--t3);font-size:11px">${esc(iv.rank)}</span> <button data-action="call" data-call="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
   tag.dataset.email = iv.email;
   tag.dataset.name  = iv.name;
   tagsEl.appendChild(tag);
@@ -4868,7 +4732,7 @@ function restorePanelistTags(round, panelStr) {
   parsePanelists(panelStr).forEach(p => {
     const tag = document.createElement('span');
     tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
-    tag.innerHTML = `👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px"></span> <button onclick="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+    tag.innerHTML = `👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px"></span> <button data-action="call" data-call="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
     tag.dataset.email = p.email;
     tag.dataset.name  = p.name;
     tagsEl.appendChild(tag);
@@ -5014,6 +4878,20 @@ function hasConfirmedRoundSchedule(candId, stageIdx) {
     (i.status === 'confirmed' || i.status === 'done') && i.date);
 }
 
+function preserveCompletedStage(c, fromStage, decision='') {
+  if(!c) return null;
+  c.lastCompletedStage = Number(fromStage);
+  c.lastStageChangedAt = new Date().toISOString();
+  if(fromStage !== 1 && fromStage !== 3) return null;
+  const round = fromStage === 1 ? '1차' : '2차';
+  const itv = interviews.find(i => Number(i.candId)===Number(c.id) && i.type===round);
+  if(!itv) return null;
+  itv.status = 'done';
+  if(decision) itv.result = decision;
+  itv.evaluatedAt = new Date().toISOString();
+  return itv;
+}
+
 async function batchStageChange(posId, fromStage, toStage) {
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === fromStage);
   if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
@@ -5035,9 +4913,17 @@ async function batchStageChange(posId, fromStage, toStage) {
   }
 
   if(!confirm(`${targets.length}명을 ${STAGES[toStage]} 단계로 이동하시겠습니까?`)) return;
-  targets.forEach(c => { c.stage = toStage; });
+  const completedInterviews = [];
+  targets.forEach(c => {
+    const itv = preserveCompletedStage(c, fromStage);
+    if(itv) completedInterviews.push(itv);
+    c.stage = toStage;
+  });
   saveState();
-  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(c => syncCandToGS(c)), '단계 일괄 이동 동기화');
+  if(GS_CONFIG.scriptUrl) await settleSync([
+    ...targets.map(c => syncCandToGS(c)),
+    ...completedInterviews.map(i => syncIntToGS(i)),
+  ], '단계 일괄 이동 동기화');
   renderDashboard(); renderTracker(); renderPositions();
   toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
 }
@@ -5172,15 +5058,91 @@ function loadState() {
   return null;
 }
 
-function saveState() {
+function getAuxStateSnapshot() {
+  return {
+    updatedAt: auxUpdatedAt || new Date().toISOString(),
+    onboardings,
+    notifyLog: notifyLog.slice(0,200),
+    refDetails,
+    refReports,
+    activityLog: activityLog.slice(0,300),
+  };
+}
+
+function getAuxFingerprint() {
+  return JSON.stringify({
+    onboardings,
+    notifyLog: notifyLog.slice(0,200),
+    refDetails,
+    refReports,
+    activityLog: activityLog.slice(0,300),
+  });
+}
+
+function chunkText(text, size=1400) {
+  return String(text || '').match(new RegExp(`[\\s\\S]{1,${size}}`, 'g')) || [''];
+}
+
+async function syncAuxStateToGS() {
+  if(!GS_CONFIG.scriptUrl || auxSyncSuspended) return;
+  const json = JSON.stringify(getAuxStateSnapshot());
+  const chunks = chunkText(json);
+  const tasks = [
+    gsUpsert('Settings', {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})}),
+    ...chunks.map((value,i)=>gsUpsert('Settings',{id:`auxState:${i}`,value})),
+  ];
+  await settleSync(tasks, '보조 데이터 동기화');
+}
+
+function scheduleAuxStateSync() {
+  if(auxSyncSuspended || !GS_CONFIG.scriptUrl) return;
+  clearTimeout(auxSyncTimer);
+  auxSyncTimer = setTimeout(syncAuxStateToGS, 1800);
+}
+
+async function loadAuxStateFromGS() {
+  if(!GS_CONFIG.scriptUrl) return false;
+  const rows = await gsGetAll('Settings');
+  const map = new Map(rows.map(r=>[String(r.id),String(r.value??'')]));
+  let meta;
+  try { meta = JSON.parse(map.get('auxState:meta') || ''); } catch(e) { return false; }
+  if(!meta?.count) return false;
+  let json = '';
+  for(let i=0;i<meta.count;i++) json += map.get(`auxState:${i}`) || '';
   try {
-    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, activityLog: activityLog.slice(0,300) });
+    const remote = JSON.parse(json);
+    if(auxUpdatedAt && remote.updatedAt && String(auxUpdatedAt) >= String(remote.updatedAt)) return false;
+    onboardings = remote.onboardings || onboardings;
+    notifyLog = remote.notifyLog || notifyLog;
+    refDetails = remote.refDetails || refDetails;
+    refReports = remote.refReports || refReports;
+    activityLog = remote.activityLog || activityLog;
+    auxUpdatedAt = remote.updatedAt || meta.updatedAt || '';
+    saveState();
+    return true;
+  } catch(e) {
+    console.warn('보조 데이터 GS 로드 실패:', e);
+    return false;
+  }
+}
+
+function saveState() {
+  let auxChanged = false;
+  try {
+    const auxFingerprint = getAuxFingerprint();
+    auxChanged = auxFingerprint !== lastAuxFingerprint;
+    if(auxChanged) {
+      lastAuxFingerprint = auxFingerprint;
+      if(!auxSyncSuspended) auxUpdatedAt = new Date().toISOString();
+    }
+    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, activityLog: activityLog.slice(0,300), auxUpdatedAt });
     localStorage.setItem(LS_KEY, data);
+    if(auxChanged) scheduleAuxStateSync();
   } catch(e) {
     if(e.name === 'QuotaExceededError' || e.code === 22) {
       notifyLog = notifyLog.slice(0, 50);
       activityLog = activityLog.slice(0, 100);
-      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, refReports, positions, activityLog })); }
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, refReports, positions, activityLog, auxUpdatedAt })); if(auxChanged) scheduleAuxStateSync(); }
       catch(e2) { console.warn('localStorage 저장 실패:', e2); }
     }
   }
@@ -5322,7 +5284,7 @@ function openAddCand() {
 function populatePosSelect(selectedId) {
   const sel = document.getElementById('nc-pos-id');
   if(!sel) return;
-  sel.innerHTML = '<option value="">— 포지션를 선택하세요 —</option>' +
+  sel.innerHTML = '<option value="">— 포지션을 선택하세요 —</option>' +
     positions.filter(p => posStatus(p) === 'active').map(p => `<option value="${p.id}">${esc(p.title)} (${esc(p.etype)})</option>`).join('');
   if(selectedId !== undefined && selectedId !== null) sel.value = selectedId;
   sel.onchange = () => {
@@ -5595,22 +5557,22 @@ function openMetricDetail(type) {
 
     html += renderActionGroup('🔴 최종합격 → 입사 안내 미등록', noOnboard.map(c=>({
       name:c.name, sub:`${esc(c.pos)} · ${etypePill(c.etype)}`,
-      btn:`<button class="btn btn-xs btn-green" onclick="closeModal('modal-metric');navBtn('onboarding')">입사 등록</button>`
+      btn:`<button class="btn btn-xs btn-green" data-action="call" data-call="closeModal('modal-metric');navBtn('onboarding')">입사 등록</button>`
     })));
     html += renderActionGroup('🔴 레퍼런스 0건 응답 (즉시 리마인드)', noRef.map(c=>({
       name:c.name, sub:`${esc(c.pos)} · 추천인 ${c.refT}명 전원 미응답`,
-      btn:`<button class="btn btn-xs btn-outlook" onclick="closeModal('modal-metric');remindRef(${c.id})">리마인드</button>`
+      btn:`<button class="btn btn-xs btn-outlook" data-action="call" data-call="closeModal('modal-metric');remindRef(${c.id})">리마인드</button>`
     })));
     html += renderActionGroup('🟡 면접 알림 미발송', noNotify.map(i=>({
       name:i.candName, sub:`${i.type} 면접 · ${i.date}`,
-      btn:`<button class="btn btn-xs btn-outlook" onclick="closeModal('modal-metric');sendIntById(${i.id},'outlook')">Outlook 안내</button>`
+      btn:`<button class="btn btn-xs btn-outlook" data-action="call" data-call="closeModal('modal-metric');sendIntById(${i.id},'outlook')">Outlook 안내</button>`
     })));
   } else if(type === 'ref') {
     // 레퍼런스 — 응답 진행률 포함
     html = '<div style="padding:8px 0">' + list.map(c => {
       const pct = c.refT > 0 ? Math.round(c.refD/c.refT*100) : 0;
       const urgColor = c.refD===0?'var(--red)':c.refD<c.refT?'var(--amber)':'var(--green)';
-      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('modal-metric');navBtn('reference')">
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" data-action="call" data-call="closeModal('modal-metric');navBtn('reference')">
         <div style="width:32px;height:32px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0">${c.name.charAt(0)}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
@@ -5622,7 +5584,7 @@ function openMetricDetail(type) {
             <div class="prog" style="height:5px"><div class="pf-bar" style="width:${pct}%;background:${urgColor}"></div></div>
           </div>
         </div>
-        <button class="btn btn-xs btn-outlook" onclick="event.stopPropagation();remindRef(${c.id})">리마인드</button>
+        <button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>
       </div>`;
     }).join('') + '</div>';
   } else if(type === 'int1' || type === 'int2') {
@@ -5630,7 +5592,7 @@ function openMetricDetail(type) {
     html = '<div style="padding:8px 0">' + list.map(c => {
       const itv = interviews.filter(i=>i.candId===c.id && i.type===(type==='int1'?'1차':'2차'));
       const itvInfo = itv.length ? itv[itv.length-1] : null;
-      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('modal-metric');openDetail(${c.id})">
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" data-action="open-candidate" data-id="${c.id}" data-close="modal-metric">
         <div style="width:32px;height:32px;border-radius:50%;background:var(--pbg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--purple);flex-shrink:0">${c.name.charAt(0)}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
@@ -5638,8 +5600,8 @@ function openMetricDetail(type) {
           ${itvInfo ? `<div style="font-size:11px;color:var(--blue);margin-top:3px;font-family:'DM Mono',monospace">📅 ${itvInfo.date} · ${itvInfo.loc}</div>` : '<div style="font-size:11px;color:var(--red);margin-top:3px">⚠ 면접 일정 미등록</div>'}
         </div>
         <div style="display:flex;gap:5px">
-          ${itvInfo && !itvInfo.notified ? `<button class="btn btn-xs btn-outlook" onclick="event.stopPropagation();sendIntById(${itvInfo.id},'outlook')">안내발송</button>` : ''}
-          <button class="btn btn-xs" onclick="event.stopPropagation();openDetail(${c.id})">상세</button>
+          ${itvInfo && !itvInfo.notified ? `<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();sendIntById(${itvInfo.id},'outlook')">안내발송</button>` : ''}
+          <button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
         </div>
       </div>`;
     }).join('') + '</div>';
@@ -5647,7 +5609,7 @@ function openMetricDetail(type) {
     // 기본 — total, pass
     html = '<div style="padding:8px 0">' + list.map(c => {
       const ob = onboardings.find(o=>o.candId===c.id);
-      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" onclick="closeModal('modal-metric');openDetail(${c.id})">
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" data-action="open-candidate" data-id="${c.id}" data-close="modal-metric">
         <div style="width:32px;height:32px;border-radius:50%;background:${type==='pass'?'var(--gbg)':'var(--bbg)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${type==='pass'?'var(--green)':'var(--blue)'};flex-shrink:0">${c.name.charAt(0)}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
@@ -5655,7 +5617,7 @@ function openMetricDetail(type) {
           ${ob ? `<div style="font-size:11px;color:var(--green);margin-top:2px">입사일: ${ob.joinDate}</div>` : ''}
         </div>
         ${badge(c.stage)}
-        <button class="btn btn-xs" onclick="event.stopPropagation();requestStageChange(${c.id},${Math.min(c.stage+1,6)})">→</button>
+        <button class="btn btn-xs" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${Math.min(c.stage+1,6)})">→</button>
       </div>`;
     }).join('') + '</div>';
   }
@@ -5735,10 +5697,10 @@ function renderRefFilterPanel() {
          </div>`;
 
     const actionBtns = c.ref==='미시작'
-      ? `<button class="btn btn-xs btn-primary" onclick="startRef(${c.id})">체크 시작</button>`
+      ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">체크 시작</button>`
       : c.ref==='진행중'
-        ? `<button class="btn btn-xs btn-outlook" onclick="remindRef(${c.id})">리마인드</button>
-           <button class="btn btn-xs" onclick="selectRefCand(${c.id})">추적</button>`
+        ? `<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button>
+           <button class="btn btn-xs" data-action="call" data-call="selectRefCand(${c.id})">추적</button>`
         : '<span class="b bgreen" style="font-size:10px">✓ 완료</span>';
 
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">
@@ -5781,11 +5743,11 @@ function renderDashPipeList() {
   const header = isFiltered ? `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0 6px;border-bottom:2px solid var(--acc);margin-bottom:4px">
       <div style="font-size:12px;font-weight:700;color:var(--acc)">${badge(dashPipeFilter)} <span style="margin-left:4px">${stageName} 단계 — ${filtered.length}명</span></div>
-      <button class="btn btn-xs btn-ghost" onclick="setDashPipeFilter(${dashPipeFilter})">✕ 필터 해제</button>
+      <button class="btn btn-xs btn-ghost" data-action="call" data-call="setDashPipeFilter(${dashPipeFilter})">✕ 필터 해제</button>
     </div>` : '';
 
   pl.innerHTML = header + filtered.map(c => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s" onclick="openDetail(${c.id})" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s" data-action="open-candidate" data-id="${c.id}">
       <div style="width:28px;height:28px;border-radius:50%;background:var(--acc-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc);flex-shrink:0">${c.name.charAt(0)}</div>
       <div style="flex:1">
         <div style="font-weight:600;font-size:12.5px">${esc(c.name)} ${etypePill(c.etype)}</div>
@@ -5794,12 +5756,12 @@ function renderDashPipeList() {
       ${isFiltered ? '' : badge(c.stage)}
       <div style="display:flex;gap:4px">
         ${c.ref==='진행중'&&c.refD===0?'<span class="b bred" style="font-size:10px">⚠레퍼런스</span>':''}
-        ${c.stage!==6?`<button class="btn btn-xs btn-primary" onclick="event.stopPropagation();requestStageChange(${c.id},${Math.min(c.stage+1,5)})" title="다음 단계로">→</button>`:''}
+        ${c.stage!==6?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${Math.min(c.stage+1,5)})" title="다음 단계로">→</button>`:''}
       </div>
     </div>`).join('')
   + `<div style="padding-top:8px;display:flex;justify-content:space-between;align-items:center">
       ${isFiltered ? `<span style="font-size:11px;color:var(--t3)">파이프라인 단계를 클릭하면 해당 단계만 표시됩니다.</span>` : '<span></span>'}
-      <button class="btn btn-xs btn-ghost" onclick="navBtn('tracker')">전체 보기 →</button>
+      <button class="btn btn-xs btn-ghost" data-action="call" data-call="navBtn('tracker')">전체 보기 →</button>
     </div>`;
 }
 
@@ -5855,9 +5817,9 @@ function renderStageKanban() {
     const color = STAGE_COLORS[col.idx] || 'var(--t3)';
 
     return `<div class="stage-col"
-                 ondragover="event.preventDefault();this.classList.add('drag-over')"
-                 ondragleave="this.classList.remove('drag-over')"
-                 ondrop="dashDropStage(event,${col.idx})">
+                 data-ondragover="event.preventDefault();this.classList.add('drag-over')"
+                 data-ondragleave="this.classList.remove('drag-over')"
+                 data-ondrop="dashDropStage(event,${col.idx})">
       <div class="stage-col-h">
         <div class="stage-col-title" style="color:${color}">
           <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span>
@@ -5873,9 +5835,9 @@ function renderStageKanban() {
           const intWarn = intWarnSet.has(Number(c.id));
           return `<div class="stage-card"
                        draggable="true"
-                       role="button" tabindex="0" onkeydown="kbActivate(event)"
-                       ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"
-                       onclick="openDetail(${c.id})">
+                       role="button" tabindex="0" data-onkeydown="kbActivate(event)"
+                       data-ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"
+                       data-action="open-candidate" data-id="${c.id}">
             <div class="stage-card-name">${esc(c.name)} ${etypePill(c.etype)}</div>
             <div class="stage-card-meta">${esc(c.pos || '')}${c.dept ? ' · ' + esc(c.dept) : ''}</div>
             <div class="stage-card-tags">
@@ -5884,8 +5846,8 @@ function renderStageKanban() {
               ${intWarn ? '<span class="b bamber" style="font-size:10px">면접안내 미발송</span>' : ''}
             </div>
             <div class="stage-card-actions">
-              <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();openDetail(${c.id})">상세</button>
-              ${hasNext ? `<button class="btn btn-xs btn-primary" onclick="event.stopPropagation();requestStageChange(${c.id},${nextStage})">${STAGES[nextStage]} →</button>` : '<span style="font-size:10px;color:var(--t3)">최종 단계</span>'}
+              <button class="btn btn-xs btn-ghost" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
+              ${hasNext ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${nextStage})">${STAGES[nextStage]} →</button>` : '<span style="font-size:10px;color:var(--t3)">최종 단계</span>'}
             </div>
           </div>`;
         }).join('') : '<div class="stage-empty">해당 단계 지원자 없음</div>'}
@@ -5950,8 +5912,8 @@ function renderUrgent() {
     </div>`;
   const row = (name, sub) => `<div style="font-size:11.5px;padding:3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)} <span style="color:var(--t3)">${esc(sub)}</span></div>`;
   el.innerHTML = `<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
-    ${unlinked.length ? col('미연결 합격자', unlinked, 'var(--red)', c=>`<div style="font-size:11.5px;padding:3px 0;cursor:pointer" onclick="showUnlinkedList()">${esc(c.name)} <span style="color:var(--t3)">${esc(c.pos)}</span></div>`) : ''}
-    ${mailPending.length ? col('메일 발송 확인', mailPending, 'var(--purple)', (m,idx)=>`<div style="font-size:11.5px;padding:3px 0;display:flex;align-items:center;gap:6px">${esc(m.label)} <button class="btn btn-xs btn-primary" onclick="confirmMailPendingAt(${idx})">발송완료</button></div>`) : ''}
+    ${unlinked.length ? col('미연결 합격자', unlinked, 'var(--red)', c=>`<div style="font-size:11.5px;padding:3px 0;cursor:pointer" data-action="call" data-call="showUnlinkedList()">${esc(c.name)} <span style="color:var(--t3)">${esc(c.pos)}</span></div>`) : ''}
+    ${mailPending.length ? col('메일 발송 확인', mailPending, 'var(--purple)', (m,idx)=>`<div style="font-size:11.5px;padding:3px 0;display:flex;align-items:center;gap:6px">${esc(m.label)} <button class="btn btn-xs btn-primary" data-action="call" data-call="confirmMailPendingAt(${idx})">발송완료</button></div>`) : ''}
     ${col('면접 미확정', noInt, 'var(--amber)', c=>row(c.name, STAGES[c.stage]))}
     ${col('레퍼런스 미응답', noRef, 'var(--acc)', c=>row(c.name, c.pos||''))}
     ${col('미발송 알림', noNoti, 'var(--red)', i=>{const c=candidates.find(x=>Number(x.id)===Number(i.candId));return row(c?c.name:'-', (i.type||'')+' 면접');})}
@@ -6008,7 +5970,7 @@ function renderKanban() {
   const el = document.getElementById('dash-kanban');
   if(!el) return;
   if(!positions.length) {
-    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">등록된 포지션가 없습니다. 포지션 관리에서 추가하세요.</div>';
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">등록된 포지션이 없습니다. 포지션 관리에서 추가하세요.</div>';
     return;
   }
   // 칸반 열: FLOW 단계 (서류합격~입사)
@@ -6022,7 +5984,7 @@ function renderKanban() {
   const byPos = {};
   candidates.forEach(x => { if(x.stage===6) return; (byPos[Number(x.posId)] = byPos[Number(x.posId)] || []).push(x); });
 
-  // 각 진행중 포지션를 현재 단계(최고 단계) 컬럼에 1장씩 배치
+  // 각 진행중 포지션을 현재 단계(최고 단계) 컬럼에 1장씩 배치
   const colCards = {};            // stageIdx → [html]
   const emptyPos = [];            // 지원자 없는 진행중 포지션
   activePos.forEach(pos => {
@@ -6033,7 +5995,7 @@ function renderKanban() {
     const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
     const titleSizeClass = title.length > 20 ? ' is-xlong' : (title.length > 14 ? ' is-long' : '');
     const progressStatus = getPositionKanbanStatus(pos,cands,cur);
-    const card = `<div class="position-kanban-card" role="button" tabindex="0" onkeydown="kbActivate(event)" onclick="openPosDetail(${pos.id})" style="border-left-color:${col}">
+    const card = `<div class="position-kanban-card" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" style="border-left-color:${col}">
       <div class="position-kanban-title${titleSizeClass}" title="${esc(title)}">${esc(title)}</div>
       <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
       <div class="pk-stage" style="color:${col}" title="${esc(progressStatus)}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block;flex:0 0 auto"></span>${esc(progressStatus)}</div>
@@ -6058,7 +6020,7 @@ function renderKanban() {
     html += `<div style="margin-top:10px;padding:10px 12px;background:var(--s2);border:1px dashed var(--border2);border-radius:var(--r)">
       <div style="font-size:10.5px;font-weight:700;color:var(--t3);margin-bottom:7px;letter-spacing:.3px">지원자 미배정 포지션 · ${emptyPos.length}건 <span style="font-weight:500">(지원자 등록 시 위 단계 보드에 표시됩니다)</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${emptyPos.map(p=>`<button class="btn btn-xs" style="background:var(--surface)" onclick="openPosDetail(${p.id})">${esc((p.dept?p.dept+' · ':'')+p.title)} <span style="color:var(--t3);font-weight:500">채용 ${parseInt(p.headcount)||1}명</span></button>`).join('')}
+        ${emptyPos.map(p=>`<button class="btn btn-xs" style="background:var(--surface)" data-action="open-position" data-id="${p.id}">${esc((p.dept?p.dept+' · ':'')+p.title)} <span style="color:var(--t3);font-weight:500">채용 ${parseInt(p.headcount)||1}명</span></button>`).join('')}
       </div>
     </div>`;
   }
@@ -6248,6 +6210,9 @@ function confirmStageChange() {
   if(newStage === 5 && c.posId != null) {
     if(!warnSeatOverflow(c.posId, 1)) return;
   }
+  const previousFlow = getFlowForCandidate(c);
+  const movingForwardStage = (newStage === 6) || (flowIndex(newStage, previousFlow) > flowIndex(oldStage, previousFlow));
+  const completedInterview = movingForwardStage ? preserveCompletedStage(c, oldStage) : null;
   c.stage = newStage;
   if(newStage === 5) c.finalAt = today();
   if(newStage === 6) recordRejection(c, rejectionInfo.reason, rejectionInfo.memo);
@@ -6367,7 +6332,10 @@ function confirmStageChange() {
 
   logActivity('단계 변경', `${c.name}: ${STAGES[oldStage]} → ${STAGES[newStage]}`, 'candidate', c.id);
   saveState();
-  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+  if(GS_CONFIG.scriptUrl) {
+    syncCandToGS(c);
+    if(completedInterview) syncIntToGS(completedInterview);
+  }
   closeModal('modal-confirm-stage');
   pendingStageChange = null;
   renderTracker(); renderDashboard(); renderPositions();
@@ -6450,12 +6418,12 @@ function addCandidate() {
   const fromPos = modal.dataset.returnPosId ? parseInt(modal.dataset.returnPosId) : null;
   const finalPosId = editId ? (parseInt(document.getElementById('nc-pos-id')?.value) || null) : (posIdVal || fromPos);
   if(!editId && !finalPosId) {
-    alert('포지션 연결이 필수입니다.\n포지션 상세에서 등록하거나, 드롭다운에서 포지션를 선택해주세요.');
+    alert('포지션 연결이 필수입니다.\n포지션 상세에서 등록하거나, 드롭다운에서 포지션을 선택해주세요.');
     return;
   }
   const seatInfo = finalPosId ? getPosSeatInfo(finalPosId) : null;
   if(seatInfo && seatInfo.isFull && !editId) {
-    if(!confirm(`⚠ 이 포지션는 목표 인원(${seatInfo.headcount}명)에 이미 도달했습니다.\n추가 등록을 계속할까요?`)) return;
+    if(!confirm(`⚠ 이 포지션은 목표 인원(${seatInfo.headcount}명)에 이미 도달했습니다.\n추가 등록을 계속할까요?`)) return;
   }
   const dupEmail = candidates.find(c=>c.email.toLowerCase()===email.toLowerCase() && c.id !== editId);
   if(dupEmail) { if(!confirm(`${dupEmail.name}님과 동일한 이메일(${email})이 이미 등록되어 있습니다.\n계속 등록하시겠습니까?`)) return; }
@@ -6580,7 +6548,7 @@ function renderTracker() {
     const intInfo  = c.intDate ? `<span style="font-size:11px;font-family:'DM Mono',monospace">${c.intDate.split(' ')[0]}</span>` : '<span style="font-size:11px;color:var(--t3)">-</span>';
     const notified = c.notified ? '<span class="b bteams" style="font-size:10px">발송</span>' : '<span style="font-size:11px;color:var(--t3)">-</span>';
     const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardings.find(o=>o.candId===c.id) ? 'urg-red' : 'urg-none';
-    return `<div class="cl-row" onclick="openDetail(${c.id})">
+    return `<div class="cl-row" data-action="open-candidate" data-id="${c.id}">
       <div class="urg ${urg}"></div>
       <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div></div>
       <div>${etypePill(c.etype)}</div>
@@ -6590,8 +6558,8 @@ function renderTracker() {
       <div>${intInfo}</div>
       <div>${notified}</div>
       <div style="display:flex;gap:4px">
-        <button class="btn btn-xs" onclick="event.stopPropagation();openDetail(${c.id})">상세</button>
-        ${c.stage<5?`<button class="btn btn-xs btn-primary" onclick="event.stopPropagation();requestStageChange(${c.id},${c.stage+1})">→ 다음</button>`:''}
+        <button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
+        ${c.stage<5?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${c.stage+1})">→ 다음</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -6637,7 +6605,7 @@ function openDetail(id) {
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">단계 변경 (클릭 시 확인 팝업)</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
-      ${STAGES.map((s,si)=>si===7?'':`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" onclick="closeModal('modal-detail');requestStageChange(${c.id},${si})">${s}</button>`).join('')}
+      ${STAGES.map((s,si)=>si===7?'':`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" data-action="call" data-call="closeModal('modal-detail');requestStageChange(${c.id},${si})">${s}</button>`).join('')}
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">면접 일정</div>
     ${itv.length ? itv.map(i=>{
@@ -6655,15 +6623,15 @@ function openDetail(id) {
         <div style="font-size:11px;color:var(--t3);margin-top:2px">📍 ${i.loc} · 면접관: ${i.panel}</div>
         ${candidates_note}
         <div style="display:flex;gap:5px;margin-top:6px">
-          ${st!=='done' ? `<button class="btn btn-xs btn-primary" onclick="confirmInterview(${i.id})">${st==='confirmed'?'일정 수정':'일정 확정'}</button>` : ''}
-          ${st==='confirmed' ? `<button class="btn btn-xs" onclick="markInterviewDone(${i.id})">면접 완료 처리</button>` : ''}
+          ${st!=='done' ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="confirmInterview(${i.id})">${st==='confirmed'?'일정 수정':'일정 확정'}</button>` : ''}
+          ${st==='confirmed' ? `<button class="btn btn-xs" data-action="call" data-call="markInterviewDone(${i.id})">면접 완료 처리</button>` : ''}
         </div>
       </div>`;
     }).join('') : '<div style="font-size:12px;color:var(--t3)">등록된 면접 일정이 없습니다.</div>'}
     <div style="display:flex;gap:6px;margin-top:14px">
-      <button class="btn btn-outlook btn-sm" onclick="quickNotify(${c.id},'outlook')">✉ Outlook 안내</button>
-      <button class="btn btn-sm" onclick="editCandidate(${c.id})">✏ 정보 수정</button>
-      <button class="btn btn-sm btn-red" onclick="rejectCandidate(${c.id})">✗ 불합격</button>
+      <button class="btn btn-outlook btn-sm" data-action="call" data-call="quickNotify(${c.id},'outlook')">✉ Outlook 안내</button>
+      <button class="btn btn-sm" data-action="call" data-call="editCandidate(${c.id})">✏ 정보 수정</button>
+      <button class="btn btn-sm btn-red" data-action="call" data-call="rejectCandidate(${c.id})">✗ 불합격</button>
     </div>`;
   openModal('modal-detail');
 }
@@ -6764,10 +6732,10 @@ function renderIntTable() {
       <td>${i.result ? esc(i.result) : '<span style="color:var(--t3)">-</span>'}</td>
       <td>${i.notified?'<span class="b bgreen">발송완료</span>':(i.mailPending?'<span class="b bamber">전송확인대기</span>':'<span class="b bgray">미발송</span>')}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-xs btn-outlook" onclick="sendIntById(${i.id},'outlook')">Outlook</button>
-        ${i.mailPending&&!i.notified?`<button class="btn btn-xs btn-primary" onclick="pendingMailMeta={type:'int',id:${i.id}};confirmPendingMail()">발송완료</button>`:''}
-        <button class="btn btn-xs btn-green" onclick="openIntResult(${i.id})">결과</button>
-        <button class="btn btn-xs btn-red" onclick="delInt(${i.id})">삭제</button>
+        <button class="btn btn-xs btn-outlook" data-action="call" data-call="sendIntById(${i.id},'outlook')">Outlook</button>
+        ${i.mailPending&&!i.notified?`<button class="btn btn-xs btn-primary" data-action="call" data-call="pendingMailMeta={type:'int',id:${i.id}};confirmPendingMail()">발송완료</button>`:''}
+        <button class="btn btn-xs btn-green" data-action="call" data-call="openIntResult(${i.id})">결과</button>
+        <button class="btn btn-xs btn-red" data-action="call" data-call="delInt(${i.id})">삭제</button>
       </td>
     </tr>`).join('')}</tbody>
   </table></div>`;
@@ -6853,7 +6821,7 @@ function renderReference() {
           <span style="color:${dot}">${stxt}</span>
         </div>`;
       }).join('') : '<div style="font-size:11px;color:var(--t3);padding:4px 0">추천인 정보 없음 (지원자 폼 제출 대기)</div>';
-      return`<div onclick="selectRefCand(${c.id})" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'var(--acc-light)':'transparent'}">
+      return`<div data-action="call" data-call="selectRefCand(${c.id})" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'var(--acc-light)':'transparent'}">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
           <div style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></div>
           <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${esc(c.name)} ${stBadge}</div><div style="font-size:11px;color:var(--t3)">${esc(c.pos)}</div></div>
@@ -6862,9 +6830,9 @@ function renderReference() {
         <div class="prog" style="height:3px;margin-bottom:8px"><div class="pf-bar" style="width:${pct2}%;background:${urgC}"></div></div>
         <div style="padding:6px 8px;background:var(--s2);border-radius:var(--rsm);margin-bottom:8px">${refListHtml}</div>
         <div style="display:flex;gap:5px">
-          ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" onclick="event.stopPropagation();sendRefRequest(${c.id})">📋 추천인 요청</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" onclick="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" onclick="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
+          ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">📋 추천인 요청</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
         </div>
       </div>`;
     }).join('');
@@ -6904,10 +6872,10 @@ function renderReference() {
           <div class="prog"><div class="pf-bar ${c.ref==='완료'?'pfg':c.refD===0?'pfr':'pfa'}" style="width:${pct3}%"></div></div>
         </td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
-          ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" onclick="startRef(${c.id})">시작</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs" onclick="markRefRegistered(${c.id})">+접수</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" onclick="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" onclick="markOneResponse(${c.id})">+응답</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" onclick="completeRef(${c.id})">완료</button>`:''}
+          ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">시작</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs" data-action="call" data-call="markRefRegistered(${c.id})">+접수</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markOneResponse(${c.id})">+응답</button>`:''}
+          ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" data-action="call" data-call="completeRef(${c.id})">완료</button>`:''}
         </td>
       </tr>`;
     }).join('')}</tbody>
@@ -6975,7 +6943,7 @@ function selectRefCand(id){
       <div style="width:26px;height:26px;border-radius:50%;background:${r.status==='응답'?'var(--gbg)':'var(--rbg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${r.status==='응답'?'var(--green)':'var(--red)'}">${ri+1}</div>
       <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name)} <span class="tag">${esc(r.relation)}</span></div><div style="font-size:11px;color:var(--t3)">${r.email}${r.remindCnt>0?' · 리마인드 '+r.remindCnt+'회':''}</div>${r.responseText?`<div style="font-size:11px;line-height:1.6;margin-top:5px;padding:7px 8px;background:var(--s2);border-radius:var(--rsm);white-space:pre-wrap">${esc(r.responseText)}</div>`:''}</div>
       <span class="b ${r.status==='응답'?'bgreen':'bred'}">${r.status}</span>
-      ${r.status!=='응답'?`<button class="btn btn-xs btn-outlook" onclick="remindOneRef(${id},${ri})">리마인드</button><button class="btn btn-xs" onclick="markRefResponse(${id},${ri})">응답</button>`:''}
+      ${r.status!=='응답'?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindOneRef(${id},${ri})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markRefResponse(${id},${ri})">응답</button>`:''}
     </div>`).join('')}`;
   const reportSel=document.getElementById('ref-report-cand');
   if(reportSel) { reportSel.value=String(id); renderRefReport(id); }
@@ -7213,7 +7181,7 @@ function renderOnboardingPositionFinalists(positionId, selectedId) {
   if(!finals.length) { wrap.innerHTML=''; return; }
   wrap.innerHTML=`<div class="ob-finalists"><span class="ob-finalists-label">동일 포지션 합격자 ${finals.length}명</span>${finals.map(c=>{
     const registered=onboardings.some(o=>Number(o.candId)===Number(c.id));
-    return `<button type="button" class="ob-finalist ${registered?'registered':''} ${Number(c.id)===Number(selectedId)?'active':''}" onclick="fillOnboardingDefaults(${c.id})">${esc(c.name)}${registered?' · 등록':''}</button>`;
+    return `<button type="button" class="ob-finalist ${registered?'registered':''} ${Number(c.id)===Number(selectedId)?'active':''}" data-action="call" data-call="fillOnboardingDefaults(${c.id})">${esc(c.name)}${registered?' · 등록':''}</button>`;
   }).join('')}</div>`;
 }
 
@@ -7434,8 +7402,8 @@ function renderOnboarding(){
       <td>${o.rank||'-'}</td>
       <td>${o.notified?'<span class="b bgreen">지원자✓</span>':'<span class="b bgray">미발송</span>'} ${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-xs btn-outlook" onclick="sendObById(${o.id},'outlook')">지원자 입사안내</button>
-        <button class="btn btn-xs btn-ghost" onclick="sendJoinNotice(${o.id})">내부 직원 공유</button>
+        <button class="btn btn-xs btn-outlook" data-action="call" data-call="sendObById(${o.id},'outlook')">지원자 입사안내</button>
+        <button class="btn btn-xs btn-ghost" data-action="call" data-call="sendJoinNotice(${o.id})">내부 직원 공유</button>
       </td>
     </tr>`).join('')}</tbody>
   </table></div>`;
@@ -7466,7 +7434,7 @@ function renderNotifyLog(){
       <td><span class="b ${l.ch==='Teams'?'bteams':'bblue'}">${l.ch}</span></td>
       <td><span class="tag">${l.type}</span></td>
       <td>${esc(l.target)}</td>
-      <td style="font-size:11px;color:var(--t3)">${esc(l.to)}</td>
+      <td style="font-size:11px;color:var(--t3)">${esc(daysSince(l.date)>PRIVACY_POLICY.maskAfterDays?maskEmail(l.to):l.to)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${l.date}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${l.time}</td>
     </tr>`).join('')}</tbody>
@@ -7552,7 +7520,15 @@ async function loadSettingsFromGS() {
     const data = await gsGetAll('Settings');
     if(!data || !data.length) return null;
     const cfg = {};
-    data.forEach(row => { if(row.id) cfg[row.id] = row.value; });
+    const tombstones = getGsTombstones();
+    data.forEach(row => {
+      if(!row.id) return;
+      if(String(row.id).startsWith('tombstone:')) {
+        const key = String(row.id).slice('tombstone:'.length);
+        tombstones[key] = row.value;
+      } else cfg[row.id] = row.value;
+    });
+    localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify(tombstones));
     return cfg;
   } catch(e) {
     console.warn('GS 설정 로드 실패:', e);
@@ -7581,6 +7557,9 @@ async function loadSettingsWithGS() {
       set('cfg-ref-auto-url',    gsCfg.refAutoUrl);
       set('cfg-notify-teams',    gsCfg.notifyTeams);
       set('cfg-openai-key',      gsCfg.openaiKey);
+      set('cfg-mask-pii',        gsCfg.maskPii);
+      set('cfg-retention-months',gsCfg.retentionMonths);
+      set('cfg-idle-minutes',    gsCfg.idleMinutes);
       set('tpl-int1',            gsCfg.tplInt1);
       set('tpl-int2',            gsCfg.tplInt2);
       set('tpl-onboard',         gsCfg.tplOnboard);
@@ -7592,6 +7571,8 @@ async function loadSettingsWithGS() {
       if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
       if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
       if(gsCfg.refAutoUrl)     GS_CONFIG.refAutoUrl = gsCfg.refAutoUrl;
+      setPrivacyMask(gsCfg.maskPii === 'true');
+      resetIdleLock();
       showSyncStatus('설정 로드 완료 (GS)', 'ok');
     }
   }
@@ -7616,6 +7597,9 @@ function saveSettings() {
     refAutoUrl: document.getElementById('cfg-ref-auto-url')?.value || '',
     notifyTeams:  document.getElementById('cfg-notify-teams')?.value || '',
     openaiKey:    document.getElementById('cfg-openai-key')?.value || '',
+    maskPii:      document.getElementById('cfg-mask-pii')?.value || 'false',
+    retentionMonths: document.getElementById('cfg-retention-months')?.value || '6',
+    idleMinutes:  document.getElementById('cfg-idle-minutes')?.value || '10',
     tplInt1: document.getElementById('tpl-int1')?.value || '',
     tplInt2: document.getElementById('tpl-int2')?.value || '',
     tplOnboard:document.getElementById('tpl-onboard')?.value || '',
@@ -7627,6 +7611,8 @@ function saveSettings() {
   };
   try {
     localStorage.setItem('woomic_settings', JSON.stringify(cfg));
+    setPrivacyMask(cfg.maskPii === 'true');
+    resetIdleLock();
     // GS Settings 시트에도 저장
     if(GS_CONFIG.scriptUrl) {
       saveSettingsToGS(cfg).then(()=>{
@@ -7667,6 +7653,9 @@ function loadSettings() {
     if(cfg.refAutoUrl) GS_CONFIG.refAutoUrl = cfg.refAutoUrl;
     set('cfg-notify-teams',     cfg.notifyTeams);
     set('cfg-openai-key',       cfg.openaiKey);
+    set('cfg-mask-pii',         cfg.maskPii);
+    set('cfg-retention-months', cfg.retentionMonths);
+    set('cfg-idle-minutes',     cfg.idleMinutes);
     set('tpl-int1',             cfg.tplInt1);
     set('tpl-int2',             cfg.tplInt2);
     set('tpl-onboard',          cfg.tplOnboard);
@@ -7675,7 +7664,121 @@ function loadSettings() {
     set('tpl-ref-remind',       cfg.tplRefRemind);
     set('tpl-reject',           cfg.tplReject);
     set('tpl-collect',          cfg.tplCollect);
+    privacyMode = cfg.maskPii === 'true' || localStorage.getItem('woomic_privacy_mask') === 'true';
   } catch(e) { console.warn('설정 로드 실패', e); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 내부 모듈 경계: 단일 HTML을 유지하면서 역할별 공개 API를 구분한다.
+// ══════════════════════════════════════════════════════════════
+const RecruitmentCore = Object.freeze({
+  posStatus, getPositionFlow, nextFlowStage, isActivePipelineCand, getActionItems,
+  buildRehireTitle, calculateOperationalMetrics, uniqueInterviewRecords, getPeriodReport, chunkText,
+  maskEmail, applyPrivacyRetention,
+});
+const RecruitmentPersistence = Object.freeze({
+  loadState, saveState, gsGetAll, gsUpsert, gsDelete, syncCandToGS, syncIntToGS, syncPosToGS,
+  flushGsRetryQueue, checkGsSchemaCoverage, loadAuxStateFromGS, syncAuxStateToGS,
+});
+const RecruitmentUI = Object.freeze({
+  renderDashboard, renderPositions, renderTracker, renderPositionDetail, renderPeriodReport,
+  openModal, closeModal, switchKanban,
+});
+
+const DELEGATED_CALLS = Object.freeze({
+  addCandToPos, addCandidate, addInterview, addOnboarding, applyBatchSchedule, applyInterviewConfirm,
+  cancelInterviewConfirm, cancelStageChange, changePositionProcessStage, closeCollectSend, closeModal, closePosition, completeRef, confirmInterview,
+  confirmMailPendingAt, confirmPendingMail, confirmStageChange, confirmStageDecisions, delInt, dismissPendingMail,
+  deletePosition, doCollectSendCurrent, editCandidate, editPosition, executeBulkAdd, executeNohireWizard, executePositionProcessTask,
+  dashDropStage, fillOnboardingDefaults, filterDepts, filterInterviewers, generateAI, kbActivate, linkCandFromUnlinked, loadInterviewers, lockPrivacyScreen, markInterviewDone, markOneResponse,
+  markRefRegistered, markRefResponse, navBtn, nextCollectSend, nohirePosition, openAddCand, openAddPosition, openBulkAddCand,
+  openCollectSlots, openIntResult, openPositionResultModal, openPositionRoundSchedule, quickNotify, rejectCandidate,
+  remindOneRef, remindRef, removePanelist, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition,
+  purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setPrivacyMaskFromControl, snapTo10,
+  saveSettings, selectRefCand, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
+  sendJoinNotice, sendObById, sendObNotify, sendPanelNotice, sendRefRequest, setDashPipeFilter, setRefFilter, showUnlinkedList,
+  skipCollectSend, startAllEligible, startRef, stopPosition, syncRefFromGS, testGSConnection, testInterviewerConnection,
+  testRefAutoConnection, togglePositionProcessGroup, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateIntPreview, updateObPreview,
+});
+function invokeDelegatedCall(call, target, delegatedEvent) {
+  const match = String(call || '').match(/^([A-Za-z_$][\w$]*)\((.*)\)$/);
+  const fn = match && DELEGATED_CALLS[match[1]];
+  if(typeof fn !== 'function') return;
+  const raw = match[2].trim();
+  const args = raw ? raw.match(/'(?:\\'|[^'])*'|"(?:\\"|[^"])*"|[^,]+/g).map(token => {
+    const v = token.trim();
+    if(v === 'this') return target;
+    if(v === 'event') return delegatedEvent;
+    if(v === 'true') return true;
+    if(v === 'false') return false;
+    if(v === 'null') return null;
+    if(/^[-+]?\d+(?:\.\d+)?$/.test(v)) return Number(v);
+    if((v.startsWith("'")&&v.endsWith("'"))||(v.startsWith('"')&&v.endsWith('"'))) return v.slice(1,-1);
+    return undefined;
+  }) : [];
+  if(args.some(v => v === undefined)) return;
+  return fn(...args);
+}
+
+function invokeDelegatedSequence(sequence, target, delegatedEvent) {
+  const source = String(sequence || '').trim();
+  if(!source) return;
+  const pendingMatch = source.match(/^pendingMailMeta=\{type:'([^']+)',id:(\d+)\};confirmPendingMail\(\)$/);
+  if(pendingMatch) {
+    pendingMailMeta = { type:pendingMatch[1], id:Number(pendingMatch[2]) };
+    return confirmPendingMail();
+  }
+  const hideMatch = source.match(/^document\.getElementById\('([^']+)'\)\.style\.display='none'$/);
+  if(hideMatch) {
+    const el = document.getElementById(hideMatch[1]);
+    if(el) el.style.display = 'none';
+    return;
+  }
+  const valueMatch = source.match(/^document\.getElementById\('([^']+)'\)\.value='([^']*)'$/);
+  if(valueMatch) {
+    const el = document.getElementById(valueMatch[1]);
+    if(el) el.value = valueMatch[2];
+    return;
+  }
+  source.split(';').map(part => part.trim()).filter(Boolean).forEach(call => {
+    if(call === 'event.stopPropagation()') delegatedEvent?.stopPropagation?.();
+    else invokeDelegatedCall(call, target, delegatedEvent);
+  });
+}
+
+function handleDelegatedAction(target, delegatedEvent) {
+  const action = target.dataset.action;
+  if(target.dataset.stop === 'true') delegatedEvent?.stopPropagation?.();
+  if(target.dataset.close) closeModal(target.dataset.close);
+  if(action === 'nav') nav(target.dataset.target, target);
+  else if(action === 'switch-kanban') switchKanban(target.dataset.view);
+  else if(action === 'open-position') openPosDetail(Number(target.dataset.id));
+  else if(action === 'reopen-position') reopenPosition(Number(target.dataset.id));
+  else if(action === 'close-position') closePosition(Number(target.dataset.id));
+  else if(action === 'edit-position') editPosition(Number(target.dataset.id));
+  else if(action === 'delete-position') deletePosition(Number(target.dataset.id));
+  else if(action === 'close-modal') closeModal(target.dataset.id);
+  else if(action === 'filter-stage') filterStage(Number(target.dataset.value), target);
+  else if(action === 'filter-role') filterRole(target.dataset.value, target);
+  else if(action === 'filter-etype') filterEtype(target.dataset.value, target);
+  else if(action === 'filter-position') setPosFilter(target.dataset.value, target);
+  else if(action === 'filter-reference') setRefFilter(target.dataset.value, target);
+  else if(action === 'open-candidate') openDetail(Number(target.dataset.id));
+  else if(action === 'edit-candidate') editCandidate(Number(target.dataset.id));
+  else if(action === 'select-interviewer') selectInterviewer(Number(target.dataset.round), target.dataset.payload);
+  else if(action === 'call') invokeDelegatedSequence(target.dataset.call, target, delegatedEvent);
+  else if(action === 'render-period-report') renderPeriodReport();
+  else if(action === 'export-period-report') exportPeriodReport();
+}
+
+function handleDelegatedFormEvent(eventName, target, delegatedEvent) {
+  const call = target.dataset[`on${eventName}`];
+  if(call) invokeDelegatedSequence(call, target, delegatedEvent);
+  if(eventName === 'blur') {
+    if(target.id === 'pos-dept') setTimeout(() => { const list=document.getElementById('pos-dept-list'); if(list) list.style.display='none'; }, 200);
+    if(target.id === 'pos-panel1-search') setTimeout(() => hideInterviewerList(1), 200);
+    if(target.id === 'pos-panel2-search') setTimeout(() => hideInterviewerList(2), 200);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -7687,11 +7790,56 @@ try {
   document.addEventListener('click', e => {
     const target = e.target.closest?.('[data-action]');
     if(!target) return;
-    const action = target.dataset.action;
-    if(action === 'nav') nav(target.dataset.target, target);
-    else if(action === 'render-period-report') renderPeriodReport();
-    else if(action === 'export-period-report') exportPeriodReport();
+    if(target.dataset.action === 'select-interviewer') return;
+    handleDelegatedAction(target, e);
   });
+  document.addEventListener('mousedown', e => {
+    const target = e.target.closest?.('[data-action="select-interviewer"]');
+    if(target) handleDelegatedAction(target, e);
+  });
+  ['change','input','focus','blur'].forEach(eventName => {
+    document.addEventListener(eventName, e => {
+      const target = e.target.closest?.(`[data-on${eventName}]`);
+      if(target) handleDelegatedFormEvent(eventName, target, e);
+    }, true);
+  });
+  document.addEventListener('keydown', e => {
+    const target = e.target.closest?.('[data-onkeydown]');
+    if(!target) return;
+    if(target.dataset.onkeydown === 'kbActivate(event)' && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      target.click();
+      return;
+    }
+    handleDelegatedFormEvent('keydown', target, e);
+  });
+  document.addEventListener('dragstart', e => {
+    const target = e.target.closest?.('[data-ondragstart]');
+    if(target?.dataset.id) e.dataTransfer?.setData('text/plain', target.dataset.id);
+  });
+  document.addEventListener('dragover', e => {
+    const target = e.target.closest?.('[data-ondragover]');
+    if(!target) return;
+    e.preventDefault();
+    target.classList.add('drag-over');
+  });
+  document.addEventListener('dragleave', e => {
+    const target = e.target.closest?.('[data-ondragleave]');
+    if(target) target.classList.remove('drag-over');
+  });
+  document.addEventListener('drop', e => {
+    const target = e.target.closest?.('[data-ondrop]');
+    if(!target) return;
+    e.preventDefault();
+    target.classList.remove('drag-over');
+    invokeDelegatedSequence(target.dataset.ondrop, target, e);
+  });
+  privacyMode = localStorage.getItem('woomic_privacy_mask') === 'true';
+  if(typeof MutationObserver === 'function') {
+    privacyObserver = new MutationObserver(() => { if(privacyMode) maskVisiblePii(); });
+    privacyObserver.observe(document.body, {childList:true,subtree:true,characterData:true});
+  }
+  ['click','keydown','touchstart'].forEach(name => document.addEventListener(name, resetIdleLock, true));
   // ── 데이터 로드 (localStorage → GS 순서) ──────────────────
   const saved = loadState();
   if(saved && saved.candidates) {
@@ -7703,8 +7851,11 @@ try {
     refReports  = saved.refReports  || {};
     positions   = saved.positions   || [];
     activityLog = saved.activityLog || [];
+    auxUpdatedAt = saved.auxUpdatedAt || '';
   }
   checkGsSchemaCoverage();
+  const privacyCleanup = applyPrivacyRetention();
+  if(privacyCleanup.removedNotify || privacyCleanup.removedActivity) saveState();
   // 기존 중복 면접 데이터 정리 (같은 지원자+type 1건만)
   const dups = dedupeInterviews();
   if(dups > 0) console.log(`[init] 중복 면접 ${dups}건 정리 완료`);
@@ -7723,14 +7874,6 @@ try {
       else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
   });
-  // ob 이벤트 리스너
-  ['ob-cand','ob-date','ob-etype'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updateObPreview);});
-  ['ob-dept','ob-rank','ob-loc','ob-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateObPreview);});
-  // int 이벤트 리스너
-  ['int-type','int-dt'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',updateIntPreview);});
-  ['int-loc','int-panel','int-memo'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateIntPreview);});
-  const icEl2=document.getElementById('int-cand');if(icEl2)icEl2.addEventListener('change',updateIntPreview);
-
   // 면접 후보 일정 변경 시 미리보기 업데이트 (날짜+시+분 분리형 6필드 × 3안)
   [1,2,3].forEach(n => {
     [`cs-slot${n}-date`,`cs-slot${n}-hour`,`cs-slot${n}-min`].forEach(id => {
@@ -7762,6 +7905,9 @@ try {
     if(FIXED_URLS.refAutoUrl)     GS_CONFIG.refAutoUrl     = FIXED_URLS.refAutoUrl;
     // 지원자 데이터 로드 (GS 우선, 실패 시 localStorage 캐시 유지)
     if(GS_CONFIG.scriptUrl) {
+      loadAuxStateFromGS().then(loaded => {
+        if(loaded) { renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog(); }
+      }).finally(() => { auxSyncSuspended = false; });
       loadFromGS().then(loaded => {
         if(loaded) {
           renderDashboard(); renderTracker(); renderPositions();
@@ -7781,6 +7927,7 @@ try {
         loadInterviewsFromGS().then(loaded => { if(loaded) { renderPositions(); renderDashboard(); } });
       }
     } else {
+      auxSyncSuspended = false;
       showSyncStatus('⚠ GS 미연결 — 로컬 캐시로만 동작 (데이터 영구 저장 안 됨)', 'warn');
     }
     // 면접관 DB 자동 로드
@@ -7799,6 +7946,9 @@ try {
   updateIntPreview();
   updateObPreview();
   updateBulkPreview();
+  renderExpiredPii();
+  resetIdleLock();
+  if(privacyMode) maskVisiblePii();
 
 } catch(initErr) {
   console.error('[DOMContentLoaded] 초기화 에러:', initErr);
