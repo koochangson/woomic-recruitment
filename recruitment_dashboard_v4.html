@@ -3635,7 +3635,7 @@ function getPositionProcessStatus(positionId) {
     { key:'int2_done', title:'2차 면접 실시', done:r2.done.length > 0, skip:short },
     { key:'int2_result', title:'2차 결과 입력', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:short },
     { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
-    { key:'final', title:'최종합격', done:final.length > 0, skip:false },
+    { key:'final', title:'최종합격', done:final.length > 0 && !list.some(c => c.stage === 4), skip:false },
     { key:'onboard', title:'입사안내', done:final.some(c => c.notified) || final.some(c => onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
   ];
   const actions = getPositionActionItems(positionId);
