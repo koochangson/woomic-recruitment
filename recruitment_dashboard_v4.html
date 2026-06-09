@@ -215,6 +215,19 @@ textarea{resize:vertical;min-height:64px;}
 .nc-title{font-size:12px;font-weight:700;}
 .nc-sub{font-size:10px;color:var(--t3);}
 .nc-body{padding:10px 14px;font-size:12px;font-family:'DM Mono',monospace;line-height:1.7;color:var(--t2);white-space:pre-wrap;background:var(--s2);}
+.ob-finalists{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 10px;margin-top:7px;background:var(--s2);border:1px solid var(--border);border-radius:8px;}
+.ob-finalists-label{font-size:11px;font-weight:700;color:var(--t2);margin-right:2px;}
+.ob-finalist{border:1px solid var(--border2);background:#fff;color:var(--t2);border-radius:16px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;}
+.ob-finalist:hover,.ob-finalist.active{border-color:var(--acc);color:var(--acc);background:var(--bbg);}
+.ob-finalist.registered::after{content:' ✓';color:var(--green);}
+.ob-mail-label{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.ref-report-table{width:100%;border-collapse:collapse;table-layout:fixed;}
+.ref-report-table th,.ref-report-table td{border:1px solid var(--border2);padding:0;vertical-align:middle;}
+.ref-report-table th{background:var(--s2);font-size:12px;font-weight:700;text-align:center;padding:9px;}
+.ref-report-table .ref-report-label{width:120px;background:#F8FAF8;text-align:center;font-size:12px;font-weight:700;color:var(--text);padding:12px 8px;}
+.ref-report-table textarea{display:block;width:100%;min-height:92px;padding:11px 13px;border:0;border-radius:0;background:#fff;font-family:'Pretendard',sans-serif;font-size:12px;line-height:1.75;resize:vertical;color:var(--text);}
+.ref-report-table textarea:focus{outline:2px solid var(--acc);outline-offset:-2px;background:#FCFDFE;}
+.ref-report-table tr:first-of-type textarea{min-height:120px;background:#F8FFF9;}
 
 /* ── 타임라인 ──────────────────────────────────────────── */
 .tl-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);}
@@ -930,6 +943,32 @@ html,body{line-height:1.55;}
           </div>
         </div>
       </div>
+      <div class="card" style="margin-top:12px">
+        <div class="ch">
+          <div><div class="ch-l">레퍼런스 결과 정리</div><div style="font-size:11px;color:var(--t3);margin-top:2px">추천인 응답을 지원자 단위의 항목별 종합 의견으로 정리합니다.</div></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="ref-report-cand" onchange="renderRefReport()" style="font-size:11px;padding:5px 9px;border-radius:20px;border:1px solid var(--border2)"><option value="">-- 지원자 선택 --</option></select>
+            <button class="btn btn-sm btn-primary" onclick="saveRefReport()">결과 저장</button>
+          </div>
+        </div>
+        <div id="ref-report-empty" style="padding:28px;text-align:center;font-size:12px;color:var(--t3)">지원자를 선택하면 결과 정리표가 표시됩니다.</div>
+        <div id="ref-report-wrap" style="display:none;overflow-x:auto">
+          <table class="ref-report-table">
+            <thead><tr><th style="width:120px">구분</th><th>인물평</th></tr></thead>
+            <tbody>
+              <tr><td class="ref-report-label">총평</td><td><textarea id="ref-report-overall" placeholder="· 지원자의 전반적인 역량과 업무 수행 특성을 종합해 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">1. 직무전문성</td><td><textarea id="ref-report-expertise" placeholder="· 직무 경험, 전문지식, 성과, 문제해결력 등을 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">2. 성격/성품</td><td><textarea id="ref-report-character" placeholder="· 책임감, 신뢰성, 관계 형성, 커뮤니케이션 특성을 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">3. 리더십</td><td><textarea id="ref-report-leadership" placeholder="· 조직 운영, 구성원 육성, 협업 및 의사결정 특성을 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">4. 이직사유</td><td><textarea id="ref-report-reason" placeholder="· 확인된 이직 배경과 채용 시 참고사항을 작성하세요."></textarea></td></tr>
+            </tbody>
+          </table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <div id="ref-report-saved" style="font-size:11px;color:var(--t3)">아직 저장되지 않았습니다.</div>
+            <button class="btn btn-sm btn-primary" onclick="saveRefReport()">결과 저장</button>
+          </div>
+        </div>
+      </div>
       <!-- 메트릭 클릭 필터 결과 패널 -->
       <div id="ref-filter-panel" style="display:none;margin-top:12px">
         <div class="card" style="padding:0;overflow:hidden">
@@ -968,10 +1007,11 @@ html,body{line-height:1.55;}
         <div class="card">
           <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
           <div class="fgrid f2" style="gap:10px">
-            <div class="fg full"><label>최종 합격자</label><select id="ob-cand" onchange="updateObPreview()"><option value="">-- 선택 --</option></select></div>
+            <div class="fg full"><label>최종 합격자</label><select id="ob-cand" onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
+            <div class="fg full"><label>모집단위 / 포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
             <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" onchange="updateObPreview()"/></div>
             <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" oninput="updateObPreview()"/></div>
-            <div class="fg"><label>부서장 이메일 (입사 통보)</label><input id="ob-dept-lead" placeholder="teamlead@wm.co.kr" type="email"/></div>
+            <div class="fg"><label>부서장/소장 이메일 (입사 통보)</label><input id="ob-dept-lead" placeholder="teamlead@wm.co.kr; sitelead@wm.co.kr" oninput="updateObPreview()"/></div>
             <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" oninput="updateObPreview()"/></div>
             <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" oninput="updateObPreview()"/></div>
             <div class="fg"><label>채용형태</label>
@@ -983,24 +1023,32 @@ html,body{line-height:1.55;}
           </div>
           <div class="brow">
             <button class="btn btn-primary" onclick="addOnboarding()">등록</button>
-            <button class="btn btn-outlook" onclick="sendObNotify('outlook')">Outlook 합격 안내 발송</button>
+            <button class="btn btn-outlook" onclick="sendObNotify('outlook')">지원자 입사안내 발송</button>
+            <button class="btn btn-ghost" onclick="sendCurrentOnboardInternal()">내부 직원 공유</button>
           </div>
         </div>
         <div>
           <div class="card" style="margin-bottom:10px">
-            <div class="ch"><div class="ch-l">Outlook 미리보기</div></div>
+            <div class="ch"><div class="ch-l ob-mail-label">지원자 입사안내 메일 <span class="b bblue">개별 발송</span></div></div>
             <div class="notify-card">
               <div class="nc-header"><div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
                 <div><div class="nc-title" style="color:var(--outlook)">Outlook 이메일</div><div class="nc-sub">지원자 본인</div></div></div>
               <div class="nc-body" id="ob-preview-outlook">입사 정보를 입력하면 미리보기가 표시됩니다.</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:0 14px">📧 [Outlook 발송] 버튼 클릭 시 Outlook이 열립니다. 내용 확인 후 전송 버튼을 누르세요.</div>
             </div>
           </div>
-          <div class="card">
-            <div class="ch"><div class="ch-l">입사 타임라인</div></div>
-            <div id="ob-timeline"><div style="font-size:12px;color:var(--t3)">입사자를 등록하면 자동 생성됩니다.</div></div>
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><div class="ch-l ob-mail-label">내부 직원 공유 메일 <span class="b bgreen">단체 발송</span></div></div>
+            <div class="notify-card">
+              <div class="nc-header"><div class="nc-icon" style="background:var(--green)">IN</div>
+                <div><div class="nc-title" style="color:var(--green)">사내 입사 준비 요청</div><div class="nc-sub" id="ob-preview-internal-to">부서장/소장 + 고정 수신팀 + HR</div></div></div>
+              <div class="nc-body" id="ob-preview-internal">입사 정보를 입력하면 내부 공유용 미리보기가 표시됩니다.</div>
+            </div>
           </div>
         </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="ch"><div class="ch-l">입사 타임라인</div></div>
+        <div id="ob-timeline"><div style="font-size:12px;color:var(--t3)">입사자를 등록하면 자동 생성됩니다.</div></div>
       </div>
       <div class="card" style="margin-top:12px">
         <div class="ch"><div class="ch-l">입사 예정자 현황</div></div>
@@ -1147,11 +1195,30 @@ html,body{line-height:1.55;}
 {지원자명}님, 최종 합격을 진심으로 축하드립니다!
 
 {포지션} 포지션으로 입사하시게 되어 환영합니다.
-입사 절차와 준비 서류를 안내드립니다.
+아래와 같이 입사 일정과 준비사항을 안내드립니다.
 
-■ 입사 예정일: 별도 협의
-■ 준비 서류: 신분증 사본, 통장 사본, 자격증 사본 등
+■ 입사 예정일: {입사일}
+■ 배치 부서: {부서}
+■ 직책/직급: {직책}
+■ 채용형태: {채용형태}
+■ 근무지: {근무지}
+{준비사항}
 ■ 문의: 우미건설 피플팀
+
+우미건설 피플팀 드림</textarea></div>
+          <div class="fg"><label>내부 직원 입사 공유</label><textarea id="tpl-onboard-internal" style="min-height:80px;font-family:'DM Mono',monospace;font-size:11.5px">안녕하세요.
+
+아래와 같이 신규 입사자를 공유드리오니 입사 준비를 부탁드립니다.
+
+■ 성명: {지원자명}
+■ 모집단위: {포지션}
+■ 배치 부서: {부서}
+■ 입사 예정일: {입사일}
+■ 직책/직급: {직책}
+■ 채용형태: {채용형태}
+■ 근무지: {근무지}
+
+전산 계정, 장비, 좌석 및 출입 준비를 부탁드립니다.
 
 우미건설 피플팀 드림</textarea></div>
           <div class="fg"><label>레퍼런스 추천인 요청 (1차합격 → 레퍼런스 단계)</label><textarea id="tpl-ref" style="min-height:80px;font-family:'DM Mono',monospace;font-size:11.5px">안녕하세요 {지원자명}님,
@@ -1781,6 +1848,7 @@ let interviews      = [];
 let onboardings     = [];
 let notifyLog       = [];
 let refDetails      = {};
+let refReports      = {};
 let positions       = [];
 let editingPosId    = null;
 let interviewers    = [];  // 면접관 DB 캐시
@@ -2643,63 +2711,49 @@ function sendOnboardToCand(candId) {
   toast(`${esc(c.name)}님 입사 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
 }
 
+function getOnboardInternalRecipients(cand, onboarding) {
+  const ob = onboarding || {};
+  const teams = parseNotifyTeams();
+  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
+  const pos = positions.find(p => Number(p.id) === Number(cand.posId));
+  const dept = (pos && pos.dept) || cand.dept || ob.dept || '';
+  const leads = [];
+  if(ob.deptLead) leads.push({ name:'배치 부서장', email:ob.deptLead });
+  if(dept && Array.isArray(interviewers)) {
+    interviewers.filter(iv =>
+      iv.dept && iv.dept.trim() === dept.trim() &&
+      /팀장|소장/.test(iv.rank || '') && iv.email
+    ).forEach(iv => leads.push({ name:`${iv.name} ${iv.rank}`, email:iv.email }));
+  }
+  const recipients = groupMailRecipients([...leads.map(x=>x.email), ...teams.map(t=>t.email), hrEmail]);
+  const recipientNames = [...leads.map(x=>`${x.name}(배치 부서)`), ...teams.map(t=>t.name), ...(hrEmail?['HR 담당자']:[])].filter(Boolean);
+  return { dept, leads, teams, hrEmail, recipients, recipientNames };
+}
+
 // 모집단위 상세에서 입사 안내 - 사내 관련 부서(팀장·전산 등)
 function sendOnboardToDept(candId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   if(!c) return;
-  const teams   = parseNotifyTeams();
-  const sign    = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
-  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
   const ob = onboardings.find(o => o.candId === c.id) || {};
-  // 부서: 모집단위(positions) 우선 → 지원자 → 입사정보
-  const pos = positions.find(p => Number(p.id) === Number(c.posId));
-  const dept = (pos && pos.dept) || c.dept || ob.dept || '';
+  const internal = getOnboardInternalRecipients(c, ob);
+  const { dept, leads, teams, recipients:toEmails, recipientNames } = internal;
   const joinDate = ob.joinDate || '미정';
 
-  // 배치 부서장 자동 매칭: 면접관DB에서 같은 부서 + 직급(팀장/소장)
-  let deptLead = ob.deptLead || '';
-  let deptLeadName = '';
-  if(!deptLead && dept && Array.isArray(interviewers)) {
-    const lead = interviewers.find(iv =>
-      iv.dept && dept && iv.dept.trim() === dept.trim() &&
-      /팀장|소장/.test(iv.rank || ''));
-    if(lead) { deptLead = lead.email; deptLeadName = `${lead.name} ${lead.rank}`; }
-  }
-
-  const toEmails = groupMailRecipients([deptLead, ...teams.map(t => t.email), hrEmail]);
   if(!toEmails) {
     alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: ${dept||'부서 미정'} 의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.\n\n둘 중 하나를 설정해주세요.`);
     return;
   }
-  const leadLabel = deptLeadName ? `${deptLeadName}(배치 부서장)` : (deptLead ? '배치 부서장' : '');
-  const teamNames = [leadLabel, ...teams.map(t => t.name)].filter(Boolean).join(', ') || '유관 부서';
-
-  const subject = `[우미건설] 신규 입사자 안내 — ${esc(c.name)} (${joinDate})`;
-  const body = [
-    `${teamNames} 담당자님,`, ``,
-    `${sign}입니다.`,
-    `아래와 같이 신규 입사자를 안내드리오니 입사 준비(좌석·계정·장비 등)에 협조 부탁드립니다.`, ``,
-    `━━ 입사자 정보 ━━`,
-    `성명:     ${esc(c.name)}`,
-    `직무:     ${c.pos || ob.pos || '미정'}`,
-    `소속:     ${dept || '미정'}`,
-    `입사일:   ${joinDate}`,
-    `채용형태: ${c.etype || '정규직'}`,
-    ob.rank ? `직급:     ${ob.rank}` : '',
-    ob.loc ? `근무지:   ${ob.loc}` : '',
-    ``,
-    `■ 전산팀: 사번·이메일·그룹웨어 계정, PC 및 장비 준비`,
-    `■ 배치부서${deptLeadName?'('+deptLeadName+')':''}: 좌석 배정, 업무 인수인계 준비`,
-    `■ 총무팀: 출입증, 명함 발급`, ``,
-    `감사합니다.`,
-    sign,
-  ].filter(s => s !== '').join('\n');
+  if(!leads.length && !confirm(`'${dept||'배치 부서 미정'}'의 팀장/소장 이메일을 찾지 못했습니다.\n고정 수신자에게만 발송하시겠습니까?`)) return;
+  const mailData = {...ob, candName:c.name, pos:c.pos || ob.pos, dept, joinDate, etype:ob.etype || c.etype};
+  const subject = `[사내 공유] 신규 입사자 준비 요청 — ${c.name} (${joinDate})`;
+  const body = buildInternalOnboardEmail(mailData, c);
 
   const sent = openMailto(toEmails, subject, body);
   if(sent === false) return;
+  if(ob.id) ob.deptNotified = true;
   logNotify('Outlook', '입사통보-사내부서', c.name, toEmails);
   saveState();
-  toast(`${esc(c.name)}님 사내부서 통보${deptLeadName?' (부서장: '+deptLeadName+')':''} — Outlook 창에서 전송하세요`, 'toutlook');
+  toast(`${esc(c.name)}님 내부 직원 단체 안내 — Outlook 창에서 전송하세요`, 'toutlook');
 }
 
 
@@ -3766,7 +3820,7 @@ async function executePositionProcessTask(positionId, actionKey) {
   if(actionKey === 'ref_complete') return completePositionReferences(positionId);
   if(actionKey === 'offer') return changePositionProcessStage(positionId, 4);
   if(actionKey === 'final') return changePositionProcessStage(positionId, 5);
-  if(actionKey === 'onboard') { closeModal('modal-pos-detail'); nav('onboarding'); return; }
+  if(actionKey === 'onboard') return openOnboardingFromPosition(positionId);
 }
 
 let positionResultCtx = { positionId:null, stageIdx:null };
@@ -4583,6 +4637,7 @@ async function syncRefFromGS() {
         name: r.refName, email: r.refEmail, relation: r.rel,
         status: r.status === '응답' ? '응답' : (r.status === '등록' ? '등록' : '대기'),
         remindCnt: r.remindCnt || 0,
+        responseText: r.responseText || r.summary || r.comment || r.answer || r.response || r.notes || '',
       }));
     });
     saveState();
@@ -4955,6 +5010,7 @@ async function loadStateWithSP() {
   const saved = loadState();
   if(saved && saved.candidates) {
     ({ candidates, interviews, onboardings, notifyLog, refDetails } = saved);
+    refReports = saved.refReports || {};
     if(saved.positions) positions = saved.positions;
     candidates.forEach(c => { c.role = normalizeRole(c.role); });
     positions.forEach(p => { p.role = normalizeRole(p.role); });
@@ -4965,13 +5021,13 @@ async function loadStateWithSP() {
 
 function saveState() {
   try {
-    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, positions, activityLog: activityLog.slice(0,300) });
+    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, activityLog: activityLog.slice(0,300) });
     localStorage.setItem(LS_KEY, data);
   } catch(e) {
     if(e.name === 'QuotaExceededError' || e.code === 22) {
       notifyLog = notifyLog.slice(0, 50);
       activityLog = activityLog.slice(0, 100);
-      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, positions, activityLog })); }
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, refReports, positions, activityLog })); }
       catch(e2) { console.warn('localStorage 저장 실패:', e2); }
     }
   }
@@ -5141,7 +5197,8 @@ function populateSel(id) {
   const s = document.getElementById(id); if(!s) return;
   const v = s.value;
   s.innerHTML = '<option value="">-- 선택 --</option>';
-  candidates.forEach(c => s.add(new Option(`${esc(c.name)} (${esc(c.pos)})`, c.id)));
+  const list = id === 'ob-cand' ? candidates.filter(c=>c.stage===5) : candidates;
+  list.forEach(c => s.add(new Option(`${esc(c.name)} (${esc(c.pos)})`, c.id)));
   if(v) s.value = v;
 }
 function badge(stage) { return `<span class="b ${SBG[stage]||'bgray'}">${STAGES[stage]||''}</span>`; }
@@ -5242,15 +5299,32 @@ function buildOfferEmail(ob, cand) {
   const tpl = document.getElementById('tpl-onboard')?.value || '';
   if(tpl) {
     return tpl
-      .replace('{지원자명}', ob.candName)
-      .replace('{입사일}',   ob.joinDate)
-      .replace('{부서}',     ob.dept || '')
-      .replace('{직책}',     ob.rank || '')
-      .replace('{채용형태}', ob.etype || '')
-      .replace('{근무지}',   ob.loc  || '')
-      .replace('{준비사항}', ob.notes ? '\n준비사항:\n' + ob.notes : '');
+      .replace(/\{지원자명\}/g, ob.candName || cand?.name || '')
+      .replace(/\{포지션\}/g,   ob.pos || cand?.pos || '')
+      .replace(/\{입사일\}/g,   ob.joinDate || '')
+      .replace(/\{부서\}/g,     ob.dept || '')
+      .replace(/\{직책\}/g,     ob.rank || '')
+      .replace(/\{채용형태\}/g, ob.etype || '')
+      .replace(/\{근무지\}/g,   ob.loc  || '')
+      .replace(/\{준비사항\}/g, ob.notes ? '\n준비사항:\n' + ob.notes : '');
   }
   return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
+}
+
+function buildInternalOnboardEmail(ob, cand) {
+  const tpl = document.getElementById('tpl-onboard-internal')?.value || '';
+  if(tpl) {
+    return tpl
+      .replace(/\{지원자명\}/g, ob.candName || cand?.name || '')
+      .replace(/\{포지션\}/g,   ob.pos || cand?.pos || '')
+      .replace(/\{입사일\}/g,   ob.joinDate || '미정')
+      .replace(/\{부서\}/g,     ob.dept || '미정')
+      .replace(/\{직책\}/g,     ob.rank || '미정')
+      .replace(/\{채용형태\}/g, ob.etype || cand?.etype || '정규직')
+      .replace(/\{근무지\}/g,   ob.loc || '미정')
+      .replace(/\{준비사항\}/g, ob.notes || '');
+  }
+  return `안녕하세요.\n\n아래와 같이 신규 입사자를 공유드리오니 입사 준비를 부탁드립니다.\n\n성명: ${ob.candName || cand?.name || ''}\n모집단위: ${ob.pos || cand?.pos || ''}\n배치 부서: ${ob.dept || '미정'}\n입사 예정일: ${ob.joinDate || '미정'}\n\n우미건설 피플팀 드림`;
 }
 
 function buildRejectEmail(cand) {
@@ -6657,6 +6731,51 @@ function renderReference() {
   // AI 셀렉트
   const aiSel=document.getElementById('ref-ai-cand');
   if(aiSel){const pv=aiSel.value;aiSel.innerHTML='<option value="">-- 선택 --</option>';candidates.filter(c=>c.ref==='진행중'||c.ref==='완료').forEach(c=>aiSel.add(new Option(`${esc(c.name)} (${c.refD}/${c.refT})`,c.id)));if(pv)aiSel.value=pv;}
+  const reportSel=document.getElementById('ref-report-cand');
+  if(reportSel){
+    const pv=reportSel.value;
+    reportSel.innerHTML='<option value="">-- 지원자 선택 --</option>';
+    candidates.filter(c=>c.ref==='진행중'||c.ref==='완료').forEach(c=>reportSel.add(new Option(`${esc(c.name)} · ${esc(c.pos)} (${c.refD}/${c.refT})`,c.id)));
+    if(pv) reportSel.value=pv;
+  }
+}
+
+function renderRefReport(candId) {
+  const sel=document.getElementById('ref-report-cand');
+  const id=Number(candId || sel?.value);
+  const c=candidates.find(x=>Number(x.id)===id);
+  const wrap=document.getElementById('ref-report-wrap');
+  const emptyEl=document.getElementById('ref-report-empty');
+  if(!c) {
+    if(wrap) wrap.style.display='none';
+    if(emptyEl) emptyEl.style.display='block';
+    return;
+  }
+  if(sel) sel.value=String(c.id);
+  const report=refReports[c.id] || {};
+  const set=(field,value)=>{const el=document.getElementById(`ref-report-${field}`);if(el)el.value=value||'';};
+  set('overall',report.overall);set('expertise',report.expertise);set('character',report.character);
+  set('leadership',report.leadership);set('reason',report.reason);
+  if(wrap) wrap.style.display='block';
+  if(emptyEl) emptyEl.style.display='none';
+  const saved=document.getElementById('ref-report-saved');
+  if(saved) saved.textContent=report.updatedAt?`최근 저장: ${report.updatedAt}`:`${c.name}님의 결과가 아직 저장되지 않았습니다.`;
+}
+
+function saveRefReport() {
+  const id=Number(document.getElementById('ref-report-cand')?.value);
+  const c=candidates.find(x=>Number(x.id)===id);
+  if(!c){alert('결과를 정리할 지원자를 선택해주세요.');return;}
+  const val=field=>document.getElementById(`ref-report-${field}`)?.value.trim()||'';
+  refReports[c.id]={
+    candId:c.id,candName:c.name,pos:c.pos||'',
+    overall:val('overall'),expertise:val('expertise'),character:val('character'),
+    leadership:val('leadership'),reason:val('reason'),
+    updatedAt:new Date().toLocaleString('ko-KR')
+  };
+  saveState();
+  renderRefReport(c.id);
+  toast(`${esc(c.name)}님 레퍼런스 결과 저장 완료`,'tok');
 }
 
 function selectRefCand(id){
@@ -6669,10 +6788,12 @@ function selectRefCand(id){
   panel.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:10px">${esc(c.name)} · ${c.refD}/${c.refT} 응답</div>
     ${refs.map((r,ri)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:26px;height:26px;border-radius:50%;background:${r.status==='응답'?'var(--gbg)':'var(--rbg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${r.status==='응답'?'var(--green)':'var(--red)'}">${ri+1}</div>
-      <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name)} <span class="tag">${esc(r.relation)}</span></div><div style="font-size:11px;color:var(--t3)">${r.email}${r.remindCnt>0?' · 리마인드 '+r.remindCnt+'회':''}</div></div>
+      <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name)} <span class="tag">${esc(r.relation)}</span></div><div style="font-size:11px;color:var(--t3)">${r.email}${r.remindCnt>0?' · 리마인드 '+r.remindCnt+'회':''}</div>${r.responseText?`<div style="font-size:11px;line-height:1.6;margin-top:5px;padding:7px 8px;background:var(--s2);border-radius:var(--rsm);white-space:pre-wrap">${esc(r.responseText)}</div>`:''}</div>
       <span class="b ${r.status==='응답'?'bgreen':'bred'}">${r.status}</span>
       ${r.status!=='응답'?`<button class="btn btn-xs btn-outlook" onclick="remindOneRef(${id},${ri})">리마인드</button><button class="btn btn-xs" onclick="markRefResponse(${id},${ri})">응답</button>`:''}
     </div>`).join('')}`;
+  const reportSel=document.getElementById('ref-report-cand');
+  if(reportSel) { reportSel.value=String(id); renderRefReport(id); }
   renderReference();
 }
 
@@ -6813,13 +6934,16 @@ async function generateAI(){
 지원자: ${esc(c.name)} / 직무: ${esc(c.pos)} / 채용형태: ${c.etype} / 부서: ${c.dept||'미정'}
 채용단계: ${STAGES[c.stage]} / 응답: ${c.refD}/${c.refT}명 (${Math.round(c.refD/c.refT*100)}%)
 추천인: ${refs.map((r,i)=>`${esc(r.name)}(${esc(r.relation)},${r.status})`).join(', ')}
+추천인 응답 원문:
+${refs.map((r,i)=>`[추천인 ${i+1} · ${esc(r.name)} · ${esc(r.relation)}]\n${r.responseText||'응답 상세 내용 없음'}`).join('\n\n')}
 
-다음 구조로 작성해주세요:
-1. 종합 평가 (2~3문장)
-2. 핵심 강점 3가지 (건설업 직무 기준)
-3. 주의사항 (있다면)
-4. HR 채용 권고 (강력추천/추천/보류/비추천 + 근거)
-한국어, 간결하게.`;
+다음 구조로 작성해주세요. 각 항목은 바로 결과 정리표에 옮길 수 있도록 구체적인 글머리표 문장으로 작성하세요:
+1. 총평
+2. 직무전문성 (직무 경험, 성과, 문제해결력)
+3. 성격/성품 (책임감, 신뢰성, 관계 및 커뮤니케이션)
+4. 리더십 (조직 운영, 구성원 육성, 협업 및 의사결정)
+5. 이직사유 및 채용 시 참고사항
+확인되지 않은 사실은 추정하지 말고, 응답 정보가 부족한 항목은 '확인 필요'로 표시하세요.`;
   const apiKey = document.getElementById('cfg-openai-key')?.value?.trim();
   if(!apiKey){
     clearInterval(timer);
@@ -6853,20 +6977,82 @@ async function generateAI(){
 // ══════════════════════════════════════════════════════════════
 // 입사 안내
 // ══════════════════════════════════════════════════════════════
+function fillOnboardingDefaults(candId) {
+  const select = document.getElementById('ob-cand');
+  const id = Number(candId || select?.value);
+  const c = candidates.find(x=>Number(x.id)===id);
+  if(!c) { renderOnboardingPositionFinalists(); updateObPreview(); return; }
+  if(select) select.value = String(c.id);
+  const pos = positions.find(p=>Number(p.id)===Number(c.posId));
+  const existing = onboardings.find(o=>Number(o.candId)===Number(c.id)) || {};
+  const dept = (pos&&pos.dept) || c.dept || existing.dept || '';
+  const loc = (pos&&pos.loc) || c.loc || existing.loc || '';
+  const etype = (pos&&pos.etype) || c.etype || existing.etype || '정규직';
+  const leads = dept && Array.isArray(interviewers) ? interviewers.filter(iv=>iv.dept&&iv.dept.trim()===dept.trim()&&/팀장|소장/.test(iv.rank||'')&&iv.email) : [];
+  const leadEmails = groupMailRecipients([existing.deptLead, ...leads.map(x=>x.email)]);
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };
+  set('ob-position',(pos&&pos.title) || c.pos || '');
+  set('ob-dept',dept);
+  set('ob-dept-lead',leadEmails);
+  set('ob-loc',loc);
+  set('ob-etype',etype);
+  set('ob-date',existing.joinDate || '');
+  set('ob-rank',existing.rank || '');
+  set('ob-notes',existing.notes || '');
+  renderOnboardingPositionFinalists(c.posId, c.id);
+  renderOnboarding();
+  updateObPreview();
+}
+
+function renderOnboardingPositionFinalists(positionId, selectedId) {
+  const wrap = document.getElementById('ob-position-finalists');
+  if(!wrap) return;
+  const finals = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===5);
+  if(!finals.length) { wrap.innerHTML=''; return; }
+  wrap.innerHTML=`<div class="ob-finalists"><span class="ob-finalists-label">동일 모집단위 합격자 ${finals.length}명</span>${finals.map(c=>{
+    const registered=onboardings.some(o=>Number(o.candId)===Number(c.id));
+    return `<button type="button" class="ob-finalist ${registered?'registered':''} ${Number(c.id)===Number(selectedId)?'active':''}" onclick="fillOnboardingDefaults(${c.id})">${esc(c.name)}${registered?' · 등록':''}</button>`;
+  }).join('')}</div>`;
+}
+
+function getOnboardingDraft() {
+  const cid=Number(document.getElementById('ob-cand')?.value);
+  const c=candidates.find(x=>Number(x.id)===cid);
+  if(!c) return { cand:null, ob:{} };
+  return { cand:c, ob:{
+    candId:c.id,candName:c.name,pos:document.getElementById('ob-position')?.value||c.pos||'',
+    joinDate:document.getElementById('ob-date')?.value||'',dept:document.getElementById('ob-dept')?.value||'',
+    deptLead:document.getElementById('ob-dept-lead')?.value||'',rank:document.getElementById('ob-rank')?.value||'',
+    loc:document.getElementById('ob-loc')?.value||'',etype:document.getElementById('ob-etype')?.value||'',
+    notes:document.getElementById('ob-notes')?.value||''
+  }};
+}
+
+function openOnboardingFromPosition(positionId) {
+  const pos = positions.find(p=>Number(p.id)===Number(positionId));
+  if(!pos) return;
+  const finals = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===5);
+  if(!finals.length) { toast('입사안내를 진행할 최종합격자가 없습니다.', 'terr'); return; }
+  const candidate = finals.find(c=>!onboardings.some(o=>Number(o.candId)===Number(c.id))) || finals[0];
+  closeModal('modal-pos-detail');
+  nav('onboarding');
+  populateSel('ob-cand');
+  fillOnboardingDefaults(candidate.id);
+  document.getElementById('sect-onboarding')?.scrollIntoView({behavior:'smooth',block:'start'});
+  toast(`${candidate.name}님을 선택하고 모집단위 기본정보를 불러왔습니다.`, 'tok');
+}
+
 function updateObPreview(){
-  const cid=parseInt(document.getElementById('ob-cand')?.value);
-  const c=candidates.find(x=>x.id===cid);
-  const nm=c?c.name:'{지원자명}';
-  const pos=c?c.pos:'{직무}';
-  const jd=document.getElementById('ob-date')?.value||'{입사일}';
-  const dept=document.getElementById('ob-dept')?.value||'{부서}';
-  const rank=document.getElementById('ob-rank')?.value||'{직책}';
-  const loc=document.getElementById('ob-loc')?.value||'{근무지}';
-  const etype=document.getElementById('ob-etype')?.value||'{채용형태}';
-  const notes=document.getElementById('ob-notes')?.value||'';
-  const tpl=document.getElementById('tpl-onboard')?.value||'';
-  const msg=tpl.replace('{지원자명}',nm).replace('{입사일}',jd).replace('{부서}',dept).replace('{직책}',rank).replace('{채용형태}',etype).replace('{근무지}',loc).replace('{준비사항}',notes?'준비사항:\n'+notes:'');
-  const el=document.getElementById('ob-preview-outlook');if(el)el.textContent=msg;
+  const {cand,ob}=getOnboardingDraft();
+  const applicant=document.getElementById('ob-preview-outlook');
+  const internal=document.getElementById('ob-preview-internal');
+  const internalTo=document.getElementById('ob-preview-internal-to');
+  if(applicant) applicant.textContent=cand?buildOfferEmail(ob,cand):'최종 합격자를 선택하면 지원자용 미리보기가 표시됩니다.';
+  if(internal) internal.textContent=cand?buildInternalOnboardEmail(ob,cand):'최종 합격자를 선택하면 내부 공유용 미리보기가 표시됩니다.';
+  if(internalTo) {
+    const recipients=cand?getOnboardInternalRecipients(cand,ob):null;
+    internalTo.textContent=recipients?.recipientNames?.length?recipients.recipientNames.join(', '):'부서장/소장 + 고정 수신팀 + HR';
+  }
 }
 
 
@@ -6892,71 +7078,33 @@ function sendJoinNotice(obId) {
   const cand = candidates.find(c => c.id === ob.candId);
   if(!cand) return;
 
-  const teams   = parseNotifyTeams();
-  const sign    = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
-  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
-
-  // 부서: 모집단위 우선 → 지원자 → 입사정보
-  const pos = positions.find(p => Number(p.id) === Number(cand.posId));
-  const dept = (pos && pos.dept) || cand.dept || ob.dept || '';
-
-  // 배치 부서장 자동 매칭: 면접관DB에서 같은 부서 + 직급(팀장/소장)
-  let deptLead = ob.deptLead || '';
-  let deptLeadName = '';
-  if(!deptLead && dept && Array.isArray(interviewers)) {
-    const lead = interviewers.find(iv =>
-      iv.dept && iv.dept.trim() === dept.trim() &&
-      /팀장|소장/.test(iv.rank || ''));
-    if(lead) { deptLead = lead.email; deptLeadName = `${lead.name} ${lead.rank}`; }
-  }
-
-  // 수신자: 배치 부서장 + 유관 팀 이메일 + HR
-  const toEmails = groupMailRecipients([deptLead, ...teams.map(t => t.email), hrEmail]);
+  const internal = getOnboardInternalRecipients(cand, ob);
+  const { dept, leads, teams, recipients:toEmails } = internal;
   if(!toEmails) {
     alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: '${dept||'부서 미정'}'의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.`);
     return;
   }
-
-  const teamNames = [deptLeadName ? deptLeadName+'(배치 부서장)' : (deptLead ? '배치 부서장' : ''), ...teams.map(t => t.name)].filter(Boolean).join(', ') || '유관 팀';
-
-  const subject = `[우미건설] ${cand.name}님 입사 안내 — ${ob.joinDate}`;
-
-  const body = [
-    `${teamNames} 담당자님,`,
-    ``,
-    `${sign}입니다.`,
-    `아래와 같이 신규 입사자를 안내드립니다.`,
-    ``,
-    `━━ 입사자 정보 ━━`,
-    `성명:     ${cand.name}`,
-    `직무:     ${cand.pos || ob.pos || '미정'}`,
-    `소속:     ${cand.dept || ob.dept || '미정'}`,
-    `입사일:   ${ob.joinDate}`,
-    `채용형태: ${cand.etype || '정규직'}`,
-    ob.rank ? `직급:     ${ob.rank}` : '',
-    ob.loc  ? `근무지:   ${ob.loc}`  : '',
-    ``,
-    `━━ 준비 요청 사항 ━━`,
-    `IT팀:     업무용 PC, 계정 생성, 이메일 발급`,
-    `총무팀:   출입카드, 주차 등록, 사무용품`,
-    `경영지원: 급여 계좌 등록, 4대보험 처리`,
-    ``,
-    ob.memo ? `특이사항: ${ob.memo}` : '',
-    ``,
-    `문의사항은 피플팀으로 연락 주세요.`,
-    ``,
-    `${sign} 드림`,
-    hrEmail ? `📧 ${hrEmail}` : '',
-  ].filter(l => l !== undefined).join('\n');
+  if(!leads.length && !confirm(`'${dept||'배치 부서 미정'}'의 팀장/소장 이메일을 찾지 못했습니다.\n고정 수신자에게만 발송하시겠습니까?`)) return;
+  const subject = `[사내 공유] 신규 입사자 준비 요청 — ${cand.name} (${ob.joinDate})`;
+  const body = buildInternalOnboardEmail({...ob,dept,pos:cand.pos||ob.pos,etype:ob.etype||cand.etype}, cand);
 
   // Outlook 발송 (관련 부서 + HR 일괄 수신)
-  const mailUrl = `mailto:${toEmails}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.open(mailUrl);
+  const sent = openMailto(toEmails, subject, body);
+  if(sent === false) return;
   ob.deptNotified = true;
-  toast(`사내 부서 입사 안내 발송 — ${teams.length}개 부서 + HR (Outlook 창에서 전송)`, 'tok');
+  toast(`내부 직원 단체 안내 — 고정 수신팀 ${teams.length}개 + 배치 부서 팀장/소장 ${leads.length}명`, 'tok');
   logNotify('Outlook', '입사안내(사내부서)', cand.name, toEmails);
   saveState();
   renderOnboarding();
+}
+
+function sendCurrentOnboardInternal() {
+  const cid=Number(document.getElementById('ob-cand')?.value);
+  const c=candidates.find(x=>Number(x.id)===cid);
+  if(!c){alert('지원자를 선택해주세요.');return;}
+  const ob=onboardings.find(o=>Number(o.candId)===cid);
+  if(!ob){alert('입사 정보를 먼저 등록해주세요.');return;}
+  sendJoinNotice(ob.id);
 }
 
 // 배치 부서장 면접 안내 (최종합격 후 부서장에게)
@@ -7022,6 +7170,7 @@ function addOnboarding(){
   });
   if(c.stage<5)c.stage=5;
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderOnboarding();updateMetrics();
+  renderOnboardingPositionFinalists(c.posId,c.id);
   toast(`${esc(c.name)}님 입사 등록 완료`,'tok');
 }
 
@@ -7032,13 +7181,13 @@ function sendObNotify(ch){
   const ob=onboardings.find(o=>o.candId===cid);
   if(!ob){alert('입사 정보를 먼저 등록해주세요.');return;}
   if(ch==='outlook'){
-    const subject=`[우미건설] ${ob.candName}님 최종 합격 안내`;
+    const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
     const sent=openMailto(c.email,subject,body);
     if(!sent)return;
   }
   ob.notified=true;
-  logNotify(ch==='teams'?'Teams':'Outlook','합격안내',ob.candName,c.email);
+  logNotify(ch==='teams'?'Teams':'Outlook','입사안내-지원자',ob.candName,c.email);
   saveState();renderOnboarding();renderDashboard();
   toast(`${ob.candName}님 합격 안내 발송 (Outlook 창에서 전송하세요)`,'🎉');
 }
@@ -7046,7 +7195,12 @@ function sendObNotify(ch){
 function renderOnboarding(){
   const tl=document.getElementById('ob-timeline');
   if(tl&&onboardings.length){
-    const ob=onboardings[onboardings.length-1];
+    const selectedId=Number(document.getElementById('ob-cand')?.value);
+    const selectedOb=onboardings.find(o=>Number(o.candId)===selectedId);
+    const ob=selectedId ? selectedOb : onboardings[onboardings.length-1];
+    if(!ob) {
+      tl.innerHTML='<div style="font-size:12px;color:var(--t3)">선택한 합격자의 입사 정보를 등록하면 타임라인이 표시됩니다.</div>';
+    } else {
     const jd=new Date(ob.joinDate);
     function off(d){const x=new Date(jd);x.setDate(x.getDate()+d);return x.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});}
     const steps=[
@@ -7063,6 +7217,7 @@ function renderOnboarding(){
         <div style="font-weight:600;font-size:12.5px">${s.title}</div><div style="font-size:11px;color:var(--t3)">${s.sub}</div></div>
       ${s.now?'<span class="b bamber">진행중</span>':s.done?'<span class="b bgreen">완료</span>':''}
     </div>`).join('');
+    }
   }
   const wrap=document.getElementById('ob-table');
   if(!wrap)return;
@@ -7077,8 +7232,8 @@ function renderOnboarding(){
       <td>${o.rank||'-'}</td>
       <td>${o.notified?'<span class="b bgreen">지원자✓</span>':'<span class="b bgray">미발송</span>'} ${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-xs btn-outlook" onclick="sendObById(${o.id},'outlook')">✉ 지원자 안내</button>
-        <button class="btn btn-xs" style="background:#E9F7F2;color:var(--teal);border-color:#A8E0C0" onclick="sendJoinNotice(${o.id})">🏢 사내부서 통보</button>
+        <button class="btn btn-xs btn-outlook" onclick="sendObById(${o.id},'outlook')">지원자 입사안내</button>
+        <button class="btn btn-xs btn-ghost" onclick="sendJoinNotice(${o.id})">내부 직원 공유</button>
       </td>
     </tr>`).join('')}</tbody>
   </table></div>`;
@@ -7087,13 +7242,13 @@ function sendObById(id,ch){
   const ob=onboardings.find(o=>o.id===id);if(!ob)return;
   const c=candidates.find(x=>x.id===ob.candId);
   if(ch==='outlook'){
-    const subject=`[우미건설] ${ob.candName}님 최종 합격 안내`;
+    const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
     const sent=openMailto(c?.email||'',subject,body);
     if(!sent)return;
   }
   ob.notified=true;
-  logNotify(ch==='teams'?'Teams':'Outlook','합격안내',ob.candName,c?.email||'');
+  logNotify(ch==='teams'?'Teams':'Outlook','입사안내-지원자',ob.candName,c?.email||'');
   saveState();renderOnboarding();renderDashboard();
   toast(`${ob.candName}님 발송 (Outlook 창에서 전송하세요)`,'🎉');
 }
@@ -7228,6 +7383,7 @@ async function loadSettingsWithGS() {
       set('tpl-int1',            gsCfg.tplInt1);
       set('tpl-int2',            gsCfg.tplInt2);
       set('tpl-onboard',         gsCfg.tplOnboard);
+      set('tpl-onboard-internal',gsCfg.tplOnboardInternal);
       set('tpl-ref',             gsCfg.tplRef);
       set('tpl-ref-remind',      gsCfg.tplRefRemind);
       set('tpl-reject',          gsCfg.tplReject);
@@ -7329,6 +7485,7 @@ function saveSettings() {
     tplInt1: document.getElementById('tpl-int1')?.value || '',
     tplInt2: document.getElementById('tpl-int2')?.value || '',
     tplOnboard:document.getElementById('tpl-onboard')?.value || '',
+    tplOnboardInternal:document.getElementById('tpl-onboard-internal')?.value || '',
     tplRef: document.getElementById('tpl-ref')?.value || '',
     tplRefRemind: document.getElementById('tpl-ref-remind')?.value || '',
     tplReject: document.getElementById('tpl-reject')?.value || '',
@@ -7381,6 +7538,7 @@ function loadSettings() {
     set('tpl-int1',             cfg.tplInt1);
     set('tpl-int2',             cfg.tplInt2);
     set('tpl-onboard',          cfg.tplOnboard);
+    set('tpl-onboard-internal', cfg.tplOnboardInternal);
     set('tpl-ref',              cfg.tplRef);
     set('tpl-ref-remind',       cfg.tplRefRemind);
     set('tpl-reject',           cfg.tplReject);
@@ -7401,6 +7559,7 @@ try {
     onboardings = saved.onboardings || [];
     notifyLog   = saved.notifyLog   || [];
     refDetails  = saved.refDetails  || {};
+    refReports  = saved.refReports  || {};
     positions   = saved.positions   || [];
     activityLog = saved.activityLog || [];
   }
