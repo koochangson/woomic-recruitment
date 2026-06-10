@@ -4011,10 +4011,12 @@ function getPositionActionItems(positionId) {
   if(!short) {
     const refReady = list.filter(c => c.stage === 2 && c.ref === '미시작');
     if(refReady.length) add('reference_request','medium','레퍼런스 체크 요청 필요',`요청 대기 ${refReady.length}명`,'레퍼런스 요청','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+    const refResend = list.filter(c => c.stage === 2 && c.ref === '진행중' && Number(c.refD||0) === 0 && ensureRefDetails(c).length === 0);
+    if(refResend.length) add('reference_resend','medium','레퍼런스 재요청 필요',`추천인 미접수 ${refResend.length}명 · 지원자에게 등록 안내를 다시 발송하세요.`,'레퍼런스 재요청','requestPositionReferences',`requestPositionReferences(${positionId})`);
     const refLate = list.filter(c => c.ref === '진행중' && Number(c.refD||0) === 0 && ensureRefDetails(c).length > 0);
     if(refLate.length) add('reference_remind','high','레퍼런스 미응답 독촉 필요',`응답 없음 ${refLate.length}명`,'리마인드','remindRef',`remindRef(${refLate[0].id})`);
     const refIncomplete = list.filter(c => c.stage === 2 && c.ref !== '완료');
-    if(refIncomplete.length && !refReady.length && !refLate.length) add('reference_complete','medium','레퍼런스 완료 확인 필요',`진행중 ${refIncomplete.length}명 · 응답 수집 후 완료 처리`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+    if(refIncomplete.length && !refReady.length && !refResend.length && !refLate.length) add('reference_complete','medium','레퍼런스 완료 확인 필요',`진행중 ${refIncomplete.length}명 · 응답 수집 후 완료 처리`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
 
     if(list.some(c => c.stage === 2 && c.ref === '완료') && !r2.interviews.length) add('second_slots','medium','2차 후보일정 안내 필요','레퍼런스 완료 지원자의 2차 후보일정을 안내하세요.','후보일정 안내','openCollectSlots',`openCollectSlots(${positionId},3)`);
     if(r2.pending.length) add('second_schedule','high','2차 공동일정 확정 필요',`미확정 ${r2.pending.length}건`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
@@ -4079,7 +4081,7 @@ function getPositionProcessStatus(positionId) {
     first_slots:'int1_slots', first_schedule:'int1_confirm', first_schedule_reply:'int1_confirm',
     first_panel_notice:'int1_panel', first_candidate_notice:'int1_cand',
     first_interview_done:'int1_done', first_result:'int1_result',
-    reference_request:'ref_req', reference_remind:'ref_done', reference_complete:'ref_done',
+    reference_request:'ref_req', reference_resend:'ref_req', reference_remind:'ref_done', reference_complete:'ref_done',
     second_slots:'int2_slots', second_schedule:'int2_confirm',
     second_panel_notice:'int2_panel', second_candidate_notice:'int2_cand',
     second_result:'int2_result', offer_negotiation:'offer', fill_complete:'final'
@@ -4143,10 +4145,12 @@ function renderPositionProcessChecklist(positionId) {
       : items.some(x=>x.status==='current') ? 'current' : 'upcoming';
     return { title, actionKey, status, label:status==='complete'?'완료':status==='current'?'진행중':status==='delayed'?'지연':status==='skipped'?'생략':'예정' };
   };
+  const refResendNeeded = d && d.list.some(c => c.stage===2 && c.ref==='진행중' && Number(c.refD||0)===0 && ensureRefDetails(c).length===0);
+  const refRequestTitle = refResendNeeded ? '레퍼런스 재요청' : '레퍼런스 요청';
   const groups = [
     { title:'준비', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
     { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots'],'int1_slots'),mergeTask('일정 확정',['int1_confirm'],'int1_confirm'),mergeTask('면접 안내',['int1_panel','int1_cand'],'int1_notice'),mergeTask('결과 입력',['int1_result'],'int1_result')] },
-    { title:'레퍼런스', stage:2, tasks:[mergeTask('레퍼런스 요청',['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
+    { title:'레퍼런스', stage:2, tasks:[mergeTask(refRequestTitle,['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
     { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('일정 확정',['int2_confirm'],'int2_confirm'),mergeTask('면접 안내',['int2_panel','int2_cand'],'int2_notice'),mergeTask('결과 입력',['int2_result'],'int2_result')] },
     { title:'처우협의', stage:4, tasks:[mergeTask('처우협의 및 결과 판단',['offer','final'],'offer_decision'),mergeTask('입사안내',['onboard'],'onboard')] },
   ];
@@ -4295,10 +4299,15 @@ async function completePositionInterviews(positionId, stageIdx) {
 }
 
 function requestPositionReferences(positionId) {
-  const targets = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===2&&c.ref==='미시작');
+  const targets = candidates.filter(c =>
+    Number(c.posId) === Number(positionId) &&
+    c.stage === 2 &&
+    (c.ref === '미시작' || (c.ref === '진행중' && Number(c.refD || 0) === 0))
+  );
   if(!targets.length) { toast('레퍼런스 요청 대상자가 없습니다.', 'terr'); return; }
-  if(!confirm(`${targets.length}명에게 레퍼런스 체크 안내를 진행하시겠습니까?`)) return;
-  targets.forEach((c,i)=>setTimeout(()=>startRef(c.id),i*600));
+  const resendCount = targets.filter(c => c.ref === '진행중').length;
+  if(!confirm(`${targets.length}명에게 레퍼런스 체크 안내를 ${resendCount ? `발송합니다.\n이 중 재요청 ${resendCount}명은 기존 진행 상태를 유지합니다.` : '진행하시겠습니까?'}`)) return;
+  targets.forEach((c,i)=>setTimeout(()=>startRef(c.id, c.ref === '진행중'),i*600));
   setTimeout(()=>renderPositionDetail(positionId),targets.length*600+200);
 }
 
@@ -6999,6 +7008,7 @@ function renderReference() {
         <div style="padding:6px 8px;background:var(--s2);border-radius:var(--rsm);margin-bottom:8px">${refListHtml}</div>
         <div style="display:flex;gap:5px">
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">📋 추천인 요청</button>`:''}
+          ${c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">📋 레퍼런스 재요청</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
         </div>
@@ -7041,6 +7051,7 @@ function renderReference() {
         </td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">시작</button>`:''}
+          ${c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="sendRefRequest(${c.id})">재요청</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs" data-action="call" data-call="markRefRegistered(${c.id})">+접수</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markOneResponse(${c.id})">+응답</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="completeRef(${c.id})">완료</button>`:''}
@@ -7166,22 +7177,27 @@ function markRefRegistered(id){
   const registered=refDetails[id].filter(r=>r.status==='등록'||r.status==='응답').length;
   toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT})`,'tok');
 }
-function startRef(id){
+function startRef(id, resend=false){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 추천인 등록 안내`;
   const body=buildRefRequestEmail(c);
   const sent=openMailto(c.email,subject,body);
   if(!sent)return;
-  c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);
-  logNotify('Outlook','레퍼런스발송',c.name,c.email);
+  if(!resend) {
+    c.ref='진행중';
+    c.refT=3;
+    c.refD=0;
+    ensureRefDetails(c);
+  }
+  logNotify('Outlook',resend?'레퍼런스재요청':'레퍼런스발송',c.name,c.email);
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();
-  toast(`${esc(c.name)}님 레퍼런스 안내 Outlook이 열렸습니다.`,'toutlook');
+  toast(`${esc(c.name)}님 레퍼런스 ${resend?'재요청':'안내'} Outlook이 열렸습니다.`,'toutlook');
 }
 // 포지션 상세에서 추천인 접수 요청 (startRef + 포지션 복귀)
 function sendRefRequest(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const pid=c.posId;
-  startRef(id);
+  startRef(id, c.ref==='진행중');
   if(GS_CONFIG.scriptUrl) syncCandToGS(c);
   if(pid!=null) setTimeout(()=>openPosDetail(Number(pid)),300);
 }
