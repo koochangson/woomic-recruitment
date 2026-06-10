@@ -1929,6 +1929,8 @@ let privacyMode = false;
 let privacyMasking = false;
 let privacyObserver = null;
 let idleLockTimer = null;
+let localCacheSaveTimer = null;
+let lastLocalStateJson = '';
 
 
 // ═════════════════
@@ -1983,10 +1985,6 @@ function nextFlowStage(cur, posOrId){
   return i >= 0 && i < flow.length - 1 ? flow[i + 1] : cur;
 }
 function flowIndex(stage, flow){ return (flow || FLOW).indexOf(stage); }
-function isStageSkippedForPos(pos, stageIdx){
-  return isShortProcessEtype(pos?.etype) && (stageIdx === 2 || stageIdx === 3);
-}
-
 // 외부/GS 데이터를 innerHTML에 넣기 전 HTML 이스케이프 (XSS·레이아웃 깨짐 방지)
 function esc(v){
   if(v == null) return '';
@@ -2206,7 +2204,7 @@ function linkCandFromUnlinked(candId) {
   linkCandToPos(candId, posId);
   logActivity('포지션 연결', `미연결 합격자 연결`, 'candidate', candId);
   showUnlinkedList();
-  renderDashboard(); renderTracker(); updateMetrics();
+  renderDashboard(); renderTracker();
 }
 
 // Outlook 발송완료 체크 (P0)
@@ -2275,7 +2273,7 @@ function confirmPendingMail() {
   pendingMailMeta = null;
   dismissPendingMail();
   saveState();
-  renderDashboard(); renderTracker(); renderIntTable(); updateMetrics();
+  renderDashboard(); renderTracker(); renderIntTable();
   toast('발송 완료로 기록했습니다.', 'tok');
 }
 
@@ -2586,10 +2584,6 @@ function posStatus(p){
 }
 function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
 // 포지션의 현재 단계 = 비탈락(≠6) 지원자 중 최고 단계 (지원자 없으면 null)
-function posCurrentStage(p){
-  const cs = candidates.filter(c => Number(c.posId)===Number(p.id) && c.stage!==6 && !c.held).map(c=>c.stage);
-  return cs.length ? Math.max(...cs) : null;
-}
 // YYYY-MM-DD → YYYY.MM.DD 표시용
 function fmtDate(d){ return d ? String(d).slice(0,10).replace(/-/g,'.') : ''; }
 // 면접 일시 표시: "MM.DD HH:mm" (날짜만 있으면 MM.DD)
@@ -2611,9 +2605,16 @@ function isActivePipelineCand(c){
 }
 // 처리 필요 항목 단일 산출 (KPI 숫자와 처리필요 카드가 공유 → 항상 일치)
 function getActionItems(){
-  const pool = candidates.filter(isActivePipelineCand);
+  const activePositionIds = new Set(positions.filter(p=>posStatus(p)==='active').map(p=>Number(p.id)));
+  const pool = candidates.filter(c =>
+    c.stage !== 6 && !c.held &&
+    (c.posId == null || c.posId === '' || activePositionIds.has(Number(c.posId)))
+  );
+  const scheduledIds = new Set(interviews
+    .filter(i => i.status==='confirmed' || i.status==='done')
+    .map(i => Number(i.candId)));
   const noInt = pool.filter(c => (c.stage===1||c.stage===3) &&
-     !interviews.some(i=>Number(i.candId)===Number(c.id) && (i.status==='confirmed'||i.status==='done')));
+     !scheduledIds.has(Number(c.id)));
   const noRef = pool.filter(c => c.ref==='진행중' && Number(c.refD||0)===0);
   const activeIds = new Set(pool.map(c=>Number(c.id)));
   const noNoti = interviews.filter(i => (!i.notified || i.mailPending) && activeIds.has(Number(i.candId)));
@@ -2641,8 +2642,8 @@ const GS_CONFIG = {
   scriptUrl:      FIXED_URLS.scriptUrl,
   interviewerUrl: FIXED_URLS.interviewerUrl,
   refAutoUrl:     FIXED_URLS.refAutoUrl,
-  // 기존 Apps Script가 doGet 전용일 수 있어 기본값은 false. doPost 배포 후 true로 전환한다.
-  usePostWrites:  false,
+  // doPost를 우선 사용하고, 구형 배포본과의 호환을 위해 실패 시 GET 방식으로 재시도한다.
+  usePostWrites:  true,
 };
 
 // GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
@@ -2654,7 +2655,11 @@ const GS_SCHEMA = {
 };
 const GS_RETRY_KEY = 'woomic_gs_retry_v1';
 const GS_TOMBSTONE_KEY = 'woomic_gs_tombstones_v1';
+const GS_SYNC_CURSOR_KEY = 'woomic_gs_sync_cursors_v1';
+const GS_CURSOR_OVERLAP_MS = 5 * 60 * 1000;
 let gsRetryRunning = false;
+const gsReadCache = new Map();
+const gsReadInflight = new Map();
 
 function gsSchemaPayload(sheet, source) {
   const fields = GS_SCHEMA[sheet] || Object.keys(source || {});
@@ -2676,6 +2681,10 @@ function markUpdated(obj) {
   if(obj) obj.updatedAt = new Date().toISOString();
   return obj;
 }
+function scheduleLocalCacheSave() {
+  clearTimeout(localCacheSaveTimer);
+  localCacheSaveTimer = setTimeout(saveState, 80);
+}
 
 function getGsTombstones() {
   try { return JSON.parse(localStorage.getItem(GS_TOMBSTONE_KEY) || '{}'); }
@@ -2689,10 +2698,25 @@ function recordGsTombstone(sheet, id) {
   if(GS_CONFIG.scriptUrl) gsUpsert('Settings', {id:`tombstone:${sheet}:${id}`, value:tombstones[`${sheet}:${id}`]});
 }
 
-function clearGsTombstone(sheet, id) {
+function applyRemoteGsTombstones(rows) {
   const tombstones = getGsTombstones();
-  delete tombstones[`${sheet}:${id}`];
+  let changed = false;
+  (rows || []).forEach(row => {
+    const id = String(row.id || '');
+    if(!id.startsWith('tombstone:')) return;
+    const key = id.slice('tombstone:'.length);
+    if(!tombstones[key] || String(row.value || '') > String(tombstones[key])) {
+      tombstones[key] = row.value || new Date().toISOString();
+      changed = true;
+    }
+  });
+  if(!changed) return false;
   localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify(tombstones));
+  candidates = candidates.filter(x => !tombstones[`Candidates:${x.id}`]);
+  interviews = interviews.filter(x => !tombstones[`Interviews:${x.id}`]);
+  positions = positions.filter(x => !tombstones[`Positions:${x.id}`]);
+  saveState();
+  return true;
 }
 
 function mergeGsRecords(sheet, remote, local) {
@@ -2710,6 +2734,61 @@ function mergeGsRecords(sheet, remote, local) {
     if(!remoteIds.has(String(l.id)) && queuedIds.has(String(l.id))) merged.push(l);
   });
   return merged;
+}
+
+function mergeGsDeltaRecords(sheet, remote, local) {
+  const tombstones = getGsTombstones();
+  const merged = new Map((local || []).map(x => [String(x.id), x]));
+  (remote || []).forEach(r => {
+    if(tombstones[`${sheet}:${r.id}`]) return;
+    const key = String(r.id);
+    const current = merged.get(key);
+    if(!current || !current.updatedAt || !r.updatedAt || String(r.updatedAt) >= String(current.updatedAt)) {
+      merged.set(key, r);
+    }
+  });
+  return [...merged.values()];
+}
+
+function getGsSyncCursors() {
+  try { return JSON.parse(localStorage.getItem(GS_SYNC_CURSOR_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function getGsSyncCursorKey(sheet) {
+  return `${GS_CONFIG.scriptUrl}|${sheet}`;
+}
+
+function getGsSyncCursor(sheet) {
+  return getGsSyncCursors()[getGsSyncCursorKey(sheet)] || '';
+}
+
+function getGsDeltaSince(sheet) {
+  const cursor = getGsSyncCursor(sheet);
+  const time = new Date(cursor).getTime();
+  return Number.isFinite(time) ? new Date(Math.max(0, time - GS_CURSOR_OVERLAP_MS)).toISOString() : '';
+}
+
+function setGsSyncCursor(sheet, cursor) {
+  if(!cursor) return;
+  const cursors = getGsSyncCursors();
+  const key = getGsSyncCursorKey(sheet);
+  if(!cursors[key] || String(cursor) > String(cursors[key])) {
+    cursors[key] = cursor;
+    localStorage.setItem(GS_SYNC_CURSOR_KEY, JSON.stringify(cursors));
+  }
+}
+
+function clearGsSyncCursors() {
+  const cursors = getGsSyncCursors();
+  Object.keys(cursors).forEach(key => {
+    if(key.startsWith(`${GS_CONFIG.scriptUrl}|`)) delete cursors[key];
+  });
+  localStorage.setItem(GS_SYNC_CURSOR_KEY, JSON.stringify(cursors));
+}
+
+function clearGsReadCache(sheet) {
+  [...gsReadCache.keys()].forEach(key => { if(key.startsWith(`${sheet}:`)) gsReadCache.delete(key); });
 }
 
 function uniqueInterviewRecords(list) {
@@ -2759,6 +2838,9 @@ async function gsFetch(action, sheet, data={}, options={}) {
   const url = new URL(GS_CONFIG.scriptUrl);
   url.searchParams.set('action', action);
   url.searchParams.set('sheet', sheet);
+  Object.entries(options.query || {}).forEach(([key,value]) => {
+    if(value !== '' && value != null) url.searchParams.set(key, value);
+  });
   const hasData = Object.keys(data).length > 0;
   const isWrite = action === 'upsert' || action === 'deleteRow';
   try {
@@ -2787,27 +2869,47 @@ async function gsFetch(action, sheet, data={}, options={}) {
   }
 }
 
-async function gsGetAll(sheet) {
-  const result = await gsFetch('getAll', sheet);
+async function gsGetAll(sheet, options={}) {
+  const result = await gsGetAllResult(sheet, options);
   return result?.data || [];
+}
+
+async function gsGetAllResult(sheet, options={}) {
+  const maxAge = options.maxAge ?? 2000;
+  const since = options.delta && !options.forceFull ? getGsDeltaSince(sheet) : '';
+  const cacheKey = `${sheet}:${since || 'full'}`;
+  const cached = gsReadCache.get(cacheKey);
+  if(!options.force && cached && Date.now() - cached.time < maxAge) return cached.result;
+  if(!options.force && gsReadInflight.has(cacheKey)) return gsReadInflight.get(cacheKey);
+  const request = gsFetch('getAll', sheet, {}, {query:{since}}).then(result => {
+    if(result == null) return null;
+    const normalized = { data:result.data || [], serverTime:result.serverTime || '', isDelta:!!since };
+    gsReadCache.set(cacheKey, {time:Date.now(), result:normalized});
+    return normalized;
+  }).finally(() => gsReadInflight.delete(cacheKey));
+  gsReadInflight.set(cacheKey, request);
+  return request;
 }
 
 async function gsUpsert(sheet, item) {
   const payload = gsSchemaPayload(sheet, item);
   const result = await gsFetch('upsert', sheet, payload);
+  if(result != null) clearGsReadCache(sheet);
   if(result != null) setTimeout(flushGsRetryQueue, 500);
   return result;
 }
 
 async function gsDelete(sheet, id) {
   recordGsTombstone(sheet, id);
-  return await gsFetch('deleteRow', sheet, {id});
+  const result = await gsFetch('deleteRow', sheet, {id});
+  if(result != null) clearGsReadCache(sheet);
+  return result;
 }
 
 async function syncCandToGS(cand) {
   if(!GS_CONFIG.scriptUrl) return;
   markUpdated(cand);
-  saveState();
+  scheduleLocalCacheSave();
   const result = await gsUpsert('Candidates', {
     id:         cand.id,
     name:       cand.name,
@@ -2839,6 +2941,10 @@ async function syncCandToGS(cand) {
     lastStageChangedAt: cand.lastStageChangedAt || '',
     updatedAt:  cand.updatedAt,
   });
+  if(result?.updatedAt) {
+    cand.updatedAt = result.updatedAt;
+    scheduleLocalCacheSave();
+  }
   if(result != null) showSyncStatus('GS 동기화 완료', 'ok');
   return result;
 }
@@ -2847,8 +2953,8 @@ async function syncCandToGS(cand) {
 async function syncIntToGS(itv) {
   if(!GS_CONFIG.scriptUrl) return;
   markUpdated(itv);
-  saveState();
-  return await gsUpsert('Interviews', {
+  scheduleLocalCacheSave();
+  const result = await gsUpsert('Interviews', {
     id:        itv.id,
     candId:    itv.candId != null ? itv.candId : '',
     candName:  itv.candName || '',
@@ -2868,6 +2974,11 @@ async function syncIntToGS(itv) {
     evaluatedAt: itv.evaluatedAt || '',
     updatedAt: itv.updatedAt,
   });
+  if(result?.updatedAt) {
+    itv.updatedAt = result.updatedAt;
+    scheduleLocalCacheSave();
+  }
+  return result;
 }
 async function deleteIntFromGS(id) {
   if(!GS_CONFIG.scriptUrl) return;
@@ -2878,8 +2989,8 @@ async function deleteIntFromGS(id) {
 async function syncPosToGS(pos) {
   if(!GS_CONFIG.scriptUrl) return;
   markUpdated(pos);
-  saveState();
-  await gsUpsert('Positions', {
+  scheduleLocalCacheSave();
+  const result = await gsUpsert('Positions', {
     id:        pos.id,
     title:     pos.title || '',
     etype:     pos.etype || '',
@@ -2900,17 +3011,27 @@ async function syncPosToGS(pos) {
     closeMemo:   pos.closeMemo || '',
     updatedAt:   pos.updatedAt,
   });
+  if(result?.updatedAt) {
+    pos.updatedAt = result.updatedAt;
+    scheduleLocalCacheSave();
+  }
   showSyncStatus('포지션 GS 동기화 완료', 'ok');
+  return result;
 }
 async function deletePosFromGS(id) {
   if(!GS_CONFIG.scriptUrl) return;
   await gsDelete('Positions', id);
 }
-async function loadPositionsFromGS() {
+async function loadPositionsFromGS(options={}) {
   if(!GS_CONFIG.scriptUrl) return false;
   try {
-    const data = await gsGetAll('Positions');
-    if(!data || !data.length) return false;
+    const result = await gsGetAllResult('Positions', {delta:true, forceFull:options.forceFull, force:options.force});
+    if(!result) return false;
+    const data = result.data;
+    if(!data.length) {
+      if(result.isDelta) setGsSyncCursor('Positions', result.serverTime);
+      return result.isDelta;
+    }
     const remote = data.map(row => ({
       id:        Number(row.id),
       title:     row.title || '',
@@ -2932,17 +3053,25 @@ async function loadPositionsFromGS() {
       closeMemo:   row.closeMemo || '',
       updatedAt:   row.updatedAt || '',
     }));
-    positions = mergeGsRecords('Positions', remote, positions);
+    positions = result.isDelta
+      ? mergeGsDeltaRecords('Positions', remote, positions)
+      : mergeGsRecords('Positions', remote, positions);
+    setGsSyncCursor('Positions', result.serverTime);
     saveState();
     return true;
   } catch(e) { console.warn('포지션 로드 실패', e); return false; }
 }
 
-async function loadInterviewsFromGS() {
+async function loadInterviewsFromGS(options={}) {
   if(!GS_CONFIG.scriptUrl) return false;
   try {
-    const data = await gsGetAll('Interviews');
-    if(!data || !data.length) return false;
+    const result = await gsGetAllResult('Interviews', {delta:true, forceFull:options.forceFull, force:options.force});
+    if(!result) return false;
+    const data = result.data;
+    if(!data.length) {
+      if(result.isDelta) setGsSyncCursor('Interviews', result.serverTime);
+      return result.isDelta;
+    }
     const remote = data.map(row => ({
       id:       Number(row.id),
       candId:   row.candId !== '' && row.candId != null ? Number(row.candId) : null,
@@ -2963,17 +3092,29 @@ async function loadInterviewsFromGS() {
       evaluatedAt: row.evaluatedAt || '',
       updatedAt: row.updatedAt || '',
     }));
-    interviews = uniqueInterviewRecords(mergeGsRecords('Interviews', remote, interviews));
+    interviews = uniqueInterviewRecords(result.isDelta
+      ? mergeGsDeltaRecords('Interviews', remote, interviews)
+      : mergeGsRecords('Interviews', remote, interviews));
+    setGsSyncCursor('Interviews', result.serverTime);
     saveState();
     return true;
   } catch(e) { console.warn('면접 로드 실패', e); return false; }
 }
 
-async function loadFromGS() {
+async function loadFromGS(options={}) {
   if(!GS_CONFIG.scriptUrl) return false;
   showSyncStatus('Google Sheets에서 로드 중...', '');
-  const data = await gsGetAll('Candidates');
-  if(!data.length) return false;
+  const result = await gsGetAllResult('Candidates', {delta:true, forceFull:options.forceFull, force:options.force});
+  if(!result) return false;
+  const data = result.data;
+  if(!data.length) {
+    if(result.isDelta) {
+      setGsSyncCursor('Candidates', result.serverTime);
+      showSyncStatus('GS 동기화 완료 (변경 없음)', 'ok');
+      return true;
+    }
+    return false;
+  }
   const remote = data.map(row => ({
     id:         Number(row.id),
     name:       row.name,
@@ -3005,9 +3146,12 @@ async function loadFromGS() {
     lastStageChangedAt: row.lastStageChangedAt || '',
     updatedAt:  row.updatedAt || '',
   }));
-  candidates = mergeGsRecords('Candidates', remote, candidates);
+  candidates = result.isDelta
+    ? mergeGsDeltaRecords('Candidates', remote, candidates)
+    : mergeGsRecords('Candidates', remote, candidates);
+  setGsSyncCursor('Candidates', result.serverTime);
   saveState();
-  showSyncStatus('GS 로드 완료 (' + candidates.length + '명)', 'ok');
+  showSyncStatus(result.isDelta ? `GS 변경 ${remote.length}건 반영` : `GS 전체 로드 완료 (${candidates.length}명)`, 'ok');
   return true;
 }
 
@@ -3033,8 +3177,13 @@ async function testGSConnection() {
       }
     } else if(result.data?.length > 0) {
       if(confirm('Google Sheets에 ' + result.data.length + '명의 데이터가 있습니다. 불러올까요?')) {
-        await loadFromGS();
-        renderDashboard(); renderTracker();
+        clearGsSyncCursors();
+        await Promise.all([
+          loadFromGS({forceFull:true, force:true}),
+          loadPositionsFromGS({forceFull:true, force:true}),
+          loadInterviewsFromGS({forceFull:true, force:true}),
+        ]);
+        renderDashboard(); renderTracker(); renderPositions();
       }
     }
   } else {
@@ -3043,18 +3192,6 @@ async function testGSConnection() {
     GS_CONFIG.scriptUrl='';
   }
 }
-
-async function uploadAllToGS() {
-  if(!GS_CONFIG.scriptUrl) return;
-  showSyncStatus('전체 업로드 중...','');
-  for(let i=0; i<candidates.length; i++) {
-    await syncCandToGS(candidates[i]);
-    showSyncStatus('업로드 중... ' + (i+1) + '/' + candidates.length + '명','');
-  }
-  showSyncStatus('업로드 완료 ' + candidates.length + '명','ok');
-  toast('Google Sheets 업로드 완료!','tok');
-}
-
 
 // ══════════════════════════════════════════════════════════════
 // 포지션 관리
@@ -3177,20 +3314,6 @@ function renderPositions() {
 }
 
 // 포지션 상세에서 입사 안내 - 지원자 본인
-function sendOnboardToCand(candId) {
-  const c = candidates.find(x => Number(x.id) === Number(candId));
-  if(!c) return;
-  const subject = `[우미건설] ${esc(c.name)}님 입사 안내`;
-  const body = buildOnboardEmail(c);
-  const sent = openMailto(c.email, subject, body);
-  if(sent === false) return;
-  c.notified = true;
-  logNotify('Outlook', '입사안내-지원자', c.name, c.email);
-  saveState();
-  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
-  toast(`${esc(c.name)}님 입사 안내 (Outlook 창에서 전송하세요)`, 'toutlook');
-}
-
 function getOnboardInternalRecipients(cand, onboarding) {
   const ob = onboarding || {};
   const teams = parseNotifyTeams();
@@ -3211,32 +3334,6 @@ function getOnboardInternalRecipients(cand, onboarding) {
 }
 
 // 포지션 상세에서 입사 안내 - 사내 관련 부서(팀장·전산 등)
-function sendOnboardToDept(candId) {
-  const c = candidates.find(x => Number(x.id) === Number(candId));
-  if(!c) return;
-  const ob = onboardings.find(o => o.candId === c.id) || {};
-  const internal = getOnboardInternalRecipients(c, ob);
-  const { dept, leads, teams, recipients:toEmails, recipientNames } = internal;
-  const joinDate = ob.joinDate || '미정';
-
-  if(!toEmails) {
-    alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: ${dept||'부서 미정'} 의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.\n\n둘 중 하나를 설정해주세요.`);
-    return;
-  }
-  if(!leads.length && !confirm(`'${dept||'배치 부서 미정'}'의 팀장/소장 이메일을 찾지 못했습니다.\n고정 수신자에게만 발송하시겠습니까?`)) return;
-  const mailData = {...ob, candName:c.name, pos:c.pos || ob.pos, dept, joinDate, etype:ob.etype || c.etype};
-  const subject = `[사내 공유] 신규 입사자 준비 요청 — ${c.name} (${joinDate})`;
-  const body = buildInternalOnboardEmail(mailData, c);
-
-  const sent = openMailto(toEmails, subject, body);
-  if(sent === false) return;
-  if(ob.id) ob.deptNotified = true;
-  logNotify('Outlook', '입사통보-사내부서', c.name, toEmails);
-  saveState();
-  toast(`${esc(c.name)}님 내부 직원 단체 안내 — Outlook 창에서 전송하세요`, 'toutlook');
-}
-
-
 // ── 후보일정 일괄 수집 (포지션 단위) ──────────────────────
 let collectSlotsCtx = { posId: null, stageIdx: null };
 
@@ -3425,16 +3522,6 @@ function closeCollectSend() {
 }
 
 // 면접 합격/불합격 판정 '표시' (단계 이동 X, decision만 설정)
-function setDecision(candId, decision, posId) {
-  const c = candidates.find(x => Number(x.id) === Number(candId));
-  if(!c) return;
-  // 같은 판정 다시 누르면 해제(토글)
-  c.decision = (c.decision === decision) ? '' : decision;
-  saveState();
-  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
-  openPosDetail(Number(posId));
-}
-
 // 포지션 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
 async function confirmStageDecisions(posId, stageIdx, options={}) {
   const skipConfirm = !!options.skipConfirm;
@@ -3511,55 +3598,8 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
 }
 
 // 포지션 단계의 미확정 면접 일정을 전체 확정
-function confirmAllInterviews(posId, stageIdx) {
-  const round = stageIdx === 1 ? '1차' : '2차';
-  const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
-  const pendings = posCands
-    .map(c => interviews.find(i => i.candId === c.id && i.type === round && i.status === 'pending'))
-    .filter(Boolean);
-  if(!pendings.length) { toast('확정할 미확정 일정이 없습니다.', 'tw'); return; }
-  const noDate = pendings.filter(i => !i.date || i.date.indexOf('미정') !== -1);
-  if(noDate.length) {
-    if(!confirm(`${noDate.length}명은 일정이 미정입니다. 일정이 지정된 ${pendings.length-noDate.length}명만 확정하시겠습니까?\n(미정 건은 공통일정 확정을 먼저 사용하세요)`)) return;
-  } else {
-    if(!confirm(`${pendings.length}명의 ${round} 면접 일정을 모두 확정하시겠습니까?`)) return;
-  }
-  let cnt = 0;
-  pendings.forEach(itv => {
-    if(itv.date && itv.date.indexOf('미정') === -1) {
-      itv.status = 'confirmed';
-      if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
-      cnt++;
-    }
-  });
-  saveState();
-  openPosDetail(Number(posId));
-  toast(`${cnt}명 일정 확정 완료. 지원자 안내를 발송하세요.`, 'tok');
-}
-
 // 포지션 상세에서 합격 처리 (다음 단계로 + 복귀)
-function passFromPos(candId, posId, stageIdx) {
-  const c = candidates.find(x => Number(x.id) === Number(candId));
-  if(!c) return;
-  const pos = positions.find(p => Number(p.id) === Number(posId));
-  const nextStage = nextFlowStage(stageIdx, pos);
-  const stageName = stageLabel(nextStage) || STAGES[nextStage] || '';
-  if(!confirm(`${esc(c.name)}님을 '${stageLabel(stageIdx)}' → '${stageName}'(으)로 이동하시겠습니까?`)) return;
-  returnToPosId = posId;
-  closeModal('modal-pos-detail');
-  requestStageChange(candId, nextStage);  // 합격 안내 메일 + 단계 이동 (모달에서 확정)
-}
-
 // 포지션 상세에서 불합격 처리 (전형 종료 + 복귀)
-function rejectFromPos(candId, posId) {
-  const c = candidates.find(x => Number(x.id) === Number(candId));
-  if(!c) return;
-  if(!confirm(`${esc(c.name)}님을 불합격 처리하시겠습니까?\n전형이 종료되며, 불합격 안내를 발송할 수 있습니다.`)) return;
-  returnToPosId = posId;
-  closeModal('modal-pos-detail');
-  requestStageChange(candId, 6);  // 불합격 단계 (전형 종료)
-}
-
 // 지원자를 포지션에 연결
 function linkCandToPos(candId, posId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
@@ -3833,59 +3873,6 @@ function renderPositionSummary(positionId) {
       <div class="pp-kpi"><div class="pp-kpi-val">${rejected.length}<small>명</small></div><div class="pp-kpi-lbl">불합격/종료</div></div>
     </div>
     <div class="pp-fillbar"><span style="width:${rate}%"></span></div>
-  </section>`;
-}
-
-function renderPositionFillStatus(positionId) {
-  const d = getPositionProjectData(positionId);
-  if(!d) return '';
-  const { target, final, remain, list, active, rejected, projectStatus, statusLabel } = d;
-  const partialNote = projectStatus === 'partial' ? '<div class="pp-process-note" style="background:var(--abg);color:var(--amber);margin-top:10px">목표 대비 일부만 충원된 <b>부분충원</b> 상태입니다. 잔여 seat를 채우거나 충원완료·미채용 처리를 진행하세요.</div>' : '';
-  return `<section class="pp-section" id="pp-position-fill">
-    <div class="pp-section-h"><div><div class="pp-section-title">충원현황</div><div class="pp-section-sub">포지션 seat 기준 · 지원자 「최종합격」과 포지션 「충원완료」를 구분합니다.</div></div><span class="pp-status ${d.projectStatus}">${statusLabel}</span></div>
-    <div class="pp-fill-grid">
-      <div class="pp-fill-item"><div class="pp-fill-val">${target}<small>명</small></div><div class="pp-fill-lbl">채용목표</div></div>
-      <div class="pp-fill-item"><div class="pp-fill-val" style="color:var(--green)">${final.length}<small>명</small></div><div class="pp-fill-lbl">최종합격 (충원 seat)</div></div>
-      <div class="pp-fill-item"><div class="pp-fill-val" style="color:${remain?'var(--amber)':'var(--green)'}">${remain}<small>명</small></div><div class="pp-fill-lbl">미충원 seat</div></div>
-      <div class="pp-fill-item"><div class="pp-fill-val">${list.length}<small>명</small></div><div class="pp-fill-lbl">등록 지원자</div></div>
-      <div class="pp-fill-item"><div class="pp-fill-val">${active.length}<small>명</small></div><div class="pp-fill-lbl">진행중 지원자</div></div>
-      <div class="pp-fill-item"><div class="pp-fill-val">${rejected.length}<small>명</small></div><div class="pp-fill-lbl">불합격/종료</div></div>
-    </div>
-    <div class="pp-fillbar" style="margin-top:12px"><span style="width:${d.rate}%"></span></div>
-    ${partialNote}
-  </section>`;
-}
-
-function renderPositionBatchToolbar(positionId) {
-  const d = getPositionProjectData(positionId);
-  if(!d || !d.list.length) return '';
-  const { pos } = d;
-  const short = isShortProcessEtype(pos.etype);
-  const btns = [];
-  if(d.list.some(c => c.stage === 0)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" data-action="call" data-call="openCollectSlots(${positionId},1)">1차 후보일정 안내</button>`);
-  if(d.list.some(c => c.stage === 0 || c.stage === 1)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" data-action="call" data-call="openPositionRoundSchedule(${positionId},1)">1차 공동일정 확정</button>`);
-  if(d.list.some(c => c.stage === 1)) btns.push(`<button class="btn btn-xs btn-primary" data-action="call" data-call="confirmStageDecisions(${positionId},1)">1차 결과 일괄 확정</button>`);
-  if(!short) {
-    if(d.list.some(c => c.stage === 2)) btns.push(`<button class="btn btn-xs" style="background:#FDF4E8;color:var(--amber);border-color:#F5D9A8" data-action="call" data-call="openCollectSlots(${positionId},3)">2차 후보일정 안내</button>`);
-    if(d.list.some(c => c.stage === 2 || c.stage === 3)) btns.push(`<button class="btn btn-xs" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" data-action="call" data-call="openPositionRoundSchedule(${positionId},3)">2차 공동일정 확정</button>`);
-    if(d.list.some(c => c.stage === 3)) btns.push(`<button class="btn btn-xs btn-primary" data-action="call" data-call="confirmStageDecisions(${positionId},3)">2차 결과 일괄 확정</button>`);
-  }
-  if(d.list.some(c => c.stage === 4)) btns.push(`<button class="btn btn-xs btn-green" data-action="call" data-call="openPositionResultModal(${positionId},4)">처우협의 결과 입력</button>`);
-  if(!btns.length) return '';
-  return `<div class="pp-batch"><span style="font-size:10.5px;font-weight:700;color:var(--t2);margin-right:4px">포지션 일괄 처리</span>${btns.join('')}</div>`;
-}
-
-function renderPositionActionCenter(positionId) {
-  const items = getPositionActionItems(positionId);
-  const top = items[0];
-  const topHint = top ? `<div class="pp-process-note" style="margin-bottom:10px;border-left:3px solid ${top.priority==='high'?'var(--red)':'var(--amber)'}"><b>우선 처리:</b> ${esc(top.title)}</div>` : '';
-  return `<section class="pp-section" id="pp-position-actions">
-    <div class="pp-section-h"><div><div class="pp-section-title">현재 해야 할 일 (Action Center)</div><div class="pp-section-sub">구체적인 업무명으로 표시 · 클릭 시 바로 실행</div></div><span class="b ${items.some(x=>x.priority==='high')?'bred':items.length?'bamber':'bgreen'}">${items.length}건</span></div>
-    ${topHint}
-    ${items.length ? `<div class="pp-actions">${items.map(a=>`<div class="pp-action ${a.priority}">
-      <div class="pp-action-body"><div class="pp-action-priority">${a.priority}</div><div class="pp-action-title">${esc(a.title)}</div><div class="pp-action-desc">${esc(a.desc)}</div></div>
-      <button class="btn btn-sm ${a.priority==='high'?'btn-primary':''}" data-action="call" data-call="${a.actionCall}">${esc(a.actionLabel)}</button>
-    </div>`).join('')}</div>` : '<div class="pp-action-empty"><span class="urgent-empty-dot"></span>현재 즉시 처리할 업무가 없습니다.</div>'}
   </section>`;
 }
 
@@ -4238,23 +4225,6 @@ function markInterviewDone(intId) {
 }
 
 // 포지션 상세에서 일정 확정 (확정 후 포지션 상세로 복귀)
-function confirmInterviewFromPos(intId, posId) {
-  returnToPosId = posId;
-  closeModal('modal-pos-detail');
-  confirmInterview(intId);
-}
-function markIntDoneFromPos(intId, posId) {
-  const itv = interviews.find(i => i.id === intId);
-  if(!itv) return;
-  if(!confirm(`${itv.candName} ${itv.type} 면접을 완료 처리하시겠습니까?`)) return;
-  itv.status = 'done';
-  if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
-  saveState();
-  if(typeof renderIntTable === 'function') renderIntTable();
-  openPosDetail(posId);
-  toast(`${itv.candName} ${itv.type} 면접 완료 처리`, 'tok');
-}
-
 // ── (이하 면접 일괄 배치) ──
 let batchScheduleCtx = { posId: null, stageIdx: null, sourceStage: null, moveAfterApply: false };
 
@@ -4930,7 +4900,6 @@ async function batchStageChange(posId, fromStage, toStage) {
 
 // ── 포지션 추가/편집 모달 열기 ─────────────────────────────
 function openAddPosition() {
-  console.log('[openAddPosition] called');
   try {
     editingPosId = null;
     document.getElementById('pos-modal-title').textContent = '포지션 추가';
@@ -5047,13 +5016,12 @@ function showSyncStatus(msg, type='') {
   const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
   const el = document.getElementById('gs-conn-status');
   if(el) { el.textContent = msg; el.style.color = colors[type]||colors['']; }
-  console.log('[GS]', msg);
 }
 
 function loadState() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) { lastLocalStateJson = raw; return JSON.parse(raw); }
   } catch(e) {}
   return null;
 }
@@ -5103,6 +5071,12 @@ function scheduleAuxStateSync() {
 async function loadAuxStateFromGS() {
   if(!GS_CONFIG.scriptUrl) return false;
   const rows = await gsGetAll('Settings');
+  const coreDeleted = applyRemoteGsTombstones(rows);
+  if(coreDeleted) {
+    renderDashboard();
+    renderTracker();
+    renderPositions();
+  }
   const map = new Map(rows.map(r=>[String(r.id),String(r.value??'')]));
   let meta;
   try { meta = JSON.parse(map.get('auxState:meta') || ''); } catch(e) { return false; }
@@ -5136,7 +5110,10 @@ function saveState() {
       if(!auxSyncSuspended) auxUpdatedAt = new Date().toISOString();
     }
     const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, activityLog: activityLog.slice(0,300), auxUpdatedAt });
-    localStorage.setItem(LS_KEY, data);
+    if(data !== lastLocalStateJson) {
+      localStorage.setItem(LS_KEY, data);
+      lastLocalStateJson = data;
+    }
     if(auxChanged) scheduleAuxStateSync();
   } catch(e) {
     if(e.name === 'QuotaExceededError' || e.code === 22) {
@@ -5155,7 +5132,7 @@ function nav(id, btn) {
   document.getElementById('sect-'+id).classList.add('on');
   // btn 미전달(프로그램적 호출) 시 해당 섹션의 사이드바 버튼을 자동 활성화
   if(btn) btn.classList.add('on');
-  else { const auto = document.querySelector(`.nb[onclick*="nav('${id}'"]`); if(auto) auto.classList.add('on'); }
+  else { const auto = document.querySelector(`.nb[data-action="nav"][data-target="${id}"]`); if(auto) auto.classList.add('on'); }
   document.getElementById('tb-title').textContent = TITLES[id]||id;
   if(id==='dash') renderDashboard();
   if(id==='tracker') { populateSel('int-cand'); populateSel('ob-cand'); renderTracker(); }
@@ -5226,7 +5203,6 @@ function openModal(id) {
     if(f) { try{ f.focus(); }catch(e){} }
     else { el.setAttribute('tabindex','-1'); el.focus(); }
   }, 30);
-  console.log('[openModal] opened:', id);
 }
 function closeModal(id) {
   const el = document.getElementById(id);
@@ -5474,169 +5450,6 @@ function buildRefRequestEmail(cand) {
 
 
 // ── 메트릭 상세 모달 ─────────────────────────────────────────
-function openMetricDetail(type) {
-  const configs = {
-    total: {
-      title: '전체 진행 지원자',
-      color: 'var(--blue)', bg: 'var(--bbg)', icon: '👥',
-      filter: c => c.stage !== 6 && !c.held,
-      sub: () => `활성 지원자 ${candidates.filter(c=>c.stage!==6 && !c.held).length}명`,
-    },
-    int1: {
-      title: '1차 면접 대상',
-      color: 'var(--amber)', bg: 'var(--abg)', icon: '📋',
-      filter: c => c.stage === 1,
-      sub: () => `1차 실무면접 진행 중 ${candidates.filter(c=>c.stage===1).length}명`,
-    },
-    int2: {
-      title: '2차 면접 대상',
-      color: 'var(--purple)', bg: 'var(--pbg)', icon: '🏢',
-      filter: c => c.stage === 3,
-      sub: () => `2차 임원면접 진행 중 ${candidates.filter(c=>c.stage===3).length}명`,
-    },
-    ref: {
-      title: '레퍼런스 체크 진행 중',
-      color: 'var(--teal)', bg: 'var(--tbg)', icon: '🔍',
-      filter: c => c.ref === '진행중',
-      sub: () => `레퍼런스 수집 중 ${candidates.filter(c=>c.ref==='진행중').length}명`,
-    },
-    pass: {
-      title: '최종 합격자',
-      color: 'var(--green)', bg: 'var(--gbg)', icon: '🎉',
-      filter: c => c.stage === 5,
-      sub: () => `최종 합격 ${candidates.filter(c=>c.stage===5).length}명`,
-    },
-    action: {
-      title: '즉시 처리 필요',
-      color: 'var(--red)', bg: 'var(--rbg)', icon: '⚠',
-      filter: c => (c.stage===5 && !onboardings.find(o=>o.candId===c.id))
-                || (c.ref==='진행중' && c.refD===0)
-                || interviews.some(i=>i.candId===c.id && !i.notified),
-      sub: () => '즉시 처리가 필요한 항목',
-    },
-  };
-
-  const cfg = configs[type];
-  if(!cfg) return;
-
-  // 헤더 설정
-  const iconEl = document.getElementById('metric-modal-icon');
-  if(iconEl){ iconEl.textContent = cfg.icon; iconEl.style.background = cfg.color; }
-  const titleEl = document.getElementById('metric-modal-title');
-  if(titleEl) titleEl.textContent = cfg.title;
-  const subEl = document.getElementById('metric-modal-sub');
-  if(subEl) subEl.textContent = cfg.sub();
-
-  // 트래커 바로가기 버튼
-  const actionBtn = document.getElementById('metric-modal-action-btn');
-  if(actionBtn){
-    actionBtn.style.display = '';
-    actionBtn.textContent = '트래커에서 전체 보기 →';
-    actionBtn.onclick = () => { closeModal('modal-metric'); navBtn('tracker'); };
-  }
-
-  // 대상 지원자 필터링
-  const list = candidates.filter(cfg.filter);
-  const body = document.getElementById('metric-modal-body');
-  if(!body) return;
-
-  if(!list.length) {
-    body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px">해당 지원자가 없습니다.</div>';
-    openModal('modal-metric');
-    return;
-  }
-
-  // type별 맞춤 렌더링
-  let html = '';
-
-  if(type === 'action') {
-    // 처리 필요 — 항목별로 분류
-    const noOnboard = candidates.filter(c=>c.stage===5&&!onboardings.find(o=>o.candId===c.id));
-    const noRef     = candidates.filter(c=>c.ref==='진행중'&&c.refD===0);
-    const noNotify  = interviews.filter(i=>!i.notified);
-
-    html += renderActionGroup('🔴 최종합격 → 입사 안내 미등록', noOnboard.map(c=>({
-      name:c.name, sub:`${esc(c.pos)} · ${etypePill(c.etype)}`,
-      btn:`<button class="btn btn-xs btn-green" data-action="call" data-call="closeModal('modal-metric');navBtn('onboarding')">입사 등록</button>`
-    })));
-    html += renderActionGroup('🔴 레퍼런스 0건 응답 (즉시 리마인드)', noRef.map(c=>({
-      name:c.name, sub:`${esc(c.pos)} · 추천인 ${c.refT}명 전원 미응답`,
-      btn:`<button class="btn btn-xs btn-outlook" data-action="call" data-call="closeModal('modal-metric');remindRef(${c.id})">리마인드</button>`
-    })));
-    html += renderActionGroup('🟡 면접 알림 미발송', noNotify.map(i=>({
-      name:i.candName, sub:`${i.type} 면접 · ${i.date}`,
-      btn:`<button class="btn btn-xs btn-outlook" data-action="call" data-call="closeModal('modal-metric');sendIntById(${i.id},'outlook')">Outlook 안내</button>`
-    })));
-  } else if(type === 'ref') {
-    // 레퍼런스 — 응답 진행률 포함
-    html = '<div style="padding:8px 0">' + list.map(c => {
-      const pct = c.refT > 0 ? Math.round(c.refD/c.refT*100) : 0;
-      const urgColor = c.refD===0?'var(--red)':c.refD<c.refT?'var(--amber)':'var(--green)';
-      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" data-action="call" data-call="closeModal('modal-metric');navBtn('reference')">
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0">${c.name.charAt(0)}</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
-          <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
-          <div style="margin-top:5px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
-              <span style="font-size:11px;color:${urgColor};font-weight:700">${c.refD}/${c.refT}명 응답 (${pct}%)</span>
-            </div>
-            <div class="prog" style="height:5px"><div class="pf-bar" style="width:${pct}%;background:${urgColor}"></div></div>
-          </div>
-        </div>
-        <button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>
-      </div>`;
-    }).join('') + '</div>';
-  } else if(type === 'int1' || type === 'int2') {
-    // 면접 — 일정 정보 포함
-    html = '<div style="padding:8px 0">' + list.map(c => {
-      const itv = interviews.filter(i=>i.candId===c.id && i.type===(type==='int1'?'1차':'2차'));
-      const itvInfo = itv.length ? itv[itv.length-1] : null;
-      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" data-action="open-candidate" data-id="${c.id}" data-close="modal-metric">
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--pbg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--purple);flex-shrink:0">${c.name.charAt(0)}</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
-          <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
-          ${itvInfo ? `<div style="font-size:11px;color:var(--blue);margin-top:3px;font-family:'DM Mono',monospace">📅 ${itvInfo.date} · ${itvInfo.loc}</div>` : '<div style="font-size:11px;color:var(--red);margin-top:3px">⚠ 면접 일정 미등록</div>'}
-        </div>
-        <div style="display:flex;gap:5px">
-          ${itvInfo && !itvInfo.notified ? `<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();sendIntById(${itvInfo.id},'outlook')">안내발송</button>` : ''}
-          <button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
-        </div>
-      </div>`;
-    }).join('') + '</div>';
-  } else {
-    // 기본 — total, pass
-    html = '<div style="padding:8px 0">' + list.map(c => {
-      const ob = onboardings.find(o=>o.candId===c.id);
-      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer" data-action="open-candidate" data-id="${c.id}" data-close="modal-metric">
-        <div style="width:32px;height:32px;border-radius:50%;background:${type==='pass'?'var(--gbg)':'var(--bbg)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${type==='pass'?'var(--green)':'var(--blue)'};flex-shrink:0">${c.name.charAt(0)}</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
-          <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
-          ${ob ? `<div style="font-size:11px;color:var(--green);margin-top:2px">입사일: ${ob.joinDate}</div>` : ''}
-        </div>
-        ${badge(c.stage)}
-        <button class="btn btn-xs" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${Math.min(c.stage+1,6)})">→</button>
-      </div>`;
-    }).join('') + '</div>';
-  }
-
-  body.innerHTML = html;
-  openModal('modal-metric');
-}
-
-function renderActionGroup(title, items) {
-  if(!items.length) return '';
-  return `<div style="padding:10px 20px 6px;background:var(--s2);font-size:11px;font-weight:700;color:var(--t2);border-bottom:1px solid var(--border)">${title} (${items.length}건)</div>` +
-    items.map(it=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border)">
-      <div style="flex:1"><div style="font-weight:700;font-size:13px">${it.name}</div><div style="font-size:11px;color:var(--t3)">${it.sub}</div></div>
-      ${it.btn}
-    </div>`).join('');
-}
-
-
-
 // ── 레퍼런스 메트릭 필터 ─────────────────────────────────────
 function setRefFilter(filterType) {
   refMetricFilter = refMetricFilter === filterType ? '' : filterType;
@@ -5721,50 +5534,6 @@ function setDashPipeFilter(stageIdx) {
   dashPipeFilter = dashPipeFilter === stageIdx ? -1 : stageIdx;
   renderDashboard();
 }
-
-function renderDashPipeList() {
-  const pl = document.getElementById('dash-pipe-list');
-  if(!pl) return;
-
-  // 필터 헤더
-  const isFiltered = dashPipeFilter >= 0;
-  const stageName  = isFiltered ? STAGES[dashPipeFilter] : '';
-  const filtered   = isFiltered
-    ? candidates.filter(c => c.stage === dashPipeFilter)
-    : candidates.filter(c => c.stage <= 4).slice().sort((a,b)=>b.stage-a.stage);
-
-  if(!filtered.length) {
-    pl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--t3);font-size:12.5px">
-      ${isFiltered ? `<b>${stageName}</b> 단계에 해당하는 지원자가 없습니다.` : '진행 중인 지원자가 없습니다.'}
-    </div>`;
-    return;
-  }
-
-  const header = isFiltered ? `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0 6px;border-bottom:2px solid var(--acc);margin-bottom:4px">
-      <div style="font-size:12px;font-weight:700;color:var(--acc)">${badge(dashPipeFilter)} <span style="margin-left:4px">${stageName} 단계 — ${filtered.length}명</span></div>
-      <button class="btn btn-xs btn-ghost" data-action="call" data-call="setDashPipeFilter(${dashPipeFilter})">✕ 필터 해제</button>
-    </div>` : '';
-
-  pl.innerHTML = header + filtered.map(c => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s" data-action="open-candidate" data-id="${c.id}">
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--acc-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc);flex-shrink:0">${c.name.charAt(0)}</div>
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:12.5px">${esc(c.name)} ${etypePill(c.etype)}</div>
-        <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div>
-      </div>
-      ${isFiltered ? '' : badge(c.stage)}
-      <div style="display:flex;gap:4px">
-        ${c.ref==='진행중'&&c.refD===0?'<span class="b bred" style="font-size:10px">⚠레퍼런스</span>':''}
-        ${c.stage!==6?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${Math.min(c.stage+1,5)})" title="다음 단계로">→</button>`:''}
-      </div>
-    </div>`).join('')
-  + `<div style="padding-top:8px;display:flex;justify-content:space-between;align-items:center">
-      ${isFiltered ? `<span style="font-size:11px;color:var(--t3)">파이프라인 단계를 클릭하면 해당 단계만 표시됩니다.</span>` : '<span></span>'}
-      <button class="btn btn-xs btn-ghost" data-action="call" data-call="navBtn('tracker')">전체 보기 →</button>
-    </div>`;
-}
-
 
 // ── 칸반 뷰 토글 (포지션별 ↔ 단계별 지원자) ────────────────
 let kanbanView = 'pos'; // 'pos'(기본) | 'stage'
@@ -6069,15 +5838,6 @@ function initSlotDropdowns() {
       minSel.value = 0; // 기본 00분
     }
   });
-}
-
-function getIntSlots() {
-  const slots = [];
-  [1,2,3].forEach((n,i)=>{
-    const val = getSlotValue(n);
-    if(val) slots.push(`  ${i+1}안. ${val.replace('T',' ')}`);
-  });
-  return slots;
 }
 
 function updateCsPreview(c, newStage) {
@@ -6512,9 +6272,14 @@ function filterEtype(e, el) {
 
 function updateStageBar() {
   const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  const active = candidates.filter(c=>c.stage!==6 && !c.held);
-  set('sf-all', active.length);
-  STAGES.forEach((_,i) => set('sf-'+i, candidates.filter(c=>c.stage===i && (i===6 || !c.held)).length));
+  const counts = Array(STAGES.length).fill(0);
+  let active = 0;
+  candidates.forEach(c => {
+    if(c.stage === 6 || !c.held) counts[c.stage] = (counts[c.stage] || 0) + 1;
+    if(c.stage !== 6 && !c.held) active++;
+  });
+  set('sf-all', active);
+  counts.forEach((count,i) => set('sf-'+i, count));
 }
 
 function renderTracker() {
@@ -6543,11 +6308,12 @@ function renderTracker() {
   const wrap = document.getElementById('cand-list');
   if(!wrap) return;
   if(!list.length) { wrap.innerHTML = empty('조건에 맞는 지원자가 없습니다.'); return; }
+  const onboardedIds = new Set(onboardings.map(o=>Number(o.candId)));
   wrap.innerHTML = list.map(c => {
     const refBadge = c.ref==='완료'?'<span class="b bgreen">완료</span>':c.ref==='진행중'?`<span class="b bamber">${c.refD}/${c.refT}</span>`:'<span class="b bgray">-</span>';
     const intInfo  = c.intDate ? `<span style="font-size:11px;font-family:'DM Mono',monospace">${c.intDate.split(' ')[0]}</span>` : '<span style="font-size:11px;color:var(--t3)">-</span>';
     const notified = c.notified ? '<span class="b bteams" style="font-size:10px">발송</span>' : '<span style="font-size:11px;color:var(--t3)">-</span>';
-    const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardings.find(o=>o.candId===c.id) ? 'urg-red' : 'urg-none';
+    const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardedIds.has(Number(c.id)) ? 'urg-red' : 'urg-none';
     return `<div class="cl-row" data-action="open-candidate" data-id="${c.id}">
       <div class="urg ${urg}"></div>
       <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div></div>
@@ -7029,16 +6795,6 @@ function startAllEligible(){
   toast(`${el.length}명 레퍼런스 안내 개인 메일을 순차적으로 엽니다.`,'toutlook');
 }
 // 레퍼런스 리마인드 메일 본문 (템플릿 기반)
-function buildRefRemindEmail(candName, refName) {
-  const refFormUrl = document.getElementById('cfg-ref-url')?.value || '[레퍼런스 결과 설문 URL]';
-  const tpl = document.getElementById('tpl-ref-remind')?.value;
-  if(tpl) return tpl
-    .replace(/\{추천인명\}/g, refName||'')
-    .replace(/\{지원자명\}/g, candName||'')
-    .replace(/\{결과설문링크\}/g, refFormUrl);
-  return `안녕하세요 ${refName}님,\n\n앞서 요청드린 ${candName}님 레퍼런스 체크 설문에 아직 응답하지 않으셨습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.\n우미건설 피플팀 드림`;
-}
-
 function remindRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   ensureRefDetails(c);
@@ -7066,24 +6822,6 @@ function completeRef(id){
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   toast(`${esc(c.name)}님 완료 처리`,'tok');
 }
-function remindAllRef(){
-  const p=candidates.filter(c=>c.ref==='진행중');
-  if(!p.length){alert('진행 중인 건이 없습니다.');return;}
-  const mails=[];
-  p.forEach(c=>{
-    ensureRefDetails(c);
-    refDetails[c.id].filter(r=>r.status==='대기'||r.status==='등록').forEach(r=>{
-      r.remindCnt=(r.remindCnt||0)+1;
-      mails.push({c,r,subject:`[레퍼런스 체크 리마인드] ${esc(c.name)}님 레퍼런스 체크 응답 부탁드립니다`,body:buildRefRemindEmail(c.name,r.name)});
-      logNotify('Outlook','전체리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);
-    });
-  });
-  if(!mails.length){toast('미응답 추천인이 없습니다.','tw');return;}
-  mails.forEach((m,idx)=>setTimeout(()=>openMailto(m.r.email,m.subject,m.body,true),idx*650));
-  saveState();renderReference();
-  toast(`미응답 추천인 ${mails.length}명 리마인드 메일을 순차적으로 엽니다.`,'toutlook');
-}
-
 async function generateAI(){
   const cid=parseInt(document.getElementById('ref-ai-cand')?.value);
   const c=candidates.find(x=>x.id===cid);
@@ -7278,50 +7016,6 @@ function sendCurrentOnboardInternal() {
 }
 
 // 배치 부서장 면접 안내 (최종합격 후 부서장에게)
-function sendDeptNotice(candId) {
-  const cand = candidates.find(c => c.id === candId);
-  if(!cand) return;
-
-  const sign    = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
-  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
-
-  // 배치 부서 담당자 이메일 (설정에 없으면 입력 요청)
-  const deptEmail = prompt(`${cand.dept || '배치 부서'} 부서장 이메일을 입력하세요:`);
-  if(!deptEmail) return;
-
-  const subject = `[우미건설 피플팀] ${cand.name}님 채용 확정 안내`;
-  const body = [
-    `${cand.dept || ''} 부서장님,`,
-    ``,
-    `${sign}입니다.`,
-    `${cand.name}님(${cand.pos || ''})의 채용이 최종 확정되었습니다.`,
-    ``,
-    `━━ 채용 확정 정보 ━━`,
-    `성명:     ${cand.name}`,
-    `지원 직무: ${cand.pos || ''}`,
-    `채용형태: ${cand.etype || '정규직'}`,
-    `경력 구분: ${cand.career || ''}`,
-    ``,
-    `입사일 등 세부 일정은 확정 후 별도 안내드리겠습니다.`,
-    ``,
-    `${sign} 드림`,
-    hrEmail ? `📧 ${hrEmail}` : '',
-  ].join('\n');
-
-  const mailUrl = `mailto:${deptEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.open(mailUrl);
-
-  // Teams 딥링크
-  setTimeout(() => {
-    const msg = encodeURIComponent(
-      `[채용 확정] ${cand.name}님(${cand.pos || ''}) 최종 합격 확정되었습니다.\n` +
-      `입사일 등 세부 일정은 이메일 확인 부탁드립니다.`
-    );
-    window.open(`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(deptEmail)}&message=${msg}`);
-    toast(`부서장 안내 발송 완료`, 'tok');
-  }, 600);
-}
-
 function addOnboarding(){
   const cid=parseInt(document.getElementById('ob-cand').value);
   const c=candidates.find(x=>x.id===cid);
@@ -7497,7 +7191,7 @@ function sendBulk(){
     if((ch==='both'||ch==='outlook')&&c.email&&c.email.includes('@')) logNotify('Outlook',type,c.name,c.email);
     if(ch==='teams'||ch==='both'||(ch==='outlook'&&c.email&&c.email.includes('@'))) c.notified=true;
   });
-  saveState();closeModal('modal-bulk-notify');renderDashboard();renderTracker();renderNotifyLog();updateMetrics();
+  saveState();closeModal('modal-bulk-notify');renderDashboard();renderTracker();renderNotifyLog();
   const msg = (ch==='outlook'||ch==='both') ? `${outlookTargetCount}명 지원자 개인 메일 작성창을 순차적으로 엽니다.` : `${targets.length}명 발송 완료`;
   toast(msg, ch==='teams'?'tteams':'toutlook');
 }
@@ -7509,9 +7203,7 @@ async function saveSettingsToGS(cfg) {
   if(!GS_CONFIG.scriptUrl) return;
   // Settings 시트에 key-value 형태로 저장
   const items = Object.entries(cfg).map(([key, val]) => ({id: key, value: val}));
-  for(const item of items) {
-    await gsUpsert('Settings', item);
-  }
+  await settleSync(items.map(item => gsUpsert('Settings', item)), '설정 동기화');
 }
 
 async function loadSettingsFromGS() {
@@ -7858,7 +7550,6 @@ try {
   if(privacyCleanup.removedNotify || privacyCleanup.removedActivity) saveState();
   // 기존 중복 면접 데이터 정리 (같은 지원자+type 1건만)
   const dups = dedupeInterviews();
-  if(dups > 0) console.log(`[init] 중복 면접 ${dups}건 정리 완료`);
 
   // 모달은 X·닫기·취소 같은 명시적 버튼으로만 닫고, 배경 클릭과 ESC로는 닫지 않는다.
   // 모달 내부 Tab 포커스 순환
