@@ -515,7 +515,7 @@ html,body{line-height:1.55;}
 .mc.kpi-unlinked .mc-val{color:var(--red);}
 .mc.kpi-active{border-left-color:var(--blue);}
 .mc.kpi-active .mc-val{color:var(--blue);}
-.mail-pending-bar{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:1999;background:var(--acc);color:#fff;padding:10px 18px;border-radius:var(--r);box-shadow:var(--shm);display:none;align-items:center;gap:12px;font-size:12.5px;max-width:90vw;}
+.mail-pending-bar{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:10050;background:var(--acc);color:#fff;padding:10px 18px;border-radius:var(--r);box-shadow:var(--shm);display:none;align-items:center;gap:12px;font-size:12.5px;max-width:90vw;}
 .mail-pending-bar.show{display:flex;}
 .funnel-bar{display:flex;align-items:flex-end;gap:6px;height:100px;padding:8px 0;}
 .funnel-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;}
@@ -3054,20 +3054,44 @@ async function gsGetAllResult(sheet, options={}) {
   return request;
 }
 
-async function gsGetChanges(cursor) {
-  const result = await gsFetch('getChanges', 'Candidates', {}, {query:{cursor}});
-  if(result == null || result.error) return null;
-  return {
-    changes: Array.isArray(result.changes) ? result.changes : [],
-    cursor: Number(result.cursor),
-    serverTime: result.serverTime || '',
-    resyncRequired: result.resyncRequired === true,
-  };
+async function gsGetChanges(cursor, limit=500, maxPages=20) {
+  let nextCursor = Number(cursor) || 0;
+  let latestCursor = nextCursor;
+  let serverTime = '';
+  const changes = [];
+
+  for(let page=0; page<maxPages; page++) {
+    const result = await gsFetch('getChanges', 'Candidates', {}, {query:{cursor:nextCursor, limit}});
+    if(result == null || result.error) return null;
+    if(result.resyncRequired === true) {
+      return {
+        changes:[],
+        cursor:Number(result.cursor),
+        latestCursor:Number(result.latestCursor ?? result.cursor),
+        serverTime:result.serverTime || '',
+        resyncRequired:true,
+        hasMore:false,
+      };
+    }
+    changes.push(...(Array.isArray(result.changes) ? result.changes : []));
+    nextCursor = Number(result.cursor);
+    latestCursor = Number(result.latestCursor ?? result.cursor);
+    serverTime = result.serverTime || serverTime;
+    if(!result.hasMore) {
+      return {changes, cursor:nextCursor, latestCursor, serverTime, resyncRequired:false, hasMore:false};
+    }
+  }
+
+  return {changes, cursor:nextCursor, latestCursor, serverTime, resyncRequired:false, hasMore:true};
 }
 
 async function gsUpsert(sheet, item) {
   const payload = gsSchemaPayload(sheet, item);
   const result = await gsFetch('upsert', sheet, payload);
+  if(result?.status === 'deleted conflict') {
+    recordGsTombstone(sheet, item.id);
+    showSyncStatus('이미 삭제된 항목은 다시 저장하지 않았습니다.', 'warn');
+  }
   if(result != null) clearGsReadCache(sheet);
   if(result != null) setTimeout(flushGsRetryQueue, 500);
   return result;
@@ -3076,14 +3100,21 @@ async function gsUpsert(sheet, item) {
 async function gsBatchUpsert(sheet, items, chunkSize=100) {
   const source = Array.isArray(items) ? items : [];
   let saved = 0;
+  const conflicts = [];
   for(let index=0; index<source.length; index+=chunkSize) {
     const chunk = source.slice(index, index + chunkSize).map(item => gsSchemaPayload(sheet, item));
     const result = await gsFetch('batchUpsert', sheet, chunk);
     if(result == null || result.error) return null;
-    saved += Number(result.count) || chunk.length;
+    const count = Number(result.count);
+    saved += Number.isFinite(count) ? count : chunk.length;
+    if(Array.isArray(result.conflicts)) {
+      conflicts.push(...result.conflicts);
+      result.conflicts.forEach(conflict => recordGsTombstone(sheet, conflict.id));
+    }
   }
   clearGsReadCache(sheet);
-  return {status:'ok', count:saved};
+  if(conflicts.length) showSyncStatus(`삭제된 항목 ${conflicts.length}건은 다시 저장하지 않았습니다.`, 'warn');
+  return {status:'ok', count:saved, conflicts};
 }
 
 async function gsDelete(sheet, id) {
