@@ -2896,7 +2896,13 @@ async function gsFetch(action, sheet, data={}, options={}) {
         body:JSON.stringify({action, sheet, data}),
       });
       const postText = await postRes.text();
-      try { if(postRes.ok) return JSON.parse(postText); } catch(e) {
+      try {
+        if(postRes.ok) {
+          const parsed = JSON.parse(postText);
+          if(parsed?.error) throw new Error(parsed.error);
+          return parsed;
+        }
+      } catch(e) {
         // 기존 doGet 전용 Apps Script와의 호환을 위해 아래 GET 방식으로 재시도
       }
     }
@@ -2905,7 +2911,9 @@ async function gsFetch(action, sheet, data={}, options={}) {
     const res = await fetch(url.toString(), {redirect:'follow'});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    if(parsed?.error) throw new Error(parsed.error);
+    return parsed;
   } catch(e) {
     console.warn('[GS] fetch 오류:', e.message);
     if(isWrite && options.allowQueue !== false) queueGsRetry(action, sheet, data);
@@ -3006,6 +3014,11 @@ async function syncCandToGS(cand) {
 // ── 면접(Interviews) GS 동기화 ──────────────────────────────
 async function syncIntToGS(itv) {
   if(!GS_CONFIG.scriptUrl) return;
+  if(!itv || itv.id == null || itv.candId == null) {
+    console.warn('[GS] 면접 저장 필수값 누락:', itv);
+    showSyncStatus('면접 GS 저장 실패: 필수값 누락', 'warn');
+    return null;
+  }
   markUpdated(itv);
   scheduleLocalCacheSave();
   const result = await gsUpsert('Interviews', {
@@ -4296,7 +4309,7 @@ function confirmInterview(intId) {
   openModal('modal-confirm-int');
 }
 
-function applyInterviewConfirm() {
+async function applyInterviewConfirm() {
   const itv = interviews.find(i => i.id === confirmingIntId);
   if(!itv) return;
   const dt  = document.getElementById('ci-datetime').value;
@@ -4311,10 +4324,14 @@ function applyInterviewConfirm() {
 
   // 지원자 intDate 동기화
   const c = candidates.find(x => x.id === itv.candId);
-  if(c) { c.intDate = itv.date; if(GS_CONFIG.scriptUrl) syncCandToGS(c); }
-  if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
-
   saveState();
+  if(GS_CONFIG.scriptUrl) {
+    const result = await settleSync([
+      syncIntToGS(itv),
+      ...(c ? [syncCandToGS(c)] : []),
+    ], `${itv.type} 면접 일정 저장`);
+    if(result.failed) return;
+  }
   closeModal('modal-confirm-int');
   if(typeof renderIntTable === 'function') renderIntTable();
   renderTracker(); updateMetrics(); renderPositions();
@@ -4470,7 +4487,8 @@ async function applyBatchSchedule() {
       const itv = interviews.find(i => i.candId === s.cand.id && i.type === round);
       if(itv) syncTasks.push(syncIntToGS(itv));
     });
-    await settleSync(syncTasks, `${round} 면접 일정 동기화`);
+    const result = await settleSync(syncTasks, `${round} 면접 일정 동기화`);
+    if(result.failed) return;
   }
   closeModal('modal-batch-schedule');
   renderDashboard(); renderTracker(); renderPositions();
@@ -6555,7 +6573,7 @@ function updateIntPreview() {
   if(po) po.textContent = `수신: ${name} <${cand?cand.email:''}>\n제목: [우미건설] ${type} 면접 일정 안내\n\n${msg}`;
 }
 
-function addInterview() {
+async function addInterview() {
   const cid  = parseInt(document.getElementById('int-cand').value);
   const cand = candidates.find(c=>c.id===cid);
   if(!cand) { alert('지원자를 선택해주세요.'); return; }
@@ -6573,8 +6591,12 @@ function addInterview() {
   };
   cand.intDate = itv.date;
   interviews.push(itv);
-  if(GS_CONFIG.scriptUrl) { syncIntToGS(itv); syncCandToGS(cand); }
-  saveState(); renderIntTable(); updateMetrics(); populateSel('int-cand');
+  saveState();
+  if(GS_CONFIG.scriptUrl) {
+    const result = await settleSync([syncIntToGS(itv), syncCandToGS(cand)], `${type} 면접 일정 저장`);
+    if(result.failed) return;
+  }
+  renderIntTable(); updateMetrics(); populateSel('int-cand');
   toast(`${cand.name}님 ${type} 면접 등록 완료`, 'tok');
 }
 
