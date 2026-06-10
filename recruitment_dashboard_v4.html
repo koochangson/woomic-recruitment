@@ -868,6 +868,7 @@ html,body{line-height:1.55;}
           <span></span><span>지원자 / 직무</span><span>채용형태</span><span>직군</span><span>단계</span><span>레퍼런스</span><span>면접일</span><span>알림</span><span>액션</span>
         </div>
         <div id="cand-list"></div>
+        <div id="cand-pagination" style="display:none;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--t2)"></div>
       </div>
     </div>
 
@@ -1324,6 +1325,10 @@ html,body{line-height:1.55;}
         <div class="brow" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
           <button class="btn btn-primary" data-action="call" data-call="saveSettings()">💾 설정 저장</button>
           <span style="font-size:11.5px;color:var(--t3)">메일 템플릿·URL·서명 등 모든 설정을 저장합니다 (Google Sheets에도 동기화).</span>
+        </div>
+        <div class="brow" style="margin-top:10px">
+          <button class="btn" data-action="call" data-call="runCoreDiagnosticsUI()">자가진단 실행</button>
+          <span id="core-test-result" style="font-size:11.5px;color:var(--t3)">핵심 계산·프로세스·동기화 병합 로직을 점검합니다.</span>
         </div>
       </div>
     </div>
@@ -1884,6 +1889,34 @@ html,body{line-height:1.55;}
   </div>
 </div>
 
+<!-- ── 불합격 사유 입력 모달 ──────────────────────────────── -->
+<div class="overlay" id="modal-reject-reason">
+  <div class="modal" style="width:440px">
+    <div class="modal-hd">
+      <div class="modal-title">불합격 사유 입력</div>
+      <button class="mclose" data-action="call" data-call="finishRejectReason(false)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="alert aw" style="margin-bottom:12px"><span>대상 지원자 <b id="reject-target-count">1명</b>에게 동일한 불합격 사유가 기록됩니다.</span></div>
+      <div class="fg">
+        <label>불합격 사유 *</label>
+        <select id="reject-reason">
+          <option value="역량부족">역량부족</option>
+          <option value="처우불일치">처우불일치</option>
+          <option value="지원자포기">지원자포기</option>
+          <option value="포지션취소">포지션취소</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-top:12px"><label>메모</label><textarea id="reject-memo" rows="4" placeholder="필요한 상세 내용을 입력하세요."></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="call" data-call="finishRejectReason(false)">취소</button>
+      <button class="btn btn-red" data-action="call" data-call="finishRejectReason(true)">불합격 처리</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Outlook 발송 확인 바 ─────────────────────────────── -->
 <div class="mail-pending-bar" id="mail-pending-bar">
   <span id="mail-pending-text">Outlook 전송 후 [발송 완료]를 눌러주세요.</span>
@@ -1918,6 +1951,8 @@ let etypeFilter     = 'all';   // 채용형태 필터
 let trackerSort     = 'stage'; // 정렬 기준
 let trackerSearch   = '';   // 검색어
 let showRejected    = false; // 불합격자 표시 여부
+let trackerPage     = 1;
+const TRACKER_PAGE_SIZE = 50;
 let refFilter       = 'all'; // 레퍼런스 필터
 let refMetricFilter = '';   // 레퍼런스 메트릭 필터 (ready/ing/zero/done/pend)
 let selectedRefCandId = null; // 레퍼런스 선택된 지원자
@@ -2011,6 +2046,7 @@ function logActivity(action, detail, entityType, entityId) {
 }
 
 const REJECT_REASONS = ['역량부족','처우불일치','지원자포기','포지션취소','기타'];
+let rejectReasonResolver = null;
 function recordRejection(cand, reason, memo='') {
   if(!cand) return;
   cand.rejectedAt = today();
@@ -2019,12 +2055,25 @@ function recordRejection(cand, reason, memo='') {
   logActivity('불합격', `${cand.name} · ${cand.rejectReason}${memo ? ' · '+memo : ''}`, 'candidate', cand.id);
 }
 function askRejectReason(count=1) {
-  const input = prompt(`불합격 사유를 선택하세요.\n1. 역량부족\n2. 처우불일치\n3. 지원자포기\n4. 포지션취소\n5. 기타\n\n대상 ${count}명`, '1');
-  if(input === null) return null;
-  const idx = Number(input) - 1;
-  const reason = REJECT_REASONS[idx] || (REJECT_REASONS.includes(input.trim()) ? input.trim() : '기타');
-  const memo = prompt('불합격 사유 메모 (선택):', '') ?? '';
-  return { reason, memo };
+  const countEl = document.getElementById('reject-target-count');
+  const reasonEl = document.getElementById('reject-reason');
+  const memoEl = document.getElementById('reject-memo');
+  if(countEl) countEl.textContent = `${count}명`;
+  if(reasonEl) reasonEl.value = REJECT_REASONS[0];
+  if(memoEl) memoEl.value = '';
+  openModal('modal-reject-reason');
+  return new Promise(resolve => { rejectReasonResolver = resolve; });
+}
+function finishRejectReason(confirmResult) {
+  const resolver = rejectReasonResolver;
+  rejectReasonResolver = null;
+  closeModal('modal-reject-reason');
+  if(!resolver) return;
+  if(!confirmResult) { resolver(null); return; }
+  resolver({
+    reason: document.getElementById('reject-reason')?.value || '기타',
+    memo: document.getElementById('reject-memo')?.value.trim() || '',
+  });
 }
 
 function getPeriodReport(monthValue) {
@@ -2152,6 +2201,34 @@ function runCoreRegressionTests() {
   positions = oldPositions; candidates = oldCandidates; interviews = oldInterviews;
   console.info('[core test] 16개 회귀 테스트 통과');
   return true;
+}
+
+function runCoreDiagnosticsUI() {
+  const snapshot = { positions, candidates, interviews, notifyLog, activityLog };
+  const resultEl = document.getElementById('core-test-result');
+  try {
+    runCoreRegressionTests();
+    if(resultEl) {
+      resultEl.textContent = '자가진단 통과 · 핵심 회귀 테스트 16개 정상';
+      resultEl.style.color = 'var(--green)';
+    }
+    toast('자가진단 통과: 핵심 회귀 테스트 16개 정상', 'tok');
+    return true;
+  } catch(err) {
+    if(resultEl) {
+      resultEl.textContent = `자가진단 실패 · ${err.message}`;
+      resultEl.style.color = 'var(--red)';
+    }
+    toast(`자가진단 실패: ${err.message}`, 'terr');
+    console.error(err);
+    return false;
+  } finally {
+    positions = snapshot.positions;
+    candidates = snapshot.candidates;
+    interviews = snapshot.interviews;
+    notifyLog = snapshot.notifyLog;
+    activityLog = snapshot.activityLog;
+  }
 }
 
 function warnSeatOverflow(posId, extraPassed) {
@@ -2856,7 +2933,8 @@ function getGsRetryQueue() {
 
 function queueGsRetry(action, sheet, data) {
   const queue = getGsRetryQueue();
-  const key = `${action}:${sheet}:${data?.id ?? ''}`;
+  const batchKey = Array.isArray(data) ? data.map(item => item?.id ?? '').join(',') : '';
+  const key = `${action}:${sheet}:${data?.id ?? batchKey}`;
   const item = { key, action, sheet, data, queuedAt: new Date().toISOString(), attempts: 0 };
   const idx = queue.findIndex(x => x.key === key);
   if(idx >= 0) queue[idx] = item; else queue.push(item);
@@ -2888,7 +2966,7 @@ async function gsFetch(action, sheet, data={}, options={}) {
     if(value !== '' && value != null) url.searchParams.set(key, value);
   });
   const hasData = Object.keys(data).length > 0;
-  const isWrite = action === 'upsert' || action === 'deleteRow';
+  const isWrite = action === 'upsert' || action === 'batchUpsert' || action === 'deleteRow';
   try {
     if(isWrite && hasData && GS_CONFIG.usePostWrites) {
       const postRes = await fetch(url.toString(), {
@@ -2952,6 +3030,7 @@ async function gsGetChanges(cursor) {
     changes: Array.isArray(result.changes) ? result.changes : [],
     cursor: Number(result.cursor),
     serverTime: result.serverTime || '',
+    resyncRequired: result.resyncRequired === true,
   };
 }
 
@@ -2961,6 +3040,19 @@ async function gsUpsert(sheet, item) {
   if(result != null) clearGsReadCache(sheet);
   if(result != null) setTimeout(flushGsRetryQueue, 500);
   return result;
+}
+
+async function gsBatchUpsert(sheet, items, chunkSize=100) {
+  const source = Array.isArray(items) ? items : [];
+  let saved = 0;
+  for(let index=0; index<source.length; index+=chunkSize) {
+    const chunk = source.slice(index, index + chunkSize).map(item => gsSchemaPayload(sheet, item));
+    const result = await gsFetch('batchUpsert', sheet, chunk);
+    if(result == null || result.error) return null;
+    saved += Number(result.count) || chunk.length;
+  }
+  clearGsReadCache(sheet);
+  return {status:'ok', count:saved};
 }
 
 async function gsDelete(sheet, id) {
@@ -3162,6 +3254,11 @@ async function syncCoreFromGS(options={}) {
     showSyncStatus('GS 변경사항 확인 중...', '');
     const delta = await gsGetChanges(cursor);
     if(delta && Number.isFinite(delta.cursor)) {
+      if(delta.resyncRequired) {
+        clearGsChangeCursor();
+        showSyncStatus('변경 이력이 압축되어 전체 데이터를 다시 동기화합니다.', 'warn');
+        return syncCoreFromGS({forceFull:true});
+      }
       const applied = applyGsChanges(delta.changes);
       setGsChangeCursor(delta.cursor);
       showSyncStatus(applied ? `GS 변경 ${applied}건 반영` : 'GS 동기화 완료 (변경 없음)', 'ok');
@@ -3687,7 +3784,7 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
     }
   }
   let passCnt = 0, failCnt = 0;
-  const rejectionInfo = failers.length ? askRejectReason(failers.length) : null;
+  const rejectionInfo = failers.length ? await askRejectReason(failers.length) : null;
   if(failers.length && !rejectionInfo) return;
   const decidedInterviews = [];
   [...passers, ...failers].forEach(c => {
@@ -6078,7 +6175,7 @@ function cancelStageChange() {
   }
 }
 
-function confirmStageChange() {
+async function confirmStageChange() {
   if(!pendingStageChange) return;
   const { candId, newStage } = pendingStageChange;
   const c = candidates.find(x => x.id === candId);
@@ -6095,7 +6192,7 @@ function confirmStageChange() {
   }
 
   const oldStage = c.stage;
-  const rejectionInfo = newStage === 6 ? askRejectReason(1) : null;
+  const rejectionInfo = newStage === 6 ? await askRejectReason(1) : null;
   if(newStage === 6 && !rejectionInfo) return;
   if(newStage === 5 && c.posId != null) {
     if(!warnSeatOverflow(c.posId, 1)) return;
@@ -6383,18 +6480,21 @@ function addCandidate() {
 // ══════════════════════════════════════════════════════════════
 function filterStage(si, el) {
   stageFilter = si;
+  trackerPage = 1;
   document.querySelectorAll('.stage-seg').forEach(s => s.classList.remove('act'));
   el.classList.add('act');
   renderTracker();
 }
 function filterRole(r, el) {
   roleFilter = r;
+  trackerPage = 1;
   document.querySelectorAll('.fbtn[data-group="role"]').forEach(b => b.classList.remove('fon'));
   el.classList.add('fon');
   renderTracker();
 }
 function filterEtype(e, el) {
   etypeFilter = e;
+  trackerPage = 1;
   document.querySelectorAll('.fbtn[data-group="etype"]').forEach(b => b.classList.remove('fon'));
   el.classList.add('fon');
   renderTracker();
@@ -6436,10 +6536,19 @@ function renderTracker() {
   else if(sortBy==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   else if(sortBy==='date') list.sort((a,b)=>b.receivedAt.localeCompare(a.receivedAt));
   const wrap = document.getElementById('cand-list');
+  const pagination = document.getElementById('cand-pagination');
   if(!wrap) return;
-  if(!list.length) { wrap.innerHTML = empty('조건에 맞는 지원자가 없습니다.'); return; }
+  if(!list.length) {
+    wrap.innerHTML = empty('조건에 맞는 지원자가 없습니다.');
+    if(pagination) pagination.style.display = 'none';
+    return;
+  }
+  const totalPages = Math.max(1, Math.ceil(list.length / TRACKER_PAGE_SIZE));
+  trackerPage = Math.min(Math.max(1, trackerPage), totalPages);
+  const pageStart = (trackerPage - 1) * TRACKER_PAGE_SIZE;
+  const pageList = list.slice(pageStart, pageStart + TRACKER_PAGE_SIZE);
   const onboardedIds = new Set(onboardings.map(o=>Number(o.candId)));
-  wrap.innerHTML = list.map(c => {
+  wrap.innerHTML = pageList.map(c => {
     const refBadge = c.ref==='완료'?'<span class="b bgreen">완료</span>':c.ref==='진행중'?`<span class="b bamber">${c.refD}/${c.refT}</span>`:'<span class="b bgray">-</span>';
     const intInfo  = c.intDate ? `<span style="font-size:11px;font-family:'DM Mono',monospace">${c.intDate.split(' ')[0]}</span>` : '<span style="font-size:11px;color:var(--t3)">-</span>';
     const notified = c.notified ? '<span class="b bteams" style="font-size:10px">발송</span>' : '<span style="font-size:11px;color:var(--t3)">-</span>';
@@ -6459,6 +6568,20 @@ function renderTracker() {
       </div>
     </div>`;
   }).join('');
+  if(pagination) {
+    pagination.style.display = 'flex';
+    pagination.innerHTML = `<span>전체 ${list.length}명 · ${pageStart + 1}-${Math.min(pageStart + TRACKER_PAGE_SIZE, list.length)}명 표시</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn btn-xs" data-action="call" data-call="setTrackerPage(${trackerPage - 1})" ${trackerPage===1?'disabled':''}>이전</button>
+        <strong>${trackerPage} / ${totalPages}</strong>
+        <button class="btn btn-xs" data-action="call" data-call="setTrackerPage(${trackerPage + 1})" ${trackerPage===totalPages?'disabled':''}>다음</button>
+      </div>`;
+  }
+}
+
+function setTrackerPage(page) {
+  trackerPage = Math.max(1, Number(page) || 1);
+  renderTracker();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -7337,7 +7460,7 @@ async function saveSettingsToGS(cfg) {
   if(!GS_CONFIG.scriptUrl) return;
   // Settings 시트에 key-value 형태로 저장
   const items = Object.entries(cfg).map(([key, val]) => ({id: key, value: val}));
-  await settleSync(items.map(item => gsUpsert('Settings', item)), '설정 동기화');
+  await settleSync([gsBatchUpsert('Settings', items)], '설정 동기화');
 }
 
 async function loadSettingsFromGS() {
@@ -7503,7 +7626,7 @@ const RecruitmentCore = Object.freeze({
   maskEmail, applyPrivacyRetention,
 });
 const RecruitmentPersistence = Object.freeze({
-  loadState, saveState, gsGetAll, gsUpsert, gsDelete, syncCandToGS, syncIntToGS, syncPosToGS,
+  loadState, saveState, gsGetAll, gsUpsert, gsBatchUpsert, gsDelete, syncCandToGS, syncIntToGS, syncPosToGS,
   flushGsRetryQueue, checkGsSchemaCoverage, loadAuxStateFromGS, syncAuxStateToGS,
 });
 const RecruitmentUI = Object.freeze({
@@ -7520,7 +7643,8 @@ const DELEGATED_CALLS = Object.freeze({
   markRefRegistered, markRefResponse, navBtn, nextCollectSend, nohirePosition, openAddCand, openAddPosition, openBulkAddCand,
   openCollectSlots, openIntResult, openPositionResultModal, openPositionRoundSchedule, quickNotify, rejectCandidate,
   remindOneRef, remindRef, removePanelist, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition,
-  purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setPrivacyMaskFromControl, snapTo10,
+  purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setPrivacyMaskFromControl, setTrackerPage, snapTo10,
+  finishRejectReason, runCoreDiagnosticsUI,
   saveSettings, selectRefCand, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendJoinNotice, sendObById, sendObNotify, sendPanelNotice, sendRefRequest, setDashPipeFilter, setRefFilter, showUnlinkedList,
   skipCollectSend, startAllEligible, startRef, stopPosition, syncRefFromGS, testGSConnection, testInterviewerConnection,
