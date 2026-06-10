@@ -2224,8 +2224,11 @@ function runCoreRegressionTests() {
   refDetails = {22:[{status:'응답'}]}; refReports = {22:{summary:'완료'}};
   const removed = resetCandidateProgressForRollback(candidates[0],0);
   assert(removed.length===2 && interviews.length===0 && candidates[0].ref==='미시작' && candidates[0].lastCompletedStage===null && !candidates[0].notified, '준비 단계 되돌리기 이력 초기화');
+  candidates = [{id:23,ref:'진행중',refD:0,refT:3}];
+  refDetails = {23:[{name:'추천인1',email:'ref1@co.com',status:'대기'}]};
+  assert(cleanupLegacyPlaceholderRefs()===1 && refDetails[23].length===0, '레퍼런스 테스트 추천인 자동 제거');
   positions = oldPositions; candidates = oldCandidates; interviews = oldInterviews; refDetails = oldRefDetails; refReports = oldRefReports;
-  console.info('[core test] 18개 회귀 테스트 통과');
+  console.info('[core test] 19개 회귀 테스트 통과');
   return true;
 }
 
@@ -2235,10 +2238,10 @@ function runCoreDiagnosticsUI() {
   try {
     runCoreRegressionTests();
     if(resultEl) {
-      resultEl.textContent = '자가진단 통과 · 핵심 회귀 테스트 18개 정상';
+      resultEl.textContent = '자가진단 통과 · 핵심 회귀 테스트 19개 정상';
       resultEl.style.color = 'var(--green)';
     }
-    toast('자가진단 통과: 핵심 회귀 테스트 18개 정상', 'tok');
+    toast('자가진단 통과: 핵심 회귀 테스트 19개 정상', 'tok');
     return true;
   } catch(err) {
     if(resultEl) {
@@ -4008,7 +4011,7 @@ function getPositionActionItems(positionId) {
   if(!short) {
     const refReady = list.filter(c => c.stage === 2 && c.ref === '미시작');
     if(refReady.length) add('reference_request','medium','레퍼런스 체크 요청 필요',`요청 대기 ${refReady.length}명`,'레퍼런스 요청','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
-    const refLate = list.filter(c => c.ref === '진행중' && Number(c.refD||0) === 0);
+    const refLate = list.filter(c => c.ref === '진행중' && Number(c.refD||0) === 0 && ensureRefDetails(c).length > 0);
     if(refLate.length) add('reference_remind','high','레퍼런스 미응답 독촉 필요',`응답 없음 ${refLate.length}명`,'리마인드','remindRef',`remindRef(${refLate[0].id})`);
     const refIncomplete = list.filter(c => c.stage === 2 && c.ref !== '완료');
     if(refIncomplete.length && !refReady.length && !refLate.length) add('reference_complete','medium','레퍼런스 완료 확인 필요',`진행중 ${refIncomplete.length}명 · 응답 수집 후 완료 처리`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
@@ -4302,12 +4305,14 @@ function requestPositionReferences(positionId) {
 async function completePositionReferences(positionId) {
   const targets = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===2&&c.ref==='진행중');
   if(!targets.length) { toast('완료 처리할 레퍼런스 진행 건이 없습니다.', 'terr'); return; }
-  if(!confirm(`${targets.length}명의 레퍼런스를 완료 처리하시겠습니까?`)) return;
-  targets.forEach(c=>{ c.ref='완료'; c.refD=c.refT; ensureRefDetails(c); refDetails[c.id].forEach(r=>r.status='응답'); });
+  const eligible = targets.filter(c => ensureRefDetails(c).length > 0);
+  if(!eligible.length) { toast('실제 접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.', 'terr'); return; }
+  if(!confirm(`${eligible.length}명의 레퍼런스를 완료 처리하시겠습니까?`)) return;
+  eligible.forEach(c=>{ c.ref='완료'; c.refD=c.refT; refDetails[c.id].forEach(r=>r.status='응답'); });
   saveState();
-  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(c=>syncCandToGS(c)), '레퍼런스 완료 동기화');
+  if(GS_CONFIG.scriptUrl) await settleSync(eligible.map(c=>syncCandToGS(c)), '레퍼런스 완료 동기화');
   renderPositionDetail(positionId); updateMetrics();
-  toast(`${targets.length}명 레퍼런스 완료 처리`, 'tok');
+  toast(`${eligible.length}명 레퍼런스 완료 처리`, 'tok');
 }
 
 function renderPositionCandidates(positionId) {
@@ -5075,12 +5080,13 @@ async function syncRefFromGS() {
     const data = await res.json();
     if(!data || !Array.isArray(data.data)) { if(status) status.textContent='❌ 응답 오류'; return; }
 
-    let matched = 0;
+    let matched = 0, unmatched = 0;
     data.data.forEach(rs => {
       // 이름 + 이메일로 지원자 매칭
       const c = candidates.find(x =>
-        x.name === rs.candName && (x.email||'').toLowerCase() === (rs.candEmail||'').toLowerCase());
-      if(!c) return;
+        String(x.name||'').trim() === String(rs.candName||'').trim() &&
+        String(x.email||'').trim().toLowerCase() === String(rs.candEmail||'').trim().toLowerCase());
+      if(!c) { unmatched++; return; }
       matched++;
       // 접수/응답 수 반영
       c.refT = rs.total || 3;
@@ -5092,13 +5098,17 @@ async function syncRefFromGS() {
         status: r.status === '응답' ? '응답' : (r.status === '등록' ? '등록' : '대기'),
         remindCnt: r.remindCnt || 0,
         responseText: r.responseText || r.summary || r.comment || r.answer || r.response || r.notes || '',
-      }));
+      })).filter(r => (r.name || r.email) && !isLegacyPlaceholderRef(r));
+      const actualRefs = refDetails[c.id];
+      c.refT = Number(rs.total) || actualRefs.length || 3;
+      c.refD = actualRefs.filter(r => r.status === '응답').length;
+      c.ref = c.refD >= c.refT && c.refT > 0 ? '완료' : (actualRefs.length ? '진행중' : c.ref);
     });
     saveState();
     renderReference();
     updateMetrics();
-    if(status) status.textContent = `✅ ${matched}명 레퍼런스 현황 동기화`;
-    toast(`레퍼런스 ${matched}명 동기화 완료`, 'tok');
+    if(status) status.textContent = `✅ ${matched}명 동기화${unmatched ? ` · 미매칭 ${unmatched}건` : ''}`;
+    toast(`레퍼런스 ${matched}명 동기화 완료${unmatched ? ` · 지원자 미매칭 ${unmatched}건` : ''}`, unmatched ? 'tw' : 'tok');
   } catch(e) {
     if(status) status.textContent = '❌ 실패: ' + e.message;
   }
@@ -6902,16 +6912,35 @@ function delInt(id) { if(GS_CONFIG.scriptUrl) deleteIntFromGS(id); interviews=in
 // 레퍼런스 체크
 // ══════════════════════════════════════════════════════════════
 function ensureRefDetails(c) {
-  if(!refDetails[c.id]) {
-    refDetails[c.id] = [
-      {name:'추천인1',email:'ref1@co.com',relation:'전 직속 상사',status:c.refD>=1?'응답':'대기',remindCnt:0},
-      {name:'추천인2',email:'ref2@co.com',relation:'전 동료',status:c.refD>=2?'응답':'대기',remindCnt:0},
-      {name:'추천인3',email:'ref3@co.com',relation:'전 부하직원',status:c.refD>=3?'응답':'대기',remindCnt:0},
-    ];
-  }
+  if(!refDetails[c.id]) refDetails[c.id] = [];
+  refDetails[c.id] = refDetails[c.id].filter(r => !isLegacyPlaceholderRef(r));
+  return refDetails[c.id];
+}
+
+function isLegacyPlaceholderRef(ref) {
+  const email = String(ref?.email || '').toLowerCase();
+  const name = String(ref?.name || '');
+  return /^ref[123]@co\.com$/.test(email) || /^추천인[123]$/.test(name) && !email;
+}
+
+function cleanupLegacyPlaceholderRefs() {
+  let removed = 0;
+  Object.keys(refDetails || {}).forEach(id => {
+    const before = Array.isArray(refDetails[id]) ? refDetails[id] : [];
+    const clean = before.filter(r => !isLegacyPlaceholderRef(r));
+    removed += before.length - clean.length;
+    refDetails[id] = clean;
+    const c = candidates.find(x => Number(x.id) === Number(id));
+    if(c && !clean.length) {
+      c.refD = 0;
+      if(c.ref === '완료') c.ref = '진행중';
+    }
+  });
+  return removed;
 }
 
 function renderReference() {
+  if(cleanupLegacyPlaceholderRefs()) scheduleLocalCacheSave();
   const ready  = candidates.filter(c=>c.stage>=2&&c.ref==='미시작').length;
   const ing    = candidates.filter(c=>c.ref==='진행중').length;
   const zero   = candidates.filter(c=>c.ref==='진행중'&&c.refD===0).length;
@@ -6970,8 +6999,8 @@ function renderReference() {
         <div style="padding:6px 8px;background:var(--s2);border-radius:var(--rsm);margin-bottom:8px">${refListHtml}</div>
         <div style="display:flex;gap:5px">
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">📋 추천인 요청</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
+          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
+          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
         </div>
       </div>`;
     }).join('');
@@ -7012,9 +7041,9 @@ function renderReference() {
         </td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">시작</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs" data-action="call" data-call="markRefRegistered(${c.id})">+접수</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markOneResponse(${c.id})">+응답</button>`:''}
-          ${c.ref==='진행중'?`<button class="btn btn-xs btn-green" data-action="call" data-call="completeRef(${c.id})">완료</button>`:''}
+          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs" data-action="call" data-call="markRefRegistered(${c.id})">+접수</button>`:''}
+          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markOneResponse(${c.id})">+응답</button>`:''}
+          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="completeRef(${c.id})">완료</button>`:''}
         </td>
       </tr>`;
     }).join('')}</tbody>
@@ -7078,12 +7107,12 @@ function selectRefCand(id){
   const panel=document.getElementById('ref-referee-panel');
   if(!panel)return;
   panel.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:10px">${esc(c.name)} · ${c.refD}/${c.refT} 응답</div>
-    ${refs.map((r,ri)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+    ${refs.length ? refs.map((r,ri)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:26px;height:26px;border-radius:50%;background:${r.status==='응답'?'var(--gbg)':'var(--rbg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${r.status==='응답'?'var(--green)':'var(--red)'}">${ri+1}</div>
       <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name)} <span class="tag">${esc(r.relation)}</span></div><div style="font-size:11px;color:var(--t3)">${r.email}${r.remindCnt>0?' · 리마인드 '+r.remindCnt+'회':''}</div>${r.responseText?`<div style="font-size:11px;line-height:1.6;margin-top:5px;padding:7px 8px;background:var(--s2);border-radius:var(--rsm);white-space:pre-wrap">${esc(r.responseText)}</div>`:''}</div>
       <span class="b ${r.status==='응답'?'bgreen':'bred'}">${r.status}</span>
       ${r.status!=='응답'?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindOneRef(${id},${ri})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markRefResponse(${id},${ri})">응답</button>`:''}
-    </div>`).join('')}`;
+    </div>`).join('') : '<div style="padding:18px 10px;text-align:center;color:var(--t3);font-size:11.5px;background:var(--s2);border-radius:var(--rsm)">추천인 정보가 접수되지 않았습니다.<br>구글시트 동기화 후 실제 접수 정보를 확인하세요.</div>'}`;
   const reportSel=document.getElementById('ref-report-cand');
   if(reportSel) { reportSel.value=String(id); renderRefReport(id); }
   renderReference();
@@ -7093,6 +7122,7 @@ function remindOneRef(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;
   ensureRefDetails(c);
   const r=refDetails[candId][ri];
+  if(!r){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'[레퍼런스 체크 설문 URL]';
   const subject=`[레퍼런스 체크 리마인드] ${esc(c.name)}님 레퍼런스 체크 응답 부탁드립니다`;
   const body=`안녕하세요 ${esc(r.name)}님,\n\n앞서 요청드린 ${esc(c.name)}님 레퍼런스 체크 설문에 아직 응답하지 않으셨습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.`;
@@ -7106,6 +7136,7 @@ function remindOneRef(candId,ri){
 function markRefResponse(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;
   ensureRefDetails(c);
+  if(!refDetails[candId][ri]){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
   refDetails[candId][ri].status='응답';
   c.refD=refDetails[candId].filter(r=>r.status==='응답').length;
   if(c.refD>=c.refT)c.ref='완료';
@@ -7114,7 +7145,8 @@ function markRefResponse(candId,ri){
 }
 function markOneResponse(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
-  ensureRefDetails(c);
+  const refs=ensureRefDetails(c);
+  if(!refs.length){toast('접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.','terr');return;}
   // 응답 처리: 등록된(또는 대기) 추천인 중 아직 미응답인 첫 번째를 응답으로
   const target=refDetails[id].find(r=>r.status==='등록') || refDetails[id].find(r=>r.status==='대기');
   if(target){target.status='응답';c.refD++;}
@@ -7125,7 +7157,8 @@ function markOneResponse(id){
 // 추천인 접수(등록) 처리: 대기 상태 추천인 1명을 등록으로
 function markRefRegistered(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
-  ensureRefDetails(c);
+  const refs=ensureRefDetails(c);
+  if(!refs.length){toast('추천인 접수는 구글폼 동기화로 반영됩니다. 접수된 정보가 없습니다.','terr');return;}
   const pend=refDetails[id].find(r=>r.status==='대기');
   if(!pend){toast('모든 추천인이 이미 접수됐습니다.','tw');return;}
   pend.status='등록';
@@ -7170,7 +7203,8 @@ function startAllEligible(){
 // 레퍼런스 리마인드 메일 본문 (템플릿 기반)
 function remindRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
-  ensureRefDetails(c);
+  const refs=ensureRefDetails(c);
+  if(!refs.length){toast('접수된 추천인 정보가 없어 리마인드를 발송할 수 없습니다.','terr');return;}
   const pendingRefs=refDetails[id].filter(r=>r.status==='대기'||r.status==='등록');
   if(!pendingRefs.length){toast('미응답 추천인이 없습니다.');return;}
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'[레퍼런스 체크 설문 URL]';
@@ -7190,8 +7224,10 @@ function remindRef(id){
 
 function completeRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
+  const refs=ensureRefDetails(c);
+  if(!refs.length){toast('접수된 추천인 정보가 없어 완료 처리할 수 없습니다.','terr');return;}
   c.ref='완료';c.refD=c.refT;
-  ensureRefDetails(c);refDetails[id].forEach(r=>r.status='응답');
+  refs.forEach(r=>r.status='응답');
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   toast(`${esc(c.name)}님 완료 처리`,'tok');
 }
@@ -7200,7 +7236,8 @@ async function generateAI(){
   const c=candidates.find(x=>x.id===cid);
   if(!c){alert('지원자를 선택해주세요.');return;}
   if(c.ref==='미시작'){alert('레퍼런스 체크가 시작되지 않았습니다.');return;}
-  ensureRefDetails(c);
+  const syncedRefs=ensureRefDetails(c);
+  if(!syncedRefs.length){alert('접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.');return;}
   const prog=document.getElementById('ref-ai-progress');
   const bar=document.getElementById('ref-ai-bar');
   const label=document.getElementById('ref-ai-label');
