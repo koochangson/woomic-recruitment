@@ -2188,6 +2188,7 @@ function runCoreRegressionTests() {
   assert(chunkText('abcdef',2).join('')==='abcdef' && chunkText('abcdef',2).length===3, '보조 데이터 청크 분할');
   assert(maskEmail('person@example.com')==='pe****@example.com', '개인정보 이메일 마스킹');
   assert(maskName('김지원')==='김○○', '개인정보 이름 마스킹');
+  assert(formatMailBodyForOutlook('첫 문단\n\n둘째 문단').includes('\r\n\u200B\r\n'), 'Outlook 메일 빈 줄 유지');
   const oldTombstones = localStorage.getItem(GS_TOMBSTONE_KEY);
   try {
     localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify({'Candidates:7':'2026-06-09T00:00:00.000Z'}));
@@ -2228,7 +2229,7 @@ function runCoreRegressionTests() {
   refDetails = {23:[{name:'추천인1',email:'ref1@co.com',status:'대기'}]};
   assert(cleanupLegacyPlaceholderRefs()===1 && refDetails[23].length===0, '레퍼런스 테스트 추천인 자동 제거');
   positions = oldPositions; candidates = oldCandidates; interviews = oldInterviews; refDetails = oldRefDetails; refReports = oldRefReports;
-  console.info('[core test] 19개 회귀 테스트 통과');
+  console.info('[core test] 20개 회귀 테스트 통과');
   return true;
 }
 
@@ -2238,10 +2239,10 @@ function runCoreDiagnosticsUI() {
   try {
     runCoreRegressionTests();
     if(resultEl) {
-      resultEl.textContent = '자가진단 통과 · 핵심 회귀 테스트 19개 정상';
+      resultEl.textContent = '자가진단 통과 · 핵심 회귀 테스트 20개 정상';
       resultEl.style.color = 'var(--green)';
     }
-    toast('자가진단 통과: 핵심 회귀 테스트 19개 정상', 'tok');
+    toast('자가진단 통과: 핵심 회귀 테스트 20개 정상', 'tok');
     return true;
   } catch(err) {
     if(resultEl) {
@@ -5737,6 +5738,18 @@ function groupMailRecipients(emails) {
 }
 
 // ── mailto 이메일 발송 헬퍼 ─────────────────────────────────
+function formatMailBodyForOutlook(body) {
+  const normalized = String(body || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n');
+  // Outlook Classic이 mailto 본문의 완전히 빈 줄을 제거하는 경우가 있어,
+  // 빈 줄에 보이지 않는 문자를 넣어 템플릿의 문단 간격을 유지합니다.
+  return normalized
+    .split('\n')
+    .map(line => line === '' ? '\u200B' : line)
+    .join('\r\n');
+}
+
 function openMailto(toEmail, subject, body, sequential) {
   if(!toEmail || !toEmail.includes('@')) {
     alert('이메일 주소가 등록되지 않았습니다.\n지원자/대상 정보를 수정해 이메일을 입력해주세요.');
@@ -5744,9 +5757,15 @@ function openMailto(toEmail, subject, body, sequential) {
   }
   const sign    = document.getElementById('cfg-sign')?.value    || '우미건설 피플팀';
   const hrEmail = document.getElementById('cfg-hr-email')?.value || 'hr@woomic.co.kr';
-  let fullBody = body + '\n\n' + sign + (hrEmail ? '\n' + hrEmail : '');
-  // Outlook(classic)은 본문 줄바꿈으로 CRLF(\r\n)를 기대 — 변환해 호환성 확보
-  fullBody = fullBody.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+  const sourceBody = String(body || '');
+  const hasSign = sign && sourceBody.includes(sign);
+  const hasHrEmail = hrEmail && sourceBody.includes(hrEmail);
+  let fullBody = sourceBody;
+  if(!hasSign || !hasHrEmail) {
+    const footer = [hasSign ? '' : sign, hasHrEmail ? '' : hrEmail].filter(Boolean).join('\n');
+    if(footer) fullBody += '\n\n' + footer;
+  }
+  fullBody = formatMailBodyForOutlook(fullBody);
   // 수신자 구분자: mailto 표준은 콤마, 세미콜론을 콤마로 정규화
   const to = toEmail.replace(/;/g, ',');
   const url = 'mailto:' + encodeURIComponent(to).replace(/%2C/g, ',')
