@@ -534,39 +534,41 @@ html,body{line-height:1.55;}
 /* 포지션 관리: 컴팩트 다열 카드 */
 #pos-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch;}
 .pos-manage-card{min-width:0;height:100%;display:flex;flex-direction:column;}
-.pos-card-main{padding:12px;display:grid;grid-template-columns:36px minmax(0,1fr);gap:9px 10px;align-items:start;}
-.pos-card-avatar{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;}
-.pos-card-info{min-width:0;}
-.pos-card-title{font-size:13px;font-weight:700;line-height:1.35;margin-bottom:4px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-.pos-card-meta{display:flex;gap:5px;align-items:center;flex-wrap:wrap;line-height:1.25;}
-.pos-card-metrics{grid-column:1/-1;display:grid!important;grid-template-columns:repeat(3,1fr);gap:0!important;padding-top:8px;border-top:1px solid var(--border);}
-.pos-card-metrics>div{padding:0 5px;border-right:1px solid var(--border);}
-.pos-card-metrics>div:last-child{border-right:0;}
-.pos-card-metrics>div>div:first-child{font-size:16px!important;line-height:1.15;}
-.pos-card-flags{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap;min-height:0;}
-.pos-card-flags:empty{display:none;}
-.pos-card-actions{padding:6px 9px;gap:3px;flex-wrap:wrap;margin-top:auto;}
-.pos-card-actions .btn{padding:3px 6px;font-size:10.5px;}
-.pos-card-actions .btn[style*="margin-left:auto"]{margin-left:0!important;}
+.pos-card-main{padding:15px 16px 12px;display:block;cursor:default;}
+.pos-card-info{min-width:0;margin-bottom:13px;}
+.pos-card-title{font-size:14px;font-weight:750;line-height:1.35;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pos-card-dept{font-size:11.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pos-card-progress{display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:7px;background:var(--s2);font-size:11.5px;font-weight:700;margin-bottom:11px;}
+.pos-card-progress-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--border2);}
+.pos-card-progress.is-current{color:var(--acc);background:var(--acc-light);}
+.pos-card-progress.is-current .pos-card-progress-dot{background:var(--amber);}
+.pos-card-progress.is-complete{color:var(--green);background:#EDFAF3;}
+.pos-card-progress.is-complete .pos-card-progress-dot{background:var(--green);}
+.pos-card-progress.is-stopped{color:var(--t2);}
+.pos-card-progress.is-stopped .pos-card-progress-dot{background:var(--t3);}
+.pos-card-summary{display:grid;gap:5px;font-size:11.5px;color:var(--t2);}
+.pos-card-summary strong{font-weight:750;color:var(--text);}
+.pos-card-actions{padding:7px 10px;border-top:1px solid var(--border);background:#FAFBFC;margin-top:auto;}
+.pos-card-actions .btn{padding:4px 8px;font-size:11px;color:var(--acc);font-weight:700;}
 @media (max-width:980px){
   #pos-list{grid-template-columns:repeat(2,minmax(0,1fr));}
-  .pos-card-main>div:nth-last-child(-n+2){margin-left:0;}
 }
 @media (max-width:720px){
   #pos-list{grid-template-columns:1fr;}
 }
 /* ── 포지션 상세: 채용 프로젝트 관리 화면 ───────────────── */
-#modal-pos-detail .modal{width:min(940px,92vw)!important;max-height:95vh!important;}
-#modal-pos-detail .modal-hd{padding:12px 18px;}
-#modal-pos-detail .modal-body{padding:9px 11px;background:#F7F9FC;}
-#modal-pos-detail .modal-ft{padding:7px 11px;align-items:center;}
-.pos-project{display:flex;flex-direction:column;gap:7px;}
-.pp-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;box-shadow:var(--sh);}
-.pp-section-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
-.pp-section-title{font-size:14px;font-weight:700;color:var(--text);}
+#modal-pos-detail .modal{width:min(860px,92vw)!important;max-height:93vh!important;}
+#modal-pos-detail .modal-hd{padding:10px 16px;}
+#modal-pos-detail .modal-hd .modal-title{font-size:14px;}
+#modal-pos-detail .modal-body{padding:8px 9px;background:#F7F9FC;}
+#modal-pos-detail .modal-ft{padding:6px 9px;align-items:center;}
+.pos-project{display:flex;flex-direction:column;gap:6px;}
+.pp-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;box-shadow:var(--sh);}
+.pp-section-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;}
+.pp-section-title{font-size:13px;font-weight:700;color:var(--text);}
 .pp-section-sub{font-size:10.5px;color:var(--t3);}
-.pp-summary-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px;}
-.pp-title{font-size:17px;font-weight:750;letter-spacing:-.3px;}
+.pp-summary-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:5px;}
+.pp-title{font-size:16px;font-weight:750;letter-spacing:-.3px;}
 .pp-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;font-size:10.5px;color:var(--t2);}
 .pp-meta span{padding:2px 7px;background:var(--s2);border-radius:4px;}
 .pp-status{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
@@ -574,9 +576,9 @@ html,body{line-height:1.55;}
 .pp-status.filled{color:var(--green);background:var(--gbg);}
 .pp-status.nohire{color:var(--amber);background:var(--abg);}
 .pp-status.stopped{color:var(--red);background:var(--rbg);}
-.pp-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;}
-.pp-kpi{padding:6px 8px;background:#FAFBFC;border:1px solid var(--border);border-radius:var(--rsm);}
-.pp-kpi-val{font-size:17px;font-weight:750;line-height:1.05;}
+.pp-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;}
+.pp-kpi{padding:5px 7px;background:#FAFBFC;border:1px solid var(--border);border-radius:var(--rsm);}
+.pp-kpi-val{font-size:16px;font-weight:750;line-height:1.05;}
 .pp-kpi-lbl{font-size:9.5px;color:var(--t3);margin-top:3px;}
 .pp-fillbar{height:5px;background:var(--s3);border-radius:10px;overflow:hidden;margin-top:8px;}
 .pp-fillbar>span{display:block;height:100%;background:var(--green);border-radius:10px;}
@@ -591,15 +593,15 @@ html,body{line-height:1.55;}
 .pp-action-priority{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--t3);}
 .pp-action-empty{display:flex;align-items:center;gap:8px;color:var(--green);font-size:12px;font-weight:600;padding:6px 0;}
 .pp-process{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;}
-.pp-process-groups{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;align-items:start;width:100%;}
+.pp-process-groups{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;align-items:start;width:100%;}
 .pp-process-group{border:1px solid var(--border);border-radius:var(--r);background:#FAFBFC;overflow:hidden;}
 .pp-process-group.complete{border-color:var(--gbd);}
 .pp-process-group.active{border-color:#CFD9E6;background:#F7F9FC;}
 .pp-process-group.current{border-color:var(--acc);box-shadow:0 0 0 2px rgba(15,52,96,.12);}
 .pp-process-group.delayed{border-color:var(--amber);box-shadow:0 0 0 2px rgba(160,88,0,.10);}
-.pp-group-head{width:100%;height:34px;display:grid;grid-template-columns:8px minmax(46px,1fr) auto auto;align-items:center;gap:4px;padding:5px 6px;background:var(--s2);border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;}
+.pp-group-head{width:100%;height:31px;display:grid;grid-template-columns:7px minmax(42px,1fr) auto auto;align-items:center;gap:3px;padding:4px 5px;background:var(--s2);border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;}
 .pp-group-head:hover{background:var(--s3);}
-.pp-group-status{width:8px;height:8px;border-radius:50%;background:var(--border2);}
+.pp-group-status{width:7px;height:7px;border-radius:50%;background:var(--border2);}
 .pp-process-group.complete .pp-group-status{background:var(--green);}
 .pp-process-group.active .pp-group-status{background:#7890AC;}
 .pp-process-group.current .pp-group-status{background:var(--acc);}
@@ -608,18 +610,18 @@ html,body{line-height:1.55;}
 .pp-process-group.current .pp-group-title,.pp-process-group.current .pp-group-count{color:var(--acc);font-weight:800;}
 .pp-process-group.delayed .pp-group-head{background:var(--abg);}
 .pp-process-group.delayed .pp-group-title,.pp-process-group.delayed .pp-group-count{color:var(--amber);font-weight:800;}
-.pp-group-title{font-size:10.5px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pp-group-count{font-size:8px;font-weight:700;color:var(--t3);white-space:nowrap;}
+.pp-group-title{font-size:10px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pp-group-count{font-size:7.5px;font-weight:700;color:var(--t3);white-space:nowrap;}
 .pp-group-move{padding:2px 5px!important;font-size:8px!important;white-space:nowrap;}
-.pp-group-tasks{display:none;padding:4px 7px;border-top:1px solid var(--border);}
+.pp-group-tasks{display:none;padding:3px 6px;border-top:1px solid var(--border);}
 .pp-process-group.open .pp-group-tasks{display:block;}
-.pp-task{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:5px;align-items:center;min-height:29px;padding:4px 2px;border-bottom:1px solid var(--border);}
+.pp-task{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:4px;align-items:center;min-height:26px;padding:3px 2px;border-bottom:1px solid var(--border);}
 .pp-task.actionable{cursor:pointer;border-radius:4px;}
 .pp-task.actionable:hover{background:var(--acc-light);}
 .pp-task:last-child{border-bottom:0;}
 .pp-task-dot{width:7px;height:7px;border-radius:50%;background:var(--s3);border:1px solid var(--border2);}
-.pp-task-title{font-size:9.5px;font-weight:600;color:var(--t2);line-height:1.2;}
-.pp-task-state{font-size:8px;color:var(--t3);white-space:nowrap;}
+.pp-task-title{font-size:9px;font-weight:600;color:var(--t2);line-height:1.2;}
+.pp-task-state{font-size:7.5px;color:var(--t3);white-space:nowrap;}
 .pp-task.complete .pp-task-dot{background:var(--green);border-color:var(--green);}
 .pp-task.current{background:var(--acc-light);border-radius:4px;}
 .pp-task.current .pp-task-dot{background:var(--acc);border-color:var(--acc);}
@@ -635,11 +637,11 @@ html,body{line-height:1.55;}
 .pp-step-num{font-size:9px;font-weight:700;color:var(--t3);}
 .pp-step-title{font-size:10.5px;font-weight:650;line-height:1.2;margin-top:2px;}
 .pp-step-state{position:absolute;right:7px;top:6px;font-size:8.5px;color:var(--t3);}
-.pp-cand-list{display:flex;flex-direction:column;gap:4px;}
-.pp-cand{display:grid;grid-template-columns:minmax(145px,1.25fr) 82px 112px 95px 88px auto;gap:6px;align-items:center;padding:5px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;}
-.pp-cand-name{font-size:12.5px;font-weight:700;}
-.pp-cand-email{font-size:10.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pp-cand-cell{font-size:10.5px;color:var(--t2);}
+.pp-cand-list{display:flex;flex-direction:column;gap:3px;}
+.pp-cand{display:grid;grid-template-columns:minmax(135px,1.25fr) 76px 105px 88px 80px auto;gap:5px;align-items:center;padding:4px 7px;border:1px solid var(--border);border-radius:var(--rsm);background:#FAFBFC;}
+.pp-cand-name{font-size:12px;font-weight:700;}
+.pp-cand-email{font-size:10px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pp-cand-cell{font-size:10px;color:var(--t2);}
 .pp-cand-cell strong{display:block;font-size:9px;color:var(--t3);margin-bottom:2px;}
 .pp-footer-group{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .pp-step.skipped{background:var(--s2);border-color:var(--border);opacity:.55;}
@@ -652,10 +654,10 @@ html,body{line-height:1.55;}
 .pp-process-note{font-size:10px;color:var(--t3);margin-bottom:7px;padding:6px 8px;background:var(--acc-light);border-radius:var(--rsm);}
 .pp-step-action{margin-top:5px;width:100%;justify-content:center;padding:3px 6px!important;font-size:9px!important;}
 .pp-step.current,.pp-step.delayed{box-shadow:0 4px 12px rgba(15,52,96,.08);}
-@media(max-width:1050px){
+@media(max-width:820px){
   .pp-kpis{grid-template-columns:repeat(3,1fr);}
   .pp-process{grid-template-columns:repeat(4,1fr);}
-  .pp-process-groups{grid-template-columns:repeat(3,minmax(150px,1fr));}
+  .pp-process-groups{grid-template-columns:repeat(3,minmax(130px,1fr));}
   .pp-cand{grid-template-columns:minmax(180px,1fr) 100px 130px auto;}
   .pp-cand .pp-secondary{display:none;}
 }
@@ -2583,6 +2585,20 @@ function posStatus(p){
   return 'active';
 }
 function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
+function getPositionCardProgress(pos, positionCandidates) {
+  const status = posStatus(pos);
+  if(status !== 'active') {
+    return {
+      label: posStatusLabel(pos),
+      className: status === 'filled' || status === 'partial' ? 'is-complete' : 'is-stopped',
+    };
+  }
+  const progressing = (positionCandidates || []).filter(c => c.stage < 5 && !c.held);
+  if(!progressing.length) return {label:'지원자 등록 대기', className:'is-current'};
+  const stage = Math.max(...progressing.map(c => Number(c.stage) || 0));
+  const labels = ['면접전형 준비','1차 면접 진행중','레퍼런스 진행중','2차 면접 진행중','처우협의 진행중'];
+  return {label:labels[stage] || '채용 진행중', className:'is-current'};
+}
 // 포지션의 현재 단계 = 비탈락(≠6) 지원자 중 최고 단계 (지원자 없으면 null)
 // YYYY-MM-DD → YYYY.MM.DD 표시용
 function fmtDate(d){ return d ? String(d).slice(0,10).replace(/-/g,'.') : ''; }
@@ -3247,67 +3263,31 @@ function renderPositions() {
   }
 
   list.innerHTML = filtered.map(pos => {
-    const posCandiates = candidatesByPos[Number(pos.id)] || [];
-    const active = posCandiates.filter(c => c.stage < 6);
-    const passed = posCandiates.filter(c => c.stage === 5);
-    const int1Ready = active.filter(c => c.stage === 1);
-    const int2Ready = active.filter(c => c.stage === 3);
+    const posCandidates = candidatesByPos[Number(pos.id)] || [];
+    const active = posCandidates.filter(c => c.stage < 5 && !c.held);
+    const passed = posCandidates.filter(c => c.stage === 5);
     const done = isDone(pos);
     const hc = parseInt(pos.headcount) || 1;
-    const targetMet = passed.length >= hc;
-    const seatRemain = Math.max(0, hc - passed.length);
-    const parentPos = pos.parentPosId ? positions.find(p => Number(p.id) === Number(pos.parentPosId)) : null;
+    const progress = getPositionCardProgress(pos, posCandidates);
 
     return `<div class="card pos-manage-card" style="${done?'opacity:.75':''}">
-      <div class="pos-card-main" data-action="open-position" data-id="${pos.id}">
-        <div class="pos-card-avatar" style="background:${done?'var(--s3)':'var(--bbg)'};color:${done?'var(--t3)':'var(--blue)'}">
-          ${esc(pos.title.charAt(0))}
-        </div>
+      <div class="pos-card-main">
         <div class="pos-card-info">
-          <div class="pos-card-title">
-            ${pos.dept ? esc(pos.dept) + ' · ' : ''}${esc(pos.title)}
-            ${done ? `<span class="b ${posStatus(pos)==='partial'?'bamber':'bgreen'}" style="font-size:10px">${posStatusLabel(pos)}</span>` : '<span class="b bblue" style="font-size:10px">진행중</span>'}
-            ${pos.parentPosId ? `<span class="b bgray" style="font-size:10px" title="재채용 체인">↳ 재채용</span>` : ''}
-          </div>
-          <div class="pos-card-meta">
-            <span class="etype et-${pos.etype==='정규직'?'regular':pos.etype==='전문직'?'expert':'dispatch'}">${esc(pos.etype)}</span>
-            <span style="font-size:11px;color:var(--t3)">${esc(pos.role)}</span>
-            <span style="font-size:11px;color:var(--t3)">모집 ${hc}명</span>
-            ${!done ? `<span style="font-size:11px;color:${seatRemain===0?'var(--amber)':'var(--green)'};font-weight:600">잔여 seat ${seatRemain}</span>` : ''}
-            ${parentPos ? `<span style="font-size:10px;color:var(--t3)" title="재채용 출처">← ${esc(parentPos.title)}</span>` : ''}
-          </div>
+          <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
+          <div class="pos-card-dept" title="${esc(pos.dept || '부서 미지정')}">${esc(pos.dept || '부서 미지정')}</div>
         </div>
-        <div class="pos-card-metrics">
-          <div style="text-align:center">
-            <div style="font-size:20px;font-weight:800;color:var(--blue)">${active.length}</div>
-            <div style="font-size:10px;color:var(--t3)">진행중</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-size:20px;font-weight:800;color:var(--green)">${passed.length}</div>
-            <div style="font-size:10px;color:var(--t3)">최종합격</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-size:20px;font-weight:800;color:var(--amber)">${pos.headcount||1}</div>
-            <div style="font-size:10px;color:var(--t3)">목표</div>
-          </div>
+        <div class="pos-card-progress ${progress.className}">
+          <span class="pos-card-progress-dot"></span>
+          <span>${esc(progress.label)}</span>
         </div>
-        <div class="pos-card-flags">
-          ${!done && int1Ready.length ? `<span style="background:#EBF3FD;color:var(--blue);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">1차 ${int1Ready.length}명</span>` : ''}
-          ${!done && int2Ready.length ? `<span style="background:#FFF8EC;color:var(--amber);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">2차 ${int2Ready.length}명</span>` : ''}
-          ${!done && targetMet ? `<span style="background:#EDFAF3;color:var(--green);padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600">목표달성</span>` : ''}
+        <div class="pos-card-summary">
+          <div>👥 진행중 후보자 <strong>${active.length}명</strong></div>
+          <div>🎯 채용 <strong>${passed.length} / ${hc}명</strong></div>
         </div>
       </div>
 
-      <!-- 빠른 액션 바 -->
       <div class="pos-card-actions">
-        <button class="btn btn-sm" data-action="open-position" data-id="${pos.id}">📊 상세 보기</button>
-        ${!done && int1Ready.length ? `<button class="btn btn-sm" style="background:#EBF3FD;color:var(--blue);border-color:#C8DEFA" data-action="call" data-call="sendPanelNotice(${pos.id},1)">📧 1차 면접관 안내</button>` : ''}
-        ${!done && int2Ready.length ? `<button class="btn btn-sm" style="background:#FFF8EC;color:var(--amber);border-color:#FFD9A0" data-action="call" data-call="sendPanelNotice(${pos.id},2)">📧 2차 면접관 안내</button>` : ''}
-        ${done
-          ? `<button class="btn btn-sm" data-action="reopen-position" data-id="${pos.id}" style="margin-left:auto">↻ 진행중으로 복원</button>`
-          : `<button class="btn btn-sm" data-action="close-position" data-id="${pos.id}" style="margin-left:auto;background:#EDFAF3;color:var(--green);border-color:#A8E0C0">✓ 채용 완료${targetMet?' (목표달성)':''}</button>`}
-        <button class="btn btn-sm" data-action="edit-position" data-id="${pos.id}">✏ 수정</button>
-        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" data-action="delete-position" data-id="${pos.id}">삭제</button>
+        <button class="btn btn-sm" data-action="open-position" data-id="${pos.id}">상세보기</button>
       </div>
     </div>`;
   }).join('');
