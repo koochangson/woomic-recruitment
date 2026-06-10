@@ -533,8 +533,10 @@ html,body{line-height:1.55;}
 }
 /* 포지션 관리: 컴팩트 다열 카드 */
 #pos-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch;}
-.pos-manage-card{min-width:0;height:100%;display:flex;flex-direction:column;}
-.pos-card-main{padding:15px 16px 12px;display:block;cursor:default;}
+.pos-manage-card{min-width:0;height:100%;display:flex;flex-direction:column;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;}
+.pos-manage-card:hover{transform:translateY(-1px);border-color:var(--border2);box-shadow:0 6px 16px rgba(15,34,58,.09);}
+.pos-manage-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
+.pos-card-main{padding:15px 16px 14px;display:block;}
 .pos-card-info{min-width:0;margin-bottom:13px;}
 .pos-card-title{font-size:14px;font-weight:750;line-height:1.35;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pos-card-dept{font-size:11.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -546,10 +548,10 @@ html,body{line-height:1.55;}
 .pos-card-progress.is-complete .pos-card-progress-dot{background:var(--green);}
 .pos-card-progress.is-stopped{color:var(--t2);}
 .pos-card-progress.is-stopped .pos-card-progress-dot{background:var(--t3);}
-.pos-card-summary{display:grid;gap:5px;font-size:11.5px;color:var(--t2);}
-.pos-card-summary strong{font-weight:750;color:var(--text);}
-.pos-card-actions{padding:7px 10px;border-top:1px solid var(--border);background:#FAFBFC;margin-top:auto;}
-.pos-card-actions .btn{padding:4px 8px;font-size:11px;color:var(--acc);font-weight:700;}
+.pos-card-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:11.5px;color:var(--t2);}
+.pos-card-summary-item{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:0 2px;white-space:nowrap;}
+.pos-card-summary-label{overflow:hidden;text-overflow:ellipsis;}
+.pos-card-summary strong{font-weight:750;color:var(--text);flex:0 0 auto;}
 @media (max-width:980px){
   #pos-list{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
@@ -3415,10 +3417,9 @@ function renderPositions() {
     const active = posCandidates.filter(c => c.stage < 5 && !c.held);
     const passed = posCandidates.filter(c => c.stage === 5);
     const done = isDone(pos);
-    const hc = parseInt(pos.headcount) || 1;
     const progress = getPositionCardProgress(pos, posCandidates);
 
-    return `<div class="card pos-manage-card" style="${done?'opacity:.75':''}">
+    return `<div class="card pos-manage-card" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" aria-label="${esc(pos.title)} 상세보기" style="${done?'opacity:.75':''}">
       <div class="pos-card-main">
         <div class="pos-card-info">
           <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
@@ -3429,13 +3430,9 @@ function renderPositions() {
           <span>${esc(progress.label)}</span>
         </div>
         <div class="pos-card-summary">
-          <div>👥 진행중 후보자 <strong>${active.length}명</strong></div>
-          <div>🎯 채용 <strong>${passed.length} / ${hc}명</strong></div>
+          <div class="pos-card-summary-item"><span class="pos-card-summary-label">채용인원 :</span><strong>${passed.length}명</strong></div>
+          <div class="pos-card-summary-item"><span class="pos-card-summary-label">진행중 지원자 :</span><strong>${active.length}명</strong></div>
         </div>
-      </div>
-
-      <div class="pos-card-actions">
-        <button class="btn btn-sm" data-action="open-position" data-id="${pos.id}">상세보기</button>
       </div>
     </div>`;
   }).join('');
