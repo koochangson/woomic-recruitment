@@ -5133,13 +5133,18 @@ async function syncRefFromGS() {
       c.refT = rs.total || 3;
       c.refD = rs.responded || 0;
       c.ref  = rs.responded >= (rs.total||3) ? '완료' : (rs.registered>0 ? '진행중' : c.ref);
-      // 추천인 상세 동기화
-      refDetails[c.id] = (rs.refs||[]).map(r => ({
-        name: r.refName, email: r.refEmail, relation: r.rel,
-        status: r.status === '응답' ? '응답' : (r.status === '등록' ? '등록' : '대기'),
-        remindCnt: r.remindCnt || 0,
-        responseText: r.responseText || r.summary || r.comment || r.answer || r.response || r.notes || '',
-      })).filter(r => (r.name || r.email) && !isLegacyPlaceholderRef(r));
+      // 추천인 상세 동기화 (surveySent 플래그 보존: 재동기화 시 중복 발송 방지)
+      const prevRefs = refDetails[c.id] || [];
+      refDetails[c.id] = (rs.refs||[]).map(r => {
+        const existing = prevRefs.find(x => String(x.email||'').toLowerCase() === String(r.refEmail||'').toLowerCase());
+        return {
+          name: r.refName, email: r.refEmail, relation: r.rel,
+          status: r.status === '응답' ? '응답' : (r.status === '등록' ? '등록' : '대기'),
+          remindCnt: r.remindCnt || 0,
+          responseText: r.responseText || r.summary || r.comment || r.answer || r.response || r.notes || '',
+          surveySent: existing?.surveySent || false,
+        };
+      }).filter(r => (r.name || r.email) && !isLegacyPlaceholderRef(r));
       const actualRefs = refDetails[c.id];
       c.refT = Number(rs.total) || actualRefs.length || 3;
       c.refD = actualRefs.filter(r => r.status === '응답').length;
@@ -5150,6 +5155,8 @@ async function syncRefFromGS() {
     updateMetrics();
     if(status) status.textContent = `✅ ${matched}명 동기화${unmatched ? ` · 미매칭 ${unmatched}건` : ''}`;
     toast(`레퍼런스 ${matched}명 동기화 완료${unmatched ? ` · 지원자 미매칭 ${unmatched}건` : ''}`, unmatched ? 'tw' : 'tok');
+    // 설문 메일 발송은 Apps Script 트리거(onIntakeSubmit)가 자동 처리
+    // syncRefFromGS는 상태 조회 전용 — 여기서 메일 발송하지 않음
   } catch(e) {
     if(status) status.textContent = '❌ 실패: ' + e.message;
   }
@@ -7177,6 +7184,38 @@ function selectRefCand(id){
   const reportSel=document.getElementById('ref-report-cand');
   if(reportSel) { reportSel.value=String(id); renderRefReport(id); }
   renderReference();
+}
+
+// ── 레퍼런스 설문 자동 발송 (Apps Script → Gmail) ──────────────
+async function sendSurveyEmailsViaGS(queue, refFormUrl, refAutoUrl) {
+  const sign = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
+  const payload = queue.map(({ c, r }) => ({
+    toEmail:   r.email,
+    toName:    r.name,
+    candName:  c.name,
+    position:  c.pos || '',
+    surveyUrl: refFormUrl,
+    sign:      sign,
+  }));
+  try {
+    const res = await fetch(refAutoUrl, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'sendSurveyEmails', emails: payload }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if(json.error) throw new Error(json.error);
+    const sent = json.sent ?? queue.length;
+    queue.forEach(({ c, r }) => logNotify('Gmail', '추천인설문발송', `${esc(c.name)}-${esc(r.name)}`, r.email));
+    saveState();
+    toast(`추천인 ${sent}명에게 설문 안내 메일을 자동 발송했습니다.`, 'tok');
+  } catch(e) {
+    // Apps Script 오류 시 surveySent 초기화 후 사용자에게 알림
+    queue.forEach(({ r }) => { r.surveySent = false; });
+    saveState();
+    toast(`설문 자동 발송 실패: ${e.message} — Apps Script 설정을 확인하세요.`, 'terr');
+  }
 }
 
 function remindOneRef(candId,ri){
