@@ -5121,6 +5121,16 @@ async function syncRefFromGS() {
     const data = await res.json();
     if(!data || !Array.isArray(data.data)) { if(status) status.textContent='❌ 응답 오류'; return; }
 
+    // surveySent 플래그 보존용으로 기존 refDetails 백업 후 전체 초기화
+    const prevRefDetails = {};
+    Object.keys(refDetails).forEach(id => { prevRefDetails[id] = refDetails[id]; delete refDetails[id]; });
+    // 구글시트에 없는 지원자의 ref 상태도 초기화
+    candidates.forEach(c => {
+      if(c.ref === '진행중' || c.ref === '완료') {
+        c.refT = 3; c.refD = 0; c.ref = '대기';
+      }
+    });
+
     let matched = 0, unmatched = 0;
     data.data.forEach(rs => {
       // 이름 + 이메일로 지원자 매칭
@@ -5134,7 +5144,7 @@ async function syncRefFromGS() {
       c.refD = rs.responded || 0;
       c.ref  = rs.responded >= (rs.total||3) ? '완료' : (rs.registered>0 ? '진행중' : c.ref);
       // 추천인 상세 동기화 (surveySent 플래그 보존: 재동기화 시 중복 발송 방지)
-      const prevRefs = refDetails[c.id] || [];
+      const prevRefs = prevRefDetails[c.id] || [];
       refDetails[c.id] = (rs.refs||[]).map(r => {
         const existing = prevRefs.find(x => String(x.email||'').toLowerCase() === String(r.refEmail||'').toLowerCase());
         return {
