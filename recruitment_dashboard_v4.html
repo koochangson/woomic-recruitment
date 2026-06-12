@@ -5160,13 +5160,31 @@ async function syncRefFromGS() {
       c.refD = actualRefs.filter(r => r.status === '응답').length;
       c.ref = c.refD >= c.refT && c.refT > 0 ? '완료' : (actualRefs.length ? '진행중' : c.ref);
     });
+    // 응답 원문 동기화 (AI 요약 원본 데이터)
+    const matchedCands = data.data
+      .map(rs => candidates.find(x =>
+        String(x.name||'').trim() === String(rs.candName||'').trim() &&
+        String(x.email||'').trim().toLowerCase() === String(rs.candEmail||'').trim().toLowerCase()))
+      .filter(Boolean);
+    for (const c of matchedCands) {
+      try {
+        const rRes = await fetch(url + '?action=getRefResponses&candName=' + encodeURIComponent(c.name));
+        const rData = await rRes.json();
+        if (rData && Array.isArray(rData.data)) {
+          rData.data.forEach(r => {
+            const ref = (refDetails[c.id] || []).find(x =>
+              String(x.email||'').toLowerCase() === String(r.refEmail||'').toLowerCase());
+            if (ref) ref.responseText = r.responseText || '';
+          });
+        }
+      } catch(_) {}
+    }
+
     saveState();
     renderReference();
     updateMetrics();
     if(status) status.textContent = `✅ ${matched}명 동기화${unmatched ? ` · 미매칭 ${unmatched}건` : ''}`;
     toast(`레퍼런스 ${matched}명 동기화 완료${unmatched ? ` · 지원자 미매칭 ${unmatched}건` : ''}`, unmatched ? 'tw' : 'tok');
-    // 설문 메일 발송은 Apps Script 트리거(onIntakeSubmit)가 자동 처리
-    // syncRefFromGS는 상태 조회 전용 — 여기서 메일 발송하지 않음
   } catch(e) {
     if(status) status.textContent = '❌ 실패: ' + e.message;
   }
