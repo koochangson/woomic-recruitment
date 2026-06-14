@@ -510,6 +510,9 @@ html,body{line-height:1.55;}
 .int-task-card-head,.int-task-card-actions{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
 .int-task-position{font-size:12.5px;font-weight:800;color:var(--text);line-height:1.3;}
 .int-task-dept{margin-top:2px;font-size:10.5px;color:var(--t3);}
+.int-task-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.int-task-filters{display:flex;gap:5px;flex-wrap:wrap;}
+.int-task-filters .btn.is-active{background:var(--navy);border-color:var(--navy);color:#fff;}
 .int-task-stats{display:flex;gap:12px;font-size:10.5px;color:var(--t2);}
 .int-task-next{min-height:30px;padding:7px 8px;border-radius:6px;background:var(--s2);font-size:10.5px;color:var(--t2);}
 .int-task-next strong{color:var(--text);}
@@ -2852,12 +2855,12 @@ function isActivePipelineCand(c){
   if(c.held) return false;                      // 종료 포지션 등에서 보류 처리
   if(c.posId==null || c.posId==='') return true; // 미연결 지원자는 유지
   const p = positions.find(x=>Number(x.id)===Number(c.posId));
-  if(p && posStatus(p)!=='active') return false; // 종료 포지션 소속 제외
+  if(p && !['active','partial'].includes(posStatus(p))) return false; // 종료 포지션 소속 제외
   return true;
 }
 // 처리 필요 항목 단일 산출 (KPI 숫자와 처리필요 카드가 공유 → 항상 일치)
 function getActionItems(){
-  const activePositionIds = new Set(positions.filter(p=>posStatus(p)==='active').map(p=>Number(p.id)));
+  const activePositionIds = new Set(positions.filter(p=>['active','partial'].includes(posStatus(p))).map(p=>Number(p.id)));
   const pool = candidates.filter(c =>
     c.stage !== 6 && !c.held &&
     (c.posId == null || c.posId === '' || activePositionIds.has(Number(c.posId)))
@@ -4208,7 +4211,7 @@ function getPositionActionItems(positionId) {
     if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 포지션을 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closeModal('modal-pos-detail');closePosition(${positionId})`);
     else if(final.length && remain > 0) add('partial_fill','low','부분충원 상태',`최종합격 ${final.length}명 · 잔여 seat ${remain}명`,'지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
   }
-  if((projectStatus === 'nohire' || projectStatus === 'stopped') && list.some(c => c.stage < 6)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+  if((projectStatus === 'nohire' || projectStatus === 'stopped') && list.some(c => Number(c.stage) < 5 && !c.held)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
 
   const pri = { high:0, medium:1, low:2 };
   return items.sort((a,b) => pri[a.priority] - pri[b.priority]);
@@ -7188,12 +7191,26 @@ function renderInterviewPositionBoard() {
   }).join('');
 }
 
+const INTERVIEW_ACTION_TYPES = new Set([
+  'first_slots','first_schedule_reply','first_schedule',
+  'first_panel_notice','first_candidate_notice','first_result',
+  'second_slots','second_schedule',
+  'second_panel_notice','second_candidate_notice','second_result'
+]);
+let interviewPositionFilter = 'active';
+function getInterviewActionItems(positionId) {
+  return getPositionActionItems(positionId).filter(item => INTERVIEW_ACTION_TYPES.has(item.type));
+}
+function setInterviewPositionFilter(filter) {
+  interviewPositionFilter = ['needs','active','filled','closed','all'].includes(filter) ? filter : 'active';
+  renderInterviewPositionCards();
+}
+
 function renderInterviewInbox() {
   const wrap = document.getElementById('int-inbox-wrap');
   if(!wrap) return;
   const items = positions.flatMap(pos =>
-    getPositionActionItems(pos.id)
-      .filter(item => item.priority === 'high')
+    getInterviewActionItems(pos.id)
       .map(item => ({
         ...item,
         pos,
@@ -7202,7 +7219,7 @@ function renderInterviewInbox() {
   );
   wrap.innerHTML = `<section class="card int-inbox">
     <div class="ch">
-      <div><div class="ch-l">오늘 처리 필요한 면접 업무</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">우선순위가 높은 업무부터 바로 처리할 수 있습니다.</div></div>
+      <div><div class="ch-l">오늘 처리 필요한 면접 업무</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">면접 실행 업무를 우선순위 순서로 바로 처리할 수 있습니다.</div></div>
       ${items.length ? `<span class="b bamber">${items.length}건</span>` : ''}
     </div>
     ${items.length ? `<div class="int-inbox-list">${items.map(item => `<div class="int-inbox-item">
@@ -7211,7 +7228,7 @@ function renderInterviewInbox() {
         <div class="int-inbox-title">${esc(item.title)}</div>
         <div class="int-inbox-desc">${esc(item.pos.dept||'부서 미지정')} · ${esc(item.pos.title)} · ${esc(item.desc||'')}</div>
       </div>
-      <button class="btn btn-xs int-action-high" data-action="call" data-call="${esc(item.call)}">${esc(item.actionLabel||'처리')}</button>
+      <button class="btn btn-xs ${item.priority==='high'?'int-action-high':'btn-primary'}" data-action="call" data-call="${esc(item.call)}">${esc(item.actionLabel||'처리')}</button>
     </div>`).join('')}</div>` : `<div style="padding:9px 10px;border-radius:var(--rsm);background:var(--gbg);color:var(--green);font-size:11.5px;font-weight:700">현재 처리 필요한 면접 업무가 없습니다.</div>`}
   </section>`;
 }
@@ -7219,29 +7236,44 @@ function renderInterviewInbox() {
 function renderInterviewPositionCards() {
   const wrap = document.getElementById('int-pos-cards');
   if(!wrap) return;
-  const activePositions = positions
-    .filter(pos => ['active','partial'].includes(posStatus(pos)))
+  const positionCards = positions
     .map(pos => {
-      const list = candidates.filter(c => Number(c.posId) === Number(pos.id) && Number(c.stage) < 6 && !c.held);
-      const actions = getPositionActionItems(pos.id);
+      const allCandidates = candidates.filter(c => Number(c.posId) === Number(pos.id));
+      const list = allCandidates.filter(c => Number(c.stage) < 5 && !c.held);
+      const actions = getInterviewActionItems(pos.id);
       const action = actions.find(item => item.priority === 'high') || actions.find(item => item.priority === 'medium');
       if(action) action.cardCall = action.actionCall.startsWith('scrollPositionDetail(') ? `openPosDetail(${pos.id});${action.actionCall}` : action.actionCall;
       const priorityRank = action?.priority === 'high' ? 0 : action?.priority === 'medium' ? 1 : 2;
       const r1 = positionRoundData(pos.id, 1);
       let stage = { label:'면접 대기', cls:'bgray' };
-      if(list.some(c => Number(c.stage) >= 4)) stage = { label:'면접 완료', cls:'bgreen' };
-      else if(list.some(c => Number(c.stage) === 3)) stage = { label:'2차 면접 진행중', cls:'bpurple' };
-      else if(list.some(c => Number(c.stage) === 2)) stage = { label:'레퍼런스', cls:'bteal' };
-      else if(list.some(c => Number(c.stage) === 1) || r1.interviews.length) stage = { label:'1차 면접 진행중', cls:'bblue' };
-      return { pos, list, action, priorityRank, stage };
+      const minStage = list.length ? Math.min(...list.map(c => Number(c.stage))) : -1;
+      if(!allCandidates.length) stage = { label:'면접 대기', cls:'bgray' };
+      else if(!list.length) stage = { label:'면접 완료', cls:'bgreen' };
+      else if(minStage === 4) stage = { label:'처우협의', cls:'bamber' };
+      else if(minStage === 3) stage = { label:'2차 면접 진행중', cls:'bblue' };
+      else if(minStage === 2) stage = { label:'레퍼런스', cls:'bteal' };
+      else if(minStage === 1 || r1.interviews.length) stage = { label:'1차 면접 진행중', cls:'bblue' };
+      const status = posStatus(pos);
+      return { pos, list, action, priorityRank, stage, status };
     })
+    .filter(card => interviewPositionFilter === 'all'
+      || (interviewPositionFilter === 'needs' && !!card.action)
+      || (interviewPositionFilter === 'active' && ['active','partial'].includes(card.status))
+      || (interviewPositionFilter === 'filled' && card.status === 'filled')
+      || (interviewPositionFilter === 'closed' && ['nohire','stopped'].includes(card.status)))
     .sort((a,b) => a.priorityRank - b.priorityRank || (a.pos.title||'').localeCompare(b.pos.title||'','ko'));
 
-  if(!activePositions.length) {
-    wrap.innerHTML = '';
+  const filters = [
+    ['needs','처리 필요'], ['active','진행중'], ['filled','완료'], ['closed','종료'], ['all','전체']
+  ];
+  const toolbar = `<div class="int-task-toolbar"><strong style="font-size:12px">포지션 면접 현황</strong><div class="int-task-filters">${filters.map(([value,label]) =>
+    `<button class="btn btn-xs ${interviewPositionFilter===value?'is-active':''}" data-action="call" data-call="setInterviewPositionFilter('${value}')">${label}</button>`
+  ).join('')}</div></div>`;
+  if(!positionCards.length) {
+    wrap.innerHTML = `${toolbar}${empty('조건에 맞는 포지션이 없습니다.')}`;
     return;
   }
-  wrap.innerHTML = `<div class="int-task-board">${activePositions.map(({pos,list,action,stage}) => `<article class="int-task-card ${action ? `is-${action.priority}` : ''}">
+  wrap.innerHTML = `${toolbar}<div class="int-task-board">${positionCards.map(({pos,list,action,stage}) => `<article class="int-task-card ${action ? `is-${action.priority}` : ''}">
     <div class="int-task-card-head">
       <div><div class="int-task-position">${esc(pos.title)}</div><div class="int-task-dept">${esc(pos.dept||'부서 미지정')}</div></div>
       <span class="b ${stage.cls}">${stage.label}</span>
@@ -8279,7 +8311,7 @@ const DELEGATED_CALLS = Object.freeze({
   markRefRegistered, markRefResponse, navBtn, nextCollectSend, nohirePosition, openAddCand, openAddPosition, openBulkAddCand,
   openCollectSlots, openIntResult, openInterviewNoticeFlow, openPosDetail, openPositionResultModal, openPositionRoundSchedule, quickNotify, rejectCandidate,
   remindOneRef, remindRef, removePanelist, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
-  purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setPrivacyMaskFromControl, setTrackerPage, snapTo10,
+  purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setInterviewPositionFilter, setPrivacyMaskFromControl, setTrackerPage, snapTo10,
   finishRejectReason, runCoreDiagnosticsUI,
   refreshOnboardingDeptRecipients, saveSettings, selectRefCand, selectTemplateEditor, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendAllCandSchedule, sendInterviewNoticeCandidates, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelNotice, sendRefRequest, setDashPipeFilter, setRefFilter, showUnlinkedList, scrollPositionDetail,
