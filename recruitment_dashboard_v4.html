@@ -9,21 +9,24 @@
 <style>
 /* ── 변수 ──────────────────────────────────────────────── */
 :root {
-  --bg:#F5F4F1;--surface:#FFF;--s2:#EFEDE8;--s3:#E6E3DC;
-  --border:#E0DDD6;--border2:#C8C5BC;
-  --text:#1A1916;--t2:#68665E;--t3:#9A9890;
-  --acc:#0F3460;--acc2:#1A5296;--acc-light:#EBF0FA;
+  /* Layout */
+  --r:10px;--rsm:6px;--rlg:12px;
+  /* Colors */
+  --bg:#F6F8FB;--surface:#FFF;--s2:#F4F6F8;--s3:#E9EDF2;
+  --border:#E2E7ED;--border2:#C9D1DB;
+  --text:#172033;--t2:#596579;--t3:#8792A5;
+  --acc:#0F3460;--acc2:#174A80;--acc-light:#EEF3F8;
   --teams:#5558AD;--teams-bg:#F0F0FB;--teams-bd:#C8C9ED;
   --outlook:#0078D4;--outlook-bg:#E8F3FD;
   --green:#147A48;--gbg:#EDFAF3;--gbd:#A3E6C4;
   --blue:#1660AA;--bbg:#EBF3FD;--bbd:#A8CEF5;
   --amber:#A05800;--abg:#FFF8EC;--abd:#F5D080;
   --red:#C0222B;--rbg:#FFF0F0;--rbd:#F5B0B3;
-  --purple:#5A3FA0;--pbg:#F3EFFE;--pbd:#C8B4F5;
-  --teal:#0A6E52;--tbg:#EDFAF5;--tbd:#9AE0C3;
-  --r:10px;--rsm:6px;--rlg:14px;
-  --sh:0 1px 3px rgba(0,0,0,.07);
-  --shm:0 6px 24px rgba(0,0,0,.12);
+  --purple:#3F4EA8;--pbg:#EEF0FB;--pbd:#BFC6EE;
+  --teal:#0E7490;--tbg:#E8F6F8;--tbd:#A6DCE6;
+  /* Shadow */
+  --sh:0 1px 3px rgba(15,34,58,.05);
+  --shm:0 12px 32px rgba(15,34,58,.14);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
@@ -355,17 +358,6 @@ textarea{resize:vertical;min-height:64px;}
    되돌리려면 이 블록만 삭제하면 원본 디자인으로 복귀합니다.
    ════════════════════════════════════════════════════════════ */
 /* 1. 변수 — Cloud/Steel Gray + Enterprise Blue */
-:root{
-  --bg:#F6F8FB; --s2:#F4F6F8; --s3:#E9EDF2;
-  --border:#E2E7ED; --border2:#C9D1DB;
-  --text:#172033; --t2:#596579; --t3:#8792A5;
-  --acc:#0F3460; --acc2:#174A80; --acc-light:#EEF3F8;
-  --sh:0 1px 3px rgba(15,34,58,.05);
-  --shm:0 12px 32px rgba(15,34,58,.14);
-  --rlg:12px;
-  --purple:#174A80; --pbg:#EEF3F8; --pbd:#AFC4DE;   /* Purple → Navy 통합 */
-  --teal:#147A48;   --tbg:#EDFAF3; --tbd:#A3E6C4;   /* Teal → Green 통합 */
-}
 /* 2. 레이아웃 */
 .sb{width:224px;}
 .topbar{height:60px;padding:0 32px;}
@@ -410,10 +402,6 @@ html,body{line-height:1.55;}
        1차≈2차 Blue)에서 색 충돌을 만들어 상태 식별을 저해함.
        쿨톤은 유지하되 6단계를 구분 가능한 스케일(+Cyan/+Indigo)로 분리.
    ──────────────────────────────────────────────────────────── */
-:root{
-  --teal:#0E7490;  --tbg:#E8F6F8; --tbd:#A6DCE6;   /* Cyan-Teal — 레퍼런스 */
-  --purple:#3F4EA8;--pbg:#EEF0FB; --pbd:#BFC6EE;    /* Indigo — 2차면접 */
-}
 /* (B) KPI 라벨 가독성: ~3:1 → AA(4.5:1+) */
 .mc-lbl{color:var(--t2);}
 /* (C) 키보드 포커스 링 — 접근성 일관성 */
@@ -493,8 +481,8 @@ html,body{line-height:1.55;}
 .help-details summary{cursor:pointer;padding:9px 12px;font-size:11.5px;font-weight:700;color:var(--t2);}
 .help-details-body{padding:0 12px 11px;font-size:11.5px;line-height:1.65;color:var(--t2);}
 /* 레퍼런스 체크 */
-#sect-reference .ref-kpis{grid-template-columns:repeat(3,1fr);}
-#sect-reference .ref-kpi-secondary{display:none;}
+#sect-reference .ref-kpis{grid-template-columns:repeat(5,1fr);}
+#sect-reference .ref-kpi-secondary{display:block;}
 #sect-reference .mc{min-height:74px;}
 /* 면접·입사 안내: 입력이 주인공 */
 #sect-interview .grid.g23{grid-template-columns:minmax(420px,1.25fr) minmax(320px,.75fr);}
@@ -790,7 +778,7 @@ html,body{line-height:1.55;}
       <div class="ng-label">알림 내역</div>
       <button class="nb" data-action="nav" data-target="notifylog">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H2v10l3-2h9V2z"/></svg>
-        발송 내역
+        리포트·내역
         <span class="nbb" id="nb-notify" style="display:none"></span>
       </button>
     </div>
@@ -798,7 +786,7 @@ html,body{line-height:1.55;}
       <div class="ng-label">설정</div>
       <button class="nb" data-action="nav" data-target="settings">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
-        알림 설정
+        시스템 설정
       </button>
     </div>
   </nav>
@@ -930,8 +918,7 @@ html,body{line-height:1.55;}
             </label>
           </div>
         </details>
-        <button class="btn btn-sm" data-action="call" data-call="openBulkAddCand()" style="margin-left:auto">일괄 등록</button>
-        <button class="btn btn-sm btn-primary" data-action="call" data-call="openAddCand()">+ 지원자 추가</button>
+        <button class="btn btn-sm btn-primary" data-action="call" data-call="openAddCand()" style="margin-left:auto">+ 지원자 추가</button>
       </div>
       <div class="cl-wrap">
         <div class="cl-header">
@@ -1116,10 +1103,7 @@ html,body{line-height:1.55;}
 
     <!-- ⑤ 입사 안내 ──────────────────────────────────────── -->
     <div id="sect-onboarding" class="sect">
-      <details class="help-details">
-        <summary>입사 안내 발송 방식 보기</summary>
-        <div class="help-details-body">등록된 최종 합격자에게 Outlook으로 합격 및 입사 안내를 발송하고, 필요한 경우 사내 부서에도 별도로 통보합니다.</div>
-      </details>
+      <p style="font-size:11.5px;color:var(--t3);margin-bottom:14px">최종 합격자에게 Outlook으로 입사 안내를 발송하고, 내부 관련 부서에 공유합니다.</p>
       <div class="grid g23">
         <div class="card">
           <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
@@ -1210,6 +1194,9 @@ html,body{line-height:1.55;}
     <!-- ⑦ 설정 ──────────────────────────────────────────── -->
     <div id="sect-settings" class="sect">
       <div class="card">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+          <button class="btn btn-primary btn-sm" data-action="call" data-call="saveSettings()">💾 설정 저장</button>
+        </div>
         <div class="ch">알림 채널 설정</div>
         <div class="alert aw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 7v4"/></svg>
           <span>Google Sheets 연동: 지원자 추가·수정·단계변경 시 자동으로 Google Sheets에 저장됩니다. 아래 URL 입력 후 연결 테스트를 완료하세요.</span>
@@ -1543,12 +1530,6 @@ html,body{line-height:1.55;}
         <div id="cs-external-notice" style="font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
           ✉️ 지원자 안내는 이메일(Outlook)로 발송됩니다.
         </div>
-        <div class="no-checks" style="display:none">
-          <label class="no-check outlook-opt">
-            <input type="checkbox" id="cs-notify-outlook" checked>
-            Outlook 이메일
-          </label>
-        </div>
       </div>
 
       <!-- 면접 후보 일정 입력 (1차/2차 면접 단계에서만 표시) -->
@@ -1557,27 +1538,15 @@ html,body{line-height:1.55;}
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
-            <input id="cs-slot1-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
-            <select id="cs-slot1-hour" style="font-size:12px;padding:6px 4px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"></select>
-            <span style="font-size:11px;color:var(--t3)">시</span>
-            <select id="cs-slot1-min" style="font-size:12px;padding:6px 4px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"></select>
-            <span style="font-size:11px;color:var(--t3)">분</span>
+            <input id="cs-slot1-dt" type="datetime-local" step="600" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">2안</span>
-            <input id="cs-slot2-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
-            <select id="cs-slot2-hour" style="font-size:12px;padding:6px 4px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"></select>
-            <span style="font-size:11px;color:var(--t3)">시</span>
-            <select id="cs-slot2-min" style="font-size:12px;padding:6px 4px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"></select>
-            <span style="font-size:11px;color:var(--t3)">분</span>
+            <input id="cs-slot2-dt" type="datetime-local" step="600" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">3안</span>
-            <input id="cs-slot3-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
-            <select id="cs-slot3-hour" style="font-size:12px;padding:6px 4px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"></select>
-            <span style="font-size:11px;color:var(--t3)">시</span>
-            <select id="cs-slot3-min" style="font-size:12px;padding:6px 4px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"></select>
-            <span style="font-size:11px;color:var(--t3)">분</span>
+            <input id="cs-slot3-dt" type="datetime-local" step="600" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
           </div>
         </div>
         <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:6px 8px;background:var(--bbg);border-radius:var(--rsm)">
@@ -1880,18 +1849,15 @@ html,body{line-height:1.55;}
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
-          <input id="csl-slot1-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
-          <input id="csl-slot1-time" type="time" step="600" value="10:00" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <input id="csl-slot1-dt" type="datetime-local" step="600" data-onchange="snapTo10(this)" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">2안</span>
-          <input id="csl-slot2-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
-          <input id="csl-slot2-time" type="time" step="600" value="14:00" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <input id="csl-slot2-dt" type="datetime-local" step="600" data-onchange="snapTo10(this)" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">3안</span>
-          <input id="csl-slot3-date" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
-          <input id="csl-slot3-time" type="time" step="600" value="10:00" style="font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <input id="csl-slot3-dt" type="datetime-local" step="600" data-onchange="snapTo10(this)" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
         </div>
       </div>
       <div class="fg" style="margin-bottom:12px">
@@ -2119,8 +2085,8 @@ const TITLES = {
   interview:  '면접 관리',
   reference:  '레퍼런스 체크',
   onboarding: '입사 안내',
-  notifylog:  '알림 발송 내역',
-  settings:   '알림 설정',
+  notifylog:  '리포트·내역',
+  settings:   '시스템 설정',
 };
 
 const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격','입사'];
@@ -3809,10 +3775,11 @@ function openCollectSlots(posId, stageIdx) {
   collectSlotsCtx = { posId, stageIdx };
   document.getElementById('csl-title').textContent = `${round} 면접 후보일정 일괄 안내 — ${(pos.dept?pos.dept+' · ':'')+pos.title} (${targets.length}명)`;
   // 기본 날짜 채우기 (3일 후부터)
+  const defaultTimes = ['10:00','14:00','10:00'];
   [1,2,3].forEach(n => {
     const d = new Date(); d.setDate(d.getDate() + 2 + n);
-    const dEl = document.getElementById(`csl-slot${n}-date`);
-    if(dEl) dEl.value = d.toISOString().slice(0,10);
+    const dtEl = document.getElementById(`csl-slot${n}-dt`);
+    if(dtEl) dtEl.value = `${d.toISOString().slice(0,10)}T${defaultTimes[n-1]}`;
   });
   document.getElementById('csl-loc').value = pos.loc || '';
   // 대상 목록
@@ -3833,9 +3800,8 @@ function sendCollectSlots() {
   // 후보일정 수집
   const slots = [];
   [1,2,3].forEach(n => {
-    const date = document.getElementById(`csl-slot${n}-date`)?.value;
-    const time = document.getElementById(`csl-slot${n}-time`)?.value;
-    if(date && time) slots.push(`${date} ${time}`);
+    const dt = document.getElementById(`csl-slot${n}-dt`)?.value;
+    if(dt) slots.push(dt.replace('T',' '));
   });
   if(!slots.length) { toast('후보일정을 1개 이상 입력하세요.', 'terr'); return; }
   const loc = document.getElementById('csl-loc')?.value || '';
@@ -6490,37 +6456,14 @@ function renderDashboard() {
 // ══════════════════════════════════════════════════════════════
 
 // ── 단계 전환 모달 미리보기 업데이트 ────────────────────────
-// 분리형 후보 일정 입력에서 datetime 문자열 조합 ("2026-06-05T14:30" 형식, 없으면 '')
+// 후보 일정 datetime-local 값 ("2026-06-05T14:30" 형식, 없으면 '')
 function getSlotValue(n) {
-  const date = document.getElementById(`cs-slot${n}-date`)?.value;
-  const hour = document.getElementById(`cs-slot${n}-hour`)?.value;
-  const min  = document.getElementById(`cs-slot${n}-min`)?.value;
-  if(!date || hour==='' || hour==null || min==='' || min==null) return '';
-  return `${date}T${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+  return document.getElementById(`cs-slot${n}-dt`)?.value || '';
 }
 
-// 후보 일정 시/분 드롭다운 초기화 (시: 8~20, 분: 10분 단위)
+// 기존 호출부 호환 유지: datetime-local 입력은 별도 드롭다운 초기화가 필요하지 않음
 function initSlotDropdowns() {
-  [1,2,3].forEach(n => {
-    const hourSel = document.getElementById(`cs-slot${n}-hour`);
-    const minSel  = document.getElementById(`cs-slot${n}-min`);
-    if(hourSel && !hourSel.options.length) {
-      for(let h=8; h<=20; h++) {
-        const o = document.createElement('option');
-        o.value = h; o.text = String(h).padStart(2,'0');
-        hourSel.appendChild(o);
-      }
-      hourSel.value = 10; // 기본 10시
-    }
-    if(minSel && !minSel.options.length) {
-      for(let m=0; m<60; m+=10) {
-        const o = document.createElement('option');
-        o.value = m; o.text = String(m).padStart(2,'0');
-        minSel.appendChild(o);
-      }
-      minSel.value = 0; // 기본 00분
-    }
-  });
+  return;
 }
 
 function updateCsPreview(c, newStage) {
@@ -6571,9 +6514,7 @@ function requestStageChange(candId, newStage) {
     // 후보 일정 드롭다운 초기화 + 입력값 비우기
     initSlotDropdowns();
     [1,2,3].forEach(n=>{
-      const dEl=document.getElementById(`cs-slot${n}-date`); if(dEl) dEl.value='';
-      const hEl=document.getElementById(`cs-slot${n}-hour`); if(hEl) hEl.value=10;
-      const mEl=document.getElementById(`cs-slot${n}-min`);  if(mEl) mEl.value=0;
+      const dtEl=document.getElementById(`cs-slot${n}-dt`); if(dtEl) dtEl.value='';
     });
   }
   openModal('modal-confirm-stage');
@@ -8518,9 +8459,9 @@ try {
       else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
   });
-  // 면접 후보 일정 변경 시 미리보기 업데이트 (날짜+시+분 분리형 6필드 × 3안)
+  // 면접 후보 일정 변경 시 미리보기 업데이트
   [1,2,3].forEach(n => {
-    [`cs-slot${n}-date`,`cs-slot${n}-hour`,`cs-slot${n}-min`].forEach(id => {
+    [`cs-slot${n}-dt`].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.addEventListener('change', () => {
         if(pendingStageChange) {
