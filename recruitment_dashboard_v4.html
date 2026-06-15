@@ -503,11 +503,6 @@ html,body{line-height:1.55;}
 #sect-onboarding .onboarding-preview-details .help-details-body{padding-top:2px;}
 #sect-onboarding .onboarding-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 #sect-onboarding .onboarding-preview-grid .card{margin:0;}
-.int-pos-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
-.int-pos-card{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);overflow:hidden;box-shadow:var(--sh);}
-.int-pos-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:13px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
-.int-pos-title{font-size:13px;font-weight:800;color:var(--text);}
-.int-pos-meta{font-size:10.5px;color:var(--t3);margin-top:3px;}
 .int-inbox{margin-bottom:12px;border-left:3px solid var(--amber);}
 .int-inbox-list{display:grid;gap:7px;}
 .int-inbox-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s1);}
@@ -530,14 +525,6 @@ html,body{line-height:1.55;}
 .int-task-card-actions{margin-top:auto;align-items:center;}
 .int-action-high{background:var(--amber);border-color:var(--amber);color:#fff;}
 .int-action-high:hover{filter:brightness(.94);}
-.int-round{padding:11px 14px;border-bottom:1px solid var(--border);}
-.int-round:last-child{border-bottom:0;}
-.int-round-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
-.int-round-name{font-size:11.5px;font-weight:750;}
-.int-round-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-bottom:9px;}
-.int-round-stat{padding:6px;background:var(--s2);border-radius:var(--rsm);font-size:9px;color:var(--t3);}
-.int-round-stat strong{display:block;font-size:12px;color:var(--text);margin-bottom:1px;}
-.int-round-actions{display:flex;gap:5px;flex-wrap:wrap;}
 .int-exception-details{margin-top:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);}
 .int-exception-details>summary{cursor:pointer;padding:11px 14px;font-size:11.5px;font-weight:700;color:var(--t2);}
 .int-exception-details[open]>summary{border-bottom:1px solid var(--border);}
@@ -570,7 +557,6 @@ html,body{line-height:1.55;}
   .g5,.g6{grid-template-columns:repeat(3,1fr);}
   #sect-interview .grid.g23,.grid.g32{grid-template-columns:1fr;}
   #sect-onboarding .onboarding-preview-grid{grid-template-columns:1fr;}
-  .int-pos-board{grid-template-columns:1fr;}
   .int-task-board{grid-template-columns:repeat(2,minmax(0,1fr));}
   .template-editor{grid-template-columns:180px minmax(0,1fr);}
   .pos-card-main{align-items:flex-start;flex-wrap:wrap;}
@@ -951,15 +937,6 @@ html,body{line-height:1.55;}
         <summary>면접 안내 운영 방식 보기</summary>
         <div class="help-details-body">면접은 <strong>채용 포지션 기준</strong>으로 운영합니다. 포지션별로 후보일정 안내, 공동일정 확정, 지원자·면접관 안내, 결과 입력을 진행하고 특별한 사유가 있는 지원자만 개별 예외 처리합니다.</div>
       </details>
-      <div class="card" style="margin-bottom:12px">
-        <div class="ch">
-          <div><div class="ch-l">포지션별 면접 운영</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">포지션 단위 공동일정과 안내·결과 상태를 관리합니다.</div></div>
-          <select id="int-filter" data-onchange="renderIntTable()" style="font-size:11px;padding:4px 9px;border-radius:20px;border:1px solid var(--border2)">
-            <option value="">전체 면접</option><option value="1차">1차 면접</option><option value="2차">2차 면접</option>
-          </select>
-        </div>
-        <div id="int-position-board" class="int-pos-board"></div>
-      </div>
       <details class="int-exception-details">
         <summary>개별 지원자 예외 일정 등록·수정</summary>
         <div class="int-exception-body">
@@ -1007,6 +984,9 @@ html,body{line-height:1.55;}
       <div class="card" style="margin-top:12px">
         <div class="ch">
           <div><div class="ch-l">개별 일정 현황</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">포지션 공동일정 적용 결과와 개별 예외 일정을 확인합니다.</div></div>
+          <select id="int-filter" data-onchange="renderIntTable()" style="font-size:11px;padding:4px 9px;border-radius:20px;border:1px solid var(--border2)">
+            <option value="">전체 면접</option><option value="1차">1차 면접</option><option value="2차">2차 면접</option>
+          </select>
         </div>
         <div id="int-table"></div>
       </div>
@@ -7128,83 +7108,6 @@ async function addInterview() {
   toast(`${cand.name}님 ${type} 면접 등록 완료`, 'tok');
 }
 
-function renderInterviewPositionBoard() {
-  const wrap = document.getElementById('int-position-board');
-  if(!wrap) return;
-  const filter = document.getElementById('int-filter')?.value || '';
-  const rounds = filter ? [filter] : ['1차','2차'];
-  const activePositions = positions
-    .filter(p => ['active','partial'].includes(posStatus(p)))
-    .sort((a,b) => (a.title||'').localeCompare(b.title||'','ko'));
-
-  const roundCard = (pos, round) => {
-    const stageIdx = round === '1차' ? 1 : 3;
-    const targetStages = round === '1차' ? [0,1] : [2,3];
-    const posCands = candidates.filter(c =>
-      Number(c.posId) === Number(pos.id) &&
-      targetStages.includes(Number(c.stage)) &&
-      !c.held
-    );
-    const ids = new Set(posCands.map(c=>Number(c.id)));
-    const roundInterviews = interviews.filter(i => ids.has(Number(i.candId)) && i.type === round);
-    const interviewFor = c => roundInterviews.find(i => Number(i.candId) === Number(c.id));
-    const scheduled = posCands.filter(c => {
-      const i = interviewFor(c);
-      return i && (i.status==='confirmed'||i.status==='done') && i.date;
-    }).length;
-    const candidateNotified = posCands.filter(c => {
-      const i = interviewFor(c);
-      return i && (i.candidateNotified || i.candNotified);
-    }).length;
-    const panelNotified = posCands.filter(c => {
-      const i = interviewFor(c);
-      return i && (i.panelNotified || i.notified);
-    }).length;
-    const results = posCands.filter(c => {
-      const i = interviewFor(c);
-      return c.decision || i?.result || Number(c.lastCompletedStage) >= stageIdx;
-    }).length;
-    const all = posCands.length;
-    const status = !all ? '대상 없음'
-      : results === all ? '결과 입력 완료'
-      : candidateNotified === all && panelNotified === all ? '면접 안내 완료'
-      : scheduled === all ? '일정 확정 완료'
-      : scheduled ? '일정 확정 진행중' : '일정 수립 필요';
-    const statusCls = results===all&&all ? 'bgreen' : scheduled===all&&all ? 'bblue' : all ? 'bamber' : 'bgray';
-    return `<div class="int-round">
-      <div class="int-round-top"><span class="int-round-name">${round} 면접</span><span class="b ${statusCls}">${status}</span></div>
-      <div class="int-round-stats">
-        <div class="int-round-stat"><strong>${all}명</strong>대상자</div>
-        <div class="int-round-stat"><strong>${scheduled}/${all}</strong>일정 확정</div>
-        <div class="int-round-stat"><strong>${candidateNotified}/${all}</strong>지원자 안내</div>
-        <div class="int-round-stat"><strong>${panelNotified}/${all}</strong>면접관 안내</div>
-        <div class="int-round-stat"><strong>${results}/${all}</strong>결과 입력</div>
-      </div>
-      <div class="int-round-actions">
-        <button class="btn btn-xs" data-action="call" data-call="openCollectSlots(${pos.id},${stageIdx})" ${all?'':'disabled'}>후보일정 안내</button>
-        <button class="btn btn-xs btn-primary" data-action="call" data-call="openPositionRoundSchedule(${pos.id},${stageIdx})" ${all?'':'disabled'}>공동일정 확정</button>
-        <button class="btn btn-xs btn-outlook" data-action="call" data-call="openInterviewNoticeFlow(${pos.id},${stageIdx},${round==='1차'?1:2})" ${scheduled?'':'disabled'}>면접 안내</button>
-        <button class="btn btn-xs btn-green" data-action="call" data-call="openPositionResultModal(${pos.id},${stageIdx})" ${all?'':'disabled'}>결과 입력</button>
-      </div>
-    </div>`;
-  };
-
-  if(!activePositions.length) {
-    wrap.innerHTML = empty('진행중인 포지션이 없습니다.');
-    return;
-  }
-  wrap.innerHTML = activePositions.map(pos => {
-    const posCands = candidates.filter(c=>Number(c.posId)===Number(pos.id)&&c.stage<6&&!c.held);
-    return `<article class="int-pos-card">
-      <div class="int-pos-head" data-action="open-position" data-id="${pos.id}">
-        <div><div class="int-pos-title">${esc(pos.title)}</div><div class="int-pos-meta">${esc(pos.dept||'부서 미지정')} · 진행중 지원자 ${posCands.length}명 · 면접관 ${esc(pos.panel1||pos.panel2||'미지정')}</div></div>
-        <span class="b bblue">상세 보기</span>
-      </div>
-      ${rounds.map(round=>roundCard(pos,round)).join('')}
-    </article>`;
-  }).join('');
-}
-
 const INTERVIEW_ACTION_TYPES = new Set([
   'first_slots','first_schedule_reply','first_schedule',
   'first_panel_notice','first_candidate_notice','first_result',
@@ -7323,7 +7226,6 @@ function sendIntNotify(ch) {
 function renderIntTable() {
   renderInterviewInbox();
   renderInterviewPositionCards();
-  renderInterviewPositionBoard();
   const f    = document.getElementById('int-filter')?.value||'';
   const list = interviews.filter(i=>!f||i.type===f);
   const wrap = document.getElementById('int-table');
