@@ -484,6 +484,17 @@ html,body{line-height:1.55;}
 #sect-reference .ref-kpis{grid-template-columns:repeat(5,1fr);}
 #sect-reference .ref-kpi-secondary{display:block;}
 #sect-reference .mc{min-height:74px;}
+.ref-pos-group{border:1px solid var(--border);border-radius:var(--rsm);margin:10px;overflow:hidden;}
+.ref-pos-head{padding:10px 14px 8px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.ref-pos-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.ref-pos-main{min-width:0;flex:1;}
+.ref-pos-title{font-size:12px;font-weight:700;color:var(--text);}
+.ref-pos-meta{font-size:10px;color:var(--t3);margin-top:1px;}
+.ref-pos-total{text-align:right;white-space:nowrap;}
+.ref-pos-total strong{display:block;font-size:11px;}
+.ref-pos-total span{font-size:10px;color:var(--t3);}
+.ref-cand-card{padding:12px 14px 12px 22px;border-bottom:1px solid var(--border);cursor:pointer;}
+.ref-cand-card:last-child{border-bottom:0;}
 /* 면접·입사 안내: 입력이 주인공 */
 #sect-interview .grid.g23{grid-template-columns:minmax(420px,1.25fr) minmax(320px,.75fr);}
 #sect-interview .notify-card,#sect-onboarding .notify-card{box-shadow:none;}
@@ -1022,8 +1033,11 @@ html,body{line-height:1.55;}
           <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
             <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">레퍼런스 진행 현황</div>
             <div style="display:flex;gap:6px;align-items:center">
+              <select id="ref-pos-sort" data-onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
+                <option value="status">상태 우선</option><option value="title">포지션명순</option>
+              </select>
               <select id="ref-sort" data-onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--border2)">
-                <option value="name">이름순</option><option value="rate">응답률순</option>
+                <option value="name">이름순 (포지션 내)</option><option value="rate">응답률순 (포지션 내)</option>
               </select>
               <button class="btn btn-xs" data-action="call" data-call="syncRefFromGS()" style="background:#E9F7F2;color:var(--teal);border-color:#A8E0C0">↻ 구글시트 동기화</button>
             </div>
@@ -7406,49 +7420,86 @@ function renderReference() {
   set('ref-overall-pct',`${totalD} / ${totalT} (${pct}%)`);
   const bar=document.getElementById('ref-overall-bar');if(bar)bar.style.width=pct+'%';
 
-  // 레퍼런스 진행 현황 리스트 (레퍼런스 단계 이상 전체, 추천인 표시)
+  // 레퍼런스 진행 현황 리스트 — 포지션 단위 그룹
   const sortMode=document.getElementById('ref-sort')?.value||'name';
-  let ingList=candidates.filter(c=>c.stage>=2 && c.stage!==6);  // 레퍼런스 단계 이상, 불합격 제외
-  if(sortMode==='rate') ingList.sort((a,b)=>(a.refD/Math.max(a.refT,1))-(b.refD/Math.max(b.refT,1)));
-  else ingList.sort((a,b)=>a.name.localeCompare(b.name));
+  const posSortMode=document.getElementById('ref-pos-sort')?.value||'status';
+  const ingList=candidates.filter(c=>Number(c.stage)>=2 && Number(c.stage)!==6);
+  const posGroups=new Map();
+  ingList.forEach(c=>{
+    const unassigned=c.posId==null||c.posId==='';
+    const key=unassigned?'unassigned':Number(c.posId);
+    if(!posGroups.has(key)){
+      const pos=unassigned?null:positions.find(p=>Number(p.id)===Number(c.posId));
+      posGroups.set(key,{pos:pos||{id:key,title:c.pos||'미분류',dept:''},cands:[]});
+    }
+    posGroups.get(key).cands.push(c);
+  });
+  posGroups.forEach(group=>group.cands.sort(sortMode==='rate'
+    ? (a,b)=>(Number(a.refD)||0)/Math.max(Number(a.refT)||1,1)-(Number(b.refD)||0)/Math.max(Number(b.refT)||1,1)
+    : (a,b)=>(a.name||'').localeCompare(b.name||'','ko')));
+  const refGroupState=cands=>{
+    if(cands.every(c=>c.ref==='완료')) return {label:'완료',color:'var(--green)',rank:2};
+    if(cands.every(c=>c.ref==='미시작'||c.ref==='대기')) return {label:'대기',color:'var(--t3)',rank:1};
+    return {label:'진행중',color:'var(--amber)',rank:0};
+  };
+  const sortedGroups=[...posGroups.values()].sort((a,b)=>{
+    if(posSortMode==='title') return (a.pos.title||'').localeCompare(b.pos.title||'','ko');
+    return refGroupState(a.cands).rank-refGroupState(b.cands).rank
+      || (a.pos.title||'').localeCompare(b.pos.title||'','ko');
+  });
 
   const ul=document.getElementById('ref-urgency-list');
   if(ul) {
     if(!ingList.length){ul.innerHTML='<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">레퍼런스 단계 지원자가 없습니다.</div>';}
-    else ul.innerHTML=ingList.map(c=>{
-      const refs = refDetails[c.id] || [];
-      const tot = c.refT || refs.length || 3;
-      const pct2 = tot>0 ? Math.round((c.refD||0)/tot*100) : 0;
-      const urgC = c.ref==='완료'?'var(--green)' : (c.refD||0)===0?'var(--red)':'var(--amber)';
-      const isSel=selectedRefCandId===c.id;
-      const stBadge = c.ref==='미시작' ? '<span class="b bgray" style="font-size:9px">미시작</span>'
-        : c.ref==='완료' ? '<span class="b bgreen" style="font-size:9px">완료</span>'
-        : '<span class="b bamber" style="font-size:9px">진행중</span>';
-      // 추천인 목록 표시
-      const refListHtml = refs.length ? refs.map(r=>{
-        const dot = r.status==='응답'?'var(--green)':r.status==='등록'?'var(--blue)':'var(--t3)';
-        const stxt = r.status==='응답'?'응답완료':r.status==='등록'?'접수':'대기';
-        return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0">
-          <span style="width:5px;height:5px;border-radius:50%;background:${dot}"></span>
-          <span style="flex:1">${r.name||'추천인'} <span style="color:var(--t3)">${r.relation||''}</span></span>
-          <span style="color:${dot}">${stxt}</span>
+    else ul.innerHTML=sortedGroups.map(({pos,cands})=>{
+      const state=refGroupState(cands);
+      const totalD=cands.reduce((sum,c)=>sum+(Number(c.refD)||0),0);
+      const totalT=cands.reduce((sum,c)=>sum+(Number(c.refT)||3),0);
+      const posPct=totalT>0?Math.round(totalD/totalT*100):0;
+      const cards=cands.map(c=>{
+        const refs=refDetails[c.id]||[];
+        const done=Number(c.refD)||0;
+        const tot=Number(c.refT)||refs.length||3;
+        const pct2=tot>0?Math.round(done/tot*100):0;
+        const urgC=c.ref==='완료'?'var(--green)':done===0?'var(--red)':'var(--amber)';
+        const isSel=selectedRefCandId===c.id;
+        const stBadge=c.ref==='완료'?'<span class="b bgreen" style="font-size:9px">완료</span>'
+          : c.ref==='진행중'?'<span class="b bamber" style="font-size:9px">진행중</span>'
+          : `<span class="b bgray" style="font-size:9px">${c.ref==='대기'?'대기':'미시작'}</span>`;
+        const refListHtml=refs.length?refs.map(r=>{
+          const dot=r.status==='응답'?'var(--green)':r.status==='등록'?'var(--blue)':'var(--t3)';
+          const stxt=r.status==='응답'?'응답완료':r.status==='등록'?'접수':'대기';
+          return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0">
+            <span style="width:5px;height:5px;border-radius:50%;background:${dot}"></span>
+            <span style="flex:1">${esc(r.name||'추천인')} <span style="color:var(--t3)">${esc(r.relation||'')}</span></span>
+            <span style="color:${dot}">${stxt}</span>
+          </div>`;
+        }).join(''):'<div style="font-size:11px;color:var(--t3);padding:4px 0">추천인 정보 없음 (지원자 폼 제출 대기)</div>';
+        return `<div class="ref-cand-card" data-action="call" data-call="selectRefCand(${c.id})" style="background:${isSel?'var(--acc-light)':'transparent'}">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></div>
+            <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${esc(c.name)} ${stBadge}</div></div>
+            <div style="font-size:13px;font-weight:700;color:${urgC}">${done}/${tot}</div>
+          </div>
+          <div class="prog" style="height:3px;margin-bottom:8px"><div class="pf-bar" style="width:${pct2}%;background:${urgC}"></div></div>
+          <div style="padding:6px 8px;background:var(--s2);border-radius:var(--rsm);margin-bottom:8px">${refListHtml}</div>
+          <div style="display:flex;gap:5px">
+            ${c.ref==='미시작'||c.ref==='대기'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">추천인 요청</button>`:''}
+            ${c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">레퍼런스 재요청</button>`:''}
+            ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
+            ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
+          </div>
         </div>`;
-      }).join('') : '<div style="font-size:11px;color:var(--t3);padding:4px 0">추천인 정보 없음 (지원자 폼 제출 대기)</div>';
-      return`<div data-action="call" data-call="selectRefCand(${c.id})" style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${isSel?'var(--acc-light)':'transparent'}">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <div style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></div>
-          <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${esc(c.name)} ${stBadge}</div><div style="font-size:11px;color:var(--t3)">${esc(c.pos)}</div></div>
-          <div style="font-size:13px;font-weight:700;color:${urgC}">${c.refD||0}/${tot}</div>
+      }).join('');
+      return `<section class="ref-pos-group">
+        <div class="ref-pos-head">
+          <span class="ref-pos-dot" style="background:${state.color}"></span>
+          <div class="ref-pos-main"><div class="ref-pos-title">${esc(pos.title||'미분류')}</div><div class="ref-pos-meta">${esc(pos.dept||'부서 미지정')} · 지원자 ${cands.length}명</div></div>
+          <div class="ref-pos-total"><strong style="color:${state.color}">${totalD}/${totalT} 응답</strong><span>${state.label} · ${posPct}%</span></div>
         </div>
-        <div class="prog" style="height:3px;margin-bottom:8px"><div class="pf-bar" style="width:${pct2}%;background:${urgC}"></div></div>
-        <div style="padding:6px 8px;background:var(--s2);border-radius:var(--rsm);margin-bottom:8px">${refListHtml}</div>
-        <div style="display:flex;gap:5px">
-          ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">📋 추천인 요청</button>`:''}
-          ${c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">📋 레퍼런스 재요청</button>`:''}
-          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
-          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
-        </div>
-      </div>`;
+        <div style="height:3px;background:var(--border)"><div style="height:100%;width:${posPct}%;background:${state.color};transition:width .3s"></div></div>
+        ${cards}
+      </section>`;
     }).join('');
   }
 
