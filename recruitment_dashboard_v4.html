@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="version" content="202606081200">
-<title>채용 관리 ATS Enterprise | 우미건설 피플팀</title>
+<title>Recruiting Hub | 우미건설 피플팀</title>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ── 변수 ──────────────────────────────────────────────── */
@@ -24,6 +24,16 @@
   --red:#C0222B;--rbg:#FFF0F0;--rbd:#F5B0B3;
   --purple:#3F4EA8;--pbg:#EEF0FB;--pbd:#BFC6EE;
   --teal:#0E7490;--tbg:#E8F6F8;--tbd:#A6DCE6;
+  /* Status */
+  --status-done:#147A48;--status-done-bg:#EDFAF3;
+  --status-active:#1660AA;--status-active-bg:#EBF3FD;
+  --status-need:#A05800;--status-need-bg:#FFF8EC;
+  --status-risk:#C0222B;--status-risk-bg:#FFF0F0;
+  --status-plan:#68665E;--status-plan-bg:#EFEDE8;
+  /* Sidebar */
+  --sb-active-bg:rgba(255,255,255,.16);--sb-hover-bg:rgba(255,255,255,.08);
+  --sb-text:rgba(255,255,255,.65);--sb-text-on:#fff;
+  --sb-badge-default:rgba(255,255,255,.25);--sb-badge-urgent:var(--red);
   /* Shadow */
   --sh:0 1px 3px rgba(15,34,58,.05);
   --shm:0 12px 32px rgba(15,34,58,.14);
@@ -34,20 +44,20 @@ html,body{height:100%;font-family:'Pretendard',-apple-system,sans-serif;backgrou
 /* ── 레이아웃 ──────────────────────────────────────────── */
 .app{display:flex;height:100vh;overflow:hidden;}
 .sb{width:220px;background:var(--acc);display:flex;flex-direction:column;flex-shrink:0;}
-.sb-top{padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,.1);}
-.sb-mark{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.sb-top{padding:18px 16px 15px;border-bottom:1px solid rgba(255,255,255,.1);display:grid;grid-template-columns:32px 1fr;column-gap:10px;align-items:center;}
+.sb-mark{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;grid-row:1/3;}
 .sb-mark svg{width:17px;height:17px;fill:white;}
-.sb-name{font-size:13px;font-weight:700;color:#fff;}
-.sb-sub{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;}
+.sb-name{font-size:13px;font-weight:700;color:#fff;line-height:1.25;}
+.sb-sub{font-size:10px;color:rgba(255,255,255,.42);margin-top:1px;}
 .sb-nav{padding:10px 8px;flex:1;overflow-y:auto;}
 .ng{margin-bottom:16px;}
 .ng-label{font-size:9px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:.8px;text-transform:uppercase;padding:0 8px;margin-bottom:4px;}
-.nb{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border:none;background:none;color:rgba(255,255,255,.6);font-size:12.5px;font-weight:500;font-family:'Pretendard',sans-serif;border-radius:var(--rsm);cursor:pointer;text-align:left;transition:all .12s;}
-.nb:hover{background:rgba(255,255,255,.1);color:#fff;}
-.nb.on{background:rgba(255,255,255,.16);color:#fff;font-weight:600;}
+.nb{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border:none;border-left:3px solid transparent;background:none;color:var(--sb-text);font-size:12.5px;font-weight:500;font-family:'Pretendard',sans-serif;border-radius:0 var(--rsm) var(--rsm) 0;cursor:pointer;text-align:left;transition:all .12s;}
+.nb:hover{background:var(--sb-hover-bg);color:var(--sb-text-on);}
+.nb.on{background:var(--sb-active-bg);color:var(--sb-text-on);font-weight:600;border-left-color:rgba(255,255,255,.85);}
 .nb svg{width:15px;height:15px;flex-shrink:0;}
-.nbb{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center;}
-.nbb.warn{background:var(--amber);}
+.nbb{margin-left:auto;background:var(--sb-badge-default);color:rgba(255,255,255,.9);font-size:10px;font-weight:700;padding:0 5px;border-radius:9px;min-width:18px;height:18px;line-height:18px;text-align:center;}
+.nbb.urgent{background:var(--sb-badge-urgent);color:#fff;}
 .sb-std{margin:10px 12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:8px 10px;}
 .sb-std-title{font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
 .sb-std-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
@@ -55,6 +65,17 @@ html,body{height:100%;font-family:'Pretendard',-apple-system,sans-serif;backgrou
 .sb-std-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .sb-std-text{font-size:10px;color:rgba(255,255,255,.45);}
 .sb-foot{padding:12px 14px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.3);}
+.sb-conn{margin:8px 12px 4px;}
+.sb-conn summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;font-size:9px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.6px;text-transform:uppercase;padding:4px 0;}
+.sb-conn summary::-webkit-details-marker{display:none;}
+.sb-conn summary:hover{color:rgba(255,255,255,.6);}
+.sb-conn summary svg{width:11px;height:11px;transition:transform .2s;}
+.sb-conn[open] summary svg{transform:rotate(180deg);}
+.sb-conn-body{padding-top:4px;}
+.sb-sync{display:flex;align-items:center;gap:5px;margin:6px 14px 10px;font-size:9.5px;color:rgba(255,255,255,.42);}
+.sb-sync-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,.3);}
+.sb-sync-dot.ok{background:#4ADE80}.sb-sync-dot.fail{background:var(--red)}.sb-sync-dot.ing{background:var(--amber)}
+.sync-fail-banner{display:none;padding:8px 20px;background:var(--status-risk-bg);border-bottom:1px solid var(--rbd);font-size:12px;color:var(--red);align-items:center;gap:8px;flex-shrink:0;}
 
 /* ── 메인 ──────────────────────────────────────────────── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
@@ -178,9 +199,9 @@ textarea{resize:vertical;min-height:64px;}
 
 /* ── 지원자 리스트 행 ───────────────────────────────────── */
 .cl-wrap{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
-.cl-header{display:grid;grid-template-columns:18px 1fr 80px 90px 70px 90px 85px 85px 110px;gap:10px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--border);}
+.cl-header{display:grid;grid-template-columns:14px minmax(120px,220px) 110px 80px 80px 100px 70px 100px;gap:8px;padding:6px 14px;background:var(--s2);border-bottom:1px solid var(--border);}
 .cl-header span{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.3px;text-transform:uppercase;}
-.cl-row{display:grid;grid-template-columns:18px 1fr 80px 90px 70px 90px 85px 85px 110px;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;align-items:center;transition:background .1s;}
+.cl-row{display:grid;grid-template-columns:14px minmax(120px,220px) 110px 80px 80px 100px 70px 100px;gap:8px;padding:7px 14px;border-bottom:1px solid var(--border);cursor:pointer;align-items:center;transition:background .1s;}
 .cl-row:hover{background:var(--bg);}
 .cl-row:last-child{border-bottom:none;}
 .tracker-int-date{display:flex;flex-direction:column;gap:2px;font-family:'DM Mono',monospace;line-height:1.15;white-space:nowrap;}
@@ -366,9 +387,9 @@ textarea{resize:vertical;min-height:64px;}
 .grid{gap:16px;}
 /* 3. 사이드바 — Executive Navy + 흰색 카드형 활성 메뉴 */
 .sb{background:#12375D;}
-.nb{min-height:38px;padding:9px 11px;border-radius:7px;color:rgba(255,255,255,.72);}
-.nb:hover{background:rgba(255,255,255,.12);color:#fff;}
-.nb.on{background:#fff;color:#12375D;font-weight:700;box-shadow:0 4px 14px rgba(4,22,40,.18);}
+.nb{min-height:38px;padding:9px 11px;color:var(--sb-text);}
+.nb:hover{background:var(--sb-hover-bg);color:var(--sb-text-on);}
+.nb.on{background:var(--sb-active-bg);color:var(--sb-text-on);font-weight:600;box-shadow:none;border-left-color:rgba(255,255,255,.85);}
 /* 4. 타이포그래피 */
 html,body{line-height:1.55;}
 .tb-title{font-size:17px;font-weight:700;}
@@ -417,6 +438,8 @@ html,body{line-height:1.55;}
 .mc-val{font-size:28px;color:var(--text);}
 .mc-sub{font-size:10.5px;}
 .mc-u{font-size:12px;font-weight:600;margin-left:1px;color:var(--t3);}
+.mc-val-risk{color:var(--red)!important;}
+.mc-val-ok{color:var(--green)!important;}
 .mc.kpi-operational{border-left-color:var(--acc);}
 .mc.kpi-operational .mc-val{color:var(--acc);}
 .mc.kpi-warning{border-left-color:var(--amber);}
@@ -473,7 +496,7 @@ html,body{line-height:1.55;}
 .advanced-filter[open] summary{border-color:var(--acc);color:var(--acc);}
 .advanced-filter-panel{position:absolute;z-index:20;right:0;top:34px;width:430px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shm);display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
 .cl-wrap{overflow-x:auto;background:var(--surface);}
-.cl-header,.cl-row{min-width:980px;}
+.cl-header,.cl-row{min-width:780px;}
 /* 고용형태·직군은 중립 태그, 상태 색상에 집중 */
 .etype,.role{background:var(--s2)!important;color:var(--t2)!important;border:1px solid var(--border);}
 /* 안내문은 접이식 도움말 */
@@ -484,7 +507,8 @@ html,body{line-height:1.55;}
 #sect-reference .ref-kpis{grid-template-columns:repeat(5,1fr);}
 #sect-reference .ref-kpi-secondary{display:block;}
 #sect-reference .mc{min-height:74px;}
-.ref-pos-group{border:1px solid var(--border);border-radius:var(--rsm);margin:10px;overflow:hidden;}
+#sect-reference .grid.g32{grid-template-columns:minmax(0,1fr) minmax(280px,320px);}
+.ref-pos-group{border:1px solid var(--border);border-radius:var(--rsm);margin:0;overflow:hidden;}
 .ref-pos-head{padding:10px 14px 8px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
 .ref-pos-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .ref-pos-main{min-width:0;flex:1;}
@@ -493,12 +517,18 @@ html,body{line-height:1.55;}
 .ref-pos-total{text-align:right;white-space:nowrap;}
 .ref-pos-total strong{display:block;font-size:11px;}
 .ref-pos-total span{font-size:10px;color:var(--t3);}
-.ref-cand-card{padding:12px 14px 12px 22px;border-bottom:1px solid var(--border);cursor:pointer;}
+.ref-cand-card{display:flex;align-items:center;gap:7px;padding:7px 10px 7px 14px;border-bottom:1px solid var(--border);cursor:default;min-height:38px;flex-wrap:wrap;}
 .ref-cand-card:last-child{border-bottom:0;}
+.ref-cand-name{font-size:12px;font-weight:700;min-width:0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ref-cand-bar{flex:1 1 45px;min-width:40px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.ref-cand-bar-fill{height:100%;border-radius:2px;transition:width .3s;}
+.ref-cand-count{font-size:11px;font-weight:700;flex-shrink:0;min-width:28px;text-align:right;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.ref-cand-actions{display:flex;gap:4px;flex-shrink:0;}
+.ref-cand-actions .btn{padding:2px 5px;font-size:10px;}
 /* 면접·입사 안내: 입력이 주인공 */
 #sect-interview .grid.g23{grid-template-columns:minmax(420px,1.25fr) minmax(320px,.75fr);}
 #sect-interview .notify-card,#sect-onboarding .notify-card{box-shadow:none;}
-#sect-onboarding .onboarding-main-layout{grid-template-columns:minmax(0,1fr);}
+#sect-onboarding .onboarding-main-layout{grid-template-columns:minmax(0,1fr) 400px;align-items:start;}
 #sect-onboarding .onboarding-preview-details{margin-top:12px;margin-bottom:0;}
 #sect-onboarding .onboarding-preview-details .help-details-body{padding-top:2px;}
 #sect-onboarding .onboarding-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
@@ -556,6 +586,8 @@ html,body{line-height:1.55;}
 @media (max-width:1100px){
   .g5,.g6{grid-template-columns:repeat(3,1fr);}
   #sect-interview .grid.g23,.grid.g32{grid-template-columns:1fr;}
+  #sect-reference .grid.g32{grid-template-columns:1fr;}
+  #sect-onboarding .onboarding-main-layout{grid-template-columns:1fr;}
   #sect-onboarding .onboarding-preview-grid{grid-template-columns:1fr;}
   .int-task-board{grid-template-columns:repeat(2,minmax(0,1fr));}
   .template-editor{grid-template-columns:180px minmax(0,1fr);}
@@ -591,6 +623,7 @@ html,body{line-height:1.55;}
 }
 /* 포지션 관리: 컴팩트 다열 카드 */
 #pos-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch;}
+#pos-list>.empty{grid-column:1/-1;}
 .pos-manage-card{min-width:0;height:100%;display:flex;flex-direction:column;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;}
 .pos-manage-card:hover{transform:translateY(-1px);border-color:var(--border2);box-shadow:0 6px 16px rgba(15,34,58,.09);}
 .pos-manage-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
@@ -610,8 +643,38 @@ html,body{line-height:1.55;}
 .pos-card-summary-item{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:0 2px;white-space:nowrap;}
 .pos-card-summary-label{overflow:hidden;text-overflow:ellipsis;}
 .pos-card-summary strong{font-weight:750;color:var(--text);flex:0 0 auto;}
+.pos-manage-card.is-risk{border-left:3px solid var(--red);}
+.pos-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:11px;}
+.pos-card-head .pos-card-info{margin-bottom:0;}
+.pos-card-stage{flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--acc);background:var(--acc-light);padding:3px 7px;border-radius:20px;white-space:nowrap;}
+.pos-card-stage.is-complete{color:var(--green);background:#EDFAF3;}
+.pos-card-stage.is-stopped{color:var(--t2);background:var(--s2);}
+.pos-card-action{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);}
+.pos-card-action-label{display:flex;align-items:center;gap:6px;min-width:0;font-size:11px;color:var(--t2);}
+.pos-card-action-label strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.pos-card-action-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:0 0 auto;}
+.pos-card-action-ok .pos-card-action-dot{background:var(--green);}
+.dash-brief{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(90deg,var(--acc-light),var(--surface) 42%);}
+.dash-brief-icon{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:var(--surface);color:var(--acc);font-weight:800;box-shadow:var(--shadow);}
+.dash-brief-body{min-width:0;flex:1;}
+.dash-brief-title{font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px;}
+.dash-brief-text{font-size:12.5px;font-weight:650;color:var(--text);line-height:1.45;}
+.dash-ac-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);}
+.dash-ac-title{font-size:13px;font-weight:750;}
+.dash-ac-sub{font-size:10.5px;color:var(--t3);margin-top:2px;}
+.dash-ac-count{font-size:10.5px;font-weight:750;color:var(--amber);background:var(--amber-light);padding:3px 8px;border-radius:20px;}
+.dash-ac-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));}
+.dash-ac-item{display:flex;align-items:center;gap:9px;min-width:0;padding:10px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
+.dash-ac-item:last-child{border-right:0;}
+.dash-ac-main{min-width:0;flex:1;}
+.dash-ac-name{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-ac-pos{font-size:10.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.dash-ac-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex:0 0 auto;}
+.dash-ac-dot.is-danger{background:var(--red);}
+.dash-ac-empty{padding:14px;color:var(--t3);font-size:11.5px;}
 @media (max-width:980px){
   #pos-list{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .dash-ac-list{grid-template-columns:1fr;}
 }
 @media (max-width:720px){
   #pos-list{grid-template-columns:1fr;}
@@ -627,6 +690,9 @@ html,body{line-height:1.55;}
 .pp-section-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;}
 .pp-section-title{font-size:13px;font-weight:700;color:var(--text);}
 .pp-section-sub{font-size:10.5px;color:var(--t3);}
+.posdetail-crumb{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--s2);flex-wrap:wrap;}
+#sect-posdetail{padding-bottom:12px;}
+#posdetail-ft{position:sticky;bottom:0;background:var(--surface);z-index:3;}
 .pp-summary-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:5px;}
 .pp-title{font-size:16px;font-weight:750;letter-spacing:-.3px;}
 .pp-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;font-size:10.5px;color:var(--t2);}
@@ -737,73 +803,79 @@ html,body{line-height:1.55;}
 <aside class="sb">
   <div class="sb-top">
     <div class="sb-mark"><svg viewBox="0 0 18 18"><path d="M9 1L17 4.5V9C17 13 13.5 16.5 9 17.5C4.5 16.5 1 13 1 9V4.5L9 1Z"/></svg></div>
-    <div class="sb-name">채용 관리 시스템</div>
+    <div class="sb-name">Recruiting Hub</div>
     <div class="sb-sub">우미건설 피플팀</div>
   </div>
   <nav class="sb-nav">
     <div class="ng">
-      <div class="ng-label">메인</div>
+      <div class="ng-label">MAIN</div>
       <button class="nb on" data-action="nav" data-target="dash">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
         대시보드
       </button>
       <button class="nb" data-action="nav" data-target="position">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="11" rx="2"/><path d="M5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8 7v4M6 9h4"/></svg>
-        포지션 관리
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        포지션
         <span class="nbb" id="nb-pos">0</span>
       </button>
     </div>
     <div class="ng">
-      <div class="ng-label">전체 조회</div>
+      <div class="ng-label">WORKSPACE</div>
       <button class="nb" data-action="nav" data-target="tracker">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h10M2 12h6"/></svg>
-        지원자 트래커
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        지원자
         <span class="nbb" id="nb-total">0</span>
       </button>
       <button class="nb" data-action="nav" data-target="interview">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 1v3M11 1v3M2 6h12"/></svg>
-        면접 관리
-        <span class="nbb warn" id="nb-int" style="display:none"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        면접
+        <span class="nbb" id="nb-int" style="display:none"></span>
       </button>
       <button class="nb" data-action="nav" data-target="reference">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="2.5"/><path d="M2 13c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M10 8.5l1.5 1.5 2.5-3"/></svg>
-        레퍼런스 체크
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        레퍼런스
       </button>
       <button class="nb" data-action="nav" data-target="onboarding">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v7l3 3"/><circle cx="8" cy="8" r="7"/></svg>
-        입사 안내
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
+        입사
       </button>
     </div>
     <div class="ng">
-      <div class="ng-label">알림 내역</div>
+      <div class="ng-label">REPORT</div>
       <button class="nb" data-action="nav" data-target="notifylog">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H2v10l3-2h9V2z"/></svg>
-        리포트·내역
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        리포트
         <span class="nbb" id="nb-notify" style="display:none"></span>
       </button>
     </div>
     <div class="ng">
-      <div class="ng-label">설정</div>
+      <div class="ng-label">SYSTEM</div>
       <button class="nb" data-action="nav" data-target="settings">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>
-        시스템 설정
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        설정
       </button>
     </div>
   </nav>
 
-  <!-- 연동 표시 -->
-  <div class="sb-std">
-    <div class="sb-std-title">구글 기반 연동</div>
-    <div class="sb-std-row"><div class="sb-std-dot" style="background:#217346"></div><div class="sb-std-text">Google Sheets — 데이터 저장</div></div>
-    <div class="sb-std-row"><div class="sb-std-dot" style="background:#4285F4"></div><div class="sb-std-text">Google Forms — 레퍼런스 접수</div></div>
-    <div class="sb-std-row"><div class="sb-std-dot" style="background:#0078D4"></div><div class="sb-std-text">Outlook — 이메일 발송</div></div>
-    <div class="sb-std-row"><div class="sb-std-dot" style="background:#EA4335"></div><div class="sb-std-text">Apps Script — 자동화</div></div>
-  </div>
-  <div class="sb-foot">포지션 베이스 운영</div>
+  <details class="sb-conn">
+    <summary><span>시스템 연동</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+    <div class="sb-conn-body">
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#217346"></div><div class="sb-std-text">Google Sheets — 데이터 저장</div></div>
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#4285F4"></div><div class="sb-std-text">Google Forms — 레퍼런스 접수</div></div>
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#0078D4"></div><div class="sb-std-text">Outlook — 이메일 발송</div></div>
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#EA4335"></div><div class="sb-std-text">Apps Script — 자동화</div></div>
+    </div>
+  </details>
+  <div class="sb-sync" id="sb-sync-status"><span class="sb-sync-dot" id="sb-sync-dot"></span><span id="sb-sync-label">동기화 대기</span></div>
 </aside>
 
 <!-- ── 메인 ─────────────────────────────────────────────── -->
 <div class="main">
+  <div id="sync-fail-banner" class="sync-fail-banner">
+    <span>Google Sheets 동기화에 실패했습니다. 데이터가 최신이 아닐 수 있습니다.</span>
+    <button class="btn btn-xs" style="margin-left:auto" data-action="call" data-call="syncCoreFromGS()">재시도</button>
+    <button class="btn btn-xs" data-action="call" data-call="document.getElementById('sync-fail-banner').style.display='none'">닫기</button>
+  </div>
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px">
       <div class="tb-title" id="tb-title">대시보드</div>
@@ -822,17 +894,15 @@ html,body{line-height:1.55;}
 
     <!-- ① 대시보드 ──────────────────────────────────────── -->
     <div id="sect-dash" class="sect on">
-      <div class="mrow g5" style="margin-bottom:14px">
-        <div class="mc kpi-active"><div class="mc-lbl">채용목표</div><div class="mc-val" id="m-active-seats">0</div><div class="mc-sub">진행중+충원완료 인원</div></div>
-        <div class="mc c-green"><div class="mc-lbl">채용완료</div><div class="mc-val" id="m-filled-seats">0</div><div class="mc-sub">최종합격 인원</div></div>
-        <div class="mc kpi-warning"><div class="mc-lbl">미충원</div><div class="mc-val" id="m-open">0</div><div class="mc-sub">채용목표−채용완료</div></div>
-        <div class="mc"><div class="mc-lbl">충원율</div><div class="mc-val" id="m-fillrate">0%</div><div class="mc-sub">채용완료÷목표</div></div>
-        <div class="mc kpi-operational" data-action="nav" data-target="position" title="포지션 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행중 포지션</div><div class="mc-val" id="m-pos-active">0</div><div class="mc-sub">진행 중 ↗</div></div>
+      <div class="mrow g4" id="kpi-row" style="margin-bottom:14px">
+        <div class="mc kpi-operational" data-action="nav" data-target="position" title="포지션 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행 중 포지션</div><div class="mc-val" id="kpi-active-pos">0</div><div class="mc-sub">채용 진행 중 ↗</div></div>
+        <div class="mc kpi-warning"><div class="mc-lbl">순 필요 인원</div><div class="mc-val" id="kpi-needed">0</div><div class="mc-sub">추가 채용 필요</div></div>
+        <div class="mc" data-action="nav" data-target="tracker" title="지원자 현황으로 이동" style="cursor:pointer"><div class="mc-lbl">파이프라인 지원자</div><div class="mc-val" id="kpi-pipeline">0</div><div class="mc-sub">전형 진행 중 ↗</div></div>
+        <div class="mc" data-action="nav" data-target="interview" title="면접 관리로 이동" style="cursor:pointer"><div class="mc-lbl">금주 면접</div><div class="mc-val" id="kpi-weekint">0</div><div class="mc-sub">이번 주 예정 ↗</div></div>
       </div>
 
       <!-- 처리 필요 -->
-      <div class="card" id="dash-urgent-card" style="margin-bottom:14px">
-        <div class="ch" style="margin-bottom:8px"><div class="ch-l">처리 필요</div></div>
+      <div class="card" id="dash-urgent-card" style="margin-bottom:14px;padding:0;overflow:hidden">
         <div id="dash-urgent"></div>
       </div>
 
@@ -880,6 +950,19 @@ html,body{line-height:1.55;}
   <div id="pos-list"></div>
 </div>
 
+<div id="sect-posdetail" class="sect">
+  <div class="posdetail-crumb">
+    <button class="btn btn-xs" data-action="call" data-call="nav('position')" style="display:flex;align-items:center;gap:4px;font-size:11px">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      포지션 목록
+    </button>
+    <span style="color:var(--t3);font-size:11px">/</span>
+    <span id="posdetail-title" style="font-size:13px;font-weight:700;color:var(--text)"></span>
+  </div>
+  <div id="posdetail-body" style="padding:12px 20px 0"></div>
+  <div id="posdetail-ft" style="padding:10px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+</div>
+
 <div id="sect-tracker" class="sect">
       <!-- 6단계 필터 바 -->
       <div class="stage-bar" id="stage-filter-bar">
@@ -922,7 +1005,7 @@ html,body{line-height:1.55;}
       </div>
       <div class="cl-wrap">
         <div class="cl-header">
-          <span></span><span>지원자 / 직무</span><span>채용형태</span><span>직군</span><span>단계</span><span>레퍼런스</span><span>면접일</span><span>알림</span><span>액션</span>
+          <span></span><span>지원자 / 직무</span><span>채용 / 직군</span><span>단계</span><span>레퍼런스</span><span>면접일</span><span>알림</span><span>액션</span>
         </div>
         <div id="cand-list"></div>
         <div id="cand-pagination" style="display:none;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--t2)"></div>
@@ -1022,12 +1105,12 @@ html,body{line-height:1.55;}
               <button class="btn btn-xs" data-action="call" data-call="syncRefFromGS()" style="background:#E9F7F2;color:var(--teal);border-color:#A8E0C0">↻ 구글시트 동기화</button>
             </div>
           </div>
-          <div id="ref-urgency-list" style="max-height:480px;overflow-y:auto"></div>
+          <div id="ref-urgency-list" style="max-height:560px;overflow-y:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:8px;align-items:start"></div>
         </div>
         <div>
           <div class="card" style="margin-bottom:10px">
-            <div class="ch"><div class="ch-l">추천인 개별 추적</div></div>
-            <div id="ref-referee-panel"><div style="font-size:12px;color:var(--t3);text-align:center;padding:20px">← 좌측 지원자를 선택하세요</div></div>
+            <div class="ch"><div class="ch-l">추천인 목록</div></div>
+            <div id="ref-referee-panel"><div style="font-size:12px;color:var(--t3);text-align:center;padding:20px">← 좌측 응답 숫자를 선택하세요</div></div>
           </div>
           <div class="card">
             <div class="ch"><div class="ch-l">AI 레퍼런스 요약</div></div>
@@ -1101,62 +1184,66 @@ html,body{line-height:1.55;}
     <!-- ⑤ 입사 안내 ──────────────────────────────────────── -->
     <div id="sect-onboarding" class="sect">
       <p style="font-size:11.5px;color:var(--t3);margin-bottom:14px">최종 합격자에게 Outlook으로 입사 안내를 발송하고, 내부 관련 부서에 공유합니다.</p>
-      <div class="grid g23">
-        <div class="card">
-          <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
-          <div class="fgrid f2" style="gap:10px">
-            <div class="fg full"><label>최종 합격자</label><select id="ob-cand" data-onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
-            <div class="fg full"><label>포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
-            <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="updateObPreview()"/></div>
-            <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" data-onchange="refreshOnboardingDeptRecipients()" data-oninput="updateObPreview()"/></div>
-            <div class="fg"><label>해당부서 팀장/소장 이메일 <span style="color:var(--green)">자동 선택</span></label><input id="ob-dept-lead" placeholder="배치부서 기준 자동 매핑 · 필요 시 수정 가능" data-oninput="updateObPreview()"/></div>
-            <div class="fg full"><label>내부 공유 수신자</label><div id="ob-recipient-summary" style="padding:8px 10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);font-size:11px;color:var(--t2)">합격자를 선택하면 배치부서 팀장/소장과 관련부서 수신자를 확인할 수 있습니다.</div><button class="btn btn-xs" style="margin-top:5px;width:max-content" data-action="call" data-call="navBtn('settings')">관련부서 수신자 설정</button></div>
-            <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" data-oninput="updateObPreview()"/></div>
-            <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" data-oninput="updateObPreview()"/></div>
-            <div class="fg"><label>채용형태</label>
-              <select id="ob-etype" data-onchange="updateObPreview()">
-                <option>정규직</option><option>전문직</option><option>파견직</option>
-              </select>
-            </div>
-            <div class="fg full"><label>입사 전 준비 안내</label><textarea id="ob-notes" placeholder="건강검진, 서류 목록, 출입증 등" data-oninput="updateObPreview()"></textarea></div>
+      <div class="grid onboarding-main-layout" style="gap:12px">
+        <div>
+          <div class="card">
+            <div class="ch"><div class="ch-l">입사 예정자 현황</div></div>
+            <div id="ob-table"></div>
           </div>
-          <div class="brow">
-            <button class="btn btn-primary" data-action="call" data-call="addOnboarding()">등록</button>
-            <button class="btn btn-outlook" data-action="call" data-call="sendObNotify('outlook')">지원자 입사안내 발송</button>
-            <button class="btn btn-ghost" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
+          <div class="card" style="margin-top:12px">
+            <div class="ch"><div class="ch-l">입사 타임라인</div></div>
+            <div id="ob-timeline"><div style="font-size:12px;color:var(--t3)">입사자를 등록하면 자동 생성됩니다.</div></div>
           </div>
         </div>
-      </div>
-      <details class="help-details onboarding-preview-details">
-        <summary>메일 내용 미리보기 (선택)</summary>
-        <div class="help-details-body">
-          <div class="onboarding-preview-grid">
+        <div>
           <div class="card">
-            <div class="ch"><div class="ch-l ob-mail-label">지원자 입사안내 메일 <span class="b bblue">개별 발송</span></div></div>
-            <div class="notify-card">
-              <div class="nc-header"><div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
-                <div><div class="nc-title" style="color:var(--outlook)">Outlook 이메일</div><div class="nc-sub">지원자 본인</div></div></div>
-              <div class="nc-body" id="ob-preview-outlook">입사 정보를 입력하면 미리보기가 표시됩니다.</div>
+            <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
+            <div class="fgrid f2" style="gap:10px">
+              <div class="fg full"><label>최종 합격자</label><select id="ob-cand" data-onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
+              <div class="fg full"><label>포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
+              <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="updateObPreview()"/></div>
+              <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" data-onchange="refreshOnboardingDeptRecipients()" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>해당부서 팀장/소장 이메일 <span style="color:var(--green)">자동 선택</span></label><input id="ob-dept-lead" placeholder="배치부서 기준 자동 매핑 · 필요 시 수정 가능" data-oninput="updateObPreview()"/></div>
+              <div class="fg full"><label>내부 공유 수신자</label><div id="ob-recipient-summary" style="padding:8px 10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);font-size:11px;color:var(--t2)">합격자를 선택하면 배치부서 팀장/소장과 관련부서 수신자를 확인할 수 있습니다.</div><button class="btn btn-xs" style="margin-top:5px;width:max-content" data-action="call" data-call="navBtn('settings')">관련부서 수신자 설정</button></div>
+              <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>채용형태</label>
+                <select id="ob-etype" data-onchange="updateObPreview()">
+                  <option>정규직</option><option>전문직</option><option>파견직</option>
+                </select>
+              </div>
+              <div class="fg full"><label>입사 전 준비 안내</label><textarea id="ob-notes" placeholder="건강검진, 서류 목록, 출입증 등" data-oninput="updateObPreview()"></textarea></div>
+            </div>
+            <div class="brow">
+              <button class="btn btn-primary" data-action="call" data-call="addOnboarding()">등록</button>
+              <button class="btn btn-outlook" data-action="call" data-call="sendObNotify('outlook')">지원자 입사안내 발송</button>
+              <button class="btn btn-ghost" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
             </div>
           </div>
-          <div class="card">
-            <div class="ch"><div class="ch-l ob-mail-label">내부 직원 공유 메일 <span class="b bgreen">단체 발송</span></div></div>
-            <div class="notify-card">
-              <div class="nc-header"><div class="nc-icon" style="background:var(--green)">IN</div>
-                <div><div class="nc-title" style="color:var(--green)">사내 입사 준비 요청</div><div class="nc-sub" id="ob-preview-internal-to">부서장/소장 + 고정 수신팀 + HR</div></div></div>
-              <div class="nc-body" id="ob-preview-internal">입사 정보를 입력하면 내부 공유용 미리보기가 표시됩니다.</div>
+          <details class="help-details onboarding-preview-details">
+            <summary>메일 내용 미리보기 (선택)</summary>
+            <div class="help-details-body">
+              <div class="onboarding-preview-grid">
+              <div class="card">
+                <div class="ch"><div class="ch-l ob-mail-label">지원자 입사안내 메일 <span class="b bblue">개별 발송</span></div></div>
+                <div class="notify-card">
+                  <div class="nc-header"><div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
+                    <div><div class="nc-title" style="color:var(--outlook)">Outlook 이메일</div><div class="nc-sub">지원자 본인</div></div></div>
+                  <div class="nc-body" id="ob-preview-outlook">입사 정보를 입력하면 미리보기가 표시됩니다.</div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="ch"><div class="ch-l ob-mail-label">내부 직원 공유 메일 <span class="b bgreen">단체 발송</span></div></div>
+                <div class="notify-card">
+                  <div class="nc-header"><div class="nc-icon" style="background:var(--green)">IN</div>
+                    <div><div class="nc-title" style="color:var(--green)">사내 입사 준비 요청</div><div class="nc-sub" id="ob-preview-internal-to">부서장/소장 + 고정 수신팀 + HR</div></div></div>
+                  <div class="nc-body" id="ob-preview-internal">입사 정보를 입력하면 내부 공유용 미리보기가 표시됩니다.</div>
+                </div>
+              </div>
+              </div>
             </div>
-          </div>
-          </div>
+          </details>
         </div>
-      </details>
-      <div class="card" style="margin-top:12px">
-        <div class="ch"><div class="ch-l">입사 타임라인</div></div>
-        <div id="ob-timeline"><div style="font-size:12px;color:var(--t3)">입사자를 등록하면 자동 생성됩니다.</div></div>
-      </div>
-      <div class="card" style="margin-top:12px">
-        <div class="ch"><div class="ch-l">입사 예정자 현황</div></div>
-        <div id="ob-table"></div>
       </div>
     </div>
 
@@ -2084,6 +2171,7 @@ const TITLES = {
   onboarding: '입사 안내',
   notifylog:  '리포트·내역',
   settings:   '시스템 설정',
+  posdetail:  '포지션 상세',
 };
 
 const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격','입사'];
@@ -2567,6 +2655,7 @@ function executeNohireWizard() {
   pendingNohirePosId = null;
   renderPositions(); renderDashboard();
   toast(`'${esc(pos.title)}' 미채용 종료 · '${esc(newTitle)}' 생성`, 'tok');
+  if(document.getElementById('sect-posdetail')?.classList.contains('on')) nav('position');
 }
 
 // 일괄 등록 (P1)
@@ -2795,19 +2884,19 @@ function posStatus(p){
 function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
 function getPositionCardProgress(pos, positionCandidates) {
   const status = posStatus(pos);
-  if(status !== 'active') {
+  if(!['active','partial'].includes(status)) {
     return {
       label: posStatusLabel(pos),
-      className: status === 'filled' || status === 'partial' ? 'is-complete' : 'is-stopped',
+      className: status === 'filled' ? 'is-complete' : 'is-stopped',
     };
   }
-  const progressing = (positionCandidates || []).filter(c => c.stage < 5 && !c.held);
+  const progressing = (positionCandidates || []).filter(c => Number(c.stage) < 5 && Number(c.stage) !== 6 && !c.held);
   if(!progressing.length) return {label:'지원자 등록 대기', className:'is-current'};
-  const stage = Math.max(...progressing.map(c => Number(c.stage) || 0));
-  const labels = ['면접전형 준비','1차 면접 진행중','레퍼런스 진행중','2차 면접 진행중','처우협의 진행중'];
+  const stage = Math.min(...progressing.map(c => Number(c.stage) || 0));
+  const labels = [stageLabel(0),'1차 면접 진행중','레퍼런스 진행중','2차 면접 진행중','처우협의 진행중'];
   return {label:labels[stage] || '채용 진행중', className:'is-current'};
 }
-// 포지션의 현재 단계 = 비탈락(≠6) 지원자 중 최고 단계 (지원자 없으면 null)
+// 포지션의 현재 단계는 아직 진행 중인 지원자 중 가장 앞선 단계 기준으로 표시한다.
 // YYYY-MM-DD → YYYY.MM.DD 표시용
 function fmtDate(d){ return d ? String(d).slice(0,10).replace(/-/g,'.') : ''; }
 // 면접 일시 표시: "MM.DD HH:mm" (날짜만 있으면 MM.DD)
@@ -3658,8 +3747,8 @@ function renderPositions() {
     (candidatesByPos[key] = candidatesByPos[key] || []).push(c);
   });
 
-  // 상태 판정: 진행중(active)이 아니면 '종료' 그룹(충원완료/미채용완료/채용중단)
-  const isDone = (pos) => posStatus(pos) !== 'active';
+  // 부분충원은 추가 채용이 진행 중이므로 진행중 그룹에 유지한다.
+  const isDone = (pos) => !['active','partial'].includes(posStatus(pos));
 
   // 탭별 카운트
   const activeCount = positions.filter(p => !isDone(p)).length;
@@ -3671,6 +3760,7 @@ function renderPositions() {
 
   if(countLabel) countLabel.textContent = `진행중 ${activeCount}개 · 완료 ${doneCount}개 · 전체 ${positions.length}개`;
   if(nbPos) nbPos.textContent = activeCount;  // 사이드바 배지는 진행중 기준
+  updateSidebarUrgency();
 
   // 필터 적용
   const filtered = positions.filter(p => {
@@ -3680,44 +3770,62 @@ function renderPositions() {
   });
 
   if(!positions.length) {
-    list.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--t3)">
-      <div style="font-size:40px;margin-bottom:12px">📋</div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:8px">등록된 포지션이 없습니다</div>
-      <div style="font-size:13px">[+ 포지션 추가] 버튼으로 포지션을 등록하세요</div>
-    </div>`;
+    list.innerHTML = empty('등록된 포지션이 없습니다','포지션을 등록하면 채용 진행 현황과 다음 업무를 확인할 수 있습니다.','<button class="btn btn-sm btn-primary" data-action="call" data-call="openAddPosition()">+ 포지션 추가</button>');
     return;
   }
   if(!filtered.length) {
-    list.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:13px">
-      ${posFilter==='done' ? '완료된 포지션이 없습니다.' : '진행중인 포지션이 없습니다.'}
-    </div>`;
+    list.innerHTML = empty(posFilter==='done' ? '완료된 포지션이 없습니다.' : '진행중인 포지션이 없습니다.');
     return;
   }
 
-  list.innerHTML = filtered.map(pos => {
+  const renderPositionCard = (pos) => {
     const posCandidates = candidatesByPos[Number(pos.id)] || [];
-    const active = posCandidates.filter(c => c.stage < 5 && !c.held);
-    const passed = posCandidates.filter(c => c.stage === 5);
+    const active = posCandidates.filter(c => Number(c.stage) < 5 && isActivePipelineCand(c));
+    const passed = posCandidates.filter(c => Number(c.stage) === 5);
     const done = isDone(pos);
     const progress = getPositionCardProgress(pos, posCandidates);
+    const actions = getPositionActionItems(pos.id);
+    const nextAction = actions.find(a => a.priority === 'high') || actions.find(a => a.priority === 'medium');
+    const risk = !!actions.find(a => a.priority === 'high');
+    let actionCall = nextAction ? nextAction.actionCall : '';
+    if(actionCall && actionCall.startsWith('scrollPositionDetail(')) actionCall = `openPosDetail(${pos.id});${actionCall}`;
 
-    return `<div class="card pos-manage-card" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" aria-label="${esc(pos.title)} 상세보기" style="${done?'opacity:.75':''}">
+    return `<div class="card pos-manage-card ${risk?'is-risk':''}" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" aria-label="${esc(pos.title)} 상세보기" style="${done?'opacity:.75':''}">
       <div class="pos-card-main">
-        <div class="pos-card-info">
-          <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
-          <div class="pos-card-dept" title="${esc(pos.dept || '부서 미지정')}">${esc(pos.dept || '부서 미지정')}</div>
-        </div>
-        <div class="pos-card-progress ${progress.className}">
-          <span class="pos-card-progress-dot"></span>
-          <span>${esc(progress.label)}</span>
+        <div class="pos-card-head">
+          <div class="pos-card-info">
+            <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
+            <div class="pos-card-dept" title="${esc(pos.dept || '부서 미지정')}">${esc(pos.dept || '부서 미지정')}</div>
+          </div>
+          <span class="pos-card-stage ${progress.className}">${esc(progress.label)}</span>
         </div>
         <div class="pos-card-summary">
           <div class="pos-card-summary-item"><span class="pos-card-summary-label">채용인원 :</span><strong>${passed.length}명</strong></div>
           <div class="pos-card-summary-item"><span class="pos-card-summary-label">진행중 지원자 :</span><strong>${active.length}명</strong></div>
         </div>
+        <div class="pos-card-action ${nextAction?'':'pos-card-action-ok'}">
+          <div class="pos-card-action-label"><span class="pos-card-action-dot"></span><strong title="${esc(nextAction ? nextAction.title : '처리할 업무 없음')}">${esc(nextAction ? nextAction.title : '처리할 업무 없음')}</strong></div>
+          ${nextAction ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(actionCall)}">${esc(nextAction.actionLabel)}</button>` : ''}
+        </div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  if(posFilter === 'done') {
+    const byYear = {};
+    filtered.forEach(pos => {
+      const yr = pos.closedAt ? String(pos.closedAt).slice(0,4) : '날짜미상';
+      (byYear[yr] = byYear[yr] || []).push(pos);
+    });
+    const years = Object.keys(byYear).sort((a,b) => b.localeCompare(a));
+    list.innerHTML = years.map(yr => {
+      const group = byYear[yr];
+      const header = `<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.4px;padding:4px 2px;border-bottom:1px solid var(--border);margin-bottom:2px">${yr === '날짜미상' ? '날짜 미상' : yr + '년'} <span style="font-weight:500">(${group.length}건)</span></div>`;
+      return header + group.map(renderPositionCard).join('');
+    }).join('');
+  } else {
+    list.innerHTML = filtered.map(renderPositionCard).join('');
+  }
 }
 
 // 포지션 상세에서 입사 안내 - 지원자 본인
@@ -4437,7 +4545,7 @@ async function changePositionProcessStage(positionId, toStage) {
     return;
   }
   await batchStageChange(positionId, fromStage, Number(toStage));
-  renderPositionDetail(positionId);
+  refreshOpenPositionDetail(positionId);
 }
 
 async function executePositionProcessTask(positionId, actionKey) {
@@ -4520,7 +4628,7 @@ async function savePositionResults(confirmAndMove) {
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>syncCandToGS(c)), stageIdx===4?'처우협의 결과 저장 동기화':'면접 결과 저장 동기화');
   closeModal('modal-position-result');
-  renderPositionDetail(positionId);
+  refreshOpenPositionDetail(positionId);
   toast(`${stageIdx===4?'처우협의 결과':stageLabel(stageIdx)+' 판정'} 저장 완료`, 'tok');
 }
 
@@ -4533,7 +4641,7 @@ async function completePositionInterviews(positionId, stageIdx) {
   targets.forEach(i=>{ i.status='done'; });
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
-  renderPositionDetail(positionId); renderDashboard();
+  refreshOpenPositionDetail(positionId); renderDashboard();
   toast(`${round} 면접 ${targets.length}건 완료 처리`, 'tok');
 }
 
@@ -4547,7 +4655,7 @@ function requestPositionReferences(positionId) {
   const resendCount = targets.filter(c => c.ref === '진행중').length;
   if(!confirm(`${targets.length}명에게 레퍼런스 체크 안내를 ${resendCount ? `발송합니다.\n이 중 재요청 ${resendCount}명은 기존 진행 상태를 유지합니다.` : '진행하시겠습니까?'}`)) return;
   targets.forEach((c,i)=>setTimeout(()=>startRef(c.id, c.ref === '진행중'),i*600));
-  setTimeout(()=>renderPositionDetail(positionId),targets.length*600+200);
+  setTimeout(()=>refreshOpenPositionDetail(positionId),targets.length*600+200);
 }
 
 async function completePositionReferences(positionId) {
@@ -4559,7 +4667,7 @@ async function completePositionReferences(positionId) {
   eligible.forEach(c=>{ c.ref='완료'; c.refD=c.refT; refDetails[c.id].forEach(r=>r.status='응답'); });
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(eligible.map(c=>syncCandToGS(c)), '레퍼런스 완료 동기화');
-  renderPositionDetail(positionId); updateMetrics();
+  refreshOpenPositionDetail(positionId); updateMetrics();
   toast(`${eligible.length}명 레퍼런스 완료 처리`, 'tok');
 }
 
@@ -4617,9 +4725,82 @@ function renderPositionDetail(positionId) {
   document.getElementById('pos-detail-ft').innerHTML = renderPositionOperations(positionId);
 }
 
+let currentPosDetailId = null;
+
 function openPosDetail(positionId) {
-  renderPositionDetail(Number(positionId));
-  openModal('modal-pos-detail');
+  currentPosDetailId = Number(positionId);
+  const modalBody = document.getElementById('pos-detail-body');
+  if(modalBody) modalBody.innerHTML = '';
+  nav('posdetail');
+  renderPosDetailSection(currentPosDetailId);
+  window.scrollTo(0, 0);
+}
+
+function posdetailClosePos(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return;
+  const prevStatus = pos.status;
+  const prevClosedAt = pos.closedAt;
+  closePosition(positionId);
+  if(pos.status !== prevStatus || pos.closedAt !== prevClosedAt) nav('position');
+}
+
+function posdetailStopPos(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return;
+  const prevStatus = pos.status;
+  const prevClosedAt = pos.closedAt;
+  stopPosition(positionId);
+  if(pos.status !== prevStatus || pos.closedAt !== prevClosedAt) nav('position');
+}
+
+async function posdetailDeletePos(positionId) {
+  const beforeCount = positions.length;
+  await deletePosition(positionId);
+  if(positions.length < beforeCount) nav('position');
+}
+
+function renderPosDetailSection(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) {
+    const body = document.getElementById('posdetail-body');
+    if(body) body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--t3)">포지션 정보를 불러올 수 없습니다.</div>';
+    return;
+  }
+  const title = document.getElementById('posdetail-title');
+  if(title) title.textContent = (d.pos.dept ? d.pos.dept + ' · ' : '') + d.pos.title;
+  const body = document.getElementById('posdetail-body');
+  if(body) body.innerHTML = `<div class="pos-project">
+    ${renderPositionSummary(positionId)}
+    ${renderPositionProcessChecklist(positionId)}
+    ${renderPositionCandidates(positionId)}
+  </div>`;
+  const footer = document.getElementById('posdetail-ft');
+  if(footer) footer.innerHTML = renderPosDetailOperations(positionId);
+}
+
+function renderPosDetailOperations(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const active = d.projectStatus === 'active' || d.projectStatus === 'partial';
+  return `<div class="pp-footer-group"><span class="pp-footer-label">보조</span><button class="btn btn-sm" data-action="call" data-call="nav('position')">← 목록으로</button></div>
+    <div class="pp-footer-group"><span class="pp-footer-label">관리</span><button class="btn btn-sm" data-action="call" data-call="editPosition(${positionId})">수정</button><button class="btn btn-sm btn-red" data-action="call" data-call="posdetailDeletePos(${positionId})">삭제</button></div>
+    <div class="pp-footer-group" style="margin-left:auto"><span class="pp-footer-label">주요 처리</span>${active
+      ? `<button class="btn btn-sm btn-green" data-action="call" data-call="posdetailClosePos(${positionId})">충원완료</button><button class="btn btn-sm" style="color:var(--amber)" data-action="call" data-call="nohirePosition(${positionId})">미채용 완료</button><button class="btn btn-sm" data-action="call" data-call="posdetailStopPos(${positionId})">채용 중단</button>`
+      : `<button class="btn btn-sm" data-action="call" data-call="reopenPosition(${positionId});nav('position')">진행중으로 복원</button>`}</div>`;
+}
+
+function refreshOpenPositionDetail(positionId) {
+  const posdetailSect = document.getElementById('sect-posdetail');
+  if(posdetailSect && posdetailSect.classList.contains('on')) {
+    renderPosDetailSection(Number(positionId));
+  } else {
+    const sectionBody = document.getElementById('posdetail-body');
+    if(sectionBody) sectionBody.innerHTML = '';
+    renderPositionDetail(Number(positionId));
+    const detailModal = document.getElementById('modal-pos-detail');
+    if(detailModal && !detailModal.classList.contains('open')) openModal('modal-pos-detail');
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4872,9 +5053,7 @@ async function applyBatchSchedule() {
   if(typeof renderIntTable === 'function') renderIntTable();
   toast(`${round} 면접 공통일정 ${slots.length}명 확정${moveAfterApply?' · 단계 이동 완료':''} (신규 ${created} / 갱신 ${updated})`, 'tok');
   // 적용 결과를 반영한 포지션 상세 화면으로 즉시 복귀
-  renderPositionDetail(posId);
-  const detailModal = document.getElementById('modal-pos-detail');
-  if(detailModal && !detailModal.classList.contains('open')) openModal('modal-pos-detail');
+  refreshOpenPositionDetail(posId);
 }
 
 // 확정된 지원자 전체에게 개인별 일정 안내 (순차 발송)
@@ -5602,6 +5781,9 @@ function savePosition() {
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(posData);
   renderPositions();
   renderDashboard(); // 대시보드 칸반(미배정 스트립 포함) 즉시 반영
+  if(currentPosDetailId && Number(currentPosDetailId) === Number(posData.id) && document.getElementById('sect-posdetail')?.classList.contains('on')) {
+    renderPosDetailSection(posData.id);
+  }
 }
 
 async function deletePosition(posId) {
@@ -5632,6 +5814,23 @@ function showSyncStatus(msg, type='') {
   const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
   const el = document.getElementById('gs-conn-status');
   if(el) { el.textContent = msg; el.style.color = colors[type]||colors['']; }
+  const dot = document.getElementById('sb-sync-dot');
+  const label = document.getElementById('sb-sync-label');
+  const banner = document.getElementById('sync-fail-banner');
+  const failed = type === 'warn' && /실패|응답 없음|연결 실패/.test(String(msg));
+  const syncing = type === '' && /중|로드|확인/.test(String(msg));
+  if(dot) dot.className = `sb-sync-dot${failed?' fail':type==='ok'?' ok':syncing?' ing':''}`;
+  if(label) label.textContent = failed ? '동기화 실패 · 수동 확인 필요' : type === 'ok' ? `마지막 동기화 · ${now()}` : String(msg || '동기화 대기').replace(/^⚠\s*/,'');
+  if(banner) banner.style.display = failed ? 'flex' : type === 'ok' ? 'none' : banner.style.display;
+}
+
+function updateSidebarUrgency() {
+  const posUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high'));
+  const interviewUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high' && /^(first|second)_/.test(item.type)));
+  const mailUrgent = getMailPendingItems().length > 0;
+  document.getElementById('nb-pos')?.classList.toggle('urgent', posUrgent);
+  document.getElementById('nb-int')?.classList.toggle('urgent', interviewUrgent);
+  document.getElementById('nb-notify')?.classList.toggle('urgent', mailUrgent);
 }
 
 function loadState() {
@@ -5745,10 +5944,17 @@ function saveState() {
 function nav(id, btn) {
   document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
   document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
-  document.getElementById('sect-'+id).classList.add('on');
+  const section = document.getElementById('sect-'+id);
+  if(!section) return;
+  section.classList.add('on');
+  if(id !== 'posdetail') currentPosDetailId = null;
   // btn 미전달(프로그램적 호출) 시 해당 섹션의 사이드바 버튼을 자동 활성화
   if(btn) btn.classList.add('on');
-  else { const auto = document.querySelector(`.nb[data-action="nav"][data-target="${id}"]`); if(auto) auto.classList.add('on'); }
+  else {
+    const navTarget = id === 'posdetail' ? 'position' : id;
+    const auto = document.querySelector(`.nb[data-action="nav"][data-target="${navTarget}"]`);
+    if(auto) auto.classList.add('on');
+  }
   document.getElementById('tb-title').textContent = TITLES[id]||id;
   if(id==='dash') renderDashboard();
   if(id==='tracker') { populateSel('int-cand'); populateSel('ob-cand'); renderTracker(); }
@@ -5919,7 +6125,7 @@ function populateSel(id) {
 function badge(stage) { return `<span class="b ${SBG[stage]||'bgray'}">${STAGES[stage]||''}</span>`; }
 function rolePill(r) { return `<span class="role ${ROLE_CLS[r]||''}">${r}</span>`; }
 function etypePill(e) { return `<span class="etype ${ETYPE_CLS[e]||''}">${e}</span>`; }
-function empty(msg) { return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-3-3v6m7 4H5a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v12a2 2 0 01-2 2z"/></svg>${msg}</div>`; }
+function empty(msg, sub='', actionHtml='') { return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-3-3v6m7 4H5a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v12a2 2 0 01-2 2z"/></svg><div style="font-size:13px;font-weight:700;color:var(--t2)">${msg}</div>${sub?`<div style="font-size:11.5px;color:var(--t3);margin-top:3px">${sub}</div>`:''}${actionHtml?`<div style="margin-top:8px">${actionHtml}</div>`:''}</div>`; }
 function now() { return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }
 
 // ── 날짜 형식 정규화 ─────────────────────────────────────────
@@ -5945,6 +6151,7 @@ function logNotify(ch, type, target, to) {
   notifyLog.unshift({ ch, type, target, to, time:now(), date:today() });
   const nb = document.getElementById('nb-notify');
   nb.style.display = ''; nb.textContent = notifyLog.length;
+  updateSidebarUrgency();
   saveState();
 }
 
@@ -6276,61 +6483,122 @@ function renderStageKanban() {
 function updateMetrics() {
   const set = (id, v) => { const el=document.getElementById(id); if(el) el.innerHTML=v; };
   const active = candidates.filter(isActivePipelineCand);
-  const metrics = calculateOperationalMetrics(positions, candidates);
-  const activeTargetN = metrics.target, activeFilledN = metrics.filled, activeOpenN = metrics.open;
-  const fillPct = metrics.fillRate, activePosN = metrics.activePositions;
+  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p)));
+  const activePositionIds = new Set(activePos.map(p => Number(p.id)));
+  const pipeline = candidates.filter(c =>
+    c.posId != null && c.posId !== '' &&
+    activePositionIds.has(Number(c.posId)) &&
+    Number(c.stage) >= 0 && Number(c.stage) < 5 &&
+    isActivePipelineCand(c)
+  );
+  const needed = activePos.reduce((sum, pos) => {
+    const target = parseInt(pos.headcount) || 1;
+    const filled = candidates.filter(c =>
+      Number(c.posId) === Number(pos.id) && Number(c.stage) === 5
+    ).length;
+    return sum + Math.max(0, target - filled);
+  }, 0);
+  const weekInt = getThisWeekInterviews().filter(i => i.status !== 'done').length;
   const unlinkedN = getUnlinkedCandidates().length;
   const mailPendingN = getMailPendingItems().length;
   const unit = (n,u) => `${n}<span class="mc-u">${u}</span>`;
-  set('m-active-seats', unit(activeTargetN,'명'));
-  set('m-filled-seats', unit(activeFilledN,'명'));
-  set('m-open',         unit(activeOpenN,'명'));
-  set('m-fillrate',     unit(fillPct,'%'));
+  set('kpi-active-pos', unit(activePos.length,'개'));
+  set('kpi-needed',     unit(needed,'명'));
+  set('kpi-pipeline',   unit(pipeline.length,'명'));
+  set('kpi-weekint',    unit(weekInt,'건'));
   set('m-unlinked',     unit(unlinkedN,'명'));
-  set('m-pos-active',   unit(activePosN,'개'));
   set('m-pipeline',     unit(active.length,'명'));
   set('m-mail-pending', unit(mailPendingN,'건'));
+  const neededEl = document.getElementById('kpi-needed');
+  if(neededEl) {
+    neededEl.classList.toggle('mc-val-risk', needed > 0);
+    neededEl.classList.toggle('mc-val-ok', needed === 0);
+  }
 
-  set('kb-progress', `진행 ${active.length}명`);
+  set('kb-progress', `진행 ${pipeline.length}명`);
   set('nb-total', candidates.length);
   const pi = interviews.filter(i => !i.notified || i.mailPending).length;
   const ni = document.getElementById('nb-int');
   if(ni){ if(pi>0){ni.style.display='';ni.textContent=pi;}else ni.style.display='none'; }
+  updateSidebarUrgency();
 
   if(typeof renderFunnel==='function') renderFunnel();
   if(typeof renderUrgent==='function') renderUrgent();
 }
 
-// ── 처리 필요 카드 (면접 미확정 / 레퍼런스 미응답 / 미발송 알림) — getActionItems 공유 ──
+function getThisWeekInterviews() {
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setHours(0,0,0,0);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23,59,59,999);
+  return interviews.filter(i => {
+    const date = new Date(String(i.date || '').replace(' ','T'));
+    return !Number.isNaN(date.getTime()) && date >= monday && date <= sunday;
+  });
+}
+
+function generateDashboardBrief() {
+  if(typeof renderUrgent === 'function') renderUrgent();
+}
+
+function getDashboardActionCall(positionId, actionCall) {
+  const call = String(actionCall || '');
+  return call.startsWith('scrollPositionDetail(') ? `openPosDetail(${positionId});${call}` : call;
+}
+
+function getDashboardActionItems() {
+  const { noInt, noRef, noNoti, unlinked, mailPending } = getActionItems();
+  lastMailPendingItems = mailPending;
+  const items = [];
+  const positionTypes = new Set();
+  positions.filter(p => ['active','partial'].includes(posStatus(p))).forEach(pos => {
+    getPositionActionItems(pos.id).filter(a => a.priority === 'high').forEach(a => {
+      positionTypes.add(a.type);
+      items.push({
+        title:a.title, desc:`${pos.dept || '부서 미지정'} · ${pos.title}`, label:a.actionLabel,
+        call:getDashboardActionCall(pos.id,a.actionCall), danger:false
+      });
+    });
+  });
+  const hasScheduleAction = ['first_schedule_reply','first_schedule','second_schedule'].some(type => positionTypes.has(type));
+  if(noInt.length && !hasScheduleAction) items.push({title:`면접 일정 미확정 ${noInt.length}명`,desc:'면접 일정을 확인하고 확정해 주세요.',label:'면접 관리',call:"navBtn('interview')",danger:false});
+  if(noRef.length && !positionTypes.has('reference_remind')) items.push({title:`레퍼런스 미응답 ${noRef.length}명`,desc:'응답 현황을 확인하고 필요한 경우 리마인드해 주세요.',label:'레퍼런스',call:"navBtn('reference')",danger:false});
+  if(noNoti.length) items.push({title:`면접 안내 미발송 ${noNoti.length}건`,desc:'지원자 및 면접관 안내 상태를 확인해 주세요.',label:'면접 관리',call:"navBtn('interview')",danger:true});
+  if(unlinked.length) items.push({title:`미연결 합격자 ${unlinked.length}명`,desc:'포지션이 연결되지 않은 합격자를 확인해 주세요.',label:'확인',call:'showUnlinkedList()',danger:true});
+  mailPending.forEach((m,index) => items.push({title:m.label || '메일 발송 확인 필요',desc:'Outlook 발송 후 완료 상태를 확인해 주세요.',label:'발송 완료',call:`confirmMailPendingAt(${index})`,danger:false}));
+  return items;
+}
+
+// ── 처리 필요 업무: 포지션 우선 업무 + 전역 누락/메일 확인 항목 ──
 function renderUrgent() {
   const el = document.getElementById('dash-urgent');
   if(!el) return;
-  const card = document.getElementById('dash-urgent-card');
-  const { noInt, noRef, noNoti, unlinked, mailPending, total } = getActionItems();
-  lastMailPendingItems = mailPending;
-  if(total === 0) {
-    if(card) card.classList.add('is-empty');
-    el.innerHTML = '<div class="urgent-empty"><span class="urgent-empty-dot"></span>현재 처리 필요한 항목이 없습니다.</div>';
-    return;
-  }
-  if(card) card.classList.remove('is-empty');
-  const col = (title, items, color, render) => `
-    <div style="flex:1;min-width:0">
-      <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:6px;display:flex;align-items:center;gap:5px">
-        <span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${title}
-        <span style="margin-left:auto;font-size:11px;color:var(--t3)">${items.length}</span>
+  const items = getDashboardActionItems();
+  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p))).length;
+  const weekInt = getThisWeekInterviews().length;
+  const briefText = `진행중 포지션 ${activePos}개, 이번 주 면접 ${weekInt}건입니다. 우선 확인할 업무는 ${items.length}건입니다.`;
+
+  el.innerHTML = `<div class="dash-ac-header">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <div style="width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:var(--surface);color:var(--acc);font-weight:800;box-shadow:var(--shadow);flex-shrink:0">i</div>
+        <div style="min-width:0;flex:1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="dash-ac-title">처리 필요 업무</div>
+            <span class="dash-ac-count">${items.length}건</span>
+          </div>
+          <div class="dash-ac-sub" id="dash-brief-text">${esc(briefText)}</div>
+        </div>
       </div>
-      ${items.length ? items.slice(0,4).map((item,idx)=>render(item,idx)).join('') + (items.length>4?`<div style="font-size:10.5px;color:var(--t3);padding:2px 0">외 ${items.length-4}건</div>`:'')
-        : '<div style="font-size:10.5px;color:var(--t3);padding:3px 0">없음</div>'}
-    </div>`;
-  const row = (name, sub) => `<div style="font-size:11.5px;padding:3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)} <span style="color:var(--t3)">${esc(sub)}</span></div>`;
-  el.innerHTML = `<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
-    ${unlinked.length ? col('미연결 합격자', unlinked, 'var(--red)', c=>`<div style="font-size:11.5px;padding:3px 0;cursor:pointer" data-action="call" data-call="showUnlinkedList()">${esc(c.name)} <span style="color:var(--t3)">${esc(c.pos)}</span></div>`) : ''}
-    ${mailPending.length ? col('메일 발송 확인', mailPending, 'var(--purple)', (m,idx)=>`<div style="font-size:11.5px;padding:3px 0;display:flex;align-items:center;gap:6px">${esc(m.label)} <button class="btn btn-xs btn-primary" data-action="call" data-call="confirmMailPendingAt(${idx})">발송완료</button></div>`) : ''}
-    ${col('면접 미확정', noInt, 'var(--amber)', c=>row(c.name, STAGES[c.stage]))}
-    ${col('레퍼런스 미응답', noRef, 'var(--acc)', c=>row(c.name, c.pos||''))}
-    ${col('미발송 알림', noNoti, 'var(--red)', i=>{const c=candidates.find(x=>Number(x.id)===Number(i.candId));return row(c?c.name:'-', (i.type||'')+' 면접');})}
-  </div>`;
+      <button class="btn btn-xs" data-action="call" data-call="generateDashboardBrief()" style="flex-shrink:0">새로고침</button>
+    </div>
+    ${items.length ? `<div class="dash-ac-list">${items.map(item => `<div class="dash-ac-item">
+      <span class="dash-ac-dot ${item.danger?'is-danger':''}"></span>
+      <div class="dash-ac-main"><div class="dash-ac-name">${esc(item.title)}</div><div class="dash-ac-pos">${esc(item.desc)}</div></div>
+      <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
+    </div>`).join('')}</div>` : '<div class="dash-ac-empty">현재 처리 필요한 업무가 없습니다.</div>'}`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -6390,8 +6658,8 @@ function renderKanban() {
   const cols = FLOW.map(idx => ({ idx, name: STAGES[idx] }));
   const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
 
-  // 진행중 포지션만 (충원완료/미채용완료/채용중단 제외)
-  const activePos = positions.filter(p => posStatus(p) === 'active');
+  // 진행중 + 부분충원 포지션 (추가 채용 진행중인 partial 포함)
+  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p)));
 
   // posId → 비탈락 지원자 배열
   const byPos = {};
@@ -6443,6 +6711,7 @@ function renderKanban() {
 
 function renderDashboard() {
   updateMetrics(); // 처리 필요 카드(renderUrgent) 포함
+  generateDashboardBrief();
   if(kanbanView === 'stage') renderStageKanban(); else renderKanban();
   renderInterviewInbox();
   renderInterviewPositionCards();
@@ -6944,8 +7213,7 @@ function renderTracker() {
     return `<div class="cl-row" data-action="open-candidate" data-id="${c.id}">
       <div class="urg ${urg}"></div>
       <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.pos)}${c.dept?' · '+c.dept:''}</div></div>
-      <div>${etypePill(c.etype)}</div>
-      <div>${rolePill(c.role)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px">${etypePill(c.etype)}${rolePill(c.role)}</div>
       <div>${badge(c.stage)}</div>
       <div>${refBadge}</div>
       <div>${intInfo}</div>
@@ -7364,33 +7632,22 @@ function renderReference() {
         const tot=Number(c.refT)||refs.length||3;
         const pct2=tot>0?Math.round(done/tot*100):0;
         const urgC=c.ref==='완료'?'var(--green)':done===0?'var(--red)':'var(--amber)';
-        const isSel=selectedRefCandId===c.id;
         const stBadge=c.ref==='완료'?'<span class="b bgreen" style="font-size:9px">완료</span>'
           : c.ref==='진행중'?'<span class="b bamber" style="font-size:9px">진행중</span>'
           : `<span class="b bgray" style="font-size:9px">${c.ref==='대기'?'대기':'미시작'}</span>`;
-        const refListHtml=refs.length?refs.map(r=>{
-          const dot=r.status==='응답'?'var(--green)':r.status==='등록'?'var(--blue)':'var(--t3)';
-          const stxt=r.status==='응답'?'응답완료':r.status==='등록'?'접수':'대기';
-          return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0">
-            <span style="width:5px;height:5px;border-radius:50%;background:${dot}"></span>
-            <span style="flex:1">${esc(r.name||'추천인')} <span style="color:var(--t3)">${esc(r.relation||'')}</span></span>
-            <span style="color:${dot}">${stxt}</span>
-          </div>`;
-        }).join(''):'<div style="font-size:11px;color:var(--t3);padding:4px 0">추천인 정보 없음 (지원자 폼 제출 대기)</div>';
-        return `<div class="ref-cand-card" data-action="call" data-call="selectRefCand(${c.id})" style="background:${isSel?'var(--acc-light)':'transparent'}">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <div style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></div>
-            <div style="flex:1"><div style="font-weight:700;font-size:12.5px">${esc(c.name)} ${stBadge}</div></div>
-            <div style="font-size:13px;font-weight:700;color:${urgC}">${done}/${tot}</div>
-          </div>
-          <div class="prog" style="height:3px;margin-bottom:8px"><div class="pf-bar" style="width:${pct2}%;background:${urgC}"></div></div>
-          <div style="padding:6px 8px;background:var(--s2);border-radius:var(--rsm);margin-bottom:8px">${refListHtml}</div>
-          <div style="display:flex;gap:5px">
-            ${c.ref==='미시작'||c.ref==='대기'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">추천인 요청</button>`:''}
-            ${c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">레퍼런스 재요청</button>`:''}
-            ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">리마인드</button>`:''}
-            ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''}
-          </div>
+        const actionBtns=[
+          c.ref==='미시작'||c.ref==='대기'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">요청</button>`:'',
+          c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">재요청</button>`:'',
+          c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">독촉</button>`:'',
+          c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''
+        ].filter(Boolean).join('');
+        return `<div class="ref-cand-card" style="background:transparent">
+          <span style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></span>
+          <span class="ref-cand-name" title="${esc(c.name)}">${esc(c.name)}</span>
+          ${stBadge}
+          <div class="ref-cand-bar"><div class="ref-cand-bar-fill" style="width:${pct2}%;background:${urgC}"></div></div>
+          <span class="ref-cand-count" data-action="call" data-call="selectRefCand(${c.id})" title="추천인 목록 보기" style="color:${urgC}">${done}/${tot}</span>
+          <div class="ref-cand-actions">${actionBtns}</div>
         </div>`;
       }).join('');
       return `<section class="ref-pos-group">
@@ -7509,10 +7766,9 @@ function selectRefCand(id){
   panel.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:10px">${esc(c.name)} · ${c.refD}/${c.refT} 응답</div>
     ${refs.length ? refs.map((r,ri)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:26px;height:26px;border-radius:50%;background:${r.status==='응답'?'var(--gbg)':'var(--rbg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${r.status==='응답'?'var(--green)':'var(--red)'}">${ri+1}</div>
-      <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name)} <span class="tag">${esc(r.relation)}</span></div><div style="font-size:11px;color:var(--t3)">${r.email}${r.remindCnt>0?' · 리마인드 '+r.remindCnt+'회':''}</div>${r.responseText?`<div style="font-size:11px;line-height:1.6;margin-top:5px;padding:7px 8px;background:var(--s2);border-radius:var(--rsm);white-space:pre-wrap">${esc(r.responseText)}</div>`:''}</div>
+      <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name||'이름 미등록')} <span class="tag">${esc(r.relation||'')}</span></div><div style="font-size:11px;color:var(--t3)">${esc(r.email||'')}</div></div>
       <span class="b ${r.status==='응답'?'bgreen':'bred'}">${r.status}</span>
-      ${r.status!=='응답'?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindOneRef(${id},${ri})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markRefResponse(${id},${ri})">응답</button>`:''}
-    </div>`).join('') : '<div style="padding:18px 10px;text-align:center;color:var(--t3);font-size:11.5px;background:var(--s2);border-radius:var(--rsm)">추천인 정보가 접수되지 않았습니다.<br>구글시트 동기화 후 실제 접수 정보를 확인하세요.</div>'}`;
+    </div>`).join('') : '<div style="padding:18px 10px;text-align:center;color:var(--t3);font-size:11.5px;background:var(--s2);border-radius:var(--rsm)">추천인 정보가 아직 접수되지 않았습니다.</div>'}`;
   const reportSel=document.getElementById('ref-report-cand');
   if(reportSel) { reportSel.value=String(id); renderRefReport(id); }
   renderReference();
@@ -8260,15 +8516,15 @@ const DELEGATED_CALLS = Object.freeze({
   cancelInterviewConfirm, cancelStageChange, changePositionProcessStage, closeCollectSend, closeModal, closePosition, completeRef, confirmInterview,
   confirmMailPendingAt, confirmPendingMail, confirmStageChange, confirmStageDecisions, delInt, dismissPendingMail,
   deletePosition, doCollectSendCurrent, editCandidate, editPosition, executeBulkAdd, executeNohireWizard, executePositionProcessTask,
-  dashDropStage, fillOnboardingDefaults, filterDepts, filterInterviewers, generateAI, kbActivate, linkCandFromUnlinked, loadInterviewers, lockPrivacyScreen, markInterviewDone, markOneResponse,
-  markRefRegistered, markRefResponse, navBtn, nextCollectSend, nohirePosition, openAddCand, openAddPosition, openBulkAddCand,
+  dashDropStage, fillOnboardingDefaults, filterDepts, filterInterviewers, generateAI, generateDashboardBrief, kbActivate, linkCandFromUnlinked, loadInterviewers, lockPrivacyScreen, markInterviewDone, markOneResponse,
+  markRefRegistered, markRefResponse, nav, navBtn, nextCollectSend, nohirePosition, openAddCand, openAddPosition, openBulkAddCand,
   openCollectSlots, openIntResult, openInterviewNoticeFlow, openPosDetail, openPositionResultModal, openPositionRoundSchedule, quickNotify, rejectCandidate,
   remindOneRef, remindRef, removePanelist, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
-  purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setInterviewPositionFilter, setPrivacyMaskFromControl, setTrackerPage, snapTo10,
+  posdetailClosePos, posdetailDeletePos, posdetailStopPos, purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setInterviewPositionFilter, setPrivacyMaskFromControl, setTrackerPage, snapTo10,
   finishRejectReason, runCoreDiagnosticsUI,
   refreshOnboardingDeptRecipients, saveSettings, selectRefCand, selectTemplateEditor, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendAllCandSchedule, sendInterviewNoticeCandidates, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelNotice, sendRefRequest, setDashPipeFilter, setRefFilter, showUnlinkedList, scrollPositionDetail,
-  skipCollectSend, startAllEligible, startRef, stopPosition, syncRefFromGS, testGSConnection, testInterviewerConnection,
+  skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, testGSConnection, testInterviewerConnection,
   testRefAutoConnection, togglePositionProcessGroup, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateIntPreview, updateObPreview,
 });
 function invokeDelegatedCall(call, target, delegatedEvent) {
