@@ -517,12 +517,12 @@ html,body{line-height:1.55;}
 .ref-pos-total{text-align:right;white-space:nowrap;}
 .ref-pos-total strong{display:block;font-size:11px;}
 .ref-pos-total span{font-size:10px;color:var(--t3);}
-.ref-cand-card{display:flex;align-items:center;gap:7px;padding:7px 10px 7px 14px;border-bottom:1px solid var(--border);cursor:default;min-height:38px;flex-wrap:wrap;}
+.ref-cand-card{display:flex;align-items:center;gap:7px;padding:7px 10px 7px 14px;border-bottom:1px solid var(--border);cursor:pointer;min-height:38px;flex-wrap:wrap;}
 .ref-cand-card:last-child{border-bottom:0;}
 .ref-cand-name{font-size:12px;font-weight:700;min-width:0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ref-cand-bar{flex:1 1 45px;min-width:40px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
 .ref-cand-bar-fill{height:100%;border-radius:2px;transition:width .3s;}
-.ref-cand-count{font-size:11px;font-weight:700;flex-shrink:0;min-width:28px;text-align:right;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.ref-cand-count{font-size:11px;font-weight:700;flex-shrink:0;min-width:28px;text-align:right;}
 .ref-cand-actions{display:flex;gap:4px;flex-shrink:0;}
 .ref-cand-actions .btn{padding:2px 5px;font-size:10px;}
 /* 면접·입사 안내: 입력이 주인공 */
@@ -7629,6 +7629,7 @@ function renderReference() {
         const tot=Number(c.refT)||refs.length||3;
         const pct2=tot>0?Math.round(done/tot*100):0;
         const urgC=c.ref==='완료'?'var(--green)':done===0?'var(--red)':'var(--amber)';
+        const isSel=selectedRefCandId===c.id;
         const stBadge=c.ref==='완료'?'<span class="b bgreen" style="font-size:9px">완료</span>'
           : c.ref==='진행중'?'<span class="b bamber" style="font-size:9px">진행중</span>'
           : `<span class="b bgray" style="font-size:9px">${c.ref==='대기'?'대기':'미시작'}</span>`;
@@ -7638,12 +7639,12 @@ function renderReference() {
           c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">독촉</button>`:'',
           c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''
         ].filter(Boolean).join('');
-        return `<div class="ref-cand-card" style="background:transparent">
+        return `<div class="ref-cand-card" data-action="call" data-call="selectRefCand(${c.id})" style="background:${isSel?'var(--acc-light)':'transparent'}">
           <span style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></span>
           <span class="ref-cand-name" title="${esc(c.name)}">${esc(c.name)}</span>
           ${stBadge}
           <div class="ref-cand-bar"><div class="ref-cand-bar-fill" style="width:${pct2}%;background:${urgC}"></div></div>
-          <span class="ref-cand-count" data-action="call" data-call="selectRefCand(${c.id})" title="추천인 목록 보기" style="color:${urgC}">${done}/${tot}</span>
+          <span class="ref-cand-count" style="color:${urgC}">${done}/${tot}</span>
           <div class="ref-cand-actions">${actionBtns}</div>
         </div>`;
       }).join('');
