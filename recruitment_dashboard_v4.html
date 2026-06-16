@@ -510,6 +510,8 @@ html,body{line-height:1.55;}
 #sect-reference .grid.g32{grid-template-columns:minmax(0,1fr) minmax(280px,320px);}
 .ref-pos-group{border:1px solid var(--border);border-radius:var(--rsm);margin:0;overflow:hidden;}
 .ref-pos-head{padding:10px 14px 8px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.ref-pos-head[data-action]{cursor:pointer;transition:background .15s;}
+.ref-pos-head[data-action]:hover{background:var(--acc-light);}
 .ref-pos-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .ref-pos-main{min-width:0;flex:1;}
 .ref-pos-title{font-size:12px;font-weight:700;color:var(--text);}
@@ -1035,7 +1037,7 @@ html,body{line-height:1.55;}
               </select>
             </div>
             <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" data-onchange="snapTo10(this);updateIntPreview()"/></div>
-            <div class="fg full"><label>장소 / 방식</label><input id="int-loc" placeholder="본사 3층 A실 / Teams 화상" data-oninput="updateIntPreview()"/></div>
+            <div class="fg full"><label>장소 / 방식</label><input id="int-loc" value="린스퀘어" placeholder="본사 3층 A실 / Teams 화상" data-oninput="updateIntPreview()"/></div>
             <div class="fg full"><label>면접관</label><input id="int-panel" placeholder="김부장, 이팀장" data-oninput="updateIntPreview()"/></div>
             <div class="fg full"><label>지원자 안내 메모</label><textarea id="int-memo" placeholder="포트폴리오 지참, 기술 테스트 포함 등" data-oninput="updateIntPreview()"></textarea></div>
           </div>
@@ -1186,10 +1188,6 @@ html,body{line-height:1.55;}
           <div class="card">
             <div class="ch"><div class="ch-l">입사 예정자 현황</div></div>
             <div id="ob-table"></div>
-          </div>
-          <div class="card" style="margin-top:12px">
-            <div class="ch"><div class="ch-l">입사 타임라인</div></div>
-            <div id="ob-timeline"><div style="font-size:12px;color:var(--t3)">입사자를 등록하면 자동 생성됩니다.</div></div>
           </div>
         </div>
         <div>
@@ -1554,7 +1552,6 @@ html,body{line-height:1.55;}
           <select id="nc-career"><option>경력직</option><option>신입</option><option>인턴</option></select>
         </div>
         <div class="fg"><label>접수일</label><input type="date" id="nc-date"/></div>
-        <div class="fg"><label>서류합격일 *</label><input type="date" id="nc-doc-passed"/></div>
         <div class="fg full">
           <label>포지션 연결 *</label>
           <select id="nc-pos-id" data-onchange="updateAddCandSeatHint()">
@@ -4858,7 +4855,7 @@ function confirmInterview(intId) {
     dt.value = '';
   }
   const locEl = document.getElementById('ci-loc');
-  locEl.value = (itv.loc && itv.loc.indexOf('미정') === -1) ? itv.loc : '';
+  locEl.value = (itv.loc && itv.loc.indexOf('미정') === -1) ? itv.loc : '린스퀘어';
 
   closeModal('modal-detail');
   openModal('modal-confirm-int');
@@ -4891,11 +4888,12 @@ async function applyInterviewConfirm() {
   if(typeof renderIntTable === 'function') renderIntTable();
   renderTracker(); updateMetrics(); renderPositions();
   toast(`${itv.candName} ${itv.type} 면접 일정 확정 (${itv.date})`, 'tok');
+  setTimeout(() => sendCandSchedule(itv.id), 300);
   // 포지션 상세에서 진입한 경우 다시 열기
   if(returnToPosId != null) {
     const pid = returnToPosId;
     returnToPosId = null;
-    setTimeout(() => openPosDetail(pid), 300);
+    setTimeout(() => openPosDetail(pid), 700);
   }
 }
 
@@ -4940,7 +4938,7 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
   }
   document.getElementById('bs-start').value = '10:00';
   document.getElementById('bs-interval').value = '30';
-  document.getElementById('bs-loc').value = '';
+  document.getElementById('bs-loc').value = '린스퀘어';
   // 포지션 상세는 뒤에 유지해 취소·적용 후 즉시 복귀한다.
   renderBatchPreview();
   // 입력 변경 시 미리보기 갱신
@@ -5049,6 +5047,7 @@ async function applyBatchSchedule() {
   renderDashboard(); renderTracker(); renderPositions();
   if(typeof renderIntTable === 'function') renderIntTable();
   toast(`${round} 면접 공통일정 ${slots.length}명 확정${moveAfterApply?' · 단계 이동 완료':''} (신규 ${created} / 갱신 ${updated})`, 'tok');
+  setTimeout(() => sendCandidateThenPanelNotices(posId, stageIdx, round === '1차' ? 1 : 2, true), 400);
   // 적용 결과를 반영한 포지션 상세 화면으로 즉시 복귀
   refreshOpenPositionDetail(posId);
 }
@@ -5075,13 +5074,13 @@ function sendAllCandSchedule(posId, stageIdx, skipConfirm) {
   return confirmedItvs.length;
 }
 
-function sendCandidateThenPanelNotices(posId, stageIdx, round) {
+function sendCandidateThenPanelNotices(posId, stageIdx, round, skipConfirm=false) {
   const pos = positions.find(p=>Number(p.id)===Number(posId));
   const confirmedItvs = getConfirmedPositionInterviews(posId, stageIdx);
   if(!confirmedItvs.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
   const panelists = parsePanelists(stageIdx===1 ? pos?.panel1 : pos?.panel2);
   const panelText = panelists.length ? `이후 면접관 ${panelists.length}명 단체 안내 메일이 열립니다.` : '등록된 면접관이 없어 지원자 안내만 진행됩니다.';
-  if(!confirm(`지원자 ${confirmedItvs.length}명에게 개인별 면접 일정 안내 메일을 엽니다.\n${panelText}\n\n계속할까요?`)) return;
+  if(!skipConfirm && !confirm(`지원자 ${confirmedItvs.length}명에게 개인별 면접 일정 안내 메일을 엽니다.\n${panelText}\n\n계속할까요?`)) return;
   const sentCount = sendAllCandSchedule(posId, stageIdx, true) || 0;
   if(sentCount && panelists.length) {
     setTimeout(()=>sendPanelNotice(posId, round), sentCount * 650 + 350);
@@ -6044,15 +6043,13 @@ function addCandToPos(posId) {
   document.querySelector('#modal-add .modal-title').textContent = `신규 지원자 등록 — ${esc(pos.title)}`;
   // 입력 초기화 후 포지션 정보 자동 채움
   const setv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
-  setv('nc-name','');  setv('nc-email',''); setv('nc-memo',''); setv('nc-date','');
+  setv('nc-name','');  setv('nc-email',''); setv('nc-memo',''); setv('nc-date', today());
   setv('nc-pos', pos.title);
   setv('nc-dept', pos.dept || '');
   // 직군/채용형태 select가 있으면 포지션 값으로
   const roleEl = document.getElementById('nc-role'); if(roleEl) roleEl.value = pos.role || roleEl.value;
   const etypeEl = document.getElementById('nc-etype'); if(etypeEl) etypeEl.value = pos.etype || etypeEl.value;
   populatePosSelect(posId);            // 이 포지션 선택 고정
-  const dp = document.getElementById('nc-doc-passed');
-  if(dp) dp.value = today();
   updateAddCandSeatHint();
   closeModal('modal-pos-detail');
   openModal('modal-add');
@@ -6064,12 +6061,12 @@ function openAddCand() {
   delete modal.dataset.editId;
   delete modal.dataset.returnPosId;
   document.querySelector('#modal-add .modal-title').textContent = '서류합격자 등록';
-  ['nc-name','nc-pos','nc-email','nc-dept','nc-memo','nc-date'].forEach(id => {
+  ['nc-name','nc-pos','nc-email','nc-dept','nc-memo'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.value = '';
   });
-  const dp = document.getElementById('nc-doc-passed');
-  if(dp) dp.value = today();
+  const dateEl = document.getElementById('nc-date');
+  if(dateEl) dateEl.value = today();
   populatePosSelect();
   updateAddCandSeatHint();
   openModal('modal-add');
@@ -6175,17 +6172,7 @@ function openMailto(toEmail, subject, body, sequential) {
     alert('이메일 주소가 등록되지 않았습니다.\n지원자/대상 정보를 수정해 이메일을 입력해주세요.');
     return false;
   }
-  const sign    = document.getElementById('cfg-sign')?.value    || '우미건설 피플팀';
-  const hrEmail = document.getElementById('cfg-hr-email')?.value || 'hr@woomic.co.kr';
-  const sourceBody = String(body || '');
-  const hasSign = sign && sourceBody.includes(sign);
-  const hasHrEmail = hrEmail && sourceBody.includes(hrEmail);
-  let fullBody = sourceBody;
-  if(!hasSign || !hasHrEmail) {
-    const footer = [hasSign ? '' : sign, hasHrEmail ? '' : hrEmail].filter(Boolean).join('\n');
-    if(footer) fullBody += '\n\n' + footer;
-  }
-  fullBody = formatMailBodyForOutlook(fullBody);
+  const fullBody = formatMailBodyForOutlook(String(body || ''));
   // 수신자 구분자: mailto 표준은 콤마, 세미콜론을 콤마로 정규화
   const to = toEmail.replace(/;/g, ',');
   const url = 'mailto:' + encodeURIComponent(to).replace(/%2C/g, ',')
@@ -7016,8 +7003,8 @@ function editCandidate(id) {
   document.getElementById('nc-dept').value = c.dept||'';
   document.getElementById('nc-career').value = c.career;
   document.getElementById('nc-memo').value = c.memo||'';
-  const dp = document.getElementById('nc-doc-passed');
-  if(dp) dp.value = c.docPassedAt || c.receivedAt || today();
+  const dateEl = document.getElementById('nc-date');
+  if(dateEl) dateEl.value = c.receivedAt || today();
   document.getElementById('modal-add').dataset.editId = id;
   document.querySelector('#modal-add .modal-title').textContent = '지원자 정보 수정';
   // 포지션 드롭다운 채우기
@@ -7082,7 +7069,7 @@ function addCandidate() {
       existing.career = document.getElementById('nc-career').value;
       existing.memo   = document.getElementById('nc-memo').value;
       existing.posId  = finalPosId;
-      existing.docPassedAt = formatDate(document.getElementById('nc-doc-passed')?.value) || existing.docPassedAt || today();
+      existing.docPassedAt = existing.docPassedAt || existing.receivedAt || today();
     }
     delete modal.dataset.editId;
     document.querySelector('#modal-add .modal-title').textContent = '서류합격자 등록';
@@ -7096,6 +7083,7 @@ function addCandidate() {
     saveState();
   } else {
     // 신규 등록 모드
+    const receivedAt = formatDate(document.getElementById('nc-date').value) || today();
     const newCand = {
       id: nextId(), name, pos, email, etype,
       role:      document.getElementById('nc-role').value,
@@ -7103,8 +7091,8 @@ function addCandidate() {
       career:    document.getElementById('nc-career').value,
       stage:     0,
       ref:       '미시작', refD:0, refT:0,
-      receivedAt: formatDate(document.getElementById('nc-date').value) || today(),
-      docPassedAt: formatDate(document.getElementById('nc-doc-passed')?.value) || today(),
+      receivedAt,
+      docPassedAt: receivedAt,
       memo:      document.getElementById('nc-memo').value,
       posId:     finalPosId,
       intDate:   '', notified: false,
@@ -7634,10 +7622,10 @@ function renderReference() {
           : c.ref==='진행중'?'<span class="b bamber" style="font-size:9px">진행중</span>'
           : `<span class="b bgray" style="font-size:9px">${c.ref==='대기'?'대기':'미시작'}</span>`;
         const actionBtns=[
-          c.ref==='미시작'||c.ref==='대기'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">요청</button>`:'',
-          c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();sendRefRequest(${c.id})">재요청</button>`:'',
-          c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="event.stopPropagation();remindRef(${c.id})">독촉</button>`:'',
-          c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="event.stopPropagation();completeRef(${c.id})">완료</button>`:''
+          c.ref==='미시작'||c.ref==='대기'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="selectRefCand(${c.id});sendRefRequest(${c.id})">요청</button>`:'',
+          c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="selectRefCand(${c.id});sendRefRequest(${c.id})">재요청</button>`:'',
+          c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="selectRefCand(${c.id});remindRef(${c.id})">독촉</button>`:'',
+          c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="selectRefCand(${c.id});completeRef(${c.id})">완료</button>`:''
         ].filter(Boolean).join('');
         return `<div class="ref-cand-card" data-action="call" data-call="selectRefCand(${c.id})" style="background:${isSel?'var(--acc-light)':'transparent'}">
           <span style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></span>
@@ -7648,8 +7636,10 @@ function renderReference() {
           <div class="ref-cand-actions">${actionBtns}</div>
         </div>`;
       }).join('');
+      const posIdNum=Number(pos.id);
+      const posClickable=Number.isFinite(posIdNum)?`data-action="call" data-call="openPosDetail(${posIdNum})" title="${esc(pos.title||'')} 상세 보기"`:'';
       return `<section class="ref-pos-group">
-        <div class="ref-pos-head">
+        <div class="ref-pos-head" ${posClickable}>
           <span class="ref-pos-dot" style="background:${state.color}"></span>
           <div class="ref-pos-main"><div class="ref-pos-title">${esc(pos.title||'미분류')}</div><div class="ref-pos-meta">${esc(pos.dept||'부서 미지정')} · 지원자 ${cands.length}명</div></div>
           <div class="ref-pos-total"><strong style="color:${state.color}">${totalD}/${totalT} 응답</strong><span>${state.label} · ${posPct}%</span></div>
@@ -8240,49 +8230,42 @@ function sendObNotify(ch){
 }
 
 function renderOnboarding(){
-  const tl=document.getElementById('ob-timeline');
-  if(tl&&onboardings.length){
-    const selectedId=Number(document.getElementById('ob-cand')?.value);
-    const selectedOb=onboardings.find(o=>Number(o.candId)===selectedId);
-    const ob=selectedId ? selectedOb : onboardings[onboardings.length-1];
-    if(!ob) {
-      tl.innerHTML='<div style="font-size:12px;color:var(--t3)">선택한 합격자의 입사 정보를 등록하면 타임라인이 표시됩니다.</div>';
-    } else {
-    const jd=new Date(ob.joinDate);
-    function off(d){const x=new Date(jd);x.setDate(x.getDate()+d);return x.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});}
-    const steps=[
-      {d:-14,title:'건강검진 안내',sub:'Outlook 발송',done:true},
-      {d:-7,title:'서류 제출 요청',sub:'Outlook 발송',done:true},
-      {d:-3,title:'합격 안내 발송',sub:'Teams + Outlook',done:false,now:true},
-      {d:-1,title:'출입증 사전 등록',sub:'보안팀 연계',done:false},
-      {d:0,title:`입사일 · ${ob.joinDate}`,sub:`${ob.dept||'배치부서'} 오리엔테이션`,done:false},
-      {d:7,title:'온보딩 체크인',sub:'Teams 확인',done:false},
-    ];
-    tl.innerHTML=steps.map(s=>`<div class="tl-item">
-      <div class="tl-dot ${s.done?'td-done':s.now?'td-now':'td-pend'}"></div>
-      <div style="flex:1"><div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--t3)">D${s.d>=0?'+':''}<b>${s.d}</b> · ${off(s.d)}</div>
-        <div style="font-weight:600;font-size:12.5px">${s.title}</div><div style="font-size:11px;color:var(--t3)">${s.sub}</div></div>
-      ${s.now?'<span class="b bamber">진행중</span>':s.done?'<span class="b bgreen">완료</span>':''}
-    </div>`).join('');
-    }
-  }
   const wrap=document.getElementById('ob-table');
   if(!wrap)return;
-  if(!onboardings.length){wrap.innerHTML=empty('입사 예정자가 없습니다.');return;}
-  wrap.innerHTML=`<div class="tw"><table>
-    <thead><tr><th>이름</th><th>채용형태</th><th>직무/부서</th><th>입사일</th><th>직책</th><th>알림</th><th>액션</th></tr></thead>
-    <tbody>${onboardings.map(o=>`<tr>
-      <td><div class="tname">${o.candName}</div></td>
+  const registeredIds = new Set(onboardings.map(o=>Number(o.candId)));
+  const pendingCands = candidates.filter(c=>Number(c.stage)===5 && !registeredIds.has(Number(c.id)));
+  const confirmedObs = [...onboardings].sort((a,b)=>(a.joinDate||'').localeCompare(b.joinDate||''));
+  if(!pendingCands.length && !confirmedObs.length){wrap.innerHTML=empty('최종합격 인원이 없습니다.');return;}
+  const pendingRows = pendingCands.map(c=>`<tr style="background:var(--rbg)">
+      <td><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.email||'')}</div></td>
+      <td>${etypePill(c.etype)}</td>
+      <td><div>${esc(c.pos||'-')}</div><div class="tsub">${esc(c.dept||'-')}</div></td>
+      <td><span class="b bred" style="font-size:11px">미확정</span></td>
+      <td>-</td>
+      <td><span class="b bgray">미발송</span></td>
+      <td><button class="btn btn-xs btn-primary" data-action="call" data-call="fillOnboardingDefaults(${c.id});document.getElementById('ob-date').focus()">입사일 등록</button></td>
+    </tr>`).join('');
+  const confirmedRows = confirmedObs.map(o=>`<tr>
+      <td><div class="tname">${esc(o.candName)}</div></td>
       <td>${etypePill(o.etype)}</td>
-      <td><div>${o.pos}</div><div class="tsub">${o.dept||'-'}</div></td>
-      <td style="font-weight:700;color:var(--green);font-family:'DM Mono',monospace;font-size:12px">${o.joinDate}</td>
-      <td>${o.rank||'-'}</td>
+      <td><div>${esc(o.pos||'-')}</div><div class="tsub">${esc(o.dept||'-')}</div></td>
+      <td style="font-weight:700;color:var(--green);font-family:'DM Mono',monospace;font-size:12px">${esc(o.joinDate||'-')}</td>
+      <td>${esc(o.rank||'-')}</td>
       <td>${o.notified?'<span class="b bgreen">지원자✓</span>':'<span class="b bgray">미발송</span>'} ${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="btn btn-xs btn-outlook" data-action="call" data-call="sendObById(${o.id},'outlook')">지원자 입사안내</button>
-        <button class="btn btn-xs btn-ghost" data-action="call" data-call="sendJoinNotice(${o.id})">내부 직원 공유</button>
+        <button class="btn btn-xs btn-outlook" data-action="call" data-call="sendObById(${o.id},'outlook')">입사안내 발송</button>
+        <button class="btn btn-xs btn-ghost" data-action="call" data-call="sendJoinNotice(${o.id})">내부 공유</button>
       </td>
-    </tr>`).join('')}</tbody>
+    </tr>`).join('');
+  const pendingHeader = pendingCands.length ? `<tr style="background:var(--s2)">
+      <td colspan="7" style="padding:6px 10px;font-size:11px;font-weight:700;color:var(--red)">⚠ 입사일 확정 필요 · ${pendingCands.length}명</td>
+    </tr>` : '';
+  const confirmedHeader = confirmedObs.length ? `<tr style="background:var(--s2)">
+      <td colspan="7" style="padding:6px 10px;font-size:11px;font-weight:700;color:var(--green)">✓ 입사일 확정 · ${confirmedObs.length}명</td>
+    </tr>` : '';
+  wrap.innerHTML=`<div class="tw"><table>
+    <thead><tr><th>이름</th><th>채용형태</th><th>직무/부서</th><th>입사일</th><th>직책</th><th>알림</th><th>액션</th></tr></thead>
+    <tbody>${pendingHeader}${pendingRows}${confirmedHeader}${confirmedRows}</tbody>
   </table></div>`;
 }
 function sendObById(id,ch){
