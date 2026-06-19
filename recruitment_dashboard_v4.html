@@ -884,6 +884,10 @@ html,body{line-height:1.55;}
       <span class="b bblue" id="tb-date" style="font-size:11px;font-weight:500"></span>
     </div>
     <div class="tb-right">
+      <button class="btn btn-sm" data-action="call" data-call="openAddPosition()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+        포지션 추가
+      </button>
       <button class="btn btn-sm" data-action="call" data-call="openAddCand()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
         지원자 추가
@@ -2383,7 +2387,7 @@ function runCoreRegressionTests() {
   candidates = [{id:22,posId:11,stage:0,lastCompletedStage:1,ref:'미시작'}];
   interviews = [{id:32,candId:22,type:'1차',status:'done',candidateNotified:true,panelNotified:true}];
   const staleRollbackSteps = getPositionProcessStatus(11);
-  assert(staleRollbackSteps.find(x=>x.key==='int1_confirm')?.status!=='complete' && staleRollbackSteps.find(x=>x.key==='int1_cand')?.status!=='complete', '기존 준비 단계 데이터의 과거 면접 이력 제외');
+  assert(staleRollbackSteps.find(x=>x.key==='int1_notice')?.status!=='complete', '기존 준비 단계 데이터의 과거 면접 이력 제외');
   candidates = [{id:22,posId:11,stage:2,ref:'완료',refD:3,refT:3,lastCompletedStage:1,intDate:'2026-06-10 10:00',notified:true}];
   interviews = [{id:32,candId:22,type:'1차',status:'done'},{id:33,candId:22,type:'2차',status:'confirmed'}];
   refDetails = {22:[{status:'응답'}]}; refReports = {22:{summary:'완료'}};
@@ -4331,19 +4335,13 @@ function getPositionProcessStatus(positionId) {
   const checks = [
     { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
     { key:'int1_slots', title:'1차 후보일정 안내', done:r1.interviews.length > 0 || pastInt1, skip:false },
-    { key:'int1_confirm', title:'1차 공동일정 확정', done:r1.confirmed.length > 0 || pastInt1, skip:false },
-    { key:'int1_panel', title:'1차 면접관 안내', done:(r1.confirmed.length > 0 && r1.panelNotified.length >= r1.confirmed.length) || pastInt1, skip:false },
-    { key:'int1_cand', title:'1차 지원자 안내', done:(r1.confirmed.length > 0 && r1.candidateNotified.length >= r1.confirmed.length) || pastInt1, skip:false },
-    { key:'int1_done', title:'1차 면접 실시', done:r1.done.length > 0 || pastInt1, skip:false },
-    { key:'int1_result', title:'1차 결과 입력', done:pastInt1, skip:false },
+    { key:'int1_notice', title:'1차 면접안내', done:r1.confirmed.length > 0 || pastInt1, skip:false },
+    { key:'int1_result', title:'1차 면접결과', done:pastInt1, skip:false },
     { key:'ref_req', title:'레퍼런스 체크 요청', done:refCands.some(c => c.ref !== '미시작'), skip:short },
     { key:'ref_done', title:'레퍼런스 완료', done:refCands.some(c => c.ref === '완료') || list.some(c => c.stage >= 3 && c.stage !== 6), skip:short },
     { key:'int2_slots', title:'2차 후보일정 안내', done:r2.interviews.length > 0 || pastInt2, skip:short },
-    { key:'int2_confirm', title:'2차 공동일정 확정', done:r2.confirmed.length > 0 || pastInt2, skip:short },
-    { key:'int2_panel', title:'2차 면접관 안내', done:(r2.confirmed.length > 0 && r2.panelNotified.length >= r2.confirmed.length) || pastInt2, skip:short },
-    { key:'int2_cand', title:'2차 지원자 안내', done:(r2.confirmed.length > 0 && r2.candidateNotified.length >= r2.confirmed.length) || pastInt2, skip:short },
-    { key:'int2_done', title:'2차 면접 실시', done:r2.done.length > 0 || pastInt2, skip:short },
-    { key:'int2_result', title:'2차 결과 입력', done:pastInt2, skip:short },
+    { key:'int2_notice', title:'2차 면접안내', done:r2.confirmed.length > 0 || pastInt2, skip:short },
+    { key:'int2_result', title:'2차 면접결과', done:pastInt2, skip:short },
     { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
     { key:'final', title:'최종합격', done:final.length > 0 && !list.some(c => c.stage === 4), skip:false },
     { key:'onboard', title:'입사안내', done:final.some(c => c.notified) || final.some(c => onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
@@ -4352,12 +4350,12 @@ function getPositionProcessStatus(positionId) {
   const actionKeys = new Set(actions.map(a => a.type));
   const keyMap = {
     candidate_register:'register',
-    first_slots:'int1_slots', first_schedule:'int1_confirm', first_schedule_reply:'int1_confirm',
-    first_panel_notice:'int1_panel', first_candidate_notice:'int1_cand',
-    first_interview_done:'int1_done', first_result:'int1_result',
+    first_slots:'int1_slots', first_schedule:'int1_notice', first_schedule_reply:'int1_notice',
+    first_panel_notice:'int1_notice', first_candidate_notice:'int1_notice',
+    first_interview_done:'int1_result', first_result:'int1_result',
     reference_request:'ref_req', reference_resend:'ref_req', reference_remind:'ref_done', reference_complete:'ref_done',
-    second_slots:'int2_slots', second_schedule:'int2_confirm',
-    second_panel_notice:'int2_panel', second_candidate_notice:'int2_cand',
+    second_slots:'int2_slots', second_schedule:'int2_notice',
+    second_panel_notice:'int2_notice', second_candidate_notice:'int2_notice',
     second_result:'int2_result', offer_negotiation:'offer', fill_complete:'final'
   };
   let firstOpen = -1;
@@ -4423,9 +4421,9 @@ function renderPositionProcessChecklist(positionId) {
   const refRequestTitle = refResendNeeded ? '레퍼런스 재요청' : '레퍼런스 요청';
   const groups = [
     { title:'준비', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
-    { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots'],'int1_slots'),mergeTask('일정 확정',['int1_confirm'],'int1_confirm'),mergeTask('면접 안내',['int1_panel','int1_cand'],'int1_notice'),mergeTask('결과 입력',['int1_result'],'int1_result')] },
+    { title:'1차 면접', stage:1, tasks:[mergeTask('후보일정 안내',['int1_slots'],'int1_slots'),mergeTask('면접안내',['int1_notice'],'int1_notice'),mergeTask('면접결과',['int1_result'],'int1_result')] },
     { title:'레퍼런스', stage:2, tasks:[mergeTask(refRequestTitle,['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
-    { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('일정 확정',['int2_confirm'],'int2_confirm'),mergeTask('면접 안내',['int2_panel','int2_cand'],'int2_notice'),mergeTask('결과 입력',['int2_result'],'int2_result')] },
+    { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('면접안내',['int2_notice'],'int2_notice'),mergeTask('면접결과',['int2_result'],'int2_result')] },
     { title:'처우협의', stage:4, tasks:[mergeTask('처우협의 및 결과 판단',['offer','final'],'offer_decision'),mergeTask('입사안내',['onboard'],'onboard')] },
   ];
   const shortNote = d && isShortProcessEtype(d.pos.etype)
@@ -4551,6 +4549,8 @@ async function executePositionProcessTask(positionId, actionKey) {
   if(actionKey === 'int1_slots' || actionKey === 'int2_slots') return openCollectSlots(positionId, stageIdx);
   if(actionKey === 'int1_confirm' || actionKey === 'int2_confirm') return openPositionRoundSchedule(positionId, stageIdx);
   if(actionKey === 'int1_notice' || actionKey === 'int2_notice') {
+    const roundData = positionRoundData(positionId, stageIdx);
+    if(!roundData.confirmed.length) return openPositionRoundSchedule(positionId, stageIdx);
     return openInterviewNoticeFlow(positionId, stageIdx, round);
   }
   if(actionKey === 'int1_done' || actionKey === 'int2_done') return completePositionInterviews(positionId, stageIdx);
