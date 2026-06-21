@@ -508,7 +508,8 @@ html,body{line-height:1.55;}
 #sect-reference .ref-kpi-secondary{display:block;}
 #sect-reference .mc{min-height:74px;}
 #sect-reference .grid.g32{grid-template-columns:minmax(0,1fr) minmax(280px,320px);}
-.ref-pos-group{border:1px solid var(--border);border-radius:var(--rsm);margin:0;overflow:hidden;}
+.ref-pos-group{border:1px solid var(--border);border-radius:var(--rsm);margin:0;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+.ref-pos-group:hover{border-color:var(--border2);box-shadow:0 2px 8px rgba(15,52,96,.08);}
 .ref-pos-head{padding:10px 14px 8px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
 .ref-pos-head[data-action]{cursor:pointer;transition:background .15s;}
 .ref-pos-head[data-action]:hover{background:var(--acc-light);}
@@ -519,12 +520,14 @@ html,body{line-height:1.55;}
 .ref-pos-total{text-align:right;white-space:nowrap;}
 .ref-pos-total strong{display:block;font-size:11px;}
 .ref-pos-total span{font-size:10px;color:var(--t3);}
-.ref-cand-card{display:flex;align-items:center;gap:7px;padding:7px 10px 7px 14px;border-bottom:1px solid var(--border);cursor:pointer;min-height:38px;flex-wrap:wrap;}
+.ref-cand-card{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 14px;border-bottom:1px solid var(--border);cursor:pointer;min-height:44px;}
 .ref-cand-card:last-child{border-bottom:0;}
-.ref-cand-name{font-size:12px;font-weight:700;min-width:0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ref-cand-main{min-width:0;flex:1;}
+.ref-cand-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ref-cand-status{font-size:10.5px;color:var(--t3);margin-top:2px;}
 .ref-cand-bar{flex:1 1 45px;min-width:40px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
 .ref-cand-bar-fill{height:100%;border-radius:2px;transition:width .3s;}
-.ref-cand-count{font-size:11px;font-weight:700;flex-shrink:0;min-width:28px;text-align:right;}
+.ref-cand-count{font-size:11px;font-weight:700;flex-shrink:0;white-space:nowrap;}
 .ref-cand-actions{display:flex;gap:4px;flex-shrink:0;}
 .ref-cand-actions .btn{padding:2px 5px;font-size:10px;}
 /* 면접·입사 안내: 입력이 주인공 */
@@ -1139,7 +1142,8 @@ html,body{line-height:1.55;}
           </div>
         </div>
         <div id="ref-report-empty" style="padding:28px;text-align:center;font-size:12px;color:var(--t3)">지원자를 선택하면 결과 정리표가 표시됩니다.</div>
-        <div id="ref-report-wrap" style="display:none;overflow-x:auto">
+          <div id="ref-report-wrap" style="display:none;overflow-x:auto">
+            <div id="ref-report-responses" style="margin-bottom:12px"></div>
           <table class="ref-report-table">
             <thead><tr><th style="width:120px">구분</th><th>인물평</th></tr></thead>
             <tbody>
@@ -7615,12 +7619,11 @@ function renderReference() {
         const refs=refDetails[c.id]||[];
         const done=Number(c.refD)||0;
         const tot=Number(c.refT)||refs.length||3;
-        const pct2=tot>0?Math.round(done/tot*100):0;
         const urgC=c.ref==='완료'?'var(--green)':done===0?'var(--red)':'var(--amber)';
         const isSel=selectedRefCandId===c.id;
-        const stBadge=c.ref==='완료'?'<span class="b bgreen" style="font-size:9px">완료</span>'
-          : c.ref==='진행중'?'<span class="b bamber" style="font-size:9px">진행중</span>'
-          : `<span class="b bgray" style="font-size:9px">${c.ref==='대기'?'대기':'미시작'}</span>`;
+        const statusText=c.ref==='완료'?'응답 완료'
+          : c.ref==='진행중'?(done<tot?`추천인 ${Math.max(tot-done,0)}명 응답 대기`:'응답 확인 중')
+          : '추천인 요청 필요';
         const actionBtns=[
           c.ref==='미시작'||c.ref==='대기'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="selectRefCand(${c.id});sendRefRequest(${c.id})">요청</button>`:'',
           c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="selectRefCand(${c.id});sendRefRequest(${c.id})">재요청</button>`:'',
@@ -7629,17 +7632,15 @@ function renderReference() {
         ].filter(Boolean).join('');
         return `<div class="ref-cand-card" data-action="call" data-call="selectRefCand(${c.id})" style="background:${isSel?'var(--acc-light)':'transparent'}">
           <span style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></span>
-          <span class="ref-cand-name" title="${esc(c.name)}">${esc(c.name)}</span>
-          ${stBadge}
-          <div class="ref-cand-bar"><div class="ref-cand-bar-fill" style="width:${pct2}%;background:${urgC}"></div></div>
-          <span class="ref-cand-count" style="color:${urgC}">${done}/${tot}</span>
+          <div class="ref-cand-main"><div class="ref-cand-name" title="${esc(c.name)}">${esc(c.name)}</div><div class="ref-cand-status">${statusText}</div></div>
+          <span class="ref-cand-count" style="color:${urgC}">응답 ${done}/${tot}</span>
           <div class="ref-cand-actions">${actionBtns}</div>
         </div>`;
       }).join('');
       const posIdNum=Number(pos.id);
-      const posClickable=Number.isFinite(posIdNum)?`data-action="call" data-call="openPosDetail(${posIdNum})" title="${esc(pos.title||'')} 상세 보기"`:'';
-      return `<section class="ref-pos-group">
-        <div class="ref-pos-head" ${posClickable}>
+      const groupCall=Number.isFinite(posIdNum)?`selectRefPosition(${posIdNum})`:`selectRefCand(${cands[0]?.id})`;
+      return `<section class="ref-pos-group" data-action="call" data-call="${groupCall}" title="추천인 상세 현황 보기">
+        <div class="ref-pos-head">
           <span class="ref-pos-dot" style="background:${state.color}"></span>
           <div class="ref-pos-main"><div class="ref-pos-title">${esc(pos.title||'미분류')}</div><div class="ref-pos-meta">${esc(pos.dept||'부서 미지정')} · 지원자 ${cands.length}명</div></div>
           <div class="ref-pos-total"><strong style="color:${state.color}">${totalD}/${totalT} 응답</strong><span>${state.label} · ${posPct}%</span></div>
@@ -7719,6 +7720,13 @@ function renderRefReport(candId) {
   }
   if(sel) sel.value=String(c.id);
   const report=refReports[c.id] || {};
+  const refs=refDetails[c.id] || [];
+  const responses=document.getElementById('ref-report-responses');
+  if(responses) responses.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:7px">추천인별 답변</div>
+    ${refs.length ? refs.map((r,ri)=>`<div style="padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${r.responseText?'6px':'0'}"><strong style="font-size:11.5px">${ri+1}. ${esc(r.name||'이름 미등록')} · ${esc(r.relation||'관계 미등록')}</strong><span class="b ${r.status==='응답'?'bgreen':'bgray'}">${esc(r.status||'대기')}</span></div>
+      ${r.responseText?`<div style="font-size:11.5px;line-height:1.55;white-space:pre-wrap;color:var(--text)">${esc(r.responseText)}</div>`:'<div style="font-size:11px;color:var(--t3)">아직 확인된 답변 내용이 없습니다.</div>'}
+    </div>`).join(''):'<div style="padding:12px;background:var(--s2);border-radius:var(--rsm);font-size:11px;color:var(--t3)">접수된 추천인 정보가 없습니다.</div>'}`;
   const set=(field,value)=>{const el=document.getElementById(`ref-report-${field}`);if(el)el.value=value||'';};
   set('overall',report.overall);set('expertise',report.expertise);set('character',report.character);
   set('leadership',report.leadership);set('reason',report.reason);
@@ -7742,6 +7750,23 @@ function saveRefReport() {
   saveState();
   renderRefReport(c.id);
   toast(`${esc(c.name)}님 레퍼런스 결과 저장 완료`,'tok');
+}
+
+function selectRefPosition(positionId){
+  const list=candidates.filter(c=>Number(c.posId)===Number(positionId)&&Number(c.stage)>=2&&Number(c.stage)!==6);
+  const panel=document.getElementById('ref-referee-panel');
+  if(!panel)return;
+  selectedRefCandId=null;
+  panel.innerHTML=list.length?list.map(c=>{
+    const refs=refDetails[c.id]||[];
+    return `<div style="padding:9px 0;border-bottom:1px solid var(--border)">
+      <button class="btn btn-ghost" data-action="call" data-call="selectRefCand(${c.id})" style="width:100%;padding:0;display:flex;align-items:center;justify-content:space-between;text-align:left">
+        <span><strong style="font-size:12px">${esc(c.name)}</strong><span style="display:block;font-size:10.5px;color:var(--t3);margin-top:2px">추천인 ${refs.length}명 · ${Math.max(Number(c.refT||3)-Number(c.refD||0),0)}명 응답 대기</span></span>
+        <span class="b ${c.ref==='완료'?'bgreen':c.ref==='진행중'?'bamber':'bgray'}">응답 ${Number(c.refD)||0}/${Number(c.refT)||refs.length||3}</span>
+      </button>
+    </div>`;
+  }).join(''):'<div style="padding:18px 10px;text-align:center;color:var(--t3);font-size:11.5px">레퍼런스 대상 지원자가 없습니다.</div>';
+  renderReference();
 }
 
 function selectRefCand(id){
@@ -8561,7 +8586,7 @@ const DELEGATED_CALLS = Object.freeze({
   remindOneRef, remindRef, removePanelist, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
   posdetailClosePos, posdetailDeletePos, posdetailStopPos, purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setInterviewPositionFilter, setPrivacyMaskFromControl, setTrackerPage, snapTo10,
   finishRejectReason, runCoreDiagnosticsUI,
-  refreshOnboardingDeptRecipients, saveSettings, selectRefCand, selectTemplateEditor, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
+  refreshOnboardingDeptRecipients, saveSettings, selectRefCand, selectRefPosition, selectTemplateEditor, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendAllCandSchedule, sendInterviewNoticeCandidates, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelNotice, sendRefRequest, setDashPipeFilter, setRefFilter, showUnlinkedList, scrollPositionDetail,
   skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, testGSConnection, testInterviewerConnection,
   testRefAutoConnection, togglePositionProcessGroup, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateIntPreview, updateObPreview,
