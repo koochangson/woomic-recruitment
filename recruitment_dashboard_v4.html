@@ -166,6 +166,11 @@ tr:hover td{background:var(--bg);}
 
 /* ── 폼 ────────────────────────────────────────────────── */
 .fg{display:flex;flex-direction:column;gap:4px;}
+.pos-location-options{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);}
+.pos-location-option{position:relative;display:flex;align-items:center;justify-content:center;min-height:34px;border-radius:5px;color:var(--t2);font-size:12px;font-weight:650;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;}
+.pos-location-option input{position:absolute;opacity:0;pointer-events:none;}
+.pos-location-option:hover{color:var(--acc);}
+.pos-location-option.active{background:var(--surface);color:var(--acc);box-shadow:0 1px 4px rgba(15,52,96,.12);}
 .fgrid{display:grid;gap:10px;}
 .f2{grid-template-columns:1fr 1fr;}
 .f3{grid-template-columns:1fr 1fr 1fr;}
@@ -659,6 +664,16 @@ html,body{line-height:1.55;}
 .pos-card-action-label strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
 .pos-card-action-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:0 0 auto;}
 .pos-card-action-ok .pos-card-action-dot{background:var(--green);}
+.rs-row{cursor:pointer;transition:background .15s;}
+.rs-row:hover{background:var(--acc-light);}
+.rs-section{padding:6px 12px;border:1px solid var(--border);background:var(--s1);font-size:11px;font-weight:700;color:var(--t2);}
+#modal-recruit-plan .modal{width:min(720px,95vw);}
+.rp-plan-table{table-layout:fixed;min-width:620px;}
+.rp-plan-table th,.rp-plan-table td{padding:5px 6px!important;vertical-align:middle;}
+.rp-plan-table .rp-team{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-plan-table .rp-number{width:48px!important;height:28px;padding:3px 5px!important;box-sizing:border-box;}
+.rp-plan-table .rp-actions{display:flex;align-items:center;justify-content:center;gap:2px;white-space:nowrap;}
+.rp-plan-table .rp-actions .btn{min-width:24px;padding:3px 5px;}
 .dash-brief{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(90deg,var(--acc-light),var(--surface) 42%);}
 .dash-brief-icon{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:var(--surface);color:var(--acc);font-weight:800;box-shadow:var(--shadow);}
 .dash-brief-body{min-width:0;flex:1;}
@@ -818,6 +833,10 @@ html,body{line-height:1.55;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
         대시보드
       </button>
+      <button class="nb" data-action="nav" data-target="recruit-status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+        채용현황
+      </button>
       <button class="nb" data-action="nav" data-target="position">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
         포지션
@@ -932,6 +951,20 @@ html,body{line-height:1.55;}
       </div>
     </div>
 
+    <div id="sect-recruit-status" class="sect">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:700">채용 현황</span>
+        <div id="rs-year-btns" style="display:flex;gap:4px"></div>
+        <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--s2);border-radius:var(--rsm);border:1px solid var(--border);font-size:12px;color:var(--t2)"><span id="rs-date-label"></span> 기준</div>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" data-action="call" data-call="openRecruitPlanModal()">채용계획 편집</button>
+          <button class="btn btn-sm btn-ghost" data-action="call" data-call="exportRecruitStatus()">엑셀</button>
+        </div>
+      </div>
+      <div class="mrow g5" id="rs-kpi" style="margin-bottom:16px"></div>
+      <div class="card" style="padding:0;overflow:hidden"><div id="rs-table-wrap" style="overflow-x:auto"></div></div>
+    </div>
+
     <!-- ② 지원자 트래커 ──────────────────────────────────── -->
     <!-- ── 포지션 관리 섹션 ─────────────────────────────────── -->
 <div id="sect-position" class="sect">
@@ -953,6 +986,10 @@ html,body{line-height:1.55;}
     <button class="btn btn-sm pos-tab pos-tab-on" data-posfilter="active" data-action="filter-position" data-value="active">진행중 <span id="pos-cnt-active" style="opacity:.7"></span></button>
     <button class="btn btn-sm pos-tab" data-posfilter="done" data-action="filter-position" data-value="done">완료 <span id="pos-cnt-done" style="opacity:.7"></span></button>
     <button class="btn btn-sm pos-tab" data-posfilter="all" data-action="filter-position" data-value="all">전체 <span id="pos-cnt-all" style="opacity:.7"></span></button>
+  </div>
+  <div id="pos-org-filter" style="display:none;margin:-4px 0 12px;padding:8px 10px;background:var(--acc-light);border:1px solid #C8DEFA;border-radius:var(--rsm);font-size:11.5px;color:var(--acc);align-items:center;gap:8px">
+    <span id="pos-org-filter-label" style="flex:1"></span>
+    <button class="btn btn-xs" data-action="call" data-call="clearPositionOrgFilter()">필터 해제</button>
   </div>
 
   <!-- 포지션 목록 -->
@@ -1515,6 +1552,21 @@ html,body{line-height:1.55;}
           <div class="alert aw" style="margin-top:8px"><span>Google Sheets 공유 권한은 피플팀 최소 인원으로 제한하고, 지원자 동의 및 회사 보존 정책에 맞춰 기한을 설정하세요.</span></div>
           <div id="privacy-expired-list" style="font-size:11.5px;color:var(--t2)"></div>
         </div>
+        <div class="card" style="margin-top:14px;background:var(--s1)">
+          <div class="ch">
+            <div class="ch-l">팀 마스터 <span style="font-size:11px;color:var(--t3);margin-left:6px">본사 팀 목록</span></div>
+            <div style="display:flex;gap:5px"><button class="btn btn-xs" data-action="call" data-call="syncTeamMasterFromInterviewers(true)">면접관 DB 동기화</button><button class="btn btn-xs btn-primary" data-action="call" data-call="openAddTeam()">+ 직접 추가</button></div>
+          </div>
+          <div id="add-team-form" style="display:none;margin:8px 0 12px;padding:10px;background:var(--s2);border-radius:var(--rsm)">
+            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+              <div class="fg" style="flex:1;min-width:180px;margin:0"><label style="font-size:11px">사업부</label><input id="new-team-division" placeholder="예: 개발영업" style="font-size:13px"></div>
+              <div class="fg" style="flex:1;min-width:180px;margin:0"><label style="font-size:11px">팀명 *</label><input id="new-team-name" placeholder="예: 민간영업팀" style="font-size:13px"></div>
+              <button class="btn btn-xs btn-primary" data-action="call" data-call="saveNewTeam()">저장</button>
+              <button class="btn btn-xs btn-ghost" data-action="call" data-call="closeAddTeam()">취소</button>
+            </div>
+          </div>
+          <div id="team-master-list" style="margin-top:8px"></div>
+        </div>
         <div class="brow" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
           <button class="btn btn-primary" data-action="call" data-call="saveSettings()">💾 설정 저장</button>
           <span style="font-size:11.5px;color:var(--t3)">메일 템플릿·URL·서명 등 모든 설정을 저장합니다 (Google Sheets에도 동기화).</span>
@@ -1738,6 +1790,31 @@ html,body{line-height:1.55;}
 
 <!-- ── 토스트 ─────────────────────────────────────────────── -->
 
+<div class="overlay" id="modal-recruit-plan">
+  <div class="modal" style="width:min(720px,95vw)">
+    <div class="modal-hd"><div class="modal-title">채용계획·이관실적</div><button class="mclose" data-action="close-modal" data-id="modal-recruit-plan">×</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;gap:4px" id="rp-year-btns"></div>
+        <div style="display:flex;gap:4px;margin-left:auto">
+          <button class="btn btn-xs btn-ghost" id="rp-loc-hq" data-action="call" data-call="setRpLocation('본사')">본사</button>
+          <button class="btn btn-xs btn-ghost" id="rp-loc-site" data-action="call" data-call="setRpLocation('현장')">현장</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;margin-bottom:12px">
+        <select id="rp-search-etype" data-onchange="searchRecruitPlanTargets()"><option value="정규직">정규직</option><option value="전문직">전문직</option></select>
+        <div style="position:relative">
+          <input id="rp-search" autocomplete="off" placeholder="팀을 검색해 추가하세요" data-oninput="searchRecruitPlanTargets()" data-onfocus="searchRecruitPlanTargets()">
+          <div id="rp-search-results" style="display:none;position:absolute;z-index:20;top:calc(100% + 3px);left:0;right:0;max-height:180px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm)"></div>
+        </div>
+      </div>
+      <div style="font-size:10.5px;color:var(--t3);margin-bottom:7px">추가된 채용계획</div>
+      <div id="rp-table-wrap" style="overflow:auto;max-height:420px"></div>
+    </div>
+    <div class="modal-ft"><button class="btn" data-action="close-modal" data-id="modal-recruit-plan">닫기</button><button class="btn btn-primary" data-action="call" data-call="saveRecruitPlanModal()">저장</button></div>
+  </div>
+</div>
+
 <!-- ── 포지션 추가/편집 모달 ──────────────────────────── -->
 <div class="overlay" id="modal-position">
   <div class="modal" style="width:680px">
@@ -1752,6 +1829,25 @@ html,body{line-height:1.55;}
         <label>포지션명 *</label>
         <input id="pos-title" placeholder="예: 현장소장, 구매팀 대리"/>
       </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>소속 *</label>
+        <div class="pos-location-options">
+          <label id="loc-hq-label" class="pos-location-option">
+            <input type="radio" name="pos-location" value="본사" id="pos-loc-hq" data-onchange="onPosLocationChange()"><span>본사</span>
+          </label>
+          <label id="loc-site-label" class="pos-location-option">
+            <input type="radio" name="pos-location" value="현장" id="pos-loc-site" data-onchange="onPosLocationChange()"><span>현장</span>
+          </label>
+        </div>
+      </div>
+      <div class="fg" id="fg-team" style="display:none;grid-column:1/-1">
+        <label>팀 *</label>
+        <select id="pos-team"><option value="">팀 선택</option></select>
+      </div>
+      <div class="fg" id="fg-jobtype" style="display:none;grid-column:1/-1">
+        <label>직종 *</label>
+        <select id="pos-jobtype"><option value="">직종 선택</option></select>
+      </div>
       <div class="fg">
         <label>채용형태</label>
         <select id="pos-etype">
@@ -1761,25 +1857,8 @@ html,body{line-height:1.55;}
         </select>
       </div>
       <div class="fg">
-        <label>직군</label>
-        <select id="pos-role">
-          <option value="영업직">영업직</option>
-          <option value="기술직">기술직</option>
-          <option value="관리직">관리직</option>
-          <option value="현장직">현장직</option>
-        </select>
-      </div>
-      <div class="fg">
         <label>모집인원</label>
         <input id="pos-headcount" type="number" min="1" value="1" placeholder="명"/>
-      </div>
-      <div class="fg">
-        <label>부서</label>
-        <div style="position:relative">
-          <input id="pos-dept" placeholder="부서명 검색 또는 직접 입력 (예: 현장지원1팀)" autocomplete="off"
-            data-oninput="filterDepts()" data-onfocus="filterDepts()" data-onblur="setTimeout(()=>{const l=document.getElementById('pos-dept-list');if(l)l.style.display='none';},200)"/>
-          <div id="pos-dept-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:200px;overflow-y:auto;margin-top:2px"></div>
-        </div>
       </div>
       <div class="fg" style="grid-column:1/-1">
         <label>1차 면접관</label>
@@ -2132,6 +2211,279 @@ let pendingStageChange = null;
 let dashPipeFilter  = -1;
 let cfg             = {};
 
+const JOB_TYPES = Object.freeze(['건축','기전','부대토목','토목','안전','현장관리','영업','관리','AS','MH','임대관리']);
+let teamMaster = [];
+try { teamMaster = JSON.parse(localStorage.getItem('woomic_team_master') || '[]'); }
+catch(e) { teamMaster = []; }
+let recruitPlans = [];
+try { recruitPlans = JSON.parse(localStorage.getItem('woomic_recruit_plans') || '[]'); }
+catch(e) { recruitPlans = []; }
+
+function saveRecruitPlans() {
+  localStorage.setItem('woomic_recruit_plans', JSON.stringify(recruitPlans));
+}
+
+function saveTeamMaster() {
+  localStorage.setItem('woomic_team_master', JSON.stringify(teamMaster));
+}
+
+function getInterviewerDeptName(person) {
+  return String(person?.dept||person?.department||person?.deptName||person?.team||person?.['부서']||person?.['부서명']||person?.['소속']||'').trim().replace(/\s+/g,' ');
+}
+
+function getInterviewerDeptTeams() {
+  const map=new Map();
+  (Array.isArray(interviewers)?interviewers:[]).forEach(person=>{
+    if(person?.active===false||/퇴사|비활성|사용안함/.test(String(person?.status||'')))return;
+    const name=getInterviewerDeptName(person);if(!name)return;
+    const key=name.toLowerCase();
+    const division=String(person?.division||person?.businessUnit||person?.bizUnit||person?.['사업부']||'').trim();
+    if(!map.has(key))map.set(key,{name,division,source:'interviewer',active:true,hidden:false});
+  });
+  return [...map.values()];
+}
+
+function getSelectableTeams() {
+  const map=new Map();
+  teamMaster.filter(team=>team&&team.name&&!team.hidden&&team.active!==false).forEach(team=>map.set(String(team.name).toLowerCase(),team));
+  getInterviewerDeptTeams().forEach(team=>{const key=team.name.toLowerCase();if(!map.has(key))map.set(key,team);});
+  return [...map.values()].sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
+}
+
+function syncTeamMasterFromInterviewers(showToast=false) {
+  if(!Array.isArray(interviewers)||!interviewers.length) {
+    if(showToast) toast('면접관 DB를 먼저 연결하거나 새로고침하세요.', 'terr');
+    return 0;
+  }
+  const before=JSON.stringify(teamMaster);
+  const deptMap=new Map(getInterviewerDeptTeams().map(team=>[team.name.toLowerCase(),team]));
+  const activeKeys=new Set(deptMap.keys());
+  deptMap.forEach((dept,key)=>{
+    const existing=teamMaster.find(team=>String(team.name||'').trim().toLowerCase()===key);
+    if(existing) {
+      existing.active=true;
+      if(!existing.division&&dept.division) existing.division=dept.division;
+      if(!existing.source) existing.source='interviewer';
+    } else teamMaster.push({name:dept.name,division:dept.division,source:'interviewer',active:true,hidden:false});
+  });
+  teamMaster.forEach(team=>{
+    if(team.source==='interviewer'&&!activeKeys.has(String(team.name||'').trim().toLowerCase())) team.active=false;
+  });
+  if(before!==JSON.stringify(teamMaster)) saveTeamMaster();
+  renderTeamMaster();
+  if(showToast) toast(`면접관 DB에서 팀 ${deptMap.size}개를 동기화했습니다.`, 'tok');
+  return deptMap.size;
+}
+
+function renderTeamMaster() {
+  const wrap = document.getElementById('team-master-list');
+  if(!wrap) return;
+  if(!teamMaster.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0">면접관 DB를 동기화하거나 팀을 직접 추가하세요.</div>';
+    return;
+  }
+  wrap.innerHTML = `<div class="tw"><table><thead><tr><th>사업부</th><th>팀명</th><th>출처</th><th style="width:70px">관리</th></tr></thead><tbody>${teamMaster.map((t,i)=>`<tr style="opacity:${t.hidden||t.active===false?'.5':'1'}">
+    <td style="font-size:13px;color:var(--t2)">${esc(t.division||'-')}</td>
+    <td style="font-size:13px;font-weight:600">${esc(t.name)}</td>
+    <td><span class="b ${t.source==='interviewer'?'bblue':'bgray'}">${t.source==='interviewer'?'면접관 DB':'직접 추가'}${t.active===false?' · 미확인':''}</span></td>
+    <td>${t.source==='interviewer'?`<button class="btn btn-xs btn-ghost" data-action="call" data-call="toggleTeamVisibility(${i})">${t.hidden?'표시':'숨김'}</button>`:`<button class="btn btn-xs btn-ghost" style="color:var(--red)" data-action="call" data-call="deleteTeam(${i})">삭제</button>`}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+function openAddTeam() {
+  const form = document.getElementById('add-team-form');
+  if(form) form.style.display = '';
+  document.getElementById('new-team-name')?.focus();
+}
+
+function closeAddTeam() {
+  const form = document.getElementById('add-team-form');
+  if(form) form.style.display = 'none';
+  const name = document.getElementById('new-team-name'); if(name) name.value = '';
+  const division = document.getElementById('new-team-division'); if(division) division.value = '';
+}
+
+function saveNewTeam() {
+  const name = document.getElementById('new-team-name')?.value.trim();
+  const division = document.getElementById('new-team-division')?.value.trim() || '';
+  if(!name) { toast('팀명을 입력하세요.', 'terr'); return; }
+  if(teamMaster.some(t=>t.name===name)) { toast('이미 존재하는 팀명입니다.', 'terr'); return; }
+  teamMaster.push({name,division,source:'manual',active:true,hidden:false});
+  saveTeamMaster(); closeAddTeam(); renderTeamMaster();
+  toast(`${name} 추가 완료`, 'tok');
+}
+
+function deleteTeam(idx) {
+  const team = teamMaster[Number(idx)];
+  if(!team || !confirm(`"${team.name}" 팀을 삭제하시겠습니까?\n기존 포지션에 저장된 팀명은 유지됩니다.`)) return;
+  teamMaster.splice(Number(idx),1);
+  saveTeamMaster(); renderTeamMaster();
+}
+
+function toggleTeamVisibility(idx) {
+  const team=teamMaster[Number(idx)];
+  if(!team)return;
+  team.hidden=!team.hidden;
+  saveTeamMaster(); renderTeamMaster();
+}
+
+function onPosLocationChange(selectedTeam='', selectedJobType='') {
+  const location = document.querySelector('input[name="pos-location"]:checked')?.value || '';
+  const fgTeam = document.getElementById('fg-team');
+  const fgJobType = document.getElementById('fg-jobtype');
+  const teamSel = document.getElementById('pos-team');
+  const jobSel = document.getElementById('pos-jobtype');
+  if(!fgTeam || !fgJobType || !teamSel || !jobSel) return;
+  const teams=getSelectableTeams();
+  if(selectedTeam&&!teams.some(t=>t.name===selectedTeam)) teams.push({name:selectedTeam,division:'기존 포지션'});
+  teamSel.innerHTML = '<option value="">팀 선택</option>' + teams.map(t=>`<option value="${esc(t.name)}">${esc(t.division?`${t.division} · ${t.name}`:t.name)}</option>`).join('');
+  jobSel.innerHTML = '<option value="">직종 선택</option>' + JOB_TYPES.map(name=>`<option value="${name}">${name}</option>`).join('');
+  fgTeam.style.display = location==='본사' ? '' : 'none';
+  fgJobType.style.display = location==='현장' ? '' : 'none';
+  teamSel.value = location==='본사' ? selectedTeam : '';
+  jobSel.value = location==='현장' ? selectedJobType : '';
+  document.getElementById('loc-hq-label')?.classList.toggle('active', location==='본사');
+  document.getElementById('loc-site-label')?.classList.toggle('active', location==='현장');
+}
+
+// ── 채용현황 / 연간 TO ─────────────────────────────────────
+let rsYear = new Date().getFullYear();
+let rpYear = rsYear;
+let rpLocation = '본사';
+let rpDraftRows = [];
+let rpSearchResults = [];
+let positionOrgFilter = null;
+
+function renderRecruitStatus() {
+  renderRsYearBtns();
+  const date = document.getElementById('rs-date-label');
+  if(date) date.textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'numeric',day:'numeric'});
+  renderRsKpi(); renderRsTable();
+}
+
+function renderRsYearBtns() {
+  const wrap=document.getElementById('rs-year-btns'); if(!wrap)return;
+  const cur=new Date().getFullYear();
+  wrap.innerHTML=[cur-1,cur,cur+1].map(y=>`<button class="btn btn-xs ${y===rsYear?'btn-primary':'btn-ghost'}" data-action="call" data-call="setRsYear(${y})">${y}</button>`).join('');
+}
+
+function setRsYear(year) { rsYear=Number(year); renderRecruitStatus(); }
+
+function buildRsRows() {
+  const todayIso=today();
+  const year=String(rsYear);
+  const onboardingByCand=new Map(onboardings.map(o=>[Number(o.candId),o]));
+  const completedIds=new Set(candidates.filter(c=>{
+    const ob=onboardingByCand.get(Number(c.id));
+    const joinDate=String(ob?.joinDate||c.joinDate||c.passDate||'');
+    return joinDate.startsWith(year) && (Number(c.stage)===7 || (joinDate && joinDate<=todayIso));
+  }).map(c=>Number(c.id)));
+  const doneCands=candidates.filter(c=>completedIds.has(Number(c.id)));
+  const interviewCands=candidates.filter(c=>Number(c.stage)===1||Number(c.stage)===3);
+  const offerCands=candidates.filter(c=>Number(c.stage)===5&&!completedIds.has(Number(c.id)));
+
+  const getPlan=key=>recruitPlans.find(p=>Number(p.year)===rsYear&&p.location===key.location&&p.empType===key.empType&&(p.team||null)===(key.team||null)&&(p.jobType||null)===(key.jobType||null));
+  const getCands=(list,key)=>{
+    const ids=new Set(positions.filter(p=>p.location===key.location&&(p.etype||'정규직')===key.empType&&(!key.team||p.team===key.team)&&(!key.jobType||p.jobType===key.jobType)).map(p=>Number(p.id)));
+    return list.filter(c=>ids.has(Number(c.posId)));
+  };
+  const rows=[];
+  const append=(key,division,label)=>{
+    const plan=getPlan(key);
+    const done=getCands(doneCands,key).length+(Number(plan?.manualDone)||0);
+    const itv=getCands(interviewCands,key).length+(Number(plan?.manualItv)||0);
+    const offer=getCands(offerCands,key).length+(Number(plan?.manualOffer)||0);
+    if(!plan&&!done&&!itv&&!offer)return;
+    const to=Number(plan?.planned)||0;
+    rows.push({...key,division,label,to,done,itv,offer,sortOrder:Number.isFinite(Number(plan?.sortOrder))?Number(plan.sortOrder):9999,remain:to?to-done-itv-offer:null,rate:to?Math.round(done/to*100):null});
+  };
+  ['정규직','전문직'].forEach(empType=>teamMaster.forEach(tm=>append({location:'본사',empType,team:tm.name,jobType:null},tm.division||'-',tm.name)));
+  ['정규직','전문직'].forEach(empType=>JOB_TYPES.forEach(jobType=>append({location:'현장',empType,team:null,jobType},'',jobType)));
+  const locationRank={본사:0,현장:1};
+  return rows.sort((a,b)=>(locationRank[a.location]??9)-(locationRank[b.location]??9)||a.sortOrder-b.sortOrder||String(a.empType).localeCompare(String(b.empType),'ko')||String(a.label).localeCompare(String(b.label),'ko'));
+}
+
+function renderRsKpi() {
+  const rows=buildRsRows(); const sum=key=>rows.reduce((n,r)=>n+(Number(r[key])||0),0);
+  const totalTo=sum('to'),done=sum('done'),itv=sum('itv'),offer=sum('offer'),rate=totalTo?Math.round(done/totalTo*100):null;
+  const wrap=document.getElementById('rs-kpi'); if(!wrap)return;
+  const card=(label,value,color='var(--text)')=>`<div class="mc"><div class="mc-lbl">${label}</div><div class="mc-val" style="color:${color}">${value}</div></div>`;
+  wrap.innerHTML=card('연간 TO',totalTo||'-')+card('채용완료',done,'var(--green)')+card('면접중',itv,'var(--acc)')+card('입사예정',offer,'var(--amber)')+card(`달성률 (${rsYear})`,rate===null?'-':rate+'%');
+}
+
+function renderRsTable() {
+  const wrap=document.getElementById('rs-table-wrap'); if(!wrap)return;
+  const rows=buildRsRows();
+  if(!rows.length){wrap.innerHTML='<div style="padding:28px;text-align:center;color:var(--t3);font-size:12px">데이터가 없습니다. 팀 마스터와 포지션 소속 또는 채용계획을 확인하세요.</div>';return;}
+  const cell=(value,style='')=>`<td style="padding:7px 8px;border:1px solid var(--border);font-size:11.5px;${style}">${value??'-'}</td>`;
+  const rateCell=rate=>rate===null?cell('-','text-align:center'):`<td style="padding:7px 8px;border:1px solid var(--border)"><div style="font-size:10.5px;text-align:center;color:${rate>=100?'var(--green)':'var(--acc)'}">${rate}%</div><div style="height:4px;background:var(--border);border-radius:3px"><div style="height:100%;width:${Math.min(rate,100)}%;background:${rate>=100?'var(--green)':'var(--acc)'};border-radius:3px"></div></div></td>`;
+  const remainCell=(remain,to)=>!to?cell('-','text-align:center'):cell(remain<0?`+${Math.abs(remain)}`:remain,`text-align:center;font-weight:700;color:${remain>0?'var(--amber)':'var(--green)'}`);
+  const body=subset=>subset.map(r=>`<tr class="rs-row" data-action="call" data-call="filterPosToTeam('${esc(r.location)}','${esc(r.empType)}','${esc(r.team||'')}','${esc(r.jobType||'')}')">${cell(r.location,'text-align:center')}${cell(r.empType,'text-align:center')}${cell(esc(r.label))}${cell(r.to||'-','text-align:center')}${cell(r.done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(r.rate)}${cell(r.itv||'-','text-align:center;color:var(--acc)')}${cell(r.offer||'-','text-align:center;color:var(--amber)')}${remainCell(r.remain,r.to)}</tr>`).join('');
+  const subtotal=(label,subset)=>{const sum=k=>subset.reduce((n,r)=>n+(Number(r[k])||0),0),to=sum('to'),done=sum('done'),itv=sum('itv'),offer=sum('offer'),rate=to?Math.round(done/to*100):null;return `<tr style="background:var(--s2)"><td colspan="3" style="padding:7px 9px;border:1px solid var(--border);text-align:right;font-weight:700">${label}</td>${cell(to||'-','text-align:center;font-weight:700')}${cell(done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(rate)}${cell(itv,'text-align:center')}${cell(offer,'text-align:center')}${remainCell(to?to-done-itv-offer:null,to)}</tr>`;};
+  const hq=rows.filter(r=>r.location==='본사'),site=rows.filter(r=>r.location==='현장');
+  wrap.innerHTML=`<table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr>${['소속','채용형태','팀 / 직종','TO','완료','달성률','면접','입사예정','잔여'].map(v=>`<th style="padding:7px 8px;border:1px solid var(--border);background:var(--s2);font-size:11px;color:var(--t2)">${v}</th>`).join('')}</tr></thead><tbody><tr><td colspan="9" class="rs-section">본사 — 팀 기준</td></tr>${body(hq)}${subtotal('본사 계',hq)}<tr><td colspan="9" class="rs-section">현장 — 직종 기준</td></tr>${body(site)}${subtotal('현장 계',site)}${subtotal('총계',rows)}</tbody></table>`;
+}
+
+function loadRpDraftRows() {
+  rpDraftRows=recruitPlans.filter(plan=>Number(plan.year)===rpYear&&plan.location===rpLocation).map(plan=>({...plan}))
+    .sort((a,b)=>(Number.isFinite(Number(a.sortOrder))?Number(a.sortOrder):9999)-(Number.isFinite(Number(b.sortOrder))?Number(b.sortOrder):9999)||String(a.team||a.jobType||'').localeCompare(String(b.team||b.jobType||''),'ko'));
+}
+
+async function openRecruitPlanModal() {
+  if(!interviewers.length&&GS_CONFIG.interviewerUrl) await loadInterviewers();
+  if(interviewers.length) syncTeamMasterFromInterviewers(false);
+  rpYear=rsYear; rpLocation='본사'; loadRpDraftRows();
+  renderRpYearBtns(); renderRpTable(); openModal('modal-recruit-plan');
+  const search=document.getElementById('rp-search'); if(search){search.value='';search.placeholder='팀을 검색해 추가하세요';}
+  const results=document.getElementById('rp-search-results'); if(results)results.style.display='none';
+}
+
+function setRpYear(year){rpYear=Number(year);loadRpDraftRows();renderRpYearBtns();renderRpTable();}
+function setRpLocation(location){rpLocation=location;loadRpDraftRows();renderRpYearBtns();renderRpTable();const search=document.getElementById('rp-search');if(search){search.value='';search.placeholder=location==='본사'?'팀을 검색해 추가하세요':'직종을 검색해 추가하세요';}const results=document.getElementById('rp-search-results');if(results)results.style.display='none';}
+function renderRpYearBtns(){const wrap=document.getElementById('rp-year-btns');if(!wrap)return;const cur=new Date().getFullYear();wrap.innerHTML=[cur-1,cur,cur+1].map(y=>`<button class="btn btn-xs ${y===rpYear?'btn-primary':'btn-ghost'}" data-action="call" data-call="setRpYear(${y})">${y}</button>`).join('');const hq=document.getElementById('rp-loc-hq'),site=document.getElementById('rp-loc-site');if(hq)hq.className=`btn btn-xs ${rpLocation==='본사'?'btn-primary':'btn-ghost'}`;if(site)site.className=`btn btn-xs ${rpLocation==='현장'?'btn-primary':'btn-ghost'}`;}
+function searchRecruitPlanTargets() {
+  const input=document.getElementById('rp-search'),results=document.getElementById('rp-search-results');
+  if(!input||!results)return;
+  const query=input.value.trim().toLowerCase();
+  const targets=(rpLocation==='본사'?getSelectableTeams().map(team=>({name:team.name,sub:team.division||''})):JOB_TYPES.map(name=>({name,sub:''})));
+  rpSearchResults=targets.filter(target=>(target.name+' '+target.sub).toLowerCase().includes(query)).filter(target=>!rpDraftRows.some(row=>(row.team||row.jobType)===target.name&&row.empType===(document.getElementById('rp-search-etype')?.value||'정규직'))).slice(0,20);
+  results.innerHTML=rpSearchResults.length?rpSearchResults.map((target,index)=>`<button type="button" data-action="call" data-call="addRecruitPlanTarget(${index})" style="display:flex;width:100%;justify-content:space-between;padding:8px 10px;border:0;border-bottom:1px solid var(--border);background:var(--surface);cursor:pointer;text-align:left"><strong>${esc(target.name)}</strong><span style="font-size:10.5px;color:var(--t3)">${esc(target.sub)}</span></button>`).join(''):'<div style="padding:10px;color:var(--t3);font-size:11px">추가할 항목이 없습니다.</div>';
+  results.style.display='block';
+}
+
+function addRecruitPlanTarget(index) {
+  const target=rpSearchResults[Number(index)]; if(!target)return;
+  const empType=document.getElementById('rp-search-etype')?.value||'정규직';
+  if(!rpDraftRows.some(row=>row.empType===empType&&(row.team||row.jobType)===target.name)) rpDraftRows.push({year:rpYear,location:rpLocation,empType,team:rpLocation==='본사'?target.name:null,jobType:rpLocation==='현장'?target.name:null,planned:0,manualDone:0,manualItv:0,manualOffer:0,sortOrder:rpDraftRows.length});
+  const input=document.getElementById('rp-search');if(input)input.value='';
+  const results=document.getElementById('rp-search-results');if(results)results.style.display='none';
+  renderRpTable();
+}
+
+function removeRecruitPlanDraft(index){rpDraftRows.splice(Number(index),1);renderRpTable();}
+function moveRecruitPlanDraft(index,direction){const from=Number(index),to=from+Number(direction);if(from<0||to<0||from>=rpDraftRows.length||to>=rpDraftRows.length)return;[rpDraftRows[from],rpDraftRows[to]]=[rpDraftRows[to],rpDraftRows[from]];renderRpTable();}
+
+function renderRpTable() {
+  const wrap=document.getElementById('rp-table-wrap');if(!wrap)return;
+  if(!rpDraftRows.length){wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px">검색창에서 팀 또는 직종을 추가하세요.</div>';return;}
+  const numberInput=(index,field,value)=>`<input class="rp-number" type="number" min="0" value="${Number(value)||''}" data-oninput="updateRecruitPlanDraft(${index},'${field}',this)" aria-label="${field}">`;
+  wrap.innerHTML=`<div style="font-size:10.5px;color:var(--t3);margin-bottom:6px">이관 실적을 입력하고 화살표로 표시 순서를 변경할 수 있습니다.</div><div class="tw"><table class="rp-plan-table"><colgroup><col style="width:72px"><col style="width:150px"><col style="width:58px"><col style="width:58px"><col style="width:58px"><col style="width:68px"><col style="width:108px"></colgroup><thead><tr><th>채용형태</th><th>${rpLocation==='본사'?'팀':'직종'}</th><th>TO</th><th>완료</th><th>면접</th><th>입사예정</th><th>순서 / 관리</th></tr></thead><tbody>${rpDraftRows.map((row,index)=>`<tr><td>${esc(row.empType)}</td><td class="rp-team" title="${esc(row.team||row.jobType||'')}"><strong>${esc(row.team||row.jobType||'')}</strong></td><td>${numberInput(index,'planned',row.planned)}</td><td>${numberInput(index,'manualDone',row.manualDone)}</td><td>${numberInput(index,'manualItv',row.manualItv)}</td><td>${numberInput(index,'manualOffer',row.manualOffer)}</td><td><div class="rp-actions"><button class="btn btn-xs btn-ghost" data-action="call" data-call="moveRecruitPlanDraft(${index},-1)" ${index===0?'disabled':''} title="위로">↑</button><button class="btn btn-xs btn-ghost" data-action="call" data-call="moveRecruitPlanDraft(${index},1)" ${index===rpDraftRows.length-1?'disabled':''} title="아래로">↓</button><button class="btn btn-xs btn-ghost" style="color:var(--red)" data-action="call" data-call="removeRecruitPlanDraft(${index})">삭제</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function updateRecruitPlanDraft(index,field,input){const row=rpDraftRows[Number(index)];if(row&&['planned','manualDone','manualItv','manualOffer'].includes(field))row[field]=Math.max(0,parseInt(input?.value,10)||0);}
+
+function saveRecruitPlanModal() {
+  recruitPlans=recruitPlans.filter(plan=>!(Number(plan.year)===rpYear&&plan.location===rpLocation));
+  rpDraftRows.filter(row=>['planned','manualDone','manualItv','manualOffer'].some(field=>Number(row[field])>0)).forEach((row,index)=>recruitPlans.push({...row,year:rpYear,location:rpLocation,planned:Number(row.planned)||0,manualDone:Number(row.manualDone)||0,manualItv:Number(row.manualItv)||0,manualOffer:Number(row.manualOffer)||0,sortOrder:index}));
+  saveRecruitPlans(); closeModal('modal-recruit-plan'); renderRecruitStatus();
+  toast(`${rpYear}년 ${rpLocation} 채용계획 저장 완료`,'tok');
+}
+
+function exportRecruitStatus(){const rows=buildRsRows(),data=[['소속','채용형태','팀/직종','TO','완료','달성률(%)','면접','입사예정','잔여'],...rows.map(r=>[r.location,r.empType,r.label,r.to,r.done,r.rate??'-',r.itv,r.offer,r.remain??'-'])];const csv=data.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`채용현황_${rsYear}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+
+function filterPosToTeam(location,empType,team,jobType){positionOrgFilter={location,empType,team,jobType};posFilter='all';document.querySelectorAll('.pos-tab').forEach(btn=>btn.classList.toggle('pos-tab-on',btn.dataset.posfilter==='all'));nav('position');renderPositions();toast(`${location} · ${empType} · ${team||jobType} 포지션을 표시합니다.`,'tok');}
+function clearPositionOrgFilter(){positionOrgFilter=null;renderPositions();}
+
 // ── 트래커 필터/정렬 상태 ────────────────────────────────────
 let stageFilter     = -1;   // -1: 전체, 0~6: 특정 단계
 let roleFilter      = 'all';   // 직군 필터
@@ -2166,6 +2518,7 @@ let lastLocalStateJson = '';
 // ══════════════════════════════════════════════════════════════
 const TITLES = {
   dash:       '대시보드',
+  'recruit-status': '채용현황',
   position:   '포지션 관리',
   tracker:    '지원자 트래커',
   interview:  '면접 관리',
@@ -3764,8 +4117,14 @@ function renderPositions() {
   if(nbPos) nbPos.textContent = activeCount;  // 사이드바 배지는 진행중 기준
   updateSidebarUrgency();
 
+  const orgBar=document.getElementById('pos-org-filter');
+  const orgLabel=document.getElementById('pos-org-filter-label');
+  if(orgBar) orgBar.style.display=positionOrgFilter?'flex':'none';
+  if(orgLabel&&positionOrgFilter) orgLabel.textContent=`채용현황 필터: ${positionOrgFilter.location} · ${positionOrgFilter.empType} · ${positionOrgFilter.team||positionOrgFilter.jobType}`;
+
   // 필터 적용
   const filtered = positions.filter(p => {
+    if(positionOrgFilter && !(p.location===positionOrgFilter.location&&(p.etype||'정규직')===positionOrgFilter.empType&&(!positionOrgFilter.team||p.team===positionOrgFilter.team)&&(!positionOrgFilter.jobType||p.jobType===positionOrgFilter.jobType))) return false;
     if(posFilter === 'active') return !isDone(p);
     if(posFilter === 'done')   return  isDone(p);
     return true;
@@ -5243,6 +5602,7 @@ async function loadInterviewers() {
     const data = await res.json();
     if (data.success) {
       interviewers = data.interviewers;
+      syncTeamMasterFromInterviewers(false);
       loadInterviewerOptions();
     }
   } catch(e) {
@@ -5259,48 +5619,6 @@ function loadInterviewerOptions() {
 }
 
 // 검색어로 면접관 필터링 → 목록 표시
-// 부서 검색 드롭다운 (면접관 DB의 고유 부서 목록 기반)
-function filterDepts() {
-  const input = document.getElementById('pos-dept');
-  const listEl = document.getElementById('pos-dept-list');
-  if(!input || !listEl) return;
-  const q = input.value.trim().toLowerCase();
-
-  const deptMap = {};
-  (Array.isArray(interviewers) ? interviewers : []).forEach(iv => {
-    if(!iv.dept) return;
-    const d = iv.dept.trim();
-    if(!d) return;
-    if(!deptMap[d]) deptMap[d] = [];
-    if(/팀장|소장/.test(iv.rank||'')) deptMap[d].push(`${iv.name} ${iv.rank}`);
-  });
-  let depts = Object.keys(deptMap);
-  if(q) depts = depts.filter(d => d.toLowerCase().includes(q));
-  depts.sort();
-
-  if(!depts.length) {
-    listEl.innerHTML = interviewers.length
-      ? '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">일치하는 부서가 없습니다. 직접 입력하셔도 됩니다.</div>'
-      : '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">면접관 DB가 비어있습니다. 부서를 직접 입력하세요.</div>';
-    listEl.style.display = 'block';
-    return;
-  }
-  listEl.innerHTML = depts.map(d => {
-    const leads = deptMap[d];
-    const leadLabel = leads.length ? `<span style="color:var(--teal);font-size:11px">· 부서장 ${leads.join(', ')}</span>` : '<span style="color:var(--t3);font-size:11px">· 부서장 미등록</span>';
-    return `<div data-action="call" data-call="selectDept('${d.replace(/'/g,"\\'")}')" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px">
-      <b>${d}</b> ${leadLabel}
-    </div>`;
-  }).join('');
-  listEl.style.display = 'block';
-}
-function selectDept(dept) {
-  const input = document.getElementById('pos-dept');
-  const listEl = document.getElementById('pos-dept-list');
-  if(input) input.value = dept;
-  if(listEl) listEl.style.display = 'none';
-}
-
 function filterInterviewers(round) {
   const input  = document.getElementById('pos-panel' + round + '-search');
   const listEl = document.getElementById('pos-panel' + round + '-list');
@@ -5436,6 +5754,7 @@ async function testInterviewerConnection() {
     if (data.success) {
       GS_CONFIG.interviewerUrl = url;
       interviewers = data.interviewers;
+      syncTeamMasterFromInterviewers(false);
       loadInterviewerOptions();
       if(status) status.textContent = `✅ 연결 성공 — 면접관 ${data.count}명 로드`;
       saveSettings();
@@ -5698,13 +6017,16 @@ function openAddPosition() {
   try {
     editingPosId = null;
     document.getElementById('pos-modal-title').textContent = '포지션 추가';
-    ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-owner','pos-target-date','pos-memo','pos-dept'].forEach(id => {
+    ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-owner','pos-target-date','pos-memo'].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.value = '';
     });
     document.getElementById('pos-etype').value = '정규직';
-    document.getElementById('pos-role').value  = '영업직';
     document.getElementById('pos-headcount').value = '1';
+    document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked=false; });
+    const team = document.getElementById('pos-team'); if(team) team.value = '';
+    const jobType = document.getElementById('pos-jobtype'); if(jobType) jobType.value = '';
+    onPosLocationChange();
     // 면접관 태그 초기화
     const t1 = document.getElementById('pos-panel1-tags'); if(t1) t1.innerHTML = '';
     const t2 = document.getElementById('pos-panel2-tags'); if(t2) t2.innerHTML = '';
@@ -5727,9 +6049,9 @@ function editPosition(posId) {
   document.getElementById('pos-modal-title').textContent = '포지션 수정';
   document.getElementById('pos-title').value  = pos.title || '';
   document.getElementById('pos-etype').value  = pos.etype || '정규직';
-  document.getElementById('pos-role').value   = normalizeRole(pos.role);
   document.getElementById('pos-headcount').value = pos.headcount || 1;
-  document.getElementById('pos-dept').value   = pos.dept   || '';
+  document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked = r.value === (pos.location||''); });
+  onPosLocationChange(pos.team || pos.dept || '', pos.jobType || '');
   restorePanelistTags(1, pos.panel1 || '');
   restorePanelistTags(2, pos.panel2 || '');
   loadInterviewerOptions();
@@ -5743,15 +6065,24 @@ function editPosition(posId) {
 function savePosition() {
   const title = document.getElementById('pos-title')?.value.trim();
   if(!title) { toast('포지션명을 입력하세요.', 'terr'); return; }
+  const location = document.querySelector('input[name="pos-location"]:checked')?.value || '';
+  const team = document.getElementById('pos-team')?.value || '';
+  const jobType = document.getElementById('pos-jobtype')?.value || '';
+  if(!location) { toast('소속을 선택하세요.', 'terr'); return; }
+  if(location==='본사' && !team) { toast('본사 팀을 선택하세요.', 'terr'); return; }
+  if(location==='현장' && !jobType) { toast('현장 직종을 선택하세요.', 'terr'); return; }
   const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
 
   const posData = {
     id:        editingPosId || nextId(),
     title,
     etype:     document.getElementById('pos-etype')?.value   || '정규직',
-    role:      document.getElementById('pos-role')?.value    || '영업직',
+    role:      existingPos.role || '',
     headcount: parseInt(document.getElementById('pos-headcount')?.value) || 1,
-    dept:      document.getElementById('pos-dept')?.value    || '',
+    dept:      location==='본사' ? team : (existingPos.dept || jobType || ''),
+    location,
+    team:      location==='본사' ? team : null,
+    jobType:   location==='현장' ? jobType : null,
     panel1:    document.getElementById('pos-panel1')?.value  || '',
     panel2:    document.getElementById('pos-panel2')?.value  || '',
     loc:       document.getElementById('pos-loc')?.value     || '',
@@ -5957,6 +6288,7 @@ function nav(id, btn) {
   }
   document.getElementById('tb-title').textContent = TITLES[id]||id;
   if(id==='dash') renderDashboard();
+  if(id==='recruit-status') renderRecruitStatus();
   if(id==='tracker') { populateSel('int-cand'); populateSel('ob-cand'); renderTracker(); }
   if(id==='interview') { populateSel('int-cand'); renderIntTable(); }
   if(id==='reference') { renderReference(); }
@@ -5964,12 +6296,10 @@ function nav(id, btn) {
   if(id==='notifylog') { renderNotifyLog(); renderActivityLog(); }
   if(id==='notifylog') renderPeriodReport();
   if(id==='position') renderPositions();
+  if(id==='settings') renderTeamMaster();
 }
 function navBtn(id) {
-  // .nb 버튼만 필터링 (.nbb 배지 제외)
-  const btns = Array.from(document.querySelectorAll('.nb'));
-  const map = { dash:0, position:1, tracker:2, interview:3, reference:4, onboarding:5, notifylog:6, settings:7 };
-  const btn = btns[map[id]];
+  const btn = document.querySelector(`.nb[data-action="nav"][data-target="${id}"]`);
   if(btn) nav(id, btn);
 }
 
@@ -8580,16 +8910,16 @@ const DELEGATED_CALLS = Object.freeze({
   cancelInterviewConfirm, cancelStageChange, changePositionProcessStage, closeCollectSend, closeModal, closePosition, completeRef, confirmInterview,
   confirmMailPendingAt, confirmPendingMail, confirmStageChange, confirmStageDecisions, delInt, dismissPendingMail,
   deletePosition, doCollectSendCurrent, editCandidate, editPosition, executeBulkAdd, executeNohireWizard, executePositionProcessTask,
-  applyAIToRefReport, dashDropStage, fillOnboardingDefaults, filterDepts, filterInterviewers, generateAI, generateDashboardBrief, kbActivate, linkCandFromUnlinked, loadInterviewers, lockPrivacyScreen, markInterviewDone, markOneResponse,
-  markRefRegistered, markRefResponse, nav, navBtn, nextCollectSend, nohirePosition, openAddCand, openAddPosition, openBulkAddCand,
+  addRecruitPlanTarget, applyAIToRefReport, clearPositionOrgFilter, dashDropStage, exportRecruitStatus, fillOnboardingDefaults, filterInterviewers, filterPosToTeam, generateAI, generateDashboardBrief, kbActivate, linkCandFromUnlinked, loadInterviewers, lockPrivacyScreen, markInterviewDone, markOneResponse,
+  markRefRegistered, markRefResponse, moveRecruitPlanDraft, nav, navBtn, nextCollectSend, nohirePosition, onPosLocationChange, openAddCand, openAddPosition, openAddTeam, openBulkAddCand, openRecruitPlanModal,
   openCollectSlots, openIntResult, openInterviewNoticeFlow, openPosDetail, openPositionResultModal, openPositionRoundSchedule, quickNotify, rejectCandidate,
-  remindOneRef, remindRef, removePanelist, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
-  posdetailClosePos, posdetailDeletePos, posdetailStopPos, purgeExpiredPii, renderExpiredPii, requestStageChange, resetIdleLock, savePosition, savePositionResults, saveRefReport, selectDept, selectPositionResult, setInterviewPositionFilter, setPrivacyMaskFromControl, setTrackerPage, snapTo10,
+  remindOneRef, remindRef, removePanelist, removeRecruitPlanDraft, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
+  posdetailClosePos, posdetailDeletePos, posdetailStopPos, purgeExpiredPii, renderExpiredPii, renderTeamMaster, requestStageChange, resetIdleLock, saveNewTeam, savePosition, savePositionResults, saveRecruitPlanModal, saveRefReport, selectPositionResult, setInterviewPositionFilter, setPrivacyMaskFromControl, setRpLocation, setRpYear, setRsYear, setTrackerPage, snapTo10,
   finishRejectReason, runCoreDiagnosticsUI,
-  refreshOnboardingDeptRecipients, saveSettings, selectRefCand, selectRefPosition, selectTemplateEditor, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
+  refreshOnboardingDeptRecipients, saveSettings, searchRecruitPlanTargets, selectRefCand, selectRefPosition, selectTemplateEditor, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendAllCandSchedule, sendInterviewNoticeCandidates, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelNotice, sendRefRequest, setDashPipeFilter, setRefFilter, showUnlinkedList, scrollPositionDetail,
-  skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, testGSConnection, testInterviewerConnection,
-  testRefAutoConnection, togglePositionProcessGroup, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateIntPreview, updateObPreview,
+  closeAddTeam, deleteTeam, skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, syncTeamMasterFromInterviewers, testGSConnection, testInterviewerConnection,
+  testRefAutoConnection, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateIntPreview, updateObPreview, updateRecruitPlanDraft,
 });
 function invokeDelegatedCall(call, target, delegatedEvent) {
   const match = String(call || '').match(/^([A-Za-z_$][\w$]*)\((.*)\)$/);
@@ -8666,7 +8996,6 @@ function handleDelegatedFormEvent(eventName, target, delegatedEvent) {
   const call = target.dataset[`on${eventName}`];
   if(call) invokeDelegatedSequence(call, target, delegatedEvent);
   if(eventName === 'blur') {
-    if(target.id === 'pos-dept') setTimeout(() => { const list=document.getElementById('pos-dept-list'); if(list) list.style.display='none'; }, 200);
     if(target.id === 'pos-panel1-search') setTimeout(() => hideInterviewerList(1), 200);
     if(target.id === 'pos-panel2-search') setTimeout(() => hideInterviewerList(2), 200);
   }
