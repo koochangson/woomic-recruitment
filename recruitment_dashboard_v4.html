@@ -2297,12 +2297,17 @@ async function loadRecruitPlansFromGS(options={}) {
 async function syncRecruitPlansToGS(changedRows=[], deletedIds=[]) {
   if(!GS_CONFIG.scriptUrl) return false;
   const rows = (changedRows.length ? changedRows : recruitPlans).map(normalizeRecruitPlan).map(row => markUpdated(row));
-  const tasks = [];
-  if(rows.length) tasks.push(gsBatchUpsert('RecruitPlans', rows));
-  (deletedIds || []).forEach(id => tasks.push(gsUpsert('RecruitPlans', {id, deletedAt:new Date().toISOString()})));
-  if(!tasks.length) return true;
-  const result = await settleSync(tasks, '채용계획 동기화');
-  if(!result.failed) {
+  let rowSaved = true;
+  if(rows.length) {
+    const saved = await settleSync(rows.map(row=>gsUpsert('RecruitPlans', row)), '채용계획 행 저장');
+    rowSaved = saved.failed === 0;
+  }
+  const deleteRows = (deletedIds || []).map(id => ({id, deletedAt:new Date().toISOString()}));
+  if(deleteRows.length) {
+    const deleted = await settleSync(deleteRows.map(row=>gsUpsert('RecruitPlans', row)), '채용계획 삭제 표시');
+    rowSaved = rowSaved && deleted.failed === 0;
+  }
+  if(rowSaved) {
     recruitPlans = recruitPlans.map(normalizeRecruitPlan);
     saveRecruitPlans();
     clearGsReadCache('RecruitPlans');
@@ -2538,7 +2543,24 @@ function renderRsTable() {
 }
 
 function loadRpDraftRows() {
-  rpDraftRows=recruitPlans.filter(plan=>Number(plan.year)===rpYear&&plan.location===rpLocation).map(plan=>({...plan}))
+  const map = new Map();
+  const keyOf = row => `${row.empType}|${row.team || ''}|${row.jobType || ''}`;
+  recruitPlans.filter(plan=>Number(plan.year)===rpYear&&plan.location===rpLocation).forEach(plan=>{
+    const row = normalizeRecruitPlan(plan);
+    map.set(keyOf(row), {...row});
+  });
+  positions
+    .filter(pos=>pos.location===rpLocation)
+    .forEach(pos=>{
+      const empType = pos.etype || '정규직';
+      const team = rpLocation==='본사' ? (pos.team || pos.dept || '') : null;
+      const jobType = rpLocation==='현장' ? (pos.jobType || pos.dept || '') : null;
+      if(!(team || jobType)) return;
+      const row = normalizeRecruitPlan({year:rpYear,location:rpLocation,empType,team,jobType,planned:0,manualDone:0,manualItv:0,manualOffer:0,sortOrder:9999});
+      const key = keyOf(row);
+      if(!map.has(key)) map.set(key, row);
+    });
+  rpDraftRows=[...map.values()]
     .sort((a,b)=>(Number.isFinite(Number(a.sortOrder))?Number(a.sortOrder):9999)-(Number.isFinite(Number(b.sortOrder))?Number(b.sortOrder):9999)||String(a.team||a.jobType||'').localeCompare(String(b.team||b.jobType||''),'ko'));
 }
 
@@ -2601,8 +2623,8 @@ async function saveRecruitPlanModal() {
   const savedIds = new Set(savedRows.map(row=>row.id));
   const deletedIds = previousIds.filter(id=>!savedIds.has(id));
   saveRecruitPlans(); closeModal('modal-recruit-plan'); renderRecruitStatus();
-  if(GS_CONFIG.scriptUrl) await syncRecruitPlansToGS(savedRows, deletedIds);
-  toast(`${rpYear}년 ${rpLocation} 채용계획 저장 완료`,'tok');
+  const synced = GS_CONFIG.scriptUrl ? await syncRecruitPlansToGS(savedRows, deletedIds) : false;
+  toast(`${rpYear}년 ${rpLocation} 채용계획 저장 완료${GS_CONFIG.scriptUrl ? (synced ? ' · Google Sheets 반영' : ' · 로컬 저장, GS 반영 실패') : ''}`, synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
 }
 
 function exportRecruitStatus(){const rows=buildRsRows(),data=[['소속','채용형태','팀/직종','TO','완료','달성률(%)','면접','입사예정','잔여'],...rows.map(r=>[r.location,r.empType,r.label,r.to,r.done,r.rate??'-',r.itv,r.offer,r.remain??'-'])];const csv=data.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`채용현황_${rsYear}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
