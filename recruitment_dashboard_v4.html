@@ -2223,6 +2223,119 @@ function saveRecruitPlans() {
   localStorage.setItem('woomic_recruit_plans', JSON.stringify(recruitPlans));
 }
 
+function recruitPlanId(plan) {
+  return [plan.year, plan.location, plan.empType, plan.team || '', plan.jobType || ''].map(v=>String(v ?? '').replace(/\|/g,'/')).join('|');
+}
+
+function normalizeRecruitPlan(plan) {
+  const row = {
+    id: plan.id || recruitPlanId(plan),
+    year: Number(plan.year) || new Date().getFullYear(),
+    location: plan.location || '본사',
+    empType: plan.empType || '정규직',
+    team: plan.team || '',
+    jobType: plan.jobType || '',
+    planned: Number(plan.planned) || 0,
+    manualDone: Number(plan.manualDone) || 0,
+    manualItv: Number(plan.manualItv) || 0,
+    manualOffer: Number(plan.manualOffer) || 0,
+    sortOrder: Number.isFinite(Number(plan.sortOrder)) ? Number(plan.sortOrder) : 9999,
+    updatedAt: plan.updatedAt || '',
+    deletedAt: plan.deletedAt || '',
+  };
+  row.id = recruitPlanId(row);
+  return row;
+}
+
+function inferPositionOrg(row) {
+  const dept = row?.dept || '';
+  const explicitLocation = row?.location || '';
+  const explicitTeam = row?.team || '';
+  const explicitJobType = row?.jobType || '';
+  const location = explicitLocation || (explicitJobType || JOB_TYPES.includes(dept) ? '현장' : (explicitTeam || dept ? '본사' : ''));
+  return {
+    location,
+    team: explicitTeam || (location === '본사' ? dept : ''),
+    jobType: explicitJobType || (location === '현장' ? dept : ''),
+  };
+}
+
+function normalizeRecruitPlanRow(row) {
+  return normalizeRecruitPlan({
+    id: row.id,
+    year: row.year,
+    location: row.location,
+    empType: row.empType,
+    team: row.team,
+    jobType: row.jobType,
+    planned: row.planned,
+    manualDone: row.manualDone,
+    manualItv: row.manualItv,
+    manualOffer: row.manualOffer,
+    sortOrder: row.sortOrder,
+    updatedAt: row.updatedAt,
+    deletedAt: row.deletedAt,
+  });
+}
+
+async function loadRecruitPlansFromGS(options={}) {
+  if(!GS_CONFIG.scriptUrl) return false;
+  try {
+    const result = await gsGetAllResult('RecruitPlans', {forceFull:options.forceFull, force:options.force});
+    if(!result || result.error) return (await loadRecruitPlansFromSettingsGS()) || true;
+    const remote = (result.data || []).map(normalizeRecruitPlanRow).filter(row=>!row.deletedAt);
+    if(!remote.length) return (await loadRecruitPlansFromSettingsGS()) || true;
+    recruitPlans = mergeGsRecords('RecruitPlans', remote, recruitPlans.map(normalizeRecruitPlan)).map(normalizeRecruitPlan);
+    saveRecruitPlans();
+    return true;
+  } catch(e) {
+    console.warn('채용계획 GS 로드 실패', e);
+    return (await loadRecruitPlansFromSettingsGS()) || true;
+  }
+}
+
+async function syncRecruitPlansToGS(changedRows=[], deletedIds=[]) {
+  if(!GS_CONFIG.scriptUrl) return false;
+  const rows = (changedRows.length ? changedRows : recruitPlans).map(normalizeRecruitPlan).map(row => markUpdated(row));
+  const tasks = [];
+  if(rows.length) tasks.push(gsBatchUpsert('RecruitPlans', rows));
+  (deletedIds || []).forEach(id => tasks.push(gsUpsert('RecruitPlans', {id, deletedAt:new Date().toISOString()})));
+  if(!tasks.length) return true;
+  const result = await settleSync(tasks, '채용계획 동기화');
+  if(!result.failed) {
+    recruitPlans = recruitPlans.map(normalizeRecruitPlan);
+    saveRecruitPlans();
+    clearGsReadCache('RecruitPlans');
+    await syncRecruitPlansSnapshotToSettingsGS();
+    return true;
+  }
+  return syncRecruitPlansSnapshotToSettingsGS();
+}
+
+async function syncRecruitPlansSnapshotToSettingsGS() {
+  if(!GS_CONFIG.scriptUrl) return false;
+  const payload = JSON.stringify({updatedAt:new Date().toISOString(), plans:recruitPlans.map(normalizeRecruitPlan)});
+  const result = await gsUpsert('Settings', {id:'recruitPlans:v1', value:payload});
+  return !!result && !result.error;
+}
+
+async function loadRecruitPlansFromSettingsGS() {
+  if(!GS_CONFIG.scriptUrl) return false;
+  try {
+    const rows = await gsGetAll('Settings');
+    const row = (rows || []).find(r=>String(r.id)==='recruitPlans:v1');
+    if(!row?.value) return false;
+    const remote = JSON.parse(row.value);
+    if(!Array.isArray(remote.plans)) return false;
+    recruitPlans = remote.plans.map(normalizeRecruitPlan);
+    saveRecruitPlans();
+    return true;
+  } catch(e) {
+    console.warn('채용계획 Settings 로드 실패', e);
+    return false;
+  }
+}
+
 function saveTeamMaster() {
   localStorage.setItem('woomic_team_master', JSON.stringify(teamMaster));
 }
@@ -2432,6 +2545,10 @@ function loadRpDraftRows() {
 async function openRecruitPlanModal() {
   if(!interviewers.length&&GS_CONFIG.interviewerUrl) await loadInterviewers();
   if(interviewers.length) syncTeamMasterFromInterviewers(false);
+  if(GS_CONFIG.scriptUrl) {
+    const loaded = await loadRecruitPlansFromGS({forceFull:true,force:true});
+    if(loaded) renderRecruitStatus();
+  }
   rpYear=rsYear; rpLocation='본사'; loadRpDraftRows();
   renderRpYearBtns(); renderRpTable(); openModal('modal-recruit-plan');
   const search=document.getElementById('rp-search'); if(search){search.value='';search.placeholder='팀을 검색해 추가하세요';}
@@ -2472,10 +2589,19 @@ function renderRpTable() {
 
 function updateRecruitPlanDraft(index,field,input){const row=rpDraftRows[Number(index)];if(row&&['planned','manualDone','manualItv','manualOffer'].includes(field))row[field]=Math.max(0,parseInt(input?.value,10)||0);}
 
-function saveRecruitPlanModal() {
+async function saveRecruitPlanModal() {
+  const previousIds = recruitPlans
+    .filter(plan=>Number(plan.year)===rpYear&&plan.location===rpLocation)
+    .map(plan=>normalizeRecruitPlan(plan).id);
   recruitPlans=recruitPlans.filter(plan=>!(Number(plan.year)===rpYear&&plan.location===rpLocation));
-  rpDraftRows.filter(row=>['planned','manualDone','manualItv','manualOffer'].some(field=>Number(row[field])>0)).forEach((row,index)=>recruitPlans.push({...row,year:rpYear,location:rpLocation,planned:Number(row.planned)||0,manualDone:Number(row.manualDone)||0,manualItv:Number(row.manualItv)||0,manualOffer:Number(row.manualOffer)||0,sortOrder:index}));
+  const savedRows = rpDraftRows
+    .filter(row=>['planned','manualDone','manualItv','manualOffer'].some(field=>Number(row[field])>0))
+    .map((row,index)=>normalizeRecruitPlan({...row,year:rpYear,location:rpLocation,planned:Number(row.planned)||0,manualDone:Number(row.manualDone)||0,manualItv:Number(row.manualItv)||0,manualOffer:Number(row.manualOffer)||0,sortOrder:index}));
+  savedRows.forEach(row=>recruitPlans.push(row));
+  const savedIds = new Set(savedRows.map(row=>row.id));
+  const deletedIds = previousIds.filter(id=>!savedIds.has(id));
   saveRecruitPlans(); closeModal('modal-recruit-plan'); renderRecruitStatus();
+  if(GS_CONFIG.scriptUrl) await syncRecruitPlansToGS(savedRows, deletedIds);
   toast(`${rpYear}년 ${rpLocation} 채용계획 저장 완료`,'tok');
 }
 
@@ -3343,7 +3469,8 @@ const GS_CONFIG = {
 const GS_SCHEMA = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','result','note','evaluatedAt','updatedAt'],
-  Positions: ['id','title','etype','role','headcount','dept','panel1','panel2','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','dept','location','team','jobType','panel1','panel2','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
+  RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Settings: ['id','value'],
 };
 const GS_RETRY_KEY = 'woomic_gs_retry_v1';
@@ -3787,6 +3914,9 @@ async function syncPosToGS(pos) {
     role:      pos.role || '',
     headcount: pos.headcount != null ? pos.headcount : 1,
     dept:      pos.dept || '',
+    location:  pos.location || '',
+    team:      pos.team || '',
+    jobType:   pos.jobType || '',
     panel1:    pos.panel1 || '',
     panel2:    pos.panel2 || '',
     loc:       pos.loc || '',
@@ -3814,9 +3944,10 @@ async function deletePosFromGS(id) {
 }
 
 function normalizeGsPosition(row) {
+  const org = inferPositionOrg(row);
   return {
     id:Number(row.id), title:row.title||'', etype:row.etype||'정규직', role:normalizeRole(row.role),
-    headcount:parseInt(row.headcount)||1, dept:row.dept||'', panel1:row.panel1||'', panel2:row.panel2||'',
+    headcount:parseInt(row.headcount)||1, dept:row.dept||org.team||org.jobType||'', location:org.location, team:org.team, jobType:org.jobType, panel1:row.panel1||'', panel2:row.panel2||'',
     loc:row.loc||'', owner:row.owner||'', targetDate:row.targetDate||'', memo:row.memo||'',
     createdAt:row.createdAt||'', status:row.status==='done'?'filled':(row.status||'active'),
     closedAt:row.closedAt||'', parentPosId:row.parentPosId?Number(row.parentPosId):null,
@@ -3903,6 +4034,7 @@ async function syncCoreFromGS(options={}) {
     loadFromGS({forceFull:true,force:true}),
     loadPositionsFromGS({forceFull:true,force:true}),
     loadInterviewsFromGS({forceFull:true,force:true}),
+    loadRecruitPlansFromGS({forceFull:true,force:true}),
   ]);
   if(!loaded.every(Boolean)) return false;
   if(baseline && Number.isFinite(Number(baseline.cursor))) {
@@ -3927,27 +4059,33 @@ async function loadPositionsFromGS(options={}) {
       if(result.isDelta) setGsSyncCursor('Positions', result.serverTime);
       return result.isDelta || !!options.forceFull;
     }
-    const remote = data.map(row => ({
-      id:        Number(row.id),
-      title:     row.title || '',
-      etype:     row.etype || '정규직',
-      role:      normalizeRole(row.role),
-      headcount: parseInt(row.headcount) || 1,
-      dept:      row.dept || '',
-      panel1:    row.panel1 || '',
-      panel2:    row.panel2 || '',
-      loc:       row.loc || '',
-      owner:     row.owner || '',
-      targetDate: row.targetDate || '',
-      memo:      row.memo || '',
-      createdAt: row.createdAt || '',
-      status:    (row.status==='done' ? 'filled' : (row.status || 'active')),
-      closedAt:  row.closedAt || '',
-      parentPosId: row.parentPosId ? Number(row.parentPosId) : null,
-      closeReason: row.closeReason || '',
-      closeMemo:   row.closeMemo || '',
-      updatedAt:   row.updatedAt || '',
-    }));
+    const remote = data.map(row => {
+      const org = inferPositionOrg(row);
+      return {
+        id:        Number(row.id),
+        title:     row.title || '',
+        etype:     row.etype || '정규직',
+        role:      normalizeRole(row.role),
+        headcount: parseInt(row.headcount) || 1,
+        dept:      row.dept || org.team || org.jobType || '',
+        location:  org.location,
+        team:      org.team,
+        jobType:   org.jobType,
+        panel1:    row.panel1 || '',
+        panel2:    row.panel2 || '',
+        loc:       row.loc || '',
+        owner:     row.owner || '',
+        targetDate: row.targetDate || '',
+        memo:      row.memo || '',
+        createdAt: row.createdAt || '',
+        status:    (row.status==='done' ? 'filled' : (row.status || 'active')),
+        closedAt:  row.closedAt || '',
+        parentPosId: row.parentPosId ? Number(row.parentPosId) : null,
+        closeReason: row.closeReason || '',
+        closeMemo:   row.closeMemo || '',
+        updatedAt:   row.updatedAt || '',
+      };
+    });
     positions = result.isDelta
       ? mergeGsDeltaRecords('Positions', remote, positions)
       : mergeGsRecords('Positions', remote, positions);
@@ -9129,7 +9267,7 @@ try {
       }).finally(() => { auxSyncSuspended = false; });
       syncCoreFromGS().then(loaded => {
         if(loaded) {
-          renderDashboard(); renderTracker(); renderPositions(); renderIntTable();
+          renderDashboard(); renderRecruitStatus(); renderTracker(); renderPositions(); renderIntTable();
           showSyncStatus('Google Sheets 기준으로 로드됨', 'ok');
         } else {
           showSyncStatus('⚠ GS 응답 없음 — 로컬 캐시로 표시 중', 'warn');
