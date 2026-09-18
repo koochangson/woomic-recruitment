@@ -35,8 +35,12 @@ const GENERAL_MAIL_HEADER_TITLES = {
 };
 
 
+var _mailFragmentCache_ = {};
 function loadMailFragment_(fileName) {
-  return HtmlService.createHtmlOutputFromFile(fileName).getContent();
+  if (!Object.prototype.hasOwnProperty.call(_mailFragmentCache_, fileName)) {
+    _mailFragmentCache_[fileName] = HtmlService.createHtmlOutputFromFile(fileName).getContent();
+  }
+  return _mailFragmentCache_[fileName];
 }
 
 function loadMailAsset_(fileName) {

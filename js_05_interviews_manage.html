@@ -1,3 +1,8 @@
+      role:      document.getElementById('nc-role').value,
+      dept:      document.getElementById('nc-dept').value,
+      career:    document.getElementById('nc-career').value,
+      source,
+      headhunterId: source === 'headhunting' ? headhunter.id : '',
       headhunterName: source === 'headhunting' ? headhunter.name : '',
       headhunterManager: source === 'headhunting' ? headhunter.manager : '',
       headhunterEmail: source === 'headhunting' ? headhunter.email : '',
@@ -219,8 +224,3 @@ async function quickNotify(id, ch) {
   if(!c) return;
   if(ch === 'outlook') {
     const target = getCandidateMailTarget(c);
-    const subject = routeMailSubject(c, `[우미건설] ${esc(c.name)}님 채용 진행 안내`);
-    const directBody = `안녕하세요 ${esc(c.name)}님,\n\n우미건설 ${esc(c.pos)} 포지션 채용 진행 관련 안내드립니다.\n현재 단계: ${STAGES[c.stage]}\n\n추가 안내가 있으면 연락드리겠습니다.`;
-    await sendHeadhunterForwardEmailViaGmail(c, subject, '채용 진행', directBody, '개별알림(업체경유)');
-    return;
-  }

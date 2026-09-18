@@ -25,19 +25,6 @@ const files = [
   ['Dashboard_gmail_split.html', 'Dashboard.html'],
   'app_css.html',
   'app_script.html',
-  'js_00_state.html',
-  'js_02_sheets_sync.html',
-  'js_03_positions.html',
-  'js_04_candidates.html',
-  'js_04_candidates_flow.html',
-  'js_05_interviews.html',
-  'js_05_interviews_manage.html',
-  'js_06_reference.html',
-  'js_07_referral.html',
-  'js_08_dashboard.html',
-  'js_08_onboarding_bulk.html',
-  'js_09_settings.html',
-  'js_99_app.html',
 
   'mail_01_reference_candidate_request.html',
   'mail_02_reference_candidate_reminder.html',
@@ -64,10 +51,10 @@ const files = [
 ];
 
 fs.mkdirSync(outDir, { recursive: true });
-['Dashboard_gmail_split.html'].forEach(name => {
-  const stalePath = path.join(outDir, name);
-  if (fs.existsSync(stalePath)) fs.unlinkSync(stalePath);
-});
+for (const name of fs.readdirSync(outDir)) {
+  if (name === 'README.md' || name === 'UPLOAD_FILES.txt') continue;
+  fs.rmSync(path.join(outDir, name), { recursive: true, force: true });
+}
 
 const copied = [];
 for (const item of files) {
@@ -89,7 +76,9 @@ const readme = `# Apps Script Split Upload Set
 
 ## 넣지 않는 파일
 
-기존 단일본 \`Code_admin_gmail.gs\`, \`Dashboard.html\`, \`Dashboard_gmail.html\`은 이 분리 세트와 동시에 두지 않습니다.
+기존 단일본 \`Code_admin_gmail.gs\`, \`Dashboard_gmail.html\`과 이전에 생성된 \`js_*.html\`은 이 세트와 동시에 두지 않습니다.
+
+화면 JavaScript는 \`app_script.html\` 하나에 포함됩니다. \`js_*.html\`은 소스 구간 검증용 생성물이며 런타임 include 대상이 아닙니다.
 
 ## 진입 파일
 

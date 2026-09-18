@@ -116,6 +116,15 @@ ${String(directBody || '').replace(new RegExp(`안녕하세요\\\\s*${cand.name}
 우미건설 피플팀 드림`;
 }
 
+// 헤드헌팅 경유 여부에 따라 대행사 전달 메일 또는 지원자 직접 메일로 분기해 발송한다.
+// (발송 지점마다 isHeadhuntingCandidate 분기가 중복되던 것을 한곳에 모음)
+async function dispatchCandidateMail_(cand, { subject, purpose, directBody, logType, sendDirect }) {
+  if (isHeadhuntingCandidate(cand)) {
+    return await sendHeadhunterForwardEmailViaGmail(cand, routeMailSubject(cand, subject), purpose, directBody, logType);
+  }
+  return await sendDirect();
+}
+
 function recruitPlanId(plan) {
   return [plan.year, plan.location, plan.empType, plan.team || '', plan.jobType || ''].map(v=>String(v ?? '').replace(/\|/g,'/')).join('|');
 }
@@ -639,8 +648,10 @@ function normalizeRole(role){ return role === '사무직' ? '영업직' : (role 
 const ETYPE_CLS = { 정규직:'et-regular', 전문직:'et-expert', 파견직:'et-dispatch' };
 const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--blue)','var(--blue)','var(--amber)','var(--green)','var(--red)','var(--green)'];
 // 진행 단계 순서 (불합격 6 제외) — 정규직: 전체 / 전문직·파견직: 1차면접까지만
-const FLOW = [0,1,2,3,4,5];
-const FLOW_SHORT = [0,1,4,5]; // 레퍼런스·2차면접 생략
+// 7(입사)이 빠져 있으면 최종합격(5)→입사(7) 이동이 flowIndex(7)=-1<flowIndex(5)=5로
+// "뒤로 이동"으로 오판되어 resetCandidateProgressForRollback이 합격 결정·확정일을 지운다.
+const FLOW = [0,1,2,3,4,5,7];
+const FLOW_SHORT = [0,1,4,5,7]; // 레퍼런스·2차면접 생략
 function isShortProcessEtype(etype){ return etype === '전문직' || etype === '파견직'; }
 function getPositionFlow(pos){ return pos && isShortProcessEtype(pos.etype) ? FLOW_SHORT : FLOW; }
 function getFlowForCandidate(c){
@@ -1050,13 +1061,12 @@ async function executeNohireWizard() {
       recordRejection(c, '포지션취소', memo || reason);
       if(GS_CONFIG.scriptUrl) syncCandToGS(c);
       const subject = `[우미건설] ${c.name}님 채용 결과 안내`;
-      if(isHeadhuntingCandidate(c)) {
-        await sendHeadhunterForwardEmailViaGmail(c, routeMailSubject(c, subject), '불합격 안내', buildRejectEmail(c), '불합격안내(업체경유)');
-      } else {
-        await sendGeneralEmailViaGmail(c.email, subject, buildRejectEmail(c), '불합격안내', c.name, {
+      await dispatchCandidateMail_(c, {
+        subject, purpose: '불합격 안내', directBody: buildRejectEmail(c), logType: '불합격안내(업체경유)',
+        sendDirect: () => sendGeneralEmailViaGmail(c.email, subject, buildRejectEmail(c), '불합격안내', c.name, {
           templateType: 'rejection', candidateName: c.name, positionText: c.pos
-        });
-      }
+        })
+      });
     }
   } else if(action === 'unlink' && remain.length) {
     remain.forEach(c => { c.posId = null; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
@@ -3433,7 +3443,7 @@ async function doCollectSendCurrent() {
   itv.availabilityStatus = 'SENT';
   itv.availabilityOptions = q.options;
   itv.availabilitySelections = [];
-  const subject = routeMailSubject(cand || cur, `[우미건설] ${cur.name}님 ${q.roundLabel} 가능 일정 확인`);
+  const subject = `[우미건설] ${cur.name}님 ${q.roundLabel} 가능 일정 확인`;
   const tpl = document.getElementById('tpl-collect')?.value;
   let body;
   if(tpl) {
@@ -3448,11 +3458,9 @@ async function doCollectSendCurrent() {
   } else {
     body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜의 오전·오후 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
   }
-  let sent;
-  if(isHeadhuntingCandidate(cand || cur)) {
-    sent = await sendHeadhunterForwardEmailViaGmail(cand || cur, subject, `${q.roundLabel} 후보일정 협의`, body, `${q.round}후보일정(업체경유)`);
-  } else {
-    sent = await sendGeneralEmailViaGmail(target.to || cur.email, subject, body, `${q.round}후보일정안내`, cur.name, {
+  const sent = await dispatchCandidateMail_(cand || cur, {
+    subject, purpose: `${q.roundLabel} 후보일정 협의`, directBody: body, logType: `${q.round}후보일정(업체경유)`,
+    sendDirect: () => sendGeneralEmailViaGmail(target.to || cur.email, subject, body, `${q.round}후보일정안내`, cur.name, {
       templateType: 'interview_slot_request',
       candidateName: cur.name,
       positionText: cur.pos,
@@ -3461,8 +3469,8 @@ async function doCollectSendCurrent() {
       location: q.loc || '',
       availabilityLink: issue.link,
       responseDeadline: q.deadline
-    });
-  }
+    })
+  });
   if(sent === false) return;
   saveState();
   logNotify('Gmail', `${q.round}후보일정${cand&&isHeadhuntingCandidate(cand)?'업체경유':'안내'}`, cur.name, target.to || cur.email);
@@ -4646,18 +4654,16 @@ async function sendCandSchedule(intId, sequential) {
   const roundLabel = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
 
   const target = getCandidateMailTarget(c);
-  const subject = routeMailSubject(c, `[우미건설] ${esc(c.name)}님 ${roundLabel} 일정 안내`);
+  const subject = `[우미건설] ${esc(c.name)}님 ${roundLabel} 일정 안내`;
 
-  let sent;
-  if(isHeadhuntingCandidate(c)) {
-    sent = await sendHeadhunterForwardEmailViaGmail(c, subject, `${roundLabel} 일정`, buildIntEmail(itv, c), `${itv.type}면접업체경유안내`);
-  } else {
-    sent = await sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, c), `${itv.type}면접지원자안내`, c.name, {
+  const sent = await dispatchCandidateMail_(c, {
+    subject, purpose: `${roundLabel} 일정`, directBody: buildIntEmail(itv, c), logType: `${itv.type}면접업체경유안내`,
+    sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, c), `${itv.type}면접지원자안내`, c.name, {
       templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
       candidateName: c.name, positionText: c.pos,
       interviewDateTime: itv.date || '', location: itv.loc || '', panelNames: itv.panel || '', memo: itv.memo || ''
-    });
-  }
+    })
+  });
   if(sent === false) return;
 
   itv.candidateNotified = true;
@@ -5824,9 +5830,11 @@ function buildOfferEmail(ob, cand) {
       .replace(/\{직책\}/g,     ob.rank || '')
       .replace(/\{채용형태\}/g, ob.etype || '')
       .replace(/\{근무지\}/g,   ob.loc  || '')
+      .replace(/\{출근시간\}/g, ob.joinTime || '09:00')
+      .replace(/\{집결장소\}/g, ob.reportLocation || '본사 3층 피플팀')
       .replace(/\{준비사항\}/g, ob.notes ? '\n준비사항:\n' + ob.notes : '');
   }
-  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
+  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '본사 3층 피플팀'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
 }
 
 function buildInternalOnboardEmail(ob, cand) {
@@ -7473,32 +7481,29 @@ async function confirmStageChange() {
       subject = `[우미건설] ${esc(c.name)}님 입사 안내`;
       body = buildOnboardEmail ? buildOnboardEmail(c) : buildStageNotifyMsg(c, newStage);
     }
-    if(isHeadhuntingCandidate(c)) {
-      subject = routeMailSubject(c, subject);
-      await sendHeadhunterForwardEmailViaGmail(c, subject, `${STAGES[newStage]} 단계`, body, STAGES[newStage]+'안내(업체경유)');
-    } else if(newStage === 6) {
-      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
-        templateType: 'rejection', candidateName: c.name, positionText: c.pos
-      });
+    let generalParams = null;
+    if(newStage === 6) {
+      generalParams = { templateType: 'rejection', candidateName: c.name, positionText: c.pos };
     } else if(newStage === 1 || newStage === 3) {
       const slots = [1,2,3].map(n => getSlotValue(n)).filter(Boolean);
       const slotOptions = slots.map((s,i) => {
         const d = new Date(s);
         return `${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
       }).join('\n') || '면접 일정은 별도로 안내드릴 예정입니다.';
-      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
+      generalParams = {
         templateType: 'interview_slot_request', candidateName: c.name, positionText: c.pos,
         interviewType: newStage===1?'1차 실무면접':'2차 임원면접', slotOptions, location: c.loc || ''
-      });
+      };
     } else if(newStage === 7) {
-      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
+      generalParams = {
         templateType: 'onboarding', candidateName: c.name, positionText: c.pos,
         joinDate: c.joinDate || '', dept: c.dept || '', rank: '', etype: c.etype || '', location: c.loc || '', prepNotes: ''
-      });
-    } else {
-      subject = routeMailSubject(c, subject);
-      await sendHeadhunterForwardEmailViaGmail(c, subject, `${STAGES[newStage]} 단계`, body, STAGES[newStage]+'안내(업체경유)');
+      };
     }
+    await dispatchCandidateMail_(c, {
+      subject, purpose: `${STAGES[newStage]} 단계`, directBody: body, logType: STAGES[newStage]+'안내(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, generalParams)
+    });
   }
 
   if(shouldPromptReferenceStart) {
@@ -7926,9 +7931,14 @@ async function quickNotify(id, ch) {
   if(!c) return;
   if(ch === 'outlook') {
     const target = getCandidateMailTarget(c);
-    const subject = routeMailSubject(c, `[우미건설] ${esc(c.name)}님 채용 진행 안내`);
+    const subject = `[우미건설] ${esc(c.name)}님 채용 진행 안내`;
     const directBody = `안녕하세요 ${esc(c.name)}님,\n\n우미건설 ${esc(c.pos)} 포지션 채용 진행 관련 안내드립니다.\n현재 단계: ${STAGES[c.stage]}\n\n추가 안내가 있으면 연락드리겠습니다.`;
-    await sendHeadhunterForwardEmailViaGmail(c, subject, '채용 진행', directBody, '개별알림(업체경유)');
+    await dispatchCandidateMail_(c, {
+      subject, purpose: '채용 진행', directBody, logType: '개별알림(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, directBody, '개별알림', c.name, {
+        templateType: 'general_notice', candidateName: c.name, positionText: c.pos || '', noticeBody: directBody
+      })
+    });
     return;
   }
   saveState(); renderTracker(); renderDashboard();
@@ -8090,18 +8100,16 @@ async function sendIntNotify(ch) {
   if(ch === 'outlook') {
     const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
     const target = getCandidateMailTarget(cand);
-    const subject = routeMailSubject(cand, `[우미건설] ${cand.name}님 ${type} 일정 안내`);
-    if(isHeadhuntingCandidate(cand)) {
-      await sendHeadhunterForwardEmailViaGmail(cand, subject, `${type} 일정`, buildIntEmail(itv, cand), `${itv.type}면접업체경유안내`);
-      itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
-    } else {
-      await sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, cand), `${itv.type}면접지원자안내`, cand.name, {
+    const subject = `[우미건설] ${cand.name}님 ${type} 일정 안내`;
+    await dispatchCandidateMail_(cand, {
+      subject, purpose: `${type} 일정`, directBody: buildIntEmail(itv, cand), logType: `${itv.type}면접업체경유안내`,
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, cand), `${itv.type}면접지원자안내`, cand.name, {
         templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
         candidateName: cand.name, positionText: cand.pos,
         interviewDateTime: itv.date || '', location: itv.loc || '', panelNames: itv.panel || '', memo: itv.memo || ''
-      });
-      itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
-    }
+      })
+    });
+    itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
     return;
   }
   saveState(); renderIntTable(); renderDashboard();
@@ -8143,19 +8151,16 @@ async function sendIntById(id, ch) {
   if(ch === 'outlook') {
     const type = i.type === '1차' ? '1차 실무면접' : '2차 임원면접';
     const target = getCandidateMailTarget(c);
-    const subject = routeMailSubject(c, `[우미건설] ${esc(i.candName)}님 ${type} 일정 안내`);
-    if(isHeadhuntingCandidate(c)) {
-      await sendHeadhunterForwardEmailViaGmail(c, subject, `${type} 일정`, buildIntEmail(i, c), `${i.type}면접업체경유안내`);
-      i.candidateNotified = true; i.candNotified = true;
-      if(c) c.notified = true;
-    } else {
-      await sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(i, c), `${i.type}면접지원자안내`, i.candName, {
+    const subject = `[우미건설] ${esc(i.candName)}님 ${type} 일정 안내`;
+    await dispatchCandidateMail_(c, {
+      subject, purpose: `${type} 일정`, directBody: buildIntEmail(i, c), logType: `${i.type}면접업체경유안내`,
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(i, c), `${i.type}면접지원자안내`, i.candName, {
         templateType: i.type === '1차' ? 'interview_first' : 'interview_second',
         candidateName: c?.name || i.candName, positionText: c?.pos || '',
         interviewDateTime: i.date || '', location: i.loc || '', panelNames: i.panel || '', memo: i.memo || ''
-      });
-      i.candidateNotified = true; i.candNotified = true; if(c) c.notified = true;
-    }
+      })
+    });
+    i.candidateNotified = true; i.candNotified = true; if(c) c.notified = true;
     return;
   }
   saveState(); renderIntTable(); renderDashboard();
@@ -8505,7 +8510,7 @@ async function remindOneRef(candId,ri){
   if(!r){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
   const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
-  const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 7일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+  const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 21일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
   const sent=await sendReferenceEmailViaGmail(r.email,subject,body,'추천인리마인드',`${esc(c.name)}-${esc(r.name)}`,{
     templateType:'referee_reminder',
     candidateName:c.name,
@@ -8554,7 +8559,7 @@ async function markRefRegistered(id){
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'';
   if(pend.email && refFormUrl){
     const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 요청`;
-    const body=`${esc(pend.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(pend.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 7일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+    const body=`${esc(pend.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(pend.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 21일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
     const sent=await sendReferenceEmailViaGmail(pend.email,subject,body,'추천인설문발송',`${esc(c.name)}-${esc(pend.name)}`,{
       templateType:'referee_request',
       candidateName:c.name,
@@ -8585,18 +8590,16 @@ async function startRef(id, resend=false){
   }
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 추천인 등록 안내`;
   const body=buildRefRequestEmail(c, linkResult.link);
-  let sent = false;
-  if(isHeadhuntingCandidate(c)) {
-    sent = await sendHeadhunterForwardEmailViaGmail(c, routeMailSubject(c, subject), '레퍼런스 체크 추천인 정보 접수', body, resend?'레퍼런스재요청(업체경유)':'레퍼런스발송(업체경유)');
-  } else {
-    sent=await sendReferenceEmailViaGmail(c.email, subject, body, resend?'레퍼런스재요청':'레퍼런스발송', c.name,{
+  const sent = await dispatchCandidateMail_(c, {
+    subject, purpose: '레퍼런스 체크 추천인 정보 접수', directBody: body, logType: resend?'레퍼런스재요청(업체경유)':'레퍼런스발송(업체경유)',
+    sendDirect: () => sendReferenceEmailViaGmail(c.email, subject, body, resend?'레퍼런스재요청':'레퍼런스발송', c.name,{
       templateType:resend?'candidate_reminder':'candidate_request',
       candidateName:c.name,
       positionText:c.pos,
       link:linkResult.link,
       deadline:linkResult.tokenExpiresAt||''
-    });
-  }
+    })
+  });
   if(!sent)return false;
   if(!resend) {
     c.ref='진행중';
@@ -8641,7 +8644,7 @@ async function remindRef(id){
     r.remindCnt=(r.remindCnt||0)+1;
     const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
     const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
-    const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 7일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+    const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 21일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
     const sent = await sendReferenceEmailViaGmail(r.email,subject,body,'리마인드',`${esc(c.name)}-${esc(r.name)}`,{
       templateType:'referee_reminder',
       candidateName:c.name,
@@ -8792,6 +8795,8 @@ function fillOnboardingDefaults(candId) {
   set('ob-etype',etype);
   set('ob-date',existing.joinDate || c.joinDate || '');
   set('ob-rank',existing.rank || '');
+  set('ob-jointime',existing.joinTime || '09:00');
+  set('ob-reportloc',existing.reportLocation || '본사 3층 피플팀');
   set('ob-notes',existing.notes || '');
   renderOnboardingPositionFinalists(c.posId, c.id);
   renderOnboarding();
@@ -8827,6 +8832,7 @@ function getOnboardingDraft() {
     joinDate:document.getElementById('ob-date')?.value||'',dept:document.getElementById('ob-dept')?.value||'',
     deptLead:document.getElementById('ob-dept-lead')?.value||'',rank:document.getElementById('ob-rank')?.value||'',
     loc:document.getElementById('ob-loc')?.value||'',etype:document.getElementById('ob-etype')?.value||'',
+    joinTime:document.getElementById('ob-jointime')?.value||'',reportLocation:document.getElementById('ob-reportloc')?.value||'',
     notes:document.getElementById('ob-notes')?.value||''
   }};
 }
@@ -8942,6 +8948,8 @@ function addOnboarding(){
     deptLead:document.getElementById('ob-dept-lead')?.value||'',
     joinDate:jd,rank:document.getElementById('ob-rank').value,
     loc:document.getElementById('ob-loc').value,
+    joinTime:document.getElementById('ob-jointime')?.value||'',
+    reportLocation:document.getElementById('ob-reportloc')?.value||'',
     notes:document.getElementById('ob-notes').value,notified:false
   });
   if(c.stage<5)c.stage=5;
@@ -8961,10 +8969,14 @@ async function sendObNotify(ch){
   if(ch==='outlook'){
     const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
-    const sent=await sendGeneralEmailViaGmail(c.email,subject,body,'입사안내-지원자',ob.candName,{
-      templateType:'onboarding', candidateName:ob.candName||c.name, positionText:ob.pos||c.pos,
-      joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c.etype||'',
-      location:ob.loc||'', prepNotes:ob.notes||''
+    const target=getCandidateMailTarget(c);
+    const sent = await dispatchCandidateMail_(c, {
+      subject, purpose: '입사 안내', directBody: body, logType: '입사안내(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to||c.email,subject,body,'입사안내-지원자',ob.candName,{
+        templateType:'onboarding', candidateName:ob.candName||c.name, positionText:ob.pos||c.pos,
+        joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c.etype||'',
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', prepNotes:ob.notes||''
+      })
     });
     if(!sent)return;
   }
@@ -9019,10 +9031,14 @@ async function sendObById(id,ch){
   if(ch==='outlook'){
     const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
-    const sent=await sendGeneralEmailViaGmail(c?.email||'',subject,body,'입사안내-지원자',ob.candName,{
-      templateType:'onboarding', candidateName:ob.candName||c?.name||'', positionText:ob.pos||c?.pos||'',
-      joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c?.etype||'',
-      location:ob.loc||'', prepNotes:ob.notes||''
+    const target=c?getCandidateMailTarget(c):{to:''};
+    const sent = await dispatchCandidateMail_(c, {
+      subject, purpose: '입사 안내', directBody: body, logType: '입사안내(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to||c?.email||'',subject,body,'입사안내-지원자',ob.candName,{
+        templateType:'onboarding', candidateName:ob.candName||c?.name||'', positionText:ob.pos||c?.pos||'',
+        joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c?.etype||'',
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', prepNotes:ob.notes||''
+      })
     });
     if(!sent)return;
   }
@@ -9100,18 +9116,16 @@ async function sendBulk(){
     for(const c of mailTargets){
       const target = getCandidateMailTarget(c);
       const directBody = template.replace(/\{지원자명\}/g,c.name||'').replace(/\{포지션\}/g,c.pos||'');
-      const subject = routeMailSubject(c, subjectFor(c));
-      let sent = false;
-      if(isHeadhuntingCandidate(c)) {
-        sent = await sendHeadhunterForwardEmailViaGmail(c, subject, '채용 진행', directBody, `${type}일괄안내(업체경유)`);
-      } else {
-        sent = await sendGeneralEmailViaGmail(target.to, subject, directBody, `${type}일괄안내`, c.name, {
+      const subject = subjectFor(c);
+      const sent = await dispatchCandidateMail_(c, {
+        subject, purpose: '채용 진행', directBody, logType: `${type}일괄안내(업체경유)`,
+        sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, directBody, `${type}일괄안내`, c.name, {
           templateType: 'general_notice',
           candidateName: c.name,
           positionText: c.pos || '',
           noticeBody: directBody
-        });
-      }
+        })
+      });
       if(sent === false) return;
     }
   }

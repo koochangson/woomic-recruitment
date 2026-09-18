@@ -1,38 +1,48 @@
-# 작업 기준 (Claude ↔ Codex 공용)
+# Claude/Codex 작업 기준
 
-이 저장소는 Claude와 Codex가 번갈아 작업합니다. 아래 규칙은 둘 다 지킵니다.
+이 저장소는 Claude와 Codex가 번갈아 작업합니다. 작업 전에는 반드시 `git status --short`와 `git log --oneline -5`를 확인하고, 다른 작업자의 미커밋 변경을 덮어쓰지 않습니다.
 
-## 1. 원본은 두 파일뿐입니다
+## 1. 직접 수정하는 원본
 
-- `Dashboard_gmail.html` (관리자 화면 전체 — CSS+HTML+JS 단일 파일)
-- `Code_admin_gmail.gs` (Apps Script 서버 전체)
+- 관리자 화면: `Dashboard_gmail.html`
+- 관리자 Apps Script: `Code_admin_gmail.gs`
+- 공개 Apps Script: `apps_script_referral_security.gs`
+- 공개 화면: `referral_intake.html`, `reference_candidate_intake.html`, `reference_check_intake.html`, `interview_availability.html`
+- 면접관 DB Apps Script: `interviewer_db_apps_script_updated.gs`
+- 메일 템플릿: `mail_*.html`, `mail_body_*.html`, `mail_shared_*.html`
+- 메일 원본 이미지: `woomi-ci.png`, `woomi-mail-header-bg.jpg` 등 이미지 파일
+- Apps Script 설정: `appsscript.admin.template.json`, `appsscript.public.template.json`
+- 빌드·검사 코드: `tools/**`, `scripts/**`, `package.json`
+- 문서: `*.md`, `docs/**`
 
-**수정은 이 두 파일에만 합니다.**
+## 2. 직접 수정하지 않는 생성물
 
-## 2. `apps_script_split_upload/`는 빌드 결과물입니다 — 직접 고치지 않습니다
+- `Dashboard_gmail_split.html`, `app_css.html`, `app_script.html`
+- 루트 `js_*.html`, `admin_*.gs`
+- `apps_script_split_upload/**`, `apps_script_public_upload/**`
+- `index.html` (`referral_intake.html`의 배포 복사본)
+- `mail_samples_preview.html`
+- `backups/**`, `backup_*/**`, `*.zip`
 
-이 폴더(그리고 루트에 있는 `app_script.html`, `app_css.html`, `admin_00_core.gs`~`admin_99_admin_api.gs`, `js_00_state.html`~`js_99_app.html`, `Dashboard_gmail_split.html`)는 전부 위 두 원본 파일에서 자동 생성됩니다.
+생성물은 수동으로 고치지 않습니다. 다음 빌드에서 덮어써집니다.
+
+## 3. 빌드와 검증
 
 ```bash
 node tools/rebuild_apps_script_split_bundle.js
+node scripts/security-scan.mjs
+node scripts/syntax-check.mjs
+node scripts/deployment-readiness.mjs
 ```
 
-이 스크립트가 화면 분리, 메일 asset 분리, 서버 분리, 업로드 폴더 생성, 누락 파일 검사를 전부 수행합니다.
+관리자 화면은 `Dashboard.html`에서 `app_css.html`과 `app_script.html`만 include합니다. 루트의 `js_*.html`은 원본 JS 구간 재결합 검증용이며 Apps Script 업로드 대상이 아닙니다.
 
-**`apps_script_split_upload/` 안의 파일이나 `js_*.html`/`admin_*.gs`를 직접 편집하지 마세요.** 다음에 누군가 원본을 고치고 이 스크립트를 다시 돌리면 그 자리에서 덮어써져 조용히 사라집니다.
+## 4. 배포 원칙
 
-작업 순서:
-1. `Dashboard_gmail.html` 또는 `Code_admin_gmail.gs`를 수정
-2. `node tools/rebuild_apps_script_split_bundle.js` 실행
-3. `apps_script_split_upload/`가 새로 생성됨 → 그걸 Apps Script 프로젝트에 업로드
+- 관리자 프로젝트에는 `apps_script_split_upload/`의 파일만 반영합니다.
+- 공개 프로젝트에는 `apps_script_public_upload/`의 파일만 반영합니다.
+- 단일본과 분리본을 같은 Apps Script 프로젝트에 동시에 넣지 않습니다.
+- `/dev`와 테스트 데이터로 검증한 뒤 기존 운영 배포의 버전만 변경합니다.
+- 작업이 끝나면 원본과 생성물을 함께 커밋합니다.
 
-Apps Script 프로젝트에는 통합본(`Code_admin_gmail.gs`, `Dashboard_gmail.html`)과 분리본(`admin_*.gs`, `js_*.html`, `Dashboard_gmail_split.html`)을 **동시에 넣지 않습니다** — 같은 함수·상수가 중복 정의되어 로드가 깨집니다. 자세한 배포 순서는 `APPS_SCRIPT_SPLIT_CHECKLIST.md` 참고.
-
-## 3. 세션을 넘길 때는 커밋합니다
-
-이 저장소는 이제 git으로 추적됩니다. Claude든 Codex든 작업을 마치면 커밋하고, 다음 세션(다른 쪽 도구)은 시작할 때 `git log`/`git diff`로 그 사이에 뭐가 바뀌었는지 먼저 확인합니다. 파일 수정시각만 보고 추측하지 않습니다.
-
-## 4. 참고 문서
-
-- `APPS_SCRIPT_SPLIT_CHECKLIST.md` — 분리본 배포 절차
-- `SECURITY_DEPLOYMENT_STEPS.md` / `SECURITY_RUNBOOK.md` / `GITHUB_SECURITY_SETTINGS.md` — 보안 관련 배포 규칙
+자세한 구조와 파일 관계는 `docs/PROJECT_STRUCTURE.md`를 따릅니다.

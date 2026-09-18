@@ -49,25 +49,8 @@ const gs = files
   .join('\n');
 new Function(gs);
 
-const jsOrder = [
-  'js_00_state',
-  'js_02_sheets_sync',
-  'js_03_positions',
-  'js_05_interviews',
-  'js_04_candidates',
-  'js_08_dashboard',
-  'js_07_referral',
-  'js_04_candidates_flow',
-  'js_05_interviews_manage',
-  'js_06_reference',
-  'js_08_onboarding_bulk',
-  'js_09_settings',
-  'js_99_app',
-];
-const js = jsOrder
-  .map(name => fs.readFileSync(path.join(bundleDir, `${name}.html`), 'utf8'))
-  .map(content => content.replace(/^<script>\r?\n?/, '').replace(/\r?\n?<\/script>$/, ''))
-  .join('\n');
+const appScript = fs.readFileSync(path.join(bundleDir, 'app_script.html'), 'utf8');
+const js = appScript.replace(/^<script[^>]*>\r?\n?/, '').replace(/\r?\n?<\/script>$/, '');
 new Function(js);
 
 if (forbiddenFound.length || missing.size) {

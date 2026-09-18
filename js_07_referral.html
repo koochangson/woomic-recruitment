@@ -1,3 +1,11 @@
+  const monday = new Date(now);
+  monday.setHours(0,0,0,0);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23,59,59,999);
+  return interviews.filter(i => {
+    const date = new Date(String(i.date || '').replace(' ','T'));
     return !Number.isNaN(date.getTime()) && date >= monday && date <= sunday;
   });
 }
@@ -865,11 +873,3 @@ function exportReferralRewardsCsv(payMonth='') {
   a.download = `referral_rewards_${payMonth || 'all'}_${today()}.csv`;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 500);
-}
-function refreshReferralsFromGS() {
-  return Promise.all([
-    loadReferralsFromGS({forceFull:true, force:true}),
-    loadEmployeesFromGS({forceFull:true, force:true}),
-  ]);

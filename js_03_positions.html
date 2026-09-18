@@ -1,3 +1,13 @@
+    : mergeGsRecords('Candidates', remote, candidates);
+  setGsSyncCursor('Candidates', result.serverTime);
+  saveState();
+  showSyncStatus(result.isDelta ? `GS 변경 ${remote.length}건 반영` : `GS 전체 로드 완료 (${candidates.length}명)`, 'ok');
+  return true;
+}
+
+async function testGSConnection() {
+  const urlEl    = document.getElementById('cfg-gs-url');
+  const statusEl = document.getElementById('gs-conn-status');
   if(!urlEl || !statusEl) return;
   const url = urlEl.value.trim();
   if(!url) { statusEl.textContent='⚠ URL을 먼저 입력하세요.'; statusEl.style.color='var(--amber)'; return; }
@@ -473,7 +483,7 @@ async function doCollectSendCurrent() {
   itv.availabilityStatus = 'SENT';
   itv.availabilityOptions = q.options;
   itv.availabilitySelections = [];
-  const subject = routeMailSubject(cand || cur, `[우미건설] ${cur.name}님 ${q.roundLabel} 가능 일정 확인`);
+  const subject = `[우미건설] ${cur.name}님 ${q.roundLabel} 가능 일정 확인`;
   const tpl = document.getElementById('tpl-collect')?.value;
   let body;
   if(tpl) {
@@ -488,11 +498,9 @@ async function doCollectSendCurrent() {
   } else {
     body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜의 오전·오후 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
   }
-  let sent;
-  if(isHeadhuntingCandidate(cand || cur)) {
-    sent = await sendHeadhunterForwardEmailViaGmail(cand || cur, subject, `${q.roundLabel} 후보일정 협의`, body, `${q.round}후보일정(업체경유)`);
-  } else {
-    sent = await sendGeneralEmailViaGmail(target.to || cur.email, subject, body, `${q.round}후보일정안내`, cur.name, {
+  const sent = await dispatchCandidateMail_(cand || cur, {
+    subject, purpose: `${q.roundLabel} 후보일정 협의`, directBody: body, logType: `${q.round}후보일정(업체경유)`,
+    sendDirect: () => sendGeneralEmailViaGmail(target.to || cur.email, subject, body, `${q.round}후보일정안내`, cur.name, {
       templateType: 'interview_slot_request',
       candidateName: cur.name,
       positionText: cur.pos,
@@ -501,8 +509,8 @@ async function doCollectSendCurrent() {
       location: q.loc || '',
       availabilityLink: issue.link,
       responseDeadline: q.deadline
-    });
-  }
+    })
+  });
   if(sent === false) return;
   saveState();
   logNotify('Gmail', `${q.round}후보일정${cand&&isHeadhuntingCandidate(cand)?'업체경유':'안내'}`, cur.name, target.to || cur.email);
@@ -1106,11 +1114,3 @@ function openPositionResultModal(positionId, stageIdx) {
       </div>
       <div style="display:flex;gap:5px">
         <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
-        <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">불합격</label>
-        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'협의중':'미정'}</label>
-      </div>
-    </div>`).join('');
-  openModal('modal-position-result');
-}
-
-function selectPositionResult(input) {

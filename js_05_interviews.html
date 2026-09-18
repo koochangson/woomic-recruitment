@@ -1,3 +1,11 @@
+        <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">불합격</label>
+        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'협의중':'미정'}</label>
+      </div>
+    </div>`).join('');
+  openModal('modal-position-result');
+}
+
+function selectPositionResult(input) {
   document.querySelectorAll(`input[name="${input.name}"]`).forEach(r=>{
     const label = r.closest('label');
     if(!label) return;
@@ -570,18 +578,16 @@ async function sendCandSchedule(intId, sequential) {
   const roundLabel = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
 
   const target = getCandidateMailTarget(c);
-  const subject = routeMailSubject(c, `[우미건설] ${esc(c.name)}님 ${roundLabel} 일정 안내`);
+  const subject = `[우미건설] ${esc(c.name)}님 ${roundLabel} 일정 안내`;
 
-  let sent;
-  if(isHeadhuntingCandidate(c)) {
-    sent = await sendHeadhunterForwardEmailViaGmail(c, subject, `${roundLabel} 일정`, buildIntEmail(itv, c), `${itv.type}면접업체경유안내`);
-  } else {
-    sent = await sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, c), `${itv.type}면접지원자안내`, c.name, {
+  const sent = await dispatchCandidateMail_(c, {
+    subject, purpose: `${roundLabel} 일정`, directBody: buildIntEmail(itv, c), logType: `${itv.type}면접업체경유안내`,
+    sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, c), `${itv.type}면접지원자안내`, c.name, {
       templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
       candidateName: c.name, positionText: c.pos,
       interviewDateTime: itv.date || '', location: itv.loc || '', panelNames: itv.panel || '', memo: itv.memo || ''
-    });
-  }
+    })
+  });
   if(sent === false) return;
 
   itv.candidateNotified = true;
@@ -1027,9 +1033,3 @@ function sendPanelNotice(posId, round, returnToPosition=true) {
   }
   if(confirmed.length < stageCands.length) {
     if(!confirm(`${stageCands.length}명 중 ${confirmed.length}명만 일정이 확정됐습니다.\n확정된 ${confirmed.length}명 기준으로 면접관에게 안내하시겠습니까?`)) return;
-  }
-  // 통합 함수 호출 (공문 양식 + 첨부 안내)
-  sendPanelSchedule(posId, stageIdx, returnToPosition);
-}
-
-// ── 일괄 단계 변경 ────────────────────────────────────────────

@@ -1,3 +1,11 @@
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 500);
+}
+function refreshReferralsFromGS() {
+  return Promise.all([
+    loadReferralsFromGS({forceFull:true, force:true}),
+    loadEmployeesFromGS({forceFull:true, force:true}),
+  ]);
 }
 function renderReferralRewardsView() {
   const list = document.getElementById('rf-list'), detail = document.getElementById('rf-detail');
@@ -479,32 +487,29 @@ async function confirmStageChange() {
       subject = `[우미건설] ${esc(c.name)}님 입사 안내`;
       body = buildOnboardEmail ? buildOnboardEmail(c) : buildStageNotifyMsg(c, newStage);
     }
-    if(isHeadhuntingCandidate(c)) {
-      subject = routeMailSubject(c, subject);
-      await sendHeadhunterForwardEmailViaGmail(c, subject, `${STAGES[newStage]} 단계`, body, STAGES[newStage]+'안내(업체경유)');
-    } else if(newStage === 6) {
-      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
-        templateType: 'rejection', candidateName: c.name, positionText: c.pos
-      });
+    let generalParams = null;
+    if(newStage === 6) {
+      generalParams = { templateType: 'rejection', candidateName: c.name, positionText: c.pos };
     } else if(newStage === 1 || newStage === 3) {
       const slots = [1,2,3].map(n => getSlotValue(n)).filter(Boolean);
       const slotOptions = slots.map((s,i) => {
         const d = new Date(s);
         return `${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
       }).join('\n') || '면접 일정은 별도로 안내드릴 예정입니다.';
-      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
+      generalParams = {
         templateType: 'interview_slot_request', candidateName: c.name, positionText: c.pos,
         interviewType: newStage===1?'1차 실무면접':'2차 임원면접', slotOptions, location: c.loc || ''
-      });
+      };
     } else if(newStage === 7) {
-      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
+      generalParams = {
         templateType: 'onboarding', candidateName: c.name, positionText: c.pos,
         joinDate: c.joinDate || '', dept: c.dept || '', rank: '', etype: c.etype || '', location: c.loc || '', prepNotes: ''
-      });
-    } else {
-      subject = routeMailSubject(c, subject);
-      await sendHeadhunterForwardEmailViaGmail(c, subject, `${STAGES[newStage]} 단계`, body, STAGES[newStage]+'안내(업체경유)');
+      };
     }
+    await dispatchCandidateMail_(c, {
+      subject, purpose: `${STAGES[newStage]} 단계`, directBody: body, logType: STAGES[newStage]+'안내(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, generalParams)
+    });
   }
 
   if(shouldPromptReferenceStart) {
@@ -706,8 +711,3 @@ function addCandidate() {
     const receivedAt = formatDate(document.getElementById('nc-date').value) || today();
     const newCand = {
       id: nextId(), name, pos, email, etype,
-      role:      document.getElementById('nc-role').value,
-      dept:      document.getElementById('nc-dept').value,
-      career:    document.getElementById('nc-career').value,
-      source,
-      headhunterId: source === 'headhunting' ? headhunter.id : '',

@@ -1,3 +1,13 @@
+    const subject = `[우미건설] ${esc(c.name)}님 채용 진행 안내`;
+    const directBody = `안녕하세요 ${esc(c.name)}님,\n\n우미건설 ${esc(c.pos)} 포지션 채용 진행 관련 안내드립니다.\n현재 단계: ${STAGES[c.stage]}\n\n추가 안내가 있으면 연락드리겠습니다.`;
+    await dispatchCandidateMail_(c, {
+      subject, purpose: '채용 진행', directBody, logType: '개별알림(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, directBody, '개별알림', c.name, {
+        templateType: 'general_notice', candidateName: c.name, positionText: c.pos || '', noticeBody: directBody
+      })
+    });
+    return;
+  }
   saveState(); renderTracker(); renderDashboard();
   closeModal('modal-detail');
 }
@@ -157,18 +167,16 @@ async function sendIntNotify(ch) {
   if(ch === 'outlook') {
     const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
     const target = getCandidateMailTarget(cand);
-    const subject = routeMailSubject(cand, `[우미건설] ${cand.name}님 ${type} 일정 안내`);
-    if(isHeadhuntingCandidate(cand)) {
-      await sendHeadhunterForwardEmailViaGmail(cand, subject, `${type} 일정`, buildIntEmail(itv, cand), `${itv.type}면접업체경유안내`);
-      itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
-    } else {
-      await sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, cand), `${itv.type}면접지원자안내`, cand.name, {
+    const subject = `[우미건설] ${cand.name}님 ${type} 일정 안내`;
+    await dispatchCandidateMail_(cand, {
+      subject, purpose: `${type} 일정`, directBody: buildIntEmail(itv, cand), logType: `${itv.type}면접업체경유안내`,
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, cand), `${itv.type}면접지원자안내`, cand.name, {
         templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
         candidateName: cand.name, positionText: cand.pos,
         interviewDateTime: itv.date || '', location: itv.loc || '', panelNames: itv.panel || '', memo: itv.memo || ''
-      });
-      itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
-    }
+      })
+    });
+    itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
     return;
   }
   saveState(); renderIntTable(); renderDashboard();
@@ -210,19 +218,16 @@ async function sendIntById(id, ch) {
   if(ch === 'outlook') {
     const type = i.type === '1차' ? '1차 실무면접' : '2차 임원면접';
     const target = getCandidateMailTarget(c);
-    const subject = routeMailSubject(c, `[우미건설] ${esc(i.candName)}님 ${type} 일정 안내`);
-    if(isHeadhuntingCandidate(c)) {
-      await sendHeadhunterForwardEmailViaGmail(c, subject, `${type} 일정`, buildIntEmail(i, c), `${i.type}면접업체경유안내`);
-      i.candidateNotified = true; i.candNotified = true;
-      if(c) c.notified = true;
-    } else {
-      await sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(i, c), `${i.type}면접지원자안내`, i.candName, {
+    const subject = `[우미건설] ${esc(i.candName)}님 ${type} 일정 안내`;
+    await dispatchCandidateMail_(c, {
+      subject, purpose: `${type} 일정`, directBody: buildIntEmail(i, c), logType: `${i.type}면접업체경유안내`,
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(i, c), `${i.type}면접지원자안내`, i.candName, {
         templateType: i.type === '1차' ? 'interview_first' : 'interview_second',
         candidateName: c?.name || i.candName, positionText: c?.pos || '',
         interviewDateTime: i.date || '', location: i.loc || '', panelNames: i.panel || '', memo: i.memo || ''
-      });
-      i.candidateNotified = true; i.candNotified = true; if(c) c.notified = true;
-    }
+      })
+    });
+    i.candidateNotified = true; i.candNotified = true; if(c) c.notified = true;
     return;
   }
   saveState(); renderIntTable(); renderDashboard();
@@ -572,7 +577,7 @@ async function remindOneRef(candId,ri){
   if(!r){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
   const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
-  const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 7일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+  const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 21일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
   const sent=await sendReferenceEmailViaGmail(r.email,subject,body,'추천인리마인드',`${esc(c.name)}-${esc(r.name)}`,{
     templateType:'referee_reminder',
     candidateName:c.name,
@@ -599,8 +604,3 @@ function markRefResponse(candId,ri){
 function markOneResponse(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
   const refs=ensureRefDetails(c);
-  if(!refs.length){toast('접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.','terr');return;}
-  // 응답 처리: 등록된(또는 대기) 추천인 중 아직 미응답인 첫 번째를 응답으로
-  const target=refDetails[id].find(r=>r.status==='등록') || refDetails[id].find(r=>r.status==='대기');
-  if(target){target.status='응답';c.refD++;}
-  if(c.refD>=c.refT)c.ref='완료';

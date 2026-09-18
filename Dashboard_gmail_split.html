@@ -519,6 +519,8 @@
               <div class="fg full"><label>내부 공유 수신자</label><div id="ob-recipient-summary" style="padding:8px 10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);font-size:11px;color:var(--t2)">합격자를 선택하면 배치부서 팀장/소장과 관련부서 수신자를 확인할 수 있습니다.</div><button class="btn btn-xs" style="margin-top:5px;width:max-content" data-action="call" data-call="navBtn('settings')">관련부서 수신자 설정</button></div>
               <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>출근 시간</label><input type="time" id="ob-jointime" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>집결 장소</label><input id="ob-reportloc" placeholder="본사 3층 피플팀" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label>채용형태</label>
                 <select id="ob-etype" data-onchange="updateObPreview()">
                   <option>정규직</option><option>전문직</option><option>파견직</option>
@@ -791,6 +793,8 @@
 구분        내용
 ----------  --------------------------------
 입사일      {입사일}
+출근 시간   {출근시간}
+집결 장소   {집결장소}
 배치 부서   {부서}
 직책/직급   {직책}
 채용형태    {채용형태}

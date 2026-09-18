@@ -208,6 +208,7 @@ function readRowsIfSheetExists_(sheetName) {
 }
 
 function getInterviewersFromDirectory_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ success: false, error: 'admin_auth_required', interviewers: [] });
   const data = payload && payload.data || {};
   const url = String(data.url || getFirstSettingValue_(REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS) || '').trim();
   if (!url) return json_({ success: false, error: 'interviewer_url_missing', interviewers: [] });

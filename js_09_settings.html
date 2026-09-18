@@ -1,3 +1,9 @@
+  const subject = `[입사안내] ${ob.joinDate || '입사일 미정'} ${dept || ob.dept || '배치부서 미정'} ${cand.name} ${ob.rank || ''}`.trim();
+  const body = buildInternalOnboardEmail({...ob,dept,pos:cand.pos||ob.pos,etype:ob.etype||cand.etype}, cand);
+
+  // 이메일 발송 (관련 부서 + 피플팀 일괄 수신)
+  const sent = await sendGeneralEmailViaGmail(toEmails, subject, body, '입사안내(사내부서)', cand.name, {
+    templateType: 'onboarding_internal',
     candidateName: ob.candName || cand.name,
     positionText: cand.pos || ob.pos || '',
     dept: dept || ob.dept || '',
@@ -42,6 +48,8 @@ function addOnboarding(){
     deptLead:document.getElementById('ob-dept-lead')?.value||'',
     joinDate:jd,rank:document.getElementById('ob-rank').value,
     loc:document.getElementById('ob-loc').value,
+    joinTime:document.getElementById('ob-jointime')?.value||'',
+    reportLocation:document.getElementById('ob-reportloc')?.value||'',
     notes:document.getElementById('ob-notes').value,notified:false
   });
   if(c.stage<5)c.stage=5;
@@ -61,10 +69,14 @@ async function sendObNotify(ch){
   if(ch==='outlook'){
     const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
-    const sent=await sendGeneralEmailViaGmail(c.email,subject,body,'입사안내-지원자',ob.candName,{
-      templateType:'onboarding', candidateName:ob.candName||c.name, positionText:ob.pos||c.pos,
-      joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c.etype||'',
-      location:ob.loc||'', prepNotes:ob.notes||''
+    const target=getCandidateMailTarget(c);
+    const sent = await dispatchCandidateMail_(c, {
+      subject, purpose: '입사 안내', directBody: body, logType: '입사안내(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to||c.email,subject,body,'입사안내-지원자',ob.candName,{
+        templateType:'onboarding', candidateName:ob.candName||c.name, positionText:ob.pos||c.pos,
+        joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c.etype||'',
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', prepNotes:ob.notes||''
+      })
     });
     if(!sent)return;
   }
@@ -119,10 +131,14 @@ async function sendObById(id,ch){
   if(ch==='outlook'){
     const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
-    const sent=await sendGeneralEmailViaGmail(c?.email||'',subject,body,'입사안내-지원자',ob.candName,{
-      templateType:'onboarding', candidateName:ob.candName||c?.name||'', positionText:ob.pos||c?.pos||'',
-      joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c?.etype||'',
-      location:ob.loc||'', prepNotes:ob.notes||''
+    const target=c?getCandidateMailTarget(c):{to:''};
+    const sent = await dispatchCandidateMail_(c, {
+      subject, purpose: '입사 안내', directBody: body, logType: '입사안내(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to||c?.email||'',subject,body,'입사안내-지원자',ob.candName,{
+        templateType:'onboarding', candidateName:ob.candName||c?.name||'', positionText:ob.pos||c?.pos||'',
+        joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c?.etype||'',
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', prepNotes:ob.notes||''
+      })
     });
     if(!sent)return;
   }
@@ -200,18 +216,16 @@ async function sendBulk(){
     for(const c of mailTargets){
       const target = getCandidateMailTarget(c);
       const directBody = template.replace(/\{지원자명\}/g,c.name||'').replace(/\{포지션\}/g,c.pos||'');
-      const subject = routeMailSubject(c, subjectFor(c));
-      let sent = false;
-      if(isHeadhuntingCandidate(c)) {
-        sent = await sendHeadhunterForwardEmailViaGmail(c, subject, '채용 진행', directBody, `${type}일괄안내(업체경유)`);
-      } else {
-        sent = await sendGeneralEmailViaGmail(target.to, subject, directBody, `${type}일괄안내`, c.name, {
+      const subject = subjectFor(c);
+      const sent = await dispatchCandidateMail_(c, {
+        subject, purpose: '채용 진행', directBody, logType: `${type}일괄안내(업체경유)`,
+        sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, directBody, `${type}일괄안내`, c.name, {
           templateType: 'general_notice',
           candidateName: c.name,
           positionText: c.pos || '',
           noticeBody: directBody
-        });
-      }
+        })
+      });
       if(sent === false) return;
     }
   }
@@ -288,17 +302,3 @@ async function loadSettingsWithGS() {
       set('cfg-idle-minutes',    gsCfg.idleMinutes);
       set('tpl-int1',            gsCfg.tplInt1);
       set('tpl-int2',            gsCfg.tplInt2);
-      set('tpl-panel',           gsCfg.tplPanel);
-      set('tpl-onboard',         gsCfg.tplOnboard);
-      set('tpl-onboard-internal',gsCfg.tplOnboardInternal);
-      set('tpl-ref',             gsCfg.tplRef);
-      set('tpl-ref-remind',      gsCfg.tplRefRemind);
-      set('tpl-reject',          gsCfg.tplReject);
-      set('tpl-collect',         gsCfg.tplCollect);
-      if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
-      if(gsCfg.referralDataUrl) GS_CONFIG.referralDataUrl = gsCfg.referralDataUrl;
-      if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
-      if(gsCfg.refAutoUrl)     GS_CONFIG.refAutoUrl = gsCfg.refAutoUrl;
-      setPrivacyMask(gsCfg.maskPii === 'true');
-      resetIdleLock();
-      renderHeadhunterDbPreview();

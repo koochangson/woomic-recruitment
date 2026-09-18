@@ -1,3 +1,13 @@
+     !scheduledIds.has(Number(c.id)));
+  const noRef = pool.filter(c => c.ref==='진행중' && Number(c.refD||0)===0);
+  const activeIds = new Set(pool.map(c=>Number(c.id)));
+  const noNoti = interviews.filter(i => (!i.notified || i.mailPending) && activeIds.has(Number(i.candId)));
+  const unlinked = getUnlinkedCandidates();
+  const mailPending = getMailPendingItems();
+  return { noInt, noRef, noNoti, unlinked, mailPending, total: noInt.length + noRef.length + noNoti.length + unlinked.length + mailPending.length };
+}
+
+
 // ══════════════════════════════════════════════════════════════
 // Google Sheets 연동
 // ══════════════════════════════════════════════════════════════
@@ -1510,13 +1520,3 @@ async function loadFromGS(options={}) {
   }));
   candidates = result.isDelta
     ? mergeGsDeltaRecords('Candidates', remote, candidates)
-    : mergeGsRecords('Candidates', remote, candidates);
-  setGsSyncCursor('Candidates', result.serverTime);
-  saveState();
-  showSyncStatus(result.isDelta ? `GS 변경 ${remote.length}건 반영` : `GS 전체 로드 완료 (${candidates.length}명)`, 'ok');
-  return true;
-}
-
-async function testGSConnection() {
-  const urlEl    = document.getElementById('cfg-gs-url');
-  const statusEl = document.getElementById('gs-conn-status');

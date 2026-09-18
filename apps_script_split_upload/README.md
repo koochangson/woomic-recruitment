@@ -8,7 +8,9 @@
 
 ## 넣지 않는 파일
 
-기존 단일본 `Code_admin_gmail.gs`, `Dashboard.html`, `Dashboard_gmail.html`은 이 분리 세트와 동시에 두지 않습니다.
+기존 단일본 `Code_admin_gmail.gs`, `Dashboard_gmail.html`과 이전에 생성된 `js_*.html`은 이 세트와 동시에 두지 않습니다.
+
+화면 JavaScript는 `app_script.html` 하나에 포함됩니다. `js_*.html`은 소스 구간 검증용 생성물이며 런타임 include 대상이 아닙니다.
 
 ## 진입 파일
 
@@ -23,4 +25,4 @@
 
 ## 파일 수
 
-총 50개 파일입니다.
+총 37개 파일입니다.

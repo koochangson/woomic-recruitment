@@ -1,3 +1,11 @@
+      .replace(/\{직책\}/g,     ob.rank || '')
+      .replace(/\{채용형태\}/g, ob.etype || '')
+      .replace(/\{근무지\}/g,   ob.loc  || '')
+      .replace(/\{출근시간\}/g, ob.joinTime || '09:00')
+      .replace(/\{집결장소\}/g, ob.reportLocation || '본사 3층 피플팀')
+      .replace(/\{준비사항\}/g, ob.notes ? '\n준비사항:\n' + ob.notes : '');
+  }
+  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '본사 3층 피플팀'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
 }
 
 function buildInternalOnboardEmail(ob, cand) {
@@ -280,11 +288,3 @@ function updateMetrics() {
 
 function getThisWeekInterviews() {
   const now = new Date();
-  const monday = new Date(now);
-  monday.setHours(0,0,0,0);
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23,59,59,999);
-  return interviews.filter(i => {
-    const date = new Date(String(i.date || '').replace(' ','T'));

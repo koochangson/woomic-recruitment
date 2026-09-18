@@ -8,10 +8,11 @@ const root = path.resolve(__dirname, '..');
 
 const steps = [
   ['Split dashboard HTML', 'tools/split_dashboard_gmail.js'],
-  ['Refactor general mail assets', 'tools/refactor_general_mail_assets.js'],
   ['Split server GS', 'tools/split_code_admin_gmail.js'],
-  ['Prepare upload bundle', 'tools/prepare_apps_script_split_bundle.js'],
-  ['Check upload bundle', 'tools/check_apps_script_split_bundle.js'],
+  ['Prepare admin upload bundle', 'tools/prepare_apps_script_split_bundle.js'],
+  ['Prepare public upload bundle', 'tools/prepare_apps_script_public_bundle.js'],
+  ['Check admin upload bundle', 'tools/check_apps_script_split_bundle.js'],
+  ['Check source/build drift', 'scripts/check-source-dist-drift.mjs'],
 ];
 
 for (const [label, script] of steps) {

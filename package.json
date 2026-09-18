@@ -3,8 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node tools/rebuild_apps_script_split_bundle.js",
     "apps-script:rebuild": "node tools/rebuild_apps_script_split_bundle.js",
     "apps-script:check": "node tools/check_apps_script_split_bundle.js",
+    "build:drift": "node scripts/check-source-dist-drift.mjs",
     "security:scan": "node scripts/security-scan.mjs",
     "syntax:check": "node scripts/syntax-check.mjs",
     "deployment:ready": "node scripts/deployment-readiness.mjs",

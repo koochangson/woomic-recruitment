@@ -1,3 +1,17 @@
+      set('tpl-panel',           gsCfg.tplPanel);
+      set('tpl-onboard',         gsCfg.tplOnboard);
+      set('tpl-onboard-internal',gsCfg.tplOnboardInternal);
+      set('tpl-ref',             gsCfg.tplRef);
+      set('tpl-ref-remind',      gsCfg.tplRefRemind);
+      set('tpl-reject',          gsCfg.tplReject);
+      set('tpl-collect',         gsCfg.tplCollect);
+      if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
+      if(gsCfg.referralDataUrl) GS_CONFIG.referralDataUrl = gsCfg.referralDataUrl;
+      if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
+      if(gsCfg.refAutoUrl)     GS_CONFIG.refAutoUrl = gsCfg.refAutoUrl;
+      setPrivacyMask(gsCfg.maskPii === 'true');
+      resetIdleLock();
+      renderHeadhunterDbPreview();
       populateHeadhunterSelect();
       showSyncStatus('설정 로드 완료 (GS)', 'ok');
     }
