@@ -543,6 +543,9 @@
         if (!data.ok) {
           if (data.error === 'identity_mismatch') {
             errEl.textContent = '등록하신 이메일·휴대폰 번호와 일치하지 않습니다. 다시 확인해 주세요.';
+          } else if (data.error === 'too_many_attempts') {
+            showError('확인 시도 횟수를 초과했습니다', '잠시 후 다시 시도해 주시거나, 요청하신 분께 문의해 주세요.');
+            return;
           } else if (data.error === 'already_submitted') {
             showError('이미 제출된 설문입니다', '이 링크로는 이미 응답을 제출하셨습니다. 소중한 답변 감사합니다.');
             return;

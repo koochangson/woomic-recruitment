@@ -51,6 +51,8 @@ const REFERENCE_CANDIDATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-c
 const REFERENCE_RESPONSE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_check_intake.html';
 const INTERVIEW_AVAILABILITY_LINK_TTL_DAYS = 10;
 const INTERVIEW_AVAILABILITY_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/interview_availability.html';
+const REFEREE_VERIFY_ATTEMPT_LIMIT = 5;
+const REFEREE_VERIFY_LOCK_SECONDS = 10 * 60;
 
 const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
@@ -171,6 +173,7 @@ function sendMailViaGmail_(to, subject, body, htmlBody) {
 }
 
 function handleSendMail_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const result = sendMailViaGmail_(body.toEmail || body.to || body.email, body.subject, body.body || body.message, body.htmlBody);
   return json_(result);
@@ -684,6 +687,7 @@ function submitReferenceCandidateReferees_(payload) {
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
   const candRow = readRows_('ReferenceCandidates')[rowIndex - 2];
   if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
+  if (candRow.refereesSubmittedAt) return json_({ error: 'already_submitted' });
 
   // 일부만 유효하고 일부가 빠진 상태로 시트에 쓰거나 메일을 보내기 시작하면 안 되므로,
   // 쓰기/발송을 시작하기 전에 3명 전원의 필수값(이름·이메일·전화번호)을 먼저 검증한다.
@@ -799,6 +803,38 @@ function verifyReferenceRefereeToken_(payload) {
 // 링크 확인 다음 단계 — 등록 시 후보자가 입력한 이메일·전화번호와 일치하는지 확인한 뒤에만
 // 후보자명을 공개하고 12문항 응답 폼을 열어준다. 링크만 유출돼도 아무나 응답할 수 없게 하는
 // 최소한의 신원 확인 장치(강력한 인증은 아니지만, 링크를 잘못 전달받은 제3자를 걸러낸다).
+function refereeVerifyFailKey_(token) {
+  return 'referee_verify_fail:' + String(token || '');
+}
+
+function refereeVerifyLockKey_(token) {
+  return 'referee_verify_lock:' + String(token || '');
+}
+
+function isRefereeVerifyLocked_(token) {
+  if (!token) return true;
+  return !!CacheService.getScriptCache().get(refereeVerifyLockKey_(token));
+}
+
+function recordRefereeVerifyFailure_(token) {
+  if (!token) return;
+  const cache = CacheService.getScriptCache();
+  const key = refereeVerifyFailKey_(token);
+  const count = Number(cache.get(key) || '0') + 1;
+  if (count >= REFEREE_VERIFY_ATTEMPT_LIMIT) {
+    cache.put(refereeVerifyLockKey_(token), '1', REFEREE_VERIFY_LOCK_SECONDS);
+    cache.remove(key);
+    return;
+  }
+  cache.put(key, String(count), REFEREE_VERIFY_LOCK_SECONDS);
+}
+
+function clearRefereeVerifyFailures_(token) {
+  const cache = CacheService.getScriptCache();
+  cache.remove(refereeVerifyFailKey_(token));
+  cache.remove(refereeVerifyLockKey_(token));
+}
+
 function verifyRefereeIdentity_(payload) {
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const token = String(body.token || '').trim();
@@ -806,6 +842,7 @@ function verifyRefereeIdentity_(payload) {
   const phone = normalizePhone_(body.phone);
   if (!token) return json_({ ok: false, error: 'token_required' });
   if (!email || !phone) return json_({ ok: false, error: 'identity_fields_required' });
+  if (isRefereeVerifyLocked_(token)) return json_({ ok: false, error: 'too_many_attempts' });
 
   const sheet = ensureSheet_('ReferenceResponses');
   const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.ReferenceResponses);
@@ -817,8 +854,10 @@ function verifyRefereeIdentity_(payload) {
 
   // 이메일·전화번호 중 하나만 일치해도 통과(둘 다 일치해야 하는 건 너무 엄격함).
   if (normalizeEmail_(row.refereeEmail) !== email && normalizePhone_(row.refereePhone) !== phone) {
+    recordRefereeVerifyFailure_(token);
     return json_({ ok: false, error: 'identity_mismatch' });
   }
+  clearRefereeVerifyFailures_(token);
 
   const verifiedAtCol = headers.indexOf('verifiedAt') + 1;
   if (verifiedAtCol > 0) sheet.getRange(rowIndex, verifiedAtCol).setValue(nowIso_());
@@ -1132,8 +1171,12 @@ const GENERAL_MAIL_HEADER_TITLES = {
 };
 
 
+var _mailFragmentCache_ = {};
 function loadMailFragment_(fileName) {
-  return HtmlService.createHtmlOutputFromFile(fileName).getContent();
+  if (!Object.prototype.hasOwnProperty.call(_mailFragmentCache_, fileName)) {
+    _mailFragmentCache_[fileName] = HtmlService.createHtmlOutputFromFile(fileName).getContent();
+  }
+  return _mailFragmentCache_[fileName];
 }
 
 function loadMailAsset_(fileName) {
@@ -1525,6 +1568,7 @@ function readRowsIfSheetExists_(sheetName) {
 }
 
 function getInterviewersFromDirectory_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ success: false, error: 'admin_auth_required', interviewers: [] });
   const data = payload && payload.data || {};
   const url = String(data.url || getFirstSettingValue_(REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS) || '').trim();
   if (!url) return json_({ success: false, error: 'interviewer_url_missing', interviewers: [] });
