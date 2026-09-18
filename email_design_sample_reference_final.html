@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>레퍼런스 체크 안내메일 디자인 샘플</title>
+  <style>
+    :root{
+      --blue:#003087;
+      --text:#20242a;
+      --lynn:#353d44;
+      --muted:#66717f;
+      --soft:#f3f7fc;
+      --line:#e5e9ef;
+      --page:#f8f9fa;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--page);font-family:Arial,'Malgun Gothic',sans-serif;color:var(--text);}
+    .page{max-width:820px;margin:0 auto;padding:32px 18px 64px;}
+    .page-title{font-size:20px;font-weight:700;margin:0 0 20px;color:#111827;}
+    .sample-label{font-size:13px;font-weight:700;color:#475467;margin:24px 0 9px;}
+    .mail-shell{padding:26px 0;background:#fff;border:1px solid var(--line);border-radius:14px;}
+    .mail-card{width:600px;max-width:calc(100% - 28px);margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(15,52,96,.055);}
+    .mail-head{padding:28px 40px 14px;background:#fff;}
+    .brand-logo{display:block;width:82px;height:auto;margin-bottom:16px;}
+    .mail-title{font-size:25px;line-height:1.28;font-weight:700;color:var(--text);letter-spacing:0;}
+    .mail-subtitle{font-size:16px;line-height:1.45;font-weight:600;color:var(--blue);margin-top:1px;}
+    .mail-body{padding:16px 40px 4px;font-size:15px;line-height:1.78;color:var(--text);}
+    .gap{height:12px;line-height:12px;}
+    .info-box{margin:8px 0 2px;padding:14px 16px;border-radius:10px;background:var(--soft);border:1px solid #e8f0fa;}
+    .info-title{font-size:13px;font-weight:700;color:var(--lynn);margin-bottom:8px;}
+    .info-tags{font-size:0;line-height:1.7;}
+    .info-tag{display:inline-block;font-size:13px;color:#344054;margin:0 14px 3px 0;white-space:nowrap;}
+    .note-box{margin-top:10px;padding:13px 15px;border-radius:10px;background:#fbfcfe;border:1px solid var(--line);font-size:13px;line-height:1.65;color:#475467;}
+    .note-line{display:block;margin:2px 0;}
+    .note-mark{color:var(--blue);font-weight:700;margin-right:5px;}
+    .cta{padding:20px 40px 30px;text-align:center;}
+    .cta a{display:inline-block;min-width:252px;background:var(--blue);color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:14px 26px;border-radius:9px;}
+    .sign{padding-top:2px;}
+    .inquiry{margin:0 40px 24px;padding-top:17px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;}
+    .inquiry-title{font-size:12px;font-weight:700;color:var(--lynn);margin-bottom:2px;}
+    .inquiry-text{font-size:12px;line-height:1.6;color:var(--muted);}
+    .inquiry-link{display:inline-block;margin-top:7px;color:var(--blue);text-decoration:none;font-weight:500;font-size:12px;}
+    .inquiry-qr{width:48px;height:48px;border:1px solid var(--line);border-radius:4px;flex:0 0 auto;}
+    .foot{border-top:1px solid var(--line);padding:15px 40px 18px;background:#fbfcfe;font-size:12px;line-height:1.6;color:#7a8491;}
+    @media(max-width:560px){
+      .mail-head,.mail-body{padding-left:26px;padding-right:26px;}
+      .cta{padding-left:26px;padding-right:26px;}
+      .cta a{width:100%;min-width:0;}
+      .inquiry{margin-left:26px;margin-right:26px;}
+      .foot{padding-left:26px;padding-right:26px;}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1 class="page-title">레퍼런스 체크 안내메일 디자인 샘플</h1>
+
+    <div class="sample-label">1. 지원자용: 추천인 등록 안내</div>
+    <section class="mail-shell">
+      <article class="mail-card">
+        <header class="mail-head">
+          <img class="brand-logo" src="woomi-ci.png" alt="우미건설">
+          <div class="mail-title">레퍼런스 체크</div>
+          <div class="mail-subtitle">추천인 등록 안내</div>
+        </header>
+        <div class="mail-body">
+          <div>안녕하세요, 이예슬님.</div>
+          <div class="gap">&nbsp;</div>
+          <div>우미건설 홍보 포지션 채용 절차와 관련하여<br>레퍼런스 체크를 진행하고자 합니다.</div>
+          <div class="gap">&nbsp;</div>
+          <div>아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.</div>
+          <div class="info-box">
+            <div class="info-title">등록하실 정보</div>
+            <div class="info-tags">
+              <span class="info-tag">성함</span>
+              <span class="info-tag">이메일</span>
+              <span class="info-tag">휴대폰 번호</span>
+              <span class="info-tag">지원자와의 관계</span>
+            </div>
+          </div>
+          <div class="note-box">
+            <span class="note-line"><span class="note-mark">✓</span>등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.</span>
+            <span class="note-line"><span class="note-mark">✓</span>추천인 등록 전, 연락처 제공 및 설문 발송 예정임을 추천인께 미리 안내해 주세요.</span>
+          </div>
+          <div class="gap">&nbsp;</div>
+          <div class="sign">감사합니다.<br>우미건설 피플팀 드림</div>
+        </div>
+        <div class="cta"><a href="#">추천인 정보 등록하기 →</a></div>
+        <div class="inquiry">
+          <div>
+            <div class="inquiry-title">문의사항</div>
+            <div class="inquiry-text">채용 관련 문의는 카카오톡 채널을 이용해 주세요.</div>
+            <a class="inquiry-link" href="#">카카오톡 채널 문의하기 →</a>
+          </div>
+          <img class="inquiry-qr" src="kakao-channel-qr.png" alt="카카오톡 채널 QR">
+        </div>
+        <footer class="foot">본 메일은 우미건설 채용 절차 진행을 위해 발송되었습니다.</footer>
+      </article>
+    </section>
+
+    <div class="sample-label">2. 추천인용: 설문 참여 안내</div>
+    <section class="mail-shell">
+      <article class="mail-card">
+        <header class="mail-head">
+          <img class="brand-logo" src="woomi-ci.png" alt="우미건설">
+          <div class="mail-title">레퍼런스 체크</div>
+          <div class="mail-subtitle">설문 참여 안내</div>
+        </header>
+        <div class="mail-body">
+          <div>김재영님, 안녕하세요.</div>
+          <div class="gap">&nbsp;</div>
+          <div>이예슬님께서 우미건설 채용 과정에서<br>김재영님을 추천인으로 등록해 주셨습니다.</div>
+          <div class="gap">&nbsp;</div>
+          <div>아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.</div>
+          <div class="note-box">
+            <span class="note-line"><span class="note-mark">✓</span>설문 응답에는 약 10분 정도 소요됩니다.</span>
+            <span class="note-line"><span class="note-mark">✓</span>응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.</span>
+            <span class="note-line"><span class="note-mark">✓</span>본 링크는 발송일로부터 7일간 유효합니다.</span>
+          </div>
+          <div class="gap">&nbsp;</div>
+          <div class="sign">감사합니다.<br>우미건설 피플팀 드림</div>
+        </div>
+        <div class="cta"><a href="#">레퍼런스 체크 시작하기 →</a></div>
+        <div class="inquiry">
+          <div>
+            <div class="inquiry-title">문의사항</div>
+            <div class="inquiry-text">채용 관련 문의는 카카오톡 채널을 이용해 주세요.</div>
+            <a class="inquiry-link" href="#">카카오톡 채널 문의하기 →</a>
+          </div>
+          <img class="inquiry-qr" src="kakao-channel-qr.png" alt="카카오톡 채널 QR">
+        </div>
+        <footer class="foot">본 메일은 우미건설 채용 절차 진행을 위해 발송되었습니다.</footer>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

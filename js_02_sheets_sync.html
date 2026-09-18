@@ -1,0 +1,1522 @@
+// ══════════════════════════════════════════════════════════════
+// Google Sheets 연동
+// ══════════════════════════════════════════════════════════════
+// ┌──────────────────────────────────────────────────────────┐
+// │ ★ 고정 URL 설정 (회사 PC가 종료 시 브라우저 데이터를 지워도   │
+// │   여기 박아둔 값으로 항상 자동 연결됩니다)                    │
+// │   URL이 바뀌면 아래 3줄만 교체하세요.                         │
+// └──────────────────────────────────────────────────────────┘
+const FIXED_URLS = {
+  // 공개 저장소에 관리자 Apps Script 배포 URL을 고정하지 않는다.
+  // 배포 후 설정 탭 또는 사내 전용 config에서 입력한다.
+  scriptUrl:      '',
+  interviewerUrl: '',
+  refAutoUrl:     '',
+  referralDataUrl:'',
+  // 사내추천(Referrals/Rewards/RefRules/Employees)은 referral_intake.html이 실제로 저장하는
+  // "사내추천관리" 스프레드시트에 바인딩된 스크립트를 봐야 한다. scriptUrl(지원자 DB)과는 다른 배포다.
+  referralScriptUrl: '',
+};
+
+// gsFetch가 scriptUrl 대신 referralScriptUrl로 라우팅해야 하는 시트 목록.
+// Interviewers는 별도의 interviewerUrl 경로를 이미 쓰고 있어 여기 포함하지 않는다.
+const REFERRAL_DATA_ROUTED_SHEETS = ['Referrals', 'Rewards', 'RefRules', 'Employees', 'ReferenceCandidates', 'ReferenceResponses'];
+
+const GS_CONFIG = {
+  scriptUrl:         FIXED_URLS.scriptUrl,
+  interviewerUrl:    FIXED_URLS.interviewerUrl,
+  refAutoUrl:        FIXED_URLS.refAutoUrl,
+  referralDataUrl:   FIXED_URLS.referralDataUrl,
+  referralScriptUrl: FIXED_URLS.referralScriptUrl,
+  // 관리자 토큰은 공개 HTML에 두지 않는다. 관리자 API는 Apps Script 배포 권한/allowlist에서 검증한다.
+  adminToken:     '',
+  // 쓰기 요청은 URL 로그 노출을 막기 위해 POST만 사용한다.
+  usePostWrites:  true,
+};
+
+function gsBaseUrlForSheet_(sheet) {
+  return (REFERRAL_DATA_ROUTED_SHEETS.includes(sheet) && GS_CONFIG.referralScriptUrl) || GS_CONFIG.scriptUrl;
+}
+
+// GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
+const GS_SCHEMA = {
+  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
+  RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
+  Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
+  Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
+  RefRules: ['id','recordType','key','value','clFrom','clTo','amount3M','amount6M','effectiveFrom','effectiveTo','isActive','updatedAt'],
+  Interviewers: ['email','name','empNo','dept','rank','status','updatedAt'],
+  Employees: ['email','name','empNo','dept','status','updatedAt'],
+  Settings: ['id','value'],
+};
+const GS_RETRY_KEY = 'woomic_gs_retry_v1';
+const GS_TOMBSTONE_KEY = 'woomic_gs_tombstones_v1';
+const GS_SYNC_CURSOR_KEY = 'woomic_gs_sync_cursors_v1';
+const GS_CHANGE_CURSOR_KEY = 'woomic_gs_change_cursors_v1';
+const GS_CURSOR_OVERLAP_MS = 5 * 60 * 1000;
+let gsRetryRunning = false;
+const gsReadCache = new Map();
+const gsReadInflight = new Map();
+
+function gsSchemaPayload(sheet, source) {
+  const fields = GS_SCHEMA[sheet] || Object.keys(source || {});
+  const payload = {};
+  fields.forEach(key => { payload[key] = source?.[key] ?? ''; });
+  return payload;
+}
+
+function checkGsSchemaCoverage() {
+  const groups = [['Candidates',candidates],['Interviews',interviews],['Positions',positions],['Referrals',referrals],['Rewards',rewards],['RefRules',refRules],['Employees',employees]];
+  groups.forEach(([sheet,list]) => {
+    const keys = new Set((list || []).flatMap(x => Object.keys(x || {})));
+    const missing = [...keys].filter(k => !GS_SCHEMA[sheet].includes(k));
+    if(missing.length) console.warn(`[GS schema] ${sheet} 미등록 필드: ${missing.join(', ')}`);
+  });
+}
+
+function markUpdated(obj) {
+  if(obj) obj.updatedAt = new Date().toISOString();
+  return obj;
+}
+function scheduleLocalCacheSave() {
+  clearTimeout(localCacheSaveTimer);
+  localCacheSaveTimer = setTimeout(saveState, 80);
+}
+
+function getGsTombstones() {
+  try { return JSON.parse(localStorage.getItem(GS_TOMBSTONE_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function recordGsTombstone(sheet, id) {
+  const tombstones = getGsTombstones();
+  tombstones[`${sheet}:${id}`] = new Date().toISOString();
+  localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify(tombstones));
+  if(GS_CONFIG.scriptUrl) gsUpsert('Settings', {id:`tombstone:${sheet}:${id}`, value:tombstones[`${sheet}:${id}`]});
+}
+
+function applyRemoteGsTombstones(rows) {
+  const tombstones = getGsTombstones();
+  let changed = false;
+  (rows || []).forEach(row => {
+    const id = String(row.id || '');
+    if(!id.startsWith('tombstone:')) return;
+    const key = id.slice('tombstone:'.length);
+    if(!tombstones[key] || String(row.value || '') > String(tombstones[key])) {
+      tombstones[key] = row.value || new Date().toISOString();
+      changed = true;
+    }
+  });
+  if(!changed) return false;
+  localStorage.setItem(GS_TOMBSTONE_KEY, JSON.stringify(tombstones));
+  candidates = candidates.filter(x => !tombstones[`Candidates:${x.id}`]);
+  interviews = interviews.filter(x => !tombstones[`Interviews:${x.id}`]);
+  positions = positions.filter(x => !tombstones[`Positions:${x.id}`]);
+  referrals = referrals.filter(x => !tombstones[`Referrals:${x.id}`]);
+  rewards = rewards.filter(x => !tombstones[`Rewards:${x.id}`]);
+  refRules = refRules.filter(x => !tombstones[`RefRules:${x.id}`]);
+  employees = employees.filter(x => !tombstones[`Employees:${x.email}`]);
+  saveState();
+  return true;
+}
+
+function mergeGsRecords(sheet, remote, local) {
+  const tombstones = getGsTombstones();
+  remote = remote.filter(r => !tombstones[`${sheet}:${r.id}`]);
+  const locals = new Map((local || []).map(x => [String(x.id), x]));
+  const remoteIds = new Set(remote.map(x => String(x.id)));
+  const merged = remote.map(r => {
+    const l = locals.get(String(r.id));
+    if(!l || !l.updatedAt || !r.updatedAt) return r; // 구형 시트는 GS 데이터를 우선
+    return String(l.updatedAt) > String(r.updatedAt) ? l : r;
+  });
+  const queuedIds = new Set(getGsRetryQueue().filter(x => x.sheet===sheet && x.action==='upsert').map(x => String(x.data?.id)));
+  (local || []).forEach(l => {
+    if(!remoteIds.has(String(l.id)) && queuedIds.has(String(l.id))) merged.push(l);
+  });
+  return merged;
+}
+
+function mergeGsDeltaRecords(sheet, remote, local) {
+  const tombstones = getGsTombstones();
+  const merged = new Map((local || []).map(x => [String(x.id), x]));
+  (remote || []).forEach(r => {
+    if(tombstones[`${sheet}:${r.id}`]) return;
+    const key = String(r.id);
+    const current = merged.get(key);
+    if(!current || !current.updatedAt || !r.updatedAt || String(r.updatedAt) >= String(current.updatedAt)) {
+      merged.set(key, r);
+    }
+  });
+  return [...merged.values()];
+}
+
+function getGsSyncCursors() {
+  try { return JSON.parse(localStorage.getItem(GS_SYNC_CURSOR_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function getGsSyncCursorKey(sheet) {
+  return `${GS_CONFIG.scriptUrl}|${sheet}`;
+}
+
+function getGsSyncCursor(sheet) {
+  return getGsSyncCursors()[getGsSyncCursorKey(sheet)] || '';
+}
+
+function getGsDeltaSince(sheet) {
+  const cursor = getGsSyncCursor(sheet);
+  const time = new Date(cursor).getTime();
+  return Number.isFinite(time) ? new Date(Math.max(0, time - GS_CURSOR_OVERLAP_MS)).toISOString() : '';
+}
+
+function setGsSyncCursor(sheet, cursor) {
+  if(!cursor) return;
+  const cursors = getGsSyncCursors();
+  const key = getGsSyncCursorKey(sheet);
+  if(!cursors[key] || String(cursor) > String(cursors[key])) {
+    cursors[key] = cursor;
+    localStorage.setItem(GS_SYNC_CURSOR_KEY, JSON.stringify(cursors));
+  }
+}
+
+function clearGsSyncCursors() {
+  const cursors = getGsSyncCursors();
+  Object.keys(cursors).forEach(key => {
+    if(key.startsWith(`${GS_CONFIG.scriptUrl}|`)) delete cursors[key];
+  });
+  localStorage.setItem(GS_SYNC_CURSOR_KEY, JSON.stringify(cursors));
+}
+
+function getGsChangeCursors() {
+  try { return JSON.parse(localStorage.getItem(GS_CHANGE_CURSOR_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function getGsChangeCursor(baseUrl) {
+  const value = getGsChangeCursors()[baseUrl || GS_CONFIG.scriptUrl];
+  return value === undefined || value === null || value === '' ? null : Number(value);
+}
+
+function setGsChangeCursor(cursor, baseUrl) {
+  const next = Number(cursor);
+  if(!Number.isFinite(next) || next < 0) return;
+  const key = baseUrl || GS_CONFIG.scriptUrl;
+  const cursors = getGsChangeCursors();
+  const current = Number(cursors[key]);
+  if(!Number.isFinite(current) || next >= current) {
+    cursors[key] = next;
+    localStorage.setItem(GS_CHANGE_CURSOR_KEY, JSON.stringify(cursors));
+  }
+}
+
+function clearGsChangeCursor(baseUrl) {
+  const cursors = getGsChangeCursors();
+  delete cursors[baseUrl || GS_CONFIG.scriptUrl];
+  localStorage.setItem(GS_CHANGE_CURSOR_KEY, JSON.stringify(cursors));
+}
+
+function clearGsReadCache(sheet) {
+  [...gsReadCache.keys()].forEach(key => { if(key.startsWith(`${sheet}:`)) gsReadCache.delete(key); });
+}
+
+function uniqueInterviewRecords(list) {
+  const rank = { done:3, confirmed:2, pending:1 };
+  const best = new Map();
+  (list || []).forEach(i => {
+    const key = `${i.candId}|${i.type}`;
+    const cur = best.get(key);
+    if(!cur || (rank[i.status||'pending']||1) > (rank[cur.status||'pending']||1) ||
+      ((rank[i.status||'pending']||1) === (rank[cur.status||'pending']||1) && Number(i.id) > Number(cur.id))) best.set(key, i);
+  });
+  return [...best.values()];
+}
+
+function getGsRetryQueue() {
+  try { return JSON.parse(localStorage.getItem(GS_RETRY_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function queueGsRetry(action, sheet, data) {
+  const queue = getGsRetryQueue();
+  const batchKey = Array.isArray(data) ? data.map(item => item?.id ?? '').join(',') : '';
+  const key = `${action}:${sheet}:${data?.id ?? batchKey}`;
+  const item = { key, action, sheet, data, queuedAt: new Date().toISOString(), attempts: 0 };
+  const idx = queue.findIndex(x => x.key === key);
+  if(idx >= 0) queue[idx] = item; else queue.push(item);
+  localStorage.setItem(GS_RETRY_KEY, JSON.stringify(queue.slice(-200)));
+  showSyncStatus(`GS 재시도 대기 ${queue.length}건`, 'warn');
+}
+
+async function flushGsRetryQueue() {
+  if(gsRetryRunning || !GS_CONFIG.scriptUrl) return;
+  const queue = getGsRetryQueue();
+  if(!queue.length) return;
+  gsRetryRunning = true;
+  const remain = [];
+  for(const item of queue) {
+    const result = await gsFetch(item.action, item.sheet, item.data, { allowQueue:false });
+    if(result == null) remain.push({ ...item, attempts:(item.attempts||0)+1 });
+  }
+  localStorage.setItem(GS_RETRY_KEY, JSON.stringify(remain.slice(-200)));
+  gsRetryRunning = false;
+  showSyncStatus(remain.length ? `GS 재시도 대기 ${remain.length}건` : 'GS 동기화 완료', remain.length ? 'warn' : 'ok');
+}
+
+function isAppsScriptDashboard_() {
+  return typeof google !== 'undefined'
+    && google.script
+    && google.script.run;
+}
+
+function hasGsBridge_() {
+  return !!GS_CONFIG.scriptUrl || isAppsScriptDashboard_();
+}
+
+const ADMIN_SESSION_KEY = 'woomic_admin_session';
+
+function getAdminSession_() {
+  try { return JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+
+function getAdminSessionToken_() {
+  return getAdminSession_()?.token || '';
+}
+
+function setAdminSession_(session) {
+  if(session?.token) sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+}
+
+function clearAdminSession_() {
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
+function showAdminLogin_(message='') {
+  const box = document.getElementById('admin-login');
+  const msg = document.getElementById('admin-login-msg');
+  if(msg) msg.textContent = message;
+  if(box) {
+    box.classList.add('on');
+    box.setAttribute('aria-hidden', 'false');
+    setTimeout(() => document.getElementById('admin-login-password')?.focus(), 50);
+  }
+}
+
+function hideAdminLogin_() {
+  const box = document.getElementById('admin-login');
+  if(box) {
+    box.classList.remove('on');
+    box.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function bindAdminLogin_() {
+  const form = document.getElementById('admin-login-form');
+  if(!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const username = document.getElementById('admin-login-user')?.value?.trim() || '';
+    const password = document.getElementById('admin-login-password')?.value || '';
+    const btn = document.getElementById('admin-login-submit');
+    const msg = document.getElementById('admin-login-msg');
+    if(btn) btn.disabled = true;
+    if(msg) msg.textContent = '';
+    try {
+      const result = await adminApiRun_({ action:'adminLogin', data:{ username, password } }, { skipAuth:true });
+      if(!result?.ok || !result.token) throw new Error(result?.error || 'login_failed');
+      setAdminSession_({ token:result.token, username:result.username, issuedAt:Date.now(), expiresIn:result.expiresIn });
+      hideAdminLogin_();
+      await reloadAdminDataAfterLogin_();
+    } catch(err) {
+      if(msg) msg.textContent = err.message === 'login_locked'
+        ? '로그인 시도가 잠시 잠겼습니다. 10분 후 다시 시도하세요.'
+        : '아이디 또는 비밀번호를 확인하세요.';
+    } finally {
+      if(btn) btn.disabled = false;
+    }
+  });
+}
+
+async function reloadAdminDataAfterLogin_() {
+  showSyncStatus('관리자 로그인 완료 — 데이터를 불러오는 중...', 'warn');
+  try {
+    await loadSettingsWithGS();
+  } catch(e) {
+    console.warn('[adminLogin] 설정 재로드 실패:', e.message);
+  }
+  if(hasGsBridge_()) {
+    try {
+      const loaded = await syncCoreFromGS({forceFull:true});
+      showSyncStatus(loaded ? 'Google Sheets 기준으로 로드됨' : '⚠ GS 응답 없음 — 로컬 캐시로 표시 중', loaded ? 'ok' : 'warn');
+    } catch(e) {
+      showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
+    }
+    try {
+      await loadAuxStateFromGS();
+      renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog();
+    } catch(e) {}
+    try {
+      const loadedRef = await syncReferralCoreFromGS();
+      if(loadedRef) renderReferralSection();
+    } catch(e) {}
+  }
+  if(GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function') {
+    try { await loadInterviewers(); } catch(e) {}
+  }
+  updateMetrics();
+  renderDashboard();
+  renderRecruitStatus();
+  renderTracker();
+  renderPositions();
+  renderIntTable();
+  renderReferralSection();
+}
+
+function adminApiRun_(payload, options={}) {
+  return new Promise((resolve, reject) => {
+    const nextPayload = Object.assign({}, payload || {});
+    if(!options.skipAuth) nextPayload.sessionToken = getAdminSessionToken_();
+    const run = (retrying=false) => google.script.run
+      .withSuccessHandler(result => {
+        if(result?.error === 'admin_login_required') {
+          if(!options.skipAuth && !retrying && getAdminSessionToken_()) {
+            setTimeout(() => run(true), 350);
+            return;
+          }
+          clearAdminSession_();
+          showAdminLogin_('관리자 로그인이 필요합니다.');
+        }
+        resolve(result);
+      })
+      .withFailureHandler(reject)
+      .adminApi(nextPayload);
+    run(false);
+  });
+}
+
+async function gsFetch(action, sheet, data={}, options={}) {
+  const isWrite = action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow';
+  if(isAppsScriptDashboard_()) {
+    try {
+      const result = await adminApiRun_({
+        action,
+        sheet,
+        data,
+        query: options.query || {}
+      });
+      if(result?.error) throw new Error(result.error);
+      return result;
+    } catch(e) {
+      console.warn('[GS] Apps Script 호출 오류:', e.message);
+      if(isWrite && options.allowQueue !== false) queueGsRetry(action, sheet, data);
+      return null;
+    }
+  }
+  if(!GS_CONFIG.scriptUrl) return null;
+  const url = new URL(gsBaseUrlForSheet_(sheet));
+  url.searchParams.set('action', action);
+  url.searchParams.set('sheet', sheet);
+  Object.entries(options.query || {}).forEach(([key,value]) => {
+    if(value !== '' && value != null) url.searchParams.set(key, value);
+  });
+  const hasData = Object.keys(data).length > 0;
+  const mustPost = isWrite || action === 'generateReferenceSummary' || action === 'issueReferenceCandidateLink' || action === 'issueInterviewAvailabilityLink' || action === 'sendReferenceEmail' || action === 'sendMail' || action === 'sendGeneralMail';
+  try {
+    if(mustPost && hasData && GS_CONFIG.usePostWrites) {
+      const postRes = await fetch(url.toString(), {
+        method:'POST',
+        redirect:'follow',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action, sheet, data}),
+      });
+      const postText = await postRes.text();
+      if(!postRes.ok) throw new Error(`HTTP ${postRes.status}`);
+      const parsed = JSON.parse(postText);
+      if(parsed?.error) throw new Error(parsed.error);
+      return parsed;
+    }
+    if(mustPost) throw new Error('post_required');
+    if(action === 'deleteRow' && data.id != null) url.searchParams.set('id', data.id);
+    else if(hasData) url.searchParams.set('data', JSON.stringify(data));
+    const res = await fetch(url.toString(), {redirect:'follow'});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const parsed = JSON.parse(text);
+    if(parsed?.error) throw new Error(parsed.error);
+    return parsed;
+  } catch(e) {
+    console.warn('[GS] fetch 오류:', e.message);
+    if(isWrite && options.allowQueue !== false) queueGsRetry(action, sheet, data);
+    return null;
+  }
+}
+
+function gsSendViaHiddenFrame(action, sheet, data={}) {
+  if(!GS_CONFIG.scriptUrl) return Promise.resolve(false);
+  if(action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow') return Promise.resolve(false);
+  return new Promise(resolve => {
+    try {
+      const url = new URL(gsBaseUrlForSheet_(sheet));
+      url.searchParams.set('action', action);
+      url.searchParams.set('sheet', sheet);
+      if(action === 'deleteRow' && data.id != null) url.searchParams.set('id', data.id);
+      else if(data && Object.keys(data).length) url.searchParams.set('data', JSON.stringify(data));
+      const frame = document.createElement('iframe');
+      frame.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;border:0';
+      let done = false;
+      const finish = ok => {
+        if(done) return;
+        done = true;
+        setTimeout(() => frame.remove(), 500);
+        resolve(ok);
+      };
+      frame.onload = () => finish(true);
+      frame.onerror = () => finish(false);
+      document.body.appendChild(frame);
+      frame.src = url.toString();
+      setTimeout(() => finish(true), 2500);
+    } catch(e) {
+      console.warn('[GS] hidden frame 전송 실패:', e);
+      resolve(false);
+    }
+  });
+}
+
+async function gsGetAll(sheet, options={}) {
+  const result = await gsGetAllResult(sheet, options);
+  return result?.data || [];
+}
+
+async function gsGetAllResult(sheet, options={}) {
+  const maxAge = options.maxAge ?? 2000;
+  const since = options.delta && !options.forceFull ? getGsDeltaSince(sheet) : '';
+  const cacheKey = `${sheet}:${since || 'full'}`;
+  const cached = gsReadCache.get(cacheKey);
+  if(!options.force && cached && Date.now() - cached.time < maxAge) return cached.result;
+  if(!options.force && gsReadInflight.has(cacheKey)) return gsReadInflight.get(cacheKey);
+  const request = gsFetch('getAll', sheet, {}, {query:{since}}).then(result => {
+    if(result == null) return null;
+    const normalized = { data:result.data || [], cursor:result.cursor, serverTime:result.serverTime || '', isDelta:!!since };
+    gsReadCache.set(cacheKey, {time:Date.now(), result:normalized});
+    return normalized;
+  }).finally(() => gsReadInflight.delete(cacheKey));
+  gsReadInflight.set(cacheKey, request);
+  return request;
+}
+
+async function gsGetChanges(cursor, limit=500, maxPages=20, sheet='Candidates') {
+  let nextCursor = Number(cursor) || 0;
+  let latestCursor = nextCursor;
+  let serverTime = '';
+  const changes = [];
+
+  for(let page=0; page<maxPages; page++) {
+    const result = await gsFetch('getChanges', sheet, {}, {query:{cursor:nextCursor, limit}});
+    if(result == null || result.error) return null;
+    if(result.resyncRequired === true) {
+      return {
+        changes:[],
+        cursor:Number(result.cursor),
+        latestCursor:Number(result.latestCursor ?? result.cursor),
+        serverTime:result.serverTime || '',
+        resyncRequired:true,
+        hasMore:false,
+      };
+    }
+    changes.push(...(Array.isArray(result.changes) ? result.changes : []));
+    nextCursor = Number(result.cursor);
+    latestCursor = Number(result.latestCursor ?? result.cursor);
+    serverTime = result.serverTime || serverTime;
+    if(!result.hasMore) {
+      return {changes, cursor:nextCursor, latestCursor, serverTime, resyncRequired:false, hasMore:false};
+    }
+  }
+
+  return {changes, cursor:nextCursor, latestCursor, serverTime, resyncRequired:false, hasMore:true};
+}
+
+async function gsUpsert(sheet, item) {
+  const payload = gsSchemaPayload(sheet, item);
+  const result = await gsFetch('upsert', sheet, payload);
+  if(result?.status === 'deleted conflict') {
+    recordGsTombstone(sheet, item.id);
+    showSyncStatus('이미 삭제된 항목은 다시 저장하지 않았습니다.', 'warn');
+  }
+  if(result != null) clearGsReadCache(sheet);
+  if(result != null) setTimeout(flushGsRetryQueue, 500);
+  return result;
+}
+
+async function gsBatchUpsert(sheet, items, chunkSize=100) {
+  const source = Array.isArray(items) ? items : [];
+  let saved = 0;
+  const conflicts = [];
+  for(let index=0; index<source.length; index+=chunkSize) {
+    const chunk = source.slice(index, index + chunkSize).map(item => gsSchemaPayload(sheet, item));
+    const result = await gsFetch('batchUpsert', sheet, chunk);
+    if(result == null || result.error) return null;
+    const count = Number(result.count);
+    saved += Number.isFinite(count) ? count : chunk.length;
+    if(Array.isArray(result.conflicts)) {
+      conflicts.push(...result.conflicts);
+      result.conflicts.forEach(conflict => recordGsTombstone(sheet, conflict.id));
+    }
+  }
+  clearGsReadCache(sheet);
+  if(conflicts.length) showSyncStatus(`삭제된 항목 ${conflicts.length}건은 다시 저장하지 않았습니다.`, 'warn');
+  return {status:'ok', count:saved, conflicts};
+}
+
+async function gsDelete(sheet, id) {
+  recordGsTombstone(sheet, id);
+  const result = await gsFetch('deleteRow', sheet, {id});
+  if(result != null) clearGsReadCache(sheet);
+  return result;
+}
+
+async function syncCandToGS(cand) {
+  if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(cand);
+  scheduleLocalCacheSave();
+  const result = await gsUpsert('Candidates', {
+    id:         cand.id,
+    name:       cand.name,
+    pos:        cand.pos,
+    email:      cand.email,
+    etype:      cand.etype,
+    role:       cand.role,
+    dept:       cand.dept||'',
+    career:     cand.career,
+    source:     cand.source || 'direct',
+    headhunterId: cand.headhunterId || '',
+    headhunterName: cand.headhunterName || '',
+    headhunterManager: cand.headhunterManager || '',
+    headhunterEmail: cand.headhunterEmail || '',
+    headhunterPhone: cand.headhunterPhone || '',
+    stage:      STAGES[cand.stage],
+    ref:        cand.ref,
+    refD:       cand.refD,
+    refT:       cand.refT,
+    receivedAt: cand.receivedAt,
+    docPassedAt: cand.docPassedAt || '',
+    memo:       cand.memo||'',
+    rejectedAt: cand.rejectedAt||'',
+    rejectReason: cand.rejectReason || '',
+    rejectMemo:   cand.rejectMemo || '',
+    finalAt:      cand.finalAt || '',
+    joinDate:     cand.joinDate || '',
+    decision:   cand.decision || '',
+    notified:   cand.notified?'Y':'N',
+    mailPending: cand.mailPending ? 'Y' : 'N',
+    mailPendingLabel: cand.mailPendingLabel || '',
+    posId:      cand.posId != null ? cand.posId : '',
+    intDate:    cand.intDate || '',
+    held:       cand.held ? 'Y' : 'N',
+    lastCompletedStage: cand.lastCompletedStage != null ? cand.lastCompletedStage : '',
+    lastStageChangedAt: cand.lastStageChangedAt || '',
+    updatedAt:  cand.updatedAt,
+  });
+  if(result?.updatedAt) {
+    cand.updatedAt = result.updatedAt;
+    scheduleLocalCacheSave();
+  }
+  if(result != null) showSyncStatus('GS 동기화 완료', 'ok');
+  return result;
+}
+
+// ── 면접(Interviews) GS 동기화 ──────────────────────────────
+async function syncIntToGS(itv) {
+  if(!GS_CONFIG.scriptUrl) return;
+  if(!itv || itv.id == null || itv.candId == null) {
+    console.warn('[GS] 면접 저장 필수값 누락:', itv);
+    showSyncStatus('면접 GS 저장 실패: 필수값 누락', 'warn');
+    return null;
+  }
+  markUpdated(itv);
+  scheduleLocalCacheSave();
+  const result = await gsUpsert('Interviews', {
+    id:        itv.id,
+    candId:    itv.candId != null ? itv.candId : '',
+    candName:  itv.candName || '',
+    type:      itv.type || '',
+    date:      itv.date || '',
+    loc:       itv.loc || '',
+    panel:     itv.panel || '',
+    memo:      itv.memo || '',
+    notified:  itv.notified ? 'Y' : 'N',
+    candidateNotified: itv.candidateNotified ? 'Y' : 'N',
+    panelNotified: itv.panelNotified ? 'Y' : 'N',
+    mailPending: itv.mailPending ? 'Y' : 'N',
+    status:    itv.status || 'pending',
+    slots:     JSON.stringify(itv.slots || []),
+    availabilityOptions: JSON.stringify(itv.availabilityOptions || []),
+    availabilityToken: itv.availabilityToken || '',
+    availabilityExpiresAt: itv.availabilityExpiresAt || '',
+    availabilityLink: itv.availabilityLink || '',
+    availabilitySelections: JSON.stringify(itv.availabilitySelections || []),
+    availabilityStatus: itv.availabilityStatus || '',
+    availabilityRespondedAt: itv.availabilityRespondedAt || '',
+    availabilityNote: itv.availabilityNote || '',
+    result:    itv.result || '',
+    note:      itv.note || '',
+    evaluatedAt: itv.evaluatedAt || '',
+    updatedAt: itv.updatedAt,
+  });
+  if(result?.updatedAt) {
+    itv.updatedAt = result.updatedAt;
+    scheduleLocalCacheSave();
+  }
+  return result;
+}
+async function deleteIntFromGS(id) {
+  if(!GS_CONFIG.scriptUrl) return;
+  await gsDelete('Interviews', id);
+}
+
+// ── 포지션(Positions) GS 동기화 ───────────────────────────
+async function syncPosToGS(pos) {
+  if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(pos);
+  scheduleLocalCacheSave();
+  const result = await gsUpsert('Positions', {
+    id:        pos.id,
+    title:     pos.title || '',
+    etype:     pos.etype || '',
+    role:      pos.role || '',
+    headcount: pos.headcount != null ? pos.headcount : 1,
+    hireReason: pos.hireReason || '충원',
+    dept:      pos.dept || '',
+    location:  pos.location || '',
+    team:      pos.team || '',
+    jobType:   pos.jobType || '',
+    panel1:    pos.panel1 || '',
+    panel2:    pos.panel2 || '',
+    panel1AvailabilityOptions: JSON.stringify(pos.panel1AvailabilityOptions || []),
+    panel1AvailabilityRequestedAt: pos.panel1AvailabilityRequestedAt || '',
+    panel1AvailabilityConfirmedAt: pos.panel1AvailabilityConfirmedAt || '',
+    panel2AvailabilityOptions: JSON.stringify(pos.panel2AvailabilityOptions || []),
+    panel2AvailabilityRequestedAt: pos.panel2AvailabilityRequestedAt || '',
+    panel2AvailabilityConfirmedAt: pos.panel2AvailabilityConfirmedAt || '',
+    loc:       pos.loc || '',
+    owner:     pos.owner || '',
+    targetDate: pos.targetDate || '',
+    memo:      pos.memo || '',
+    createdAt: pos.createdAt || '',
+    status:    pos.status || 'active',
+    closedAt:  pos.closedAt || '',
+    parentPosId: pos.parentPosId != null ? pos.parentPosId : '',
+    closeReason: pos.closeReason || '',
+    closeMemo:   pos.closeMemo || '',
+    updatedAt:   pos.updatedAt,
+  });
+  if(result?.updatedAt) {
+    pos.updatedAt = result.updatedAt;
+    scheduleLocalCacheSave();
+  }
+  showSyncStatus('포지션 GS 동기화 완료', 'ok');
+  return result;
+}
+async function deletePosFromGS(id) {
+  if(!GS_CONFIG.scriptUrl) return;
+  await gsDelete('Positions', id);
+}
+
+function normalizeGsPosition(row) {
+  const org = inferPositionOrg(row);
+  return {
+    id:Number(row.id), title:row.title||'', etype:row.etype||'정규직', role:normalizeRole(row.role),
+    headcount:parseInt(row.headcount)||1, hireReason:row.hireReason||'충원', dept:row.dept||org.team||org.jobType||'', location:org.location, team:org.team, jobType:org.jobType, panel1:row.panel1||'', panel2:row.panel2||'',
+    panel1AvailabilityOptions:(()=>{try{return JSON.parse(row.panel1AvailabilityOptions||'[]')}catch(e){return []}})(),
+    panel1AvailabilityRequestedAt:row.panel1AvailabilityRequestedAt||'', panel1AvailabilityConfirmedAt:row.panel1AvailabilityConfirmedAt||'',
+    panel2AvailabilityOptions:(()=>{try{return JSON.parse(row.panel2AvailabilityOptions||'[]')}catch(e){return []}})(),
+    panel2AvailabilityRequestedAt:row.panel2AvailabilityRequestedAt||'', panel2AvailabilityConfirmedAt:row.panel2AvailabilityConfirmedAt||'',
+    loc:row.loc||'', owner:row.owner||'', targetDate:row.targetDate||'', memo:row.memo||'',
+    createdAt:row.createdAt||'', status:row.status==='done'?'filled':(row.status||'active'),
+    closedAt:row.closedAt||'', parentPosId:row.parentPosId?Number(row.parentPosId):null,
+    closeReason:row.closeReason||'', closeMemo:row.closeMemo||'', updatedAt:row.updatedAt||'',
+  };
+}
+
+function normalizeGsInterview(row) {
+  return {
+    id:Number(row.id), candId:row.candId!==''&&row.candId!=null?Number(row.candId):null,
+    candName:row.candName, type:row.type, date:row.date, loc:row.loc, panel:row.panel, memo:row.memo,
+    notified:row.notified==='Y', candidateNotified:row.candidateNotified==='Y', panelNotified:row.panelNotified==='Y',
+    mailPending:row.mailPending==='Y', status:row.status||'pending',
+    slots:(()=>{try{return JSON.parse(row.slots||'[]')}catch(e){return []}})(),
+    availabilityOptions:(()=>{try{return JSON.parse(row.availabilityOptions||'[]')}catch(e){return []}})(),
+    availabilityToken:row.availabilityToken||'', availabilityExpiresAt:row.availabilityExpiresAt||'', availabilityLink:row.availabilityLink||'',
+    availabilitySelections:(()=>{try{return JSON.parse(row.availabilitySelections||'[]')}catch(e){return []}})(),
+    availabilityStatus:row.availabilityStatus||'', availabilityRespondedAt:row.availabilityRespondedAt||'', availabilityNote:row.availabilityNote||'',
+    result:row.result||'', note:row.note||'', evaluatedAt:row.evaluatedAt||'', updatedAt:row.updatedAt||'',
+  };
+}
+
+function normalizeGsCandidate(row) {
+  return {
+    id:Number(row.id), name:row.name, pos:row.pos, email:row.email, etype:row.etype, role:normalizeRole(row.role),
+    dept:row.dept, career:row.career, source:row.source || 'direct',
+    headhunterId:row.headhunterId||'', headhunterName:row.headhunterName||'', headhunterManager:row.headhunterManager||'', headhunterEmail:row.headhunterEmail||'', headhunterPhone:row.headhunterPhone||'',
+    stage:STAGES.indexOf(row.stage)>=0?STAGES.indexOf(row.stage):0,
+    ref:row.ref||'미시작', refD:Number(row.refD)||0, refT:Number(row.refT)||0,
+    receivedAt:formatDate(row.receivedAt), docPassedAt:formatDate(row.docPassedAt||row.receivedAt), memo:row.memo,
+    rejectedAt:row.rejectedAt||'', rejectReason:row.rejectReason||'', rejectMemo:row.rejectMemo||'',
+    finalAt:row.finalAt||'', joinDate:row.joinDate||'', decision:row.decision||'', notified:row.notified==='Y',
+    mailPending:row.mailPending==='Y', mailPendingLabel:row.mailPendingLabel||'',
+    posId:row.posId!==''&&row.posId!=null?Number(row.posId):null, intDate:row.intDate||'', held:row.held==='Y',
+    lastCompletedStage:row.lastCompletedStage!==''&&row.lastCompletedStage!=null?Number(row.lastCompletedStage):null,
+    lastStageChangedAt:row.lastStageChangedAt||'', updatedAt:row.updatedAt||'',
+  };
+}
+
+function normalizeGsReferral(row) {
+  return {
+    id:String(row.id||''),
+    refEmail:String(row.refEmail||'').trim().toLowerCase(),
+    refName:row.refName||'',
+    refEmpNo:row.refEmpNo||'',
+    refDept:row.refDept||'',
+    posText:row.posText||'',
+    posId:row.posId!==''&&row.posId!=null?Number(row.posId):null,
+    candName:row.candName||'',
+    candPhone:row.candPhone||'',
+    candPhoneNormalized:row.candPhoneNormalized||normalizeReferralPhone(row.candPhone),
+    candEmail:row.candEmail||'',
+    candEmailNormalized:row.candEmailNormalized||normalizeReferralEmail(row.candEmail),
+    candCompany:row.candCompany||'',
+    resumeUrl:row.resumeUrl||'',
+    relation:row.relation||'',
+    refItems:row.refItems||'{}',
+    consentAt:row.consentAt||'',
+    submittedAt:row.submittedAt||'',
+    status:row.status||'SUBMITTED',
+    dupFlag:row.dupFlag||'없음',
+    reviewedBy:row.reviewedBy||'',
+    reviewedAt:row.reviewedAt||'',
+    rejectReason:row.rejectReason||'',
+    validUntil:row.validUntil||'',
+    candId:row.candId!==''&&row.candId!=null?Number(row.candId):null,
+    hireDate:row.hireDate||'',
+    hireCL:row.hireCL||'',
+    updatedAt:row.updatedAt||'',
+    updatedBy:row.updatedBy||'',
+    deletedAt:row.deletedAt||'',
+  };
+}
+
+function normalizeGsReward(row) {
+  return {
+    id:String(row.id||''),
+    referralId:String(row.referralId||''),
+    candId:row.candId!==''&&row.candId!=null?Number(row.candId):null,
+    refEmail:String(row.refEmail||'').trim().toLowerCase(),
+    hireDate:row.hireDate||'',
+    hireCL:row.hireCL||'',
+    milestone:row.milestone||'',
+    dueDate:row.dueDate||'',
+    payMonth:row.payMonth||'',
+    payCutoff:row.payCutoff||'',
+    amount:Number(row.amount)||0,
+    status:row.status||'SCHEDULED',
+    retentionCheckedBy:row.retentionCheckedBy||'',
+    retentionCheckedAt:row.retentionCheckedAt||'',
+    requestedAt:row.requestedAt||'',
+    paidAt:row.paidAt||'',
+    cancelReason:row.cancelReason||'',
+    updatedAt:row.updatedAt||'',
+    updatedBy:row.updatedBy||'',
+    deletedAt:row.deletedAt||'',
+  };
+}
+
+function normalizeGsRefRule(row) {
+  return {
+    id:String(row.id||row.key||''),
+    recordType:row.recordType||'param',
+    key:row.key||'',
+    value:row.value||'',
+    clFrom:row.clFrom||'',
+    clTo:row.clTo||'',
+    amount3M:Number(row.amount3M)||0,
+    amount6M:Number(row.amount6M)||0,
+    effectiveFrom:row.effectiveFrom||'',
+    effectiveTo:row.effectiveTo||'',
+    isActive:row.isActive===''||row.isActive==null?true:String(row.isActive)!=='N',
+    updatedAt:row.updatedAt||'',
+  };
+}
+
+function normalizeGsEmployee(row) {
+  return {
+    email:normalizeReferralEmail(row.email),
+    name:row.name||'',
+    empNo:row.empNo||'',
+    dept:row.dept||'',
+    status:row.status||'재직',
+    updatedAt:row.updatedAt||'',
+  };
+}
+
+function normalizeGsReferenceCandidate(row) {
+  return {
+    id: String(row.id||''),
+    pipelineCandId: row.pipelineCandId!=null && row.pipelineCandId!=='' ? Number(row.pipelineCandId) : null,
+    candName: row.candName||'',
+    candEmail: String(row.candEmail||'').trim().toLowerCase(),
+    positionText: row.positionText||'',
+    token: row.token||'',
+    tokenExpiresAt: row.tokenExpiresAt||'',
+    refereesSubmittedAt: row.refereesSubmittedAt||'',
+    status: row.status||'SENT',
+    createdAt: row.createdAt||'',
+    updatedAt: row.updatedAt||'',
+  };
+}
+
+const REFERENCE_ANSWER_KEYS = [
+  'q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
+  'q1_role','q1_2_mainTask','q1_2_projectScale','q1_2_soloVsShared',
+  'q2_startStyle',
+  'q3_selfDriven','q3_confirmedWithOthers','q3_judgeStyle','q3_initiative',
+  'q4_successStyle','q4_failureStyle','q4_successNarrative','q4_failureNarrative',
+  'q5_feedbackResponse',
+  'q6_conflictResolution','q6_conflictStyle','q6_example',
+  'q7_entrustedRoles',
+  'q8_reliableAreas','q8_supportNeededAreas',
+  'q9_word','q9_reason',
+  'q10_firstAction','q10_sharedTiming',
+  'q11_juniorSupportStyle','q11_example',
+  'q12_exitReasonSource','q12_exitReasonDetail',
+  'respondentName','respondentAffiliation','respondentContact',
+  'respondentConsentObserved','respondentConsentDataUse'
+];
+
+function normalizeGsReferenceResponse(row) {
+  const out = {
+    id: String(row.id||''),
+    referenceCandidateId: String(row.referenceCandidateId||''),
+    pipelineCandId: row.pipelineCandId!=null && row.pipelineCandId!=='' ? Number(row.pipelineCandId) : null,
+    candName: row.candName||'',
+    refereeName: row.refereeName||'',
+    refereeEmail: String(row.refereeEmail||'').trim().toLowerCase(),
+    refereePhone: String(row.refereePhone||'').trim(),
+    refereeRelation: row.refereeRelation||'',
+    refereeCompany: row.refereeCompany||'',
+    token: row.token||'',
+    tokenExpiresAt: row.tokenExpiresAt||'',
+    link: row.link||'',
+    verifiedAt: row.verifiedAt||'',
+    submittedAt: row.submittedAt||'',
+    status: row.status||'SENT',
+    updatedAt: row.updatedAt||'',
+  };
+  REFERENCE_ANSWER_KEYS.forEach(k => { out[k] = row[k] || ''; });
+  return out;
+}
+
+const REFERRAL_STRING_ID_SHEETS = ['Referrals','Rewards','RefRules','Employees','ReferenceCandidates','ReferenceResponses'];
+
+function applyGsChanges(changes) {
+  let applied = 0;
+  let referenceCheckTouched = false;
+  (changes || []).forEach(change => {
+    const sheet = change.sheet;
+    if(!['Candidates','Interviews','Positions','Referrals','Rewards','RefRules','Employees','ReferenceCandidates','ReferenceResponses'].includes(sheet)) return;
+    const rawId = change.id ?? change.data?.id;
+    const id = REFERRAL_STRING_ID_SHEETS.includes(sheet) ? String(rawId || change.data?.email || '') : Number(rawId);
+    if(REFERRAL_STRING_ID_SHEETS.includes(sheet) ? !id : !Number.isFinite(id)) return;
+    if(sheet==='ReferenceCandidates' || sheet==='ReferenceResponses') referenceCheckTouched = true;
+    if(change.action === 'delete') {
+      if(sheet==='Candidates') candidates = candidates.filter(x=>Number(x.id)!==id);
+      if(sheet==='Interviews') interviews = interviews.filter(x=>Number(x.id)!==id);
+      if(sheet==='Positions') positions = positions.filter(x=>Number(x.id)!==id);
+      if(sheet==='Referrals') referrals = referrals.filter(x=>String(x.id)!==id);
+      if(sheet==='Rewards') rewards = rewards.filter(x=>String(x.id)!==id);
+      if(sheet==='RefRules') refRules = refRules.filter(x=>String(x.id)!==id);
+      if(sheet==='Employees') employees = employees.filter(x=>String(x.email)!==id);
+      if(sheet==='ReferenceCandidates') referenceCandidates = referenceCandidates.filter(x=>String(x.id)!==id);
+      if(sheet==='ReferenceResponses') referenceResponses = referenceResponses.filter(x=>String(x.id)!==id);
+      applied++;
+      return;
+    }
+    const row = change.data || {};
+    const normalized = sheet==='Candidates' ? normalizeGsCandidate(row)
+      : sheet==='Interviews' ? normalizeGsInterview(row)
+      : sheet==='Positions' ? normalizeGsPosition(row)
+      : sheet==='Referrals' ? normalizeGsReferral(row)
+      : sheet==='Rewards' ? normalizeGsReward(row)
+      : sheet==='RefRules' ? normalizeGsRefRule(row)
+      : sheet==='Employees' ? normalizeGsEmployee(row)
+      : sheet==='ReferenceCandidates' ? normalizeGsReferenceCandidate(row)
+      : normalizeGsReferenceResponse(row);
+    if(sheet==='Candidates') candidates = mergeGsDeltaRecords(sheet,[normalized],candidates);
+    if(sheet==='Interviews') interviews = uniqueInterviewRecords(mergeGsDeltaRecords(sheet,[normalized],interviews));
+    if(sheet==='Positions') positions = mergeGsDeltaRecords(sheet,[normalized],positions);
+    if(sheet==='Referrals') referrals = mergeGsDeltaRecords(sheet,[normalized],referrals);
+    if(sheet==='Rewards') rewards = mergeGsDeltaRecords(sheet,[normalized],rewards);
+    if(sheet==='RefRules') refRules = mergeGsDeltaRecords(sheet,[normalized],refRules);
+    if(sheet==='Employees') employees = mergeEmployeeRecords(employees, [normalized]);
+    if(sheet==='ReferenceCandidates') referenceCandidates = mergeGsDeltaRecords(sheet,[normalized],referenceCandidates);
+    if(sheet==='ReferenceResponses') referenceResponses = mergeGsDeltaRecords(sheet,[normalized],referenceResponses);
+    applied++;
+  });
+  if(referenceCheckTouched) { applyReferenceCheckToCandidates(); renderReference(); }
+  if(applied) saveState();
+  return applied;
+}
+
+async function syncCoreFromGS(options={}) {
+  if(!hasGsBridge_()) return false;
+  const cursor = options.forceFull ? null : getGsChangeCursor();
+  if(cursor !== null) {
+    showSyncStatus('GS 변경사항 확인 중...', '');
+    const delta = await gsGetChanges(cursor);
+    if(delta && Number.isFinite(delta.cursor)) {
+      if(delta.resyncRequired) {
+        clearGsChangeCursor();
+        showSyncStatus('변경 이력이 압축되어 전체 데이터를 다시 동기화합니다.', 'warn');
+        return syncCoreFromGS({forceFull:true});
+      }
+      const applied = applyGsChanges(delta.changes);
+      setGsChangeCursor(delta.cursor);
+      showSyncStatus(applied ? `GS 변경 ${applied}건 반영` : 'GS 동기화 완료 (변경 없음)', 'ok');
+      return true;
+    }
+    clearGsChangeCursor();
+  }
+
+  showSyncStatus('Google Sheets 전체 데이터 로드 중...', '');
+  // 전체 로드 도중 발생한 변경을 놓치지 않도록 로드 시작 전 cursor를 기준점으로 저장한다.
+  const baseline = await gsFetch('getCursor','Candidates');
+  const loaded = await Promise.all([
+    loadFromGS({forceFull:true,force:true}),
+    loadPositionsFromGS({forceFull:true,force:true}),
+    loadInterviewsFromGS({forceFull:true,force:true}),
+    loadRecruitPlansFromGS({forceFull:true,force:true}),
+    loadReferralsFromGS({forceFull:true,force:true}),
+    loadEmployeesFromGS({forceFull:true,force:true}),
+  ]);
+  if(!loaded.every(Boolean)) return false;
+  if(baseline && Number.isFinite(Number(baseline.cursor))) {
+    setGsChangeCursor(baseline.cursor);
+    const catchup = await gsGetChanges(Number(baseline.cursor));
+    if(catchup && Number.isFinite(catchup.cursor)) {
+      applyGsChanges(catchup.changes);
+      setGsChangeCursor(catchup.cursor);
+    }
+  }
+  showSyncStatus('Google Sheets 전체 동기화 완료', 'ok');
+  return true;
+}
+
+// 사내추천(Referrals/Rewards/RefRules/Employees)은 별도 스프레드시트(referralScriptUrl)에 있어서
+// syncCoreFromGS의 변경사항 폴링(커서 기반, Candidates 스프레드시트 전용)만으로는 새 추천 접수가
+// 잡히지 않는다. 같은 커서/델타 방식을 referralScriptUrl 기준으로 별도 실행한다.
+async function syncReferralCoreFromGS(options={}) {
+  if(!GS_CONFIG.referralScriptUrl) return true;
+  const baseUrl = GS_CONFIG.referralScriptUrl;
+  const cursor = options.forceFull ? null : getGsChangeCursor(baseUrl);
+  if(cursor !== null) {
+    const delta = await gsGetChanges(cursor, 500, 20, 'Referrals');
+    if(delta && Number.isFinite(delta.cursor)) {
+      if(delta.resyncRequired) {
+        clearGsChangeCursor(baseUrl);
+        return syncReferralCoreFromGS({forceFull:true});
+      }
+      applyGsChanges(delta.changes);
+      setGsChangeCursor(delta.cursor, baseUrl);
+      return true;
+    }
+    clearGsChangeCursor(baseUrl);
+  }
+
+  const baseline = await gsFetch('getCursor', 'Referrals');
+  const loaded = await Promise.all([
+    loadReferralsFromGS({forceFull:true,force:true}),
+    loadEmployeesFromGS({forceFull:true,force:true}),
+    loadReferenceCheckFromGS({forceFull:true,force:true}),
+  ]);
+  if(!loaded.every(Boolean)) return false;
+  renderReference();
+  if(baseline && Number.isFinite(Number(baseline.cursor))) {
+    setGsChangeCursor(baseline.cursor, baseUrl);
+    const catchup = await gsGetChanges(Number(baseline.cursor), 500, 20, 'Referrals');
+    if(catchup && Number.isFinite(catchup.cursor)) {
+      applyGsChanges(catchup.changes);
+      setGsChangeCursor(catchup.cursor, baseUrl);
+    }
+  }
+  return true;
+}
+
+async function loadPositionsFromGS(options={}) {
+  if(!hasGsBridge_()) return false;
+  try {
+    const result = await gsGetAllResult('Positions', {delta:true, forceFull:options.forceFull, force:options.force});
+    if(!result) return false;
+    const data = result.data;
+    if(!data.length) {
+      if(result.isDelta) setGsSyncCursor('Positions', result.serverTime);
+      return result.isDelta || !!options.forceFull;
+    }
+    const remote = data.map(row => {
+      const org = inferPositionOrg(row);
+      return {
+        id:        Number(row.id),
+        title:     row.title || '',
+        etype:     row.etype || '정규직',
+        role:      normalizeRole(row.role),
+        headcount: parseInt(row.headcount) || 1,
+        hireReason: row.hireReason || '충원',
+        dept:      row.dept || org.team || org.jobType || '',
+        location:  org.location,
+        team:      org.team,
+        jobType:   org.jobType,
+        panel1:    row.panel1 || '',
+        panel2:    row.panel2 || '',
+        loc:       row.loc || '',
+        owner:     row.owner || '',
+        targetDate: row.targetDate || '',
+        memo:      row.memo || '',
+        createdAt: row.createdAt || '',
+        status:    (row.status==='done' ? 'filled' : (row.status || 'active')),
+        closedAt:  row.closedAt || '',
+        parentPosId: row.parentPosId ? Number(row.parentPosId) : null,
+        closeReason: row.closeReason || '',
+        closeMemo:   row.closeMemo || '',
+        updatedAt:   row.updatedAt || '',
+      };
+    });
+    positions = result.isDelta
+      ? mergeGsDeltaRecords('Positions', remote, positions)
+      : mergeGsRecords('Positions', remote, positions);
+    setGsSyncCursor('Positions', result.serverTime);
+    saveState();
+    return true;
+  } catch(e) { console.warn('포지션 로드 실패', e); return false; }
+}
+
+async function loadInterviewsFromGS(options={}) {
+  if(!hasGsBridge_()) return false;
+  try {
+    const result = await gsGetAllResult('Interviews', {delta:true, forceFull:options.forceFull, force:options.force});
+    if(!result) return false;
+    const data = result.data;
+    if(!data.length) {
+      if(result.isDelta) setGsSyncCursor('Interviews', result.serverTime);
+      return result.isDelta || !!options.forceFull;
+    }
+    const remote = data.map(row => ({
+      id:       Number(row.id),
+      candId:   row.candId !== '' && row.candId != null ? Number(row.candId) : null,
+      candName: row.candName,
+      type:     row.type,
+      date:     row.date,
+      loc:      row.loc,
+      panel:    row.panel,
+      memo:     row.memo,
+      notified: row.notified === 'Y',
+      candidateNotified: row.candidateNotified === 'Y',
+      panelNotified: row.panelNotified === 'Y',
+      mailPending: row.mailPending === 'Y',
+      status:   row.status || 'pending',
+      slots:    (()=>{try{return JSON.parse(row.slots||'[]')}catch(e){return []}})(),
+      availabilityOptions: (()=>{try{return JSON.parse(row.availabilityOptions||'[]')}catch(e){return []}})(),
+      availabilityToken: row.availabilityToken || '',
+      availabilityExpiresAt: row.availabilityExpiresAt || '',
+      availabilityLink: row.availabilityLink || '',
+      availabilitySelections: (()=>{try{return JSON.parse(row.availabilitySelections||'[]')}catch(e){return []}})(),
+      availabilityStatus: row.availabilityStatus || '',
+      availabilityRespondedAt: row.availabilityRespondedAt || '',
+      availabilityNote: row.availabilityNote || '',
+      result:   row.result || '',
+      note:     row.note || '',
+      evaluatedAt: row.evaluatedAt || '',
+      updatedAt: row.updatedAt || '',
+    }));
+    interviews = uniqueInterviewRecords(result.isDelta
+      ? mergeGsDeltaRecords('Interviews', remote, interviews)
+      : mergeGsRecords('Interviews', remote, interviews));
+    setGsSyncCursor('Interviews', result.serverTime);
+    saveState();
+    return true;
+  } catch(e) { console.warn('면접 로드 실패', e); return false; }
+}
+
+async function loadReferralsFromGS(options={}) {
+  if(!hasGsBridge_()) {
+    renderReferralSection();
+    return false;
+  }
+  try {
+    const [rfResult, rwResult, ruleResult] = await Promise.all([
+      gsGetAllResult('Referrals', {delta:true, forceFull:options.forceFull, force:options.force}),
+      gsGetAllResult('Rewards', {delta:true, forceFull:options.forceFull, force:options.force}),
+      gsGetAllResult('RefRules', {delta:true, forceFull:options.forceFull, force:options.force}),
+    ]);
+    if(rfResult) {
+      const remote = (rfResult.data||[]).map(normalizeGsReferral);
+      referrals = rfResult.isDelta ? mergeGsDeltaRecords('Referrals', remote, referrals) : mergeGsRecords('Referrals', remote, referrals);
+      setGsSyncCursor('Referrals', rfResult.serverTime);
+    }
+    if(rwResult) {
+      const remote = (rwResult.data||[]).map(normalizeGsReward);
+      rewards = rwResult.isDelta ? mergeGsDeltaRecords('Rewards', remote, rewards) : mergeGsRecords('Rewards', remote, rewards);
+      setGsSyncCursor('Rewards', rwResult.serverTime);
+    }
+    if(ruleResult) {
+      const remote = (ruleResult.data||[]).map(normalizeGsRefRule);
+      refRules = ruleResult.isDelta ? mergeGsDeltaRecords('RefRules', remote, refRules) : mergeGsRecords('RefRules', remote, refRules);
+      setGsSyncCursor('RefRules', ruleResult.serverTime);
+    }
+    ensureDefaultReferralRules();
+    recalculateReferralFlags({sync:true});
+    expireReferralStatuses({sync:true});
+    saveState();
+    renderReferralSection();
+    updateMetrics();
+    showSyncStatus('사내추천 동기화 완료', 'ok');
+    return true;
+  } catch(e) {
+    console.warn('사내추천 로드 실패', e);
+    showSyncStatus('사내추천 동기화 실패', 'warn');
+    return false;
+  }
+}
+
+async function loadReferenceCheckFromGS(options={}) {
+  if(!hasGsBridge_()) return false;
+  try {
+    const [candResult, respResult] = await Promise.all([
+      gsGetAllResult('ReferenceCandidates', {delta:true, forceFull:options.forceFull, force:options.force}),
+      gsGetAllResult('ReferenceResponses', {delta:true, forceFull:options.forceFull, force:options.force}),
+    ]);
+    if(candResult) {
+      const remote = (candResult.data||[]).map(normalizeGsReferenceCandidate);
+      referenceCandidates = candResult.isDelta ? mergeGsDeltaRecords('ReferenceCandidates', remote, referenceCandidates) : mergeGsRecords('ReferenceCandidates', remote, referenceCandidates);
+      setGsSyncCursor('ReferenceCandidates', candResult.serverTime);
+    }
+    if(respResult) {
+      const remote = (respResult.data||[]).map(normalizeGsReferenceResponse);
+      referenceResponses = respResult.isDelta ? mergeGsDeltaRecords('ReferenceResponses', remote, referenceResponses) : mergeGsRecords('ReferenceResponses', remote, referenceResponses);
+      setGsSyncCursor('ReferenceResponses', respResult.serverTime);
+    }
+    applyReferenceCheckToCandidates();
+    saveState();
+    return true;
+  } catch(e) {
+    console.warn('레퍼런스체크 로드 실패', e);
+    return false;
+  }
+}
+
+// 추천인 응답(q1~q9)을 사람이 읽기 좋은 원문으로 합쳐서 responseText/AI 프롬프트에 재사용.
+function buildReferenceResponseText(r) {
+  if(!r || !r.submittedAt) return '';
+  const first = (...values) => values.find(v => String(v||'').trim()) || '';
+  const lines = [
+    first(r.q1_role, r.q1_2_mainTask) ? `[함께한 업무] ${first(r.q1_role, r.q1_2_mainTask)}` : '',
+    r.q1_frequency ? `[함께 일한 빈도] ${r.q1_frequency}` : '',
+    r.q1_2_projectScale ? `[프로젝트 규모] ${r.q1_2_projectScale}` : '',
+    r.q1_2_soloVsShared ? `[단독/공동 수행] ${r.q1_2_soloVsShared}` : '',
+    r.q2_startStyle ? `[일을 시작하는 방식] ${r.q2_startStyle}` : '',
+    first(r.q3_selfDriven, r.q3_judgeStyle) ? `[판단·주도성] ${first(r.q3_selfDriven, r.q3_judgeStyle)}` : '',
+    first(r.q3_confirmedWithOthers, r.q3_initiative) ? `[확인·추진 방식] ${first(r.q3_confirmedWithOthers, r.q3_initiative)}` : '',
+    first(r.q4_successStyle, r.q4_successNarrative) ? `[성과 사례] ${first(r.q4_successStyle, r.q4_successNarrative)}` : '',
+    first(r.q4_failureStyle, r.q4_failureNarrative) ? `[문제 대응 사례] ${first(r.q4_failureStyle, r.q4_failureNarrative)}` : '',
+    r.q5_feedbackResponse ? `[다른 의견을 받는 방식] ${r.q5_feedbackResponse}` : '',
+    first(r.q6_conflictResolution, r.q6_conflictStyle) ? `[의견 차이를 풀어가는 방식] ${first(r.q6_conflictResolution, r.q6_conflictStyle)}` : '',
+    r.q6_example ? `[갈등/협업 예시] ${r.q6_example}` : '',
+    r.q7_entrustedRoles ? `[주변에서 맡기던 역할] ${r.q7_entrustedRoles}` : '',
+    r.q8_reliableAreas ? `[안심하고 맡길 수 있는 영역] ${r.q8_reliableAreas}` : '',
+    r.q8_supportNeededAreas ? `[지원이 필요한 영역] ${r.q8_supportNeededAreas}` : '',
+    r.q9_word ? `[한 단어로 표현하면] ${r.q9_word}${r.q9_reason ? ' — ' + r.q9_reason : ''}` : '',
+    r.q10_firstAction ? `[일이 몰렸을 때 먼저 한 일] ${r.q10_firstAction}` : '',
+    r.q10_sharedTiming ? `[주변에 알린 방식] ${r.q10_sharedTiming}` : '',
+    first(r.q11_juniorSupportStyle, r.q11_example) ? `[후배·팀원 지원 방식] ${[r.q11_juniorSupportStyle, r.q11_example].filter(Boolean).join(' / ')}` : '',
+    first(r.q12_exitReasonSource, r.q12_exitReasonDetail) ? `[퇴사 이유] ${[r.q12_exitReasonSource, r.q12_exitReasonDetail].filter(Boolean).join(' / ')}` : '',
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
+// referenceCandidates/referenceResponses(새 자체 레퍼런스체크 시스템)를 candidates.ref/refD/refT와
+// refDetails[id]에 반영한다. 기존 renderReference()/추천인 패널/AI 요약이 이 두 값만 보고 그리기
+// 때문에, 여기서만 매핑을 맞춰주면 화면 쪽 코드는 그대로 재사용할 수 있다.
+function applyReferenceCheckToCandidates() {
+  if(!referenceCandidates.length && !referenceResponses.length) return;
+  const candByPipelineId = new Map();
+  const candByNameEmail = new Map();
+  referenceCandidates.forEach(rc => {
+    if(rc.pipelineCandId != null) candByPipelineId.set(rc.pipelineCandId, rc);
+    const key = `${String(rc.candName||'').trim()}|${String(rc.candEmail||'').trim().toLowerCase()}`;
+    candByNameEmail.set(key, rc);
+  });
+
+  const respByCandRowId = new Map();
+  referenceResponses.forEach(r => {
+    const list = respByCandRowId.get(r.referenceCandidateId) || [];
+    list.push(r);
+    respByCandRowId.set(r.referenceCandidateId, list);
+  });
+
+  candidates.forEach(c => {
+    if(c.ref === '생략') return; // 관리자가 명시적으로 건너뛴 건은 이후 동기화로 되돌리지 않는다
+    let rc = candByPipelineId.get(Number(c.id));
+    if(!rc) rc = candByNameEmail.get(`${String(c.name||'').trim()}|${String(c.email||'').trim().toLowerCase()}`);
+    if(!rc) return;
+    const refs = respByCandRowId.get(rc.id) || [];
+    if(!refs.length && !rc.refereesSubmittedAt) return;
+
+    const prevRefs = refDetails[c.id] || [];
+    refDetails[c.id] = refs.map(r => {
+      const existing = prevRefs.find(x => String(x.email||'').toLowerCase() === r.refereeEmail);
+      return {
+        name: r.refereeName,
+        email: r.refereeEmail,
+        relation: r.refereeRelation,
+        status: r.submittedAt ? '응답' : '등록',
+        remindCnt: existing?.remindCnt || 0,
+        responseText: buildReferenceResponseText(r),
+        answers: r,
+        referenceResponseId: r.id,
+        link: r.link || '',
+        surveySent: true,
+      };
+    });
+    const actualRefs = refDetails[c.id];
+    c.refT = actualRefs.length || 3;
+    c.refD = actualRefs.filter(r => r.status === '응답').length;
+    if(actualRefs.length) c.ref = c.refD >= c.refT ? '완료' : '진행중';
+  });
+}
+
+function mergeEmployeeRecords(current=[], remote=[]) {
+  const map = new Map((current||[]).filter(x=>x.email).map(x=>[normalizeReferralEmail(x.email), x]));
+  (remote||[]).filter(x=>x.email).forEach(row=>{
+    const key = normalizeReferralEmail(row.email);
+    const prev = map.get(key);
+    if(!prev || String(row.updatedAt||'') >= String(prev.updatedAt||'')) map.set(key, row);
+  });
+  return [...map.values()].sort((a,b)=>String(a.name||a.email).localeCompare(String(b.name||b.email),'ko'));
+}
+
+async function loadEmployeesFromGS(options={}) {
+  if(!hasGsBridge_()) return false;
+  try {
+    const result = await gsGetAllResult('Employees', {delta:true, forceFull:options.forceFull, force:options.force});
+    if(!result) return false;
+    const remote = (result.data||[]).map(normalizeGsEmployee).filter(row=>row.email);
+    employees = result.isDelta ? mergeEmployeeRecords(employees, remote) : mergeEmployeeRecords([], remote);
+    setGsSyncCursor('Employees', result.serverTime);
+    saveState();
+    if(referralView==='employees') renderReferralSection();
+    return true;
+  } catch(e) {
+    console.warn('인증 DB 로드 실패', e);
+    return false;
+  }
+}
+
+async function syncReferralToGS(row) {
+  if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(row);
+  saveState();
+  return gsUpsert('Referrals', row);
+}
+
+async function syncEmployeeToGS(row) {
+  if(!GS_CONFIG.scriptUrl) return;
+  const normalized = normalizeGsEmployee(row);
+  normalized.updatedAt = new Date().toISOString();
+  saveState();
+  const result = await gsUpsert('Employees', normalized);
+  if(result) return result;
+  const sent = await gsSendViaHiddenFrame('upsert', 'Employees', normalized);
+  return sent ? {status:'sent-via-frame', data:normalized} : null;
+}
+
+function normalizeEmployeeUploadHeader(value) {
+  return String(value || '').replace(/\s+/g, '').replace(/[()（）]/g, '').toLowerCase();
+}
+function findEmployeeUploadKey(row, aliases) {
+  const normalizedAliases = aliases.map(normalizeEmployeeUploadHeader);
+  return Object.keys(row || {}).find(key => normalizedAliases.includes(normalizeEmployeeUploadHeader(key)));
+}
+function employeeUploadValue(row, aliases) {
+  const key = findEmployeeUploadKey(row, aliases);
+  return key ? String(row[key] ?? '').trim() : '';
+}
+function normalizeUploadedEmployeeRow(row) {
+  const empNo = employeeUploadValue(row, ['개인고유사번', '사용자/직원', '사번', 'empNo', 'employeeNo']);
+  const name = employeeUploadValue(row, ['사용자명', '성명', 'name']);
+  const email = normalizeReferralEmail(employeeUploadValue(row, ['업무 이메일주소', '업무이메일주소', '업무 이메일', '업무이메일', 'email', '이메일']));
+  const rank = employeeUploadValue(row, ['직급', '호칭', 'rank']);
+  const dept = employeeUploadValue(row, ['통합조직', '최종 소속 통합조직 통합그룹 조직명', '최종소속통합조직통합그룹조직명', '소속', '부서', 'dept']);
+  const status = employeeUploadValue(row, ['직원 상태', '직원상태', '상태', 'status']) || '재직';
+  return {
+    email,
+    name,
+    empNo,
+    dept,
+    rank,
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+}
+function readEmployeeWorkbookRows(file) {
+  return new Promise((resolve, reject) => {
+    if(!window.XLSX) {
+      reject(new Error('xlsx_library_missing'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const workbook = XLSX.read(event.target.result, {type:'array'});
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        resolve(XLSX.utils.sheet_to_json(sheet, {defval:''}));
+      } catch(error) {
+        reject(error);
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error('file_read_failed'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+async function importInterviewersFromEmployeeFile() {
+  const input = document.getElementById('interviewer-employee-file');
+  const status = document.getElementById('interviewer-upload-status');
+  const file = input?.files?.[0];
+  if(!file) { toast('직원현황 엑셀 파일을 선택하세요.', 'terr'); return; }
+  if(!GS_CONFIG.scriptUrl) { toast('Google Sheets 연동 URL을 먼저 설정하세요.', 'terr'); return; }
+  try {
+    if(status) status.textContent = '직원현황 파일을 읽는 중입니다...';
+    const rawRows = await readEmployeeWorkbookRows(file);
+    const map = new Map();
+    rawRows.map(normalizeUploadedEmployeeRow).forEach(row => {
+      if(!row.empNo || !row.name || !row.email) return;
+      map.set(row.email || row.empNo, row);
+    });
+    const rows = [...map.values()].sort((a,b)=>String(a.name||a.email).localeCompare(String(b.name||b.email),'ko'));
+    if(!rows.length) {
+      if(status) status.textContent = '반영할 행이 없습니다. 개인고유사번, 사용자명, 업무 이메일주소 컬럼을 확인하세요.';
+      toast('반영할 직원 데이터가 없습니다.', 'terr');
+      return;
+    }
+    if(!confirm(`면접관 DB를 직원현황 파일 기준 ${rows.length}명으로 전체 대체할까요?`)) {
+      if(status) status.textContent = '업로드가 취소되었습니다.';
+      return;
+    }
+    const result = await replaceInterviewersInGoogleSheets(rows);
+    if(!result || result.error) throw new Error(result?.error || 'replace_failed');
+    interviewers = rows;
+    syncTeamMasterFromInterviewers(false);
+    if(referralView === 'employees') renderReferralSection();
+    if(status) status.textContent = `면접관 DB를 ${rows.length}명으로 업데이트했습니다.`;
+    toast(`면접관 DB ${rows.length}명을 업데이트했습니다.`, 'tok');
+  } catch(error) {
+    console.warn('[importInterviewersFromEmployeeFile] 실패:', error);
+    if(status) status.textContent = error.message === 'xlsx_library_missing'
+      ? '엑셀 파서 로드에 실패했습니다. 인터넷 연결 또는 XLSX 라이브러리 로드를 확인하세요.'
+      : '직원현황 엑셀 업로드에 실패했습니다.';
+    toast('직원현황 엑셀 업로드에 실패했습니다.', 'terr');
+  }
+}
+async function replaceInterviewersInGoogleSheets(rows) {
+  if(GS_CONFIG.interviewerUrl) {
+    try {
+      const url = new URL(GS_CONFIG.interviewerUrl);
+      url.searchParams.set('action', 'replaceAll');
+      url.searchParams.set('sheet', 'Interviewers');
+      const res = await fetch(url.toString(), {
+        method:'POST',
+        redirect:'follow',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'replaceAll', sheet:'Interviewers', data:rows}),
+      });
+      const text = await res.text();
+      const parsed = JSON.parse(text || '{}');
+      if(res.ok && !parsed.error) return {source:'interviewerUrl', ...parsed};
+    } catch(error) {
+      console.warn('[replaceInterviewersInGoogleSheets] 면접관 DB URL 저장 실패, 기본 GS로 재시도:', error.message);
+    }
+  }
+  return await gsFetch('replaceAll', 'Interviewers', rows, {allowQueue:false});
+}
+
+async function syncRewardToGS(row) {
+  if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(row);
+  saveState();
+  return gsUpsert('Rewards', row);
+}
+
+async function syncRefRuleToGS(row) {
+  if(!GS_CONFIG.scriptUrl) return;
+  markUpdated(row);
+  saveState();
+  return gsUpsert('RefRules', row);
+}
+
+async function loadFromGS(options={}) {
+  if(!hasGsBridge_()) return false;
+  showSyncStatus('Google Sheets에서 로드 중...', '');
+  const result = await gsGetAllResult('Candidates', {delta:true, forceFull:options.forceFull, force:options.force});
+  if(!result) return false;
+  const data = result.data;
+  if(!data.length) {
+    if(result.isDelta) {
+      setGsSyncCursor('Candidates', result.serverTime);
+      showSyncStatus('GS 동기화 완료 (변경 없음)', 'ok');
+      return true;
+    }
+    return !!options.forceFull;
+  }
+  const remote = data.map(row => ({
+    id:         Number(row.id),
+    name:       row.name,
+    pos:        row.pos,
+    email:      row.email,
+    etype:      row.etype,
+    role:       normalizeRole(row.role),
+    dept:       row.dept,
+    career:     row.career,
+    stage:      STAGES.indexOf(row.stage) >= 0 ? STAGES.indexOf(row.stage) : 0,
+    ref:        row.ref || '미시작',
+    refD:       Number(row.refD)||0,
+    refT:       Number(row.refT)||0,
+    receivedAt: formatDate(row.receivedAt),
+    docPassedAt: formatDate(row.docPassedAt || row.receivedAt),
+    memo:       row.memo,
+    rejectedAt: row.rejectedAt||'',
+    rejectReason: row.rejectReason || '',
+    rejectMemo:   row.rejectMemo || '',
+    finalAt:      row.finalAt || '',
+    decision:    row.decision || '',
+    notified:   row.notified==='Y',
+    mailPending: row.mailPending === 'Y',
+    mailPendingLabel: row.mailPendingLabel || '',
+    posId:      (row.posId !== '' && row.posId != null) ? Number(row.posId) : null,
+    intDate:    row.intDate || '',
+    held:       row.held === 'Y',
+    lastCompletedStage: row.lastCompletedStage !== '' && row.lastCompletedStage != null ? Number(row.lastCompletedStage) : null,
+    lastStageChangedAt: row.lastStageChangedAt || '',
+    updatedAt:  row.updatedAt || '',
+  }));
+  candidates = result.isDelta
+    ? mergeGsDeltaRecords('Candidates', remote, candidates)
+    : mergeGsRecords('Candidates', remote, candidates);
+  setGsSyncCursor('Candidates', result.serverTime);
+  saveState();
+  showSyncStatus(result.isDelta ? `GS 변경 ${remote.length}건 반영` : `GS 전체 로드 완료 (${candidates.length}명)`, 'ok');
+  return true;
+}
+
+async function testGSConnection() {
+  const urlEl    = document.getElementById('cfg-gs-url');
+  const statusEl = document.getElementById('gs-conn-status');

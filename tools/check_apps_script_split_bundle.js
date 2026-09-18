@@ -1,0 +1,79 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const root = path.resolve(__dirname, '..');
+const bundleDir = path.join(root, 'apps_script_split_upload');
+
+const forbidden = new Set([
+  'Code_admin_gmail.gs',
+  'Dashboard_gmail.html',
+  'mail_samples_preview.html',
+]);
+
+const files = fs.readdirSync(bundleDir).filter(name => fs.statSync(path.join(bundleDir, name)).isFile());
+const baseNames = new Set(files.map(name => name.replace(/\.(gs|html|json|md|txt)$/i, '')));
+
+const missing = new Set();
+const forbiddenFound = files.filter(name => forbidden.has(name));
+
+for (const file of files) {
+  const content = fs.readFileSync(path.join(bundleDir, file), 'utf8');
+  const patterns = [
+    /include\('([^']+)'\)/g,
+    /createHtmlOutputFromFile\('([^']+)'\)/g,
+    /loadMailFragment_\('([^']+)'\)/g,
+    /loadMailAsset_\('([^']+)'\)/g,
+    /'((?:(?:mail_(?:\d{2}|body|shared|asset)_)|js_|app_(?:css|script)$|Dashboard$)[a-zA-Z0-9_]*)'/g,
+  ];
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(content))) {
+      const ref = match[1];
+      if (
+        /^(mail_(?:\d{2}|body|shared|asset)_|js_|app_(?:css|script)$|Dashboard$)/.test(ref) &&
+        !baseNames.has(ref)
+      ) {
+        missing.add(`${ref} referenced from ${file}`);
+      }
+    }
+  }
+}
+
+const gs = files
+  .filter(name => name.endsWith('.gs'))
+  .sort()
+  .map(name => fs.readFileSync(path.join(bundleDir, name), 'utf8'))
+  .join('\n');
+new Function(gs);
+
+const jsOrder = [
+  'js_00_state',
+  'js_02_sheets_sync',
+  'js_03_positions',
+  'js_05_interviews',
+  'js_04_candidates',
+  'js_08_dashboard',
+  'js_07_referral',
+  'js_04_candidates_flow',
+  'js_05_interviews_manage',
+  'js_06_reference',
+  'js_08_onboarding_bulk',
+  'js_09_settings',
+  'js_99_app',
+];
+const js = jsOrder
+  .map(name => fs.readFileSync(path.join(bundleDir, `${name}.html`), 'utf8'))
+  .map(content => content.replace(/^<script>\r?\n?/, '').replace(/\r?\n?<\/script>$/, ''))
+  .join('\n');
+new Function(js);
+
+if (forbiddenFound.length || missing.size) {
+  if (forbiddenFound.length) console.error(`Forbidden files found: ${forbiddenFound.join(', ')}`);
+  if (missing.size) console.error([...missing].join('\n'));
+  process.exit(1);
+}
+
+console.log(`Bundle check OK: ${files.length} files, no missing references, syntax OK`);

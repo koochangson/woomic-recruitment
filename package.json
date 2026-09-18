@@ -1,0 +1,13 @@
+{
+  "name": "woomic-recruitment-security-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "apps-script:rebuild": "node tools/rebuild_apps_script_split_bundle.js",
+    "apps-script:check": "node tools/check_apps_script_split_bundle.js",
+    "security:scan": "node scripts/security-scan.mjs",
+    "syntax:check": "node scripts/syntax-check.mjs",
+    "deployment:ready": "node scripts/deployment-readiness.mjs",
+    "check": "npm run security:scan && npm run syntax:check && npm run deployment:ready"
+  }
+}

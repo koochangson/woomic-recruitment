@@ -1,0 +1,2807 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests">
+  <title>우미 인재추천 센터</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-soft: #f1f5f9;
+      --line: #e2e8f0;
+      --line-hover: #cbd5e1;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #005ca1;
+      --accent-dark: #004578;
+      --accent-light: #e0f2fe;
+      --warn: #d97706;
+      --danger: #dc2626;
+      --ok: #059669;
+      --radius: 12px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 1px 3px rgba(15, 23, 42, .04);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, .06), 0 2px 6px rgba(15, 23, 42, .04);
+      --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, .08), 0 8px 10px -6px rgba(15, 23, 42, .05);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", "Segoe UI", Arial, sans-serif;
+      letter-spacing: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    button, input, textarea, select { font: inherit; }
+    .wrap {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+    .brand-mark {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+    .brand-mark img {
+      display: block;
+      height: 28px;
+      width: auto;
+    }
+    .brand-title { font-size: 22px; font-weight: 700; color: var(--muted); letter-spacing: -0.02em; line-height: 1; position: relative; top: -3px; }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.76);
+      color: var(--muted);
+      padding: 8px 13px;
+      font-size: 13px;
+      font-family: inherit;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .my-count {
+      border-color: #b7d7f0;
+      background: #e8f3fb;
+      color: var(--accent-dark);
+      font-weight: 800;
+    }
+    .my-count::before {
+      content: "↗";
+      margin-right: 6px;
+      font-weight: 900;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+    .head {
+      padding: 22px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+    .lead {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      margin-top: 18px;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: "";
+      height: 1px;
+      background: var(--line);
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      top: 13px;
+      z-index: 0;
+    }
+    .step-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: var(--muted);
+      position: relative;
+      z-index: 1;
+    }
+    .step span:last-child {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      padding-right: 6px;
+    }
+    .step.on { color: var(--accent-dark); }
+    .step.on .step-num {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 0 4px var(--accent-light);
+    }
+    .step.done .step-num {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-size: 0;
+    }
+    .step.done .step-num::before {
+      content: "";
+      display: block;
+      width: 13px;
+      height: 13px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .step.done::after { background: #9bc7e8; }
+    form { padding: 24px; }
+    .section {
+      padding: 0 0 24px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section:last-of-type { border-bottom: 0; margin-bottom: 0; }
+    .section.accordion-section {
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      overflow: hidden;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .section.accordion-section:not(.is-collapsed) {
+      border-color: #b7d7f0;
+      box-shadow: 0 4px 12px rgba(0, 92, 161, .08);
+    }
+    .section.accordion-section + .accordion-section { margin-top: 14px; }
+    .accordion-section h2 { margin: 0; }
+    .accordion-toggle {
+      width: 100%;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border: 0;
+      border-radius: 0;
+      background: #fff;
+      color: var(--text);
+      padding: 17px 18px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .accordion-toggle:hover { background: #f8fafc; }
+    .accordion-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+    .accordion-step {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .accordion-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .accordion-status {
+      min-width: 66px;
+      text-align: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef3f6;
+      color: #64748b;
+      font-size: 11px;
+    }
+    .accordion-status.done {
+      background: #e8f3fb;
+      color: var(--accent-dark);
+    }
+    .accordion-action {
+      display: inline-flex;
+      align-items: center;
+      color: var(--muted);
+    }
+    .accordion-chevron {
+      display: block;
+      transition: transform .2s ease;
+    }
+    .accordion-section:not(.is-collapsed) .accordion-chevron {
+      transform: rotate(180deg);
+    }
+    .accordion-body {
+      padding: 18px 18px 22px;
+      border-top: 1px solid var(--line);
+    }
+    .accordion-section.is-collapsed .accordion-body { display: none; }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      letter-spacing: -0.01em;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px 14px;
+    }
+    .field { display: grid; gap: 8px; align-self: start; }
+    .field.full { grid-column: 1 / -1; }
+    .recommendation-only .field.full {
+      padding-bottom: 18px;
+      border-bottom: 1px solid #edf2f6;
+    }
+    .recommendation-only .field.full:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+    .subsection-title {
+      grid-column: 1 / -1;
+      margin: 10px 0 -2px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--accent-dark);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .subsection-title:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    .compact-check-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    label { font-size: 14px; color: #3d4a5c; font-weight: 700; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 14px;
+      min-height: 44px;
+      background: #f8fafc;
+      color: var(--text);
+      outline: none;
+      font-size: 14px;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    textarea { min-height: 96px; resize: vertical; line-height: 1.55; padding-top: 11px; padding-bottom: 11px; }
+    textarea.compact { min-height: 72px; }
+    textarea.emphasis { min-height: 132px; }
+    textarea.observation-input {
+      min-height: 44px;
+      overflow: hidden;
+      resize: none;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    input:focus, textarea:focus, select:focus {
+      background: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-light);
+    }
+    .field:focus-within > label { color: var(--accent-dark); }
+    .hint {
+      margin: 6px 0 0;
+      color: #556579;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .hint.ok { color: var(--ok); font-weight: 700; }
+    .hint.err { color: var(--danger); font-weight: 700; }
+    .field-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .field-meta .hint { margin: 0; }
+    .question-text {
+      margin: 2px 0 0;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+      font-weight: 600;
+    }
+    .char-count {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .char-count.low { color: var(--warn); }
+    .status-note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 8px 10px;
+    }
+    .status-note {
+      display: none;
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .status-note.on { display: block; }
+    .status-note.ok { border-color: #a7f3d0; background: #ecfdf5; }
+    .status-note.warn { border-color: #fed7aa; background: #fff7ed; }
+    .consent {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      border-radius: var(--radius);
+      padding: 15px 16px;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .consent + .consent { margin-top: 10px; }
+    .consent input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      min-height: 18px;
+      padding: 0;
+      margin: 2px 0 0;
+      flex: 0 0 18px;
+      border-radius: 3px;
+      background: #fff;
+    }
+    .consent span {
+      display: block;
+      min-width: 0;
+      padding-top: 0;
+    }
+    .choice-group {
+      display: grid;
+      gap: 8px;
+    }
+    .choice-card {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 11px 12px;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.45;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .choice-card:has(input:checked) {
+      border-color: var(--accent);
+      background: var(--accent-light);
+      color: var(--accent-dark);
+      font-weight: 700;
+    }
+    .choice-card input {
+      width: 18px;
+      height: 18px;
+      min-height: 18px;
+      margin-top: 1px;
+      flex: 0 0 auto;
+    }
+    .choice-card:hover {
+      border-color: var(--line-hover);
+      background: #fff;
+    }
+    .choice-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .choice-card-desc {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .choice-card:has(input:checked) .choice-card-desc {
+      color: var(--accent-dark);
+    }
+    .observation-options {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 8px;
+    }
+    .observation-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 14px 14px 12px;
+    }
+    .observation-card + .observation-card { margin-top: 10px; }
+    .observation-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .observation-question {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 700;
+    }
+    .observation-example {
+      flex: 0 0 auto;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .observation-example summary {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      list-style: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .observation-example summary::-webkit-details-marker { display: none; }
+    .observation-example summary::after {
+      content: "▾";
+      font-size: 10px;
+      transition: transform .15s ease;
+    }
+    .observation-example[open] summary::after {
+      transform: rotate(180deg);
+    }
+    .observation-example[open] {
+      flex-basis: 100%;
+      order: 2;
+      padding-top: 6px;
+      color: #526173;
+      line-height: 1.45;
+    }
+    .observation-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .observe-check.short {
+      margin-top: 0;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .observe-check-stack {
+      display: grid;
+      gap: 6px;
+      align-content: center;
+    }
+    .observe-check-stack .observe-check.short { margin-top: 0; }
+    .strength-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 14px;
+    }
+    .strength-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .strength-chip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--text);
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, color .16s ease;
+    }
+    .strength-chip input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .strength-chip:has(input:checked),
+    .strength-chip.is-checked {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .strength-input {
+      min-height: 48px;
+      overflow: hidden;
+      resize: none;
+      margin-top: 4px;
+    }
+    .inline-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .period-range {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .period-selects {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+    }
+    .period-selects select {
+      padding: 0 8px;
+    }
+    .period-item {
+      display: grid;
+      gap: 6px;
+    }
+    .period-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .observe-check {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      width: fit-content;
+      color: #556579;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: -2px;
+      margin-bottom: 0;
+    }
+    .observe-check input {
+      width: 16px;
+      height: 16px;
+      min-height: 16px;
+    }
+    .frequency-group {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .frequency-group .choice-card {
+      padding: 9px 10px;
+      font-size: 13px;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 22px;
+    }
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0 16px;
+      min-height: 44px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      min-width: 132px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+      transition: background .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    .btn:hover:not(:disabled) {
+      background: var(--accent-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 92, 161, .2);
+    }
+    .btn:disabled {
+      cursor: not-allowed;
+      background: #eef3f6;
+      color: #8a99a8;
+      border-color: #d8e1e8;
+      box-shadow: none;
+    }
+    .message {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .message.ok { color: var(--ok); font-weight: 700; }
+    .message.err { color: var(--danger); font-weight: 700; }
+    .side {
+      display: grid;
+      gap: 14px;
+      align-self: start;
+    }
+    .note {
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .side .note:first-child {
+      padding: 18px;
+    }
+    .side .note:not(:first-child) {
+      padding: 14px 16px;
+    }
+    .note h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+    }
+    .side .note:not(:first-child) h3 {
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .note p, .note li {
+      color: #556579;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .note p { margin: 0; }
+    .note p + p { margin-top: 8px; }
+    .note ul { margin: 0; padding-left: 18px; }
+    .required::after {
+      content: " *";
+      color: var(--danger);
+      font-weight: bold;
+    }
+    .readonly-warning {
+      color: var(--warn);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 10px;
+    }
+    .referrer-card {
+      border: 1px solid #e7edf2;
+      border-radius: var(--radius);
+      background: #f8fafc;
+      padding: 14px;
+    }
+    .referrer-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .referrer-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .referrer-sub {
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .verify-panel {
+      margin: 24px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .verify-panel.is-hidden { display: none; }
+    .is-hidden { display: none !important; }
+    details > summary { cursor: pointer; }
+    .auth-split {
+      display: grid;
+      grid-template-columns: minmax(150px, .28fr) minmax(460px, 1fr);
+      min-height: 280px;
+    }
+    .auth-brand-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      padding: 32px 28px;
+      background:
+        linear-gradient(135deg, rgba(0, 92, 161, .96), rgba(5, 50, 91, .98)),
+        #005ca1;
+      color: #fff;
+    }
+    .auth-brand-title {
+      font-size: 24px;
+      line-height: 1.18;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    .auth-brand-sub {
+      max-width: 250px;
+      color: rgba(255, 255, 255, .82);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .auth-form-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 32px 36px;
+      background: #fff;
+    }
+    .verify-panel h2 { margin-bottom: 18px; font-size: 18px; }
+    .verify-row {
+      max-width: 520px;
+    }
+    .verify-row + .verify-row { margin-top: 14px; }
+    .verify-row .field { gap: 6px; }
+    .verify-row label {
+      display: inline-flex;
+      align-items: center;
+    }
+    .verify-step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      margin-right: 6px;
+      flex: 0 0 auto;
+    }
+    .input-with-btn {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 132px;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .input-with-btn input {
+      min-width: 0;
+    }
+    .input-with-btn .btn {
+      height: 44px;
+      min-width: 0;
+      width: 132px;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .verify-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn.secondary {
+      background: #fff;
+      color: var(--accent-dark);
+      border-color: var(--accent);
+      min-width: 118px;
+    }
+    .btn.secondary:hover { background: var(--accent); color: #fff; }
+    .btn.secondary:disabled {
+      background: #eef3f6;
+      color: #8a99a8;
+      border-color: #d8e1e8;
+      box-shadow: none;
+    }
+    .btn.secondary.sent:not(:disabled) {
+      background: #ecfdf5;
+      color: var(--ok);
+      border-color: #a7f3d0;
+    }
+    .btn.secondary.sent:not(:disabled):hover { background: var(--ok); color: #fff; border-color: var(--ok); }
+    .btn.ghost {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--line);
+    }
+    .btn.ghost:hover { background: #f3f6f8; }
+    .btn.icon {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      font-size: 17px;
+    }
+    .btn.compact {
+      min-width: 0;
+      min-height: 32px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .verified-summary {
+      display: none;
+      border: 1px solid #b7e1d7;
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px 12px;
+      color: var(--accent-dark);
+      font-size: 13px;
+      font-weight: 700;
+      gap: 8px;
+      align-items: center;
+    }
+    .verified .verified-summary { display: none; }
+    .verified .verify-row, .verified #verifyMessage { display: none; }
+    .verified {
+      background: #fff;
+    }
+    .verified .auth-split { display: block; min-height: 0; }
+    .verified .auth-brand-panel { display: none; }
+    .verified .auth-form-panel {
+      padding: 14px 16px;
+      justify-content: center;
+      min-height: 0;
+    }
+    .verified .auth-form-panel h2 { display: none; }
+    .my-referrals {
+      margin: 24px 24px 24px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      display: none;
+    }
+    .my-referrals.on { display: block; }
+    .my-referrals h2 {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+    .my-referral-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .my-referral-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: #fbfdff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .my-referral-title {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      gap: 10px;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .my-referral-receipt {
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .my-referral-receipt b {
+      color: var(--text);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #b7d7f0;
+      border-radius: 999px;
+      background: #e8f3fb;
+      color: var(--accent-dark);
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .badge.review { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
+    .badge.process { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+    .badge.done { border-color: #b7d7f0; background: #e8f3fb; color: var(--accent-dark); }
+    .badge.warn { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
+    .badge.closed { border-color: #d6dbe1; background: #f3f4f6; color: #4b5563; }
+    .my-referral-meta, .reward-line {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .complete-panel {
+      display: none;
+      margin: 24px;
+      padding: 22px;
+      border: 1px solid #b7e1d7;
+      border-radius: var(--radius);
+      background: #f2fbf8;
+      box-shadow: var(--shadow-lg);
+    }
+    .complete-panel.on { display: block; }
+    .complete-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent-dark);
+      letter-spacing: -0.02em;
+    }
+    .complete-meta {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .complete-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .side { position: sticky; top: 18px; }
+    .timeline {
+      display: grid;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+    .timeline-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: #eef5f8;
+      color: var(--accent-dark);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .timeline-title {
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .timeline-text {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .security-note {
+      border-color: #b7e1d7;
+      background: #f2fbf8;
+    }
+    form.is-locked .section,
+    form.is-locked .consent,
+    form.is-locked .actions {
+      display: none;
+    }
+    form.is-locked {
+      padding-top: 0;
+    }
+    .intro-only { display: none; }
+    .direct-only { display: none; }
+    .personal-only { display: none; }
+    form.intro-mode .intro-only { display: block; }
+    form.direct-mode .direct-only { display: block; }
+    form.personal-mode .personal-only { display: block; }
+    form.intro-mode .recommendation-only,
+    form.personal-mode .direct-only,
+    form.direct-mode .personal-only,
+    form.direct-mode .intro-only,
+    form.personal-mode .intro-only { display: none; }
+    form.intro-mode .candidate-contact { display: none; }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .topbar, .head, .actions { align-items: stretch; flex-direction: column; }
+      .pill { width: fit-content; }
+      .side { position: static; }
+      .accordion-toggle { min-height: 54px; padding: 15px 14px; }
+      .accordion-title { font-size: 15px; }
+      .accordion-body { padding: 16px 14px 18px; }
+      .auth-split { grid-template-columns: 1fr; }
+      .auth-brand-panel { padding: 28px; min-height: 210px; }
+      .auth-form-panel { padding: 28px; }
+    }
+    @media (min-width: 861px) {
+      .layout { align-items: start; }
+      .side { align-self: start; }
+    }
+    @media (max-width: 620px) {
+      .wrap { width: min(100% - 20px, 1120px); padding-top: 16px; }
+      .grid { grid-template-columns: 1fr; }
+      .inline-grid { grid-template-columns: 1fr; }
+      .frequency-group { grid-template-columns: 1fr; }
+      .compact-check-grid { grid-template-columns: 1fr; }
+      .observation-options { grid-template-columns: 1fr; }
+      .verify-row { max-width: none; }
+      .input-with-btn { grid-template-columns: 1fr; }
+      .input-with-btn .btn { width: 100%; font-size: 14px; }
+      .stepper { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .step { justify-content: center; gap: 6px; font-size: 12px; }
+      .step:not(:last-child)::after { left: calc(50% + 18px); right: calc(-50% + 18px); }
+      .step span:last-child { display: inline; }
+      .head, form { padding: 18px; }
+      .verify-panel { margin: 18px; }
+      .auth-brand-panel { padding: 24px; min-height: 180px; }
+      .auth-brand-title { font-size: 22px; }
+      .auth-form-panel { padding: 24px; }
+      .btn { width: 100%; }
+      .input-with-btn .btn { width: 100%; }
+      .btn.icon { width: 34px; min-width: 34px; }
+      .referrer-card-head { flex-direction: column; }
+      .consent { font-size: 14px; line-height: 1.65; }
+      .complete-panel { margin: 18px; }
+      .complete-actions .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><img src="woomi-ci.png" alt="우미"></div>
+        <div>
+          <div class="brand-title">인재추천 센터</div>
+        </div>
+      </div>
+      <button id="myReferralCount" class="pill my-count" type="button">접수 확인</button>
+    </div>
+
+    <div class="layout">
+      <main class="panel">
+        <div class="head">
+          <div>
+            <h1>인재 추천·소개 접수</h1>
+            <p class="lead">임직원의 경험과 네트워크를 통해 좋은 인재를 추천하는 제도입니다.<br>직접 경험하거나 알고 있는 내용을 바탕으로 작성해 주세요.</p>
+          </div>
+          <div class="stepper" aria-label="접수 단계">
+            <div id="stepVerify" class="step on"><span class="step-num">1</span><span>본인 인증</span></div>
+            <div id="stepWrite" class="step"><span class="step-num">2</span><span>정보 작성</span></div>
+            <div id="stepDone" class="step"><span class="step-num">3</span><span>접수 완료</span></div>
+          </div>
+        </div>
+
+        <div id="verifyPanel" class="verify-panel">
+          <div class="auth-split">
+            <div class="auth-brand-panel">
+              <div>
+                <div class="auth-brand-title">본인 인증</div>
+                <div class="auth-brand-sub">회사 이메일 인증 후 추천서를 작성할 수 있습니다.</div>
+              </div>
+            </div>
+            <div class="auth-form-panel">
+              <h2>회사 이메일 인증</h2>
+              <div class="verify-row">
+                <div class="field">
+                  <label class="required" for="verifyEmpNo"><span class="verify-step-num">1</span>사번</label>
+                  <div class="input-with-btn">
+                    <input id="verifyEmpNo" type="text" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="예: 20261234">
+                    <button id="sendCodeBtn" class="btn secondary" type="button">인증번호 발송</button>
+                  </div>
+                  <p id="verifyEmpNoHint" class="hint">'인증번호 발송' 버튼을 누르면 회사 이메일로 발송됩니다.</p>
+                </div>
+              </div>
+              <div class="verify-row">
+                <div class="field">
+                  <label class="required" for="verifyCode"><span class="verify-step-num">2</span>인증번호</label>
+                  <div class="input-with-btn">
+                    <input id="verifyCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6자리">
+                    <button id="verifyCodeBtn" class="btn" type="button">인증 확인</button>
+                  </div>
+                </div>
+              </div>
+              <div id="verifyMessage" class="message" aria-live="polite"></div>
+              <div id="verifiedSummary" class="verified-summary">
+                <span id="verifiedText"></span>
+                <button id="resetVerifyBtn" class="btn ghost compact" type="button">사번 변경</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section id="myReferralsPanel" class="my-referrals">
+          <h2>
+            <span>내 접수 확인</span>
+            <button id="refreshMyReferralsBtn" class="btn secondary icon" type="button" title="접수 내역 새로고침" aria-label="접수 내역 새로고침">↻</button>
+          </h2>
+          <div id="myReferralsList" class="my-referral-list"></div>
+        </section>
+
+        <form id="referral-form" novalidate>
+          <input id="verificationToken" type="hidden">
+          <input id="refName" name="refName" type="hidden" required>
+          <input id="refEmail" name="refEmail" type="hidden" required>
+          <input id="refEmpNo" name="refEmpNo" type="hidden" required>
+          <input id="refDept" name="refDept" type="hidden" required>
+
+          <section class="section">
+            <h2>대상자 정보</h2>
+            <div class="grid">
+              <div class="field">
+                <label class="required" for="candName">대상자 성명</label>
+                <input id="candName" name="candName" autocomplete="off" required>
+              </div>
+              <div class="field candidate-contact">
+                <label class="required" for="candPhone">휴대폰 번호</label>
+                <input id="candPhone" name="candPhone" inputmode="tel" required>
+              </div>
+              <div class="field candidate-contact">
+                <label class="required" for="candEmail">이메일</label>
+                <input id="candEmail" name="candEmail" type="email" required>
+              </div>
+              <div class="field">
+                <label for="candCompany">현재 또는 최근 회사</label>
+                <input id="candCompany" name="candCompany">
+              </div>
+              <div class="field">
+                <label class="required" for="posText">희망 직무</label>
+                <input id="posText" name="posText" placeholder="예: 건축시공, 개발사업, 안전관리" required>
+              </div>
+              <div class="field">
+                <label for="candStatus">현재 상태</label>
+                <select id="candStatus" name="candStatus">
+                  <option value="">선택</option>
+                  <option>재직 중</option>
+                  <option>구직 중</option>
+                  <option>잘 모르겠습니다</option>
+                </select>
+                <p class="hint">재직 중이면 현재 회사에 문의하지 않습니다.</p>
+              </div>
+              <div class="field full">
+                <p class="hint recommendation-only">이력서 및 포트폴리오는 대상자 정식 지원 단계에서 별도로 제출합니다.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>추천인과 대상자의 관계</h2>
+            <div class="grid">
+              <div class="field full">
+                <label class="required"><span class="candidate-label">대상자</span>을 어떻게 알게 되셨나요</label>
+                <div class="choice-group" id="workTypeGroup">
+                  <label class="choice-card"><input type="radio" name="workTypes" value="같은 회사·조직에서 함께 근무한 적이 있습니다"><span class="choice-card-body"><span class="choice-card-title">같은 회사·조직에서 근무</span></span></label>
+                  <label class="choice-card"><input type="radio" name="workTypes" value="프로젝트나 업무를 직접 함께한 적이 있습니다"><span class="choice-card-body"><span class="choice-card-title">프로젝트·업무를 함께 수행</span><small class="choice-card-desc">다른 부서·협력사·발주처 포함</small></span></label>
+                  <label class="choice-card"><input type="radio" name="workTypes" value="학교·동아리·군 복무·봉사활동 등에서 같은 일을 했습니다"><span class="choice-card-body"><span class="choice-card-title">학교·동아리 등에서 함께 활동</span><small class="choice-card-desc">군 복무·봉사활동 등 포함</small></span></label>
+                  <label class="choice-card"><input type="radio" name="workTypes" value="업무를 함께한 적은 없지만 개인적으로 잘 알고 지내는 사이입니다"><span class="choice-card-body"><span class="choice-card-title">개인적으로 잘 아는 사이</span><small class="choice-card-desc">업무를 함께한 경험은 없음</small></span></label>
+                  <label class="choice-card"><input type="radio" name="workTypes" value="지인이나 업계 네트워크를 통해 알게 되었습니다"><span class="choice-card-body"><span class="choice-card-title">지인·업계 네트워크로 알게 됨</span></span></label>
+                  <label class="choice-card"><input type="radio" name="workTypes" value="직접 잘 알지는 못하지만 검토할 만하다고 생각해 소개합니다"><span class="choice-card-body"><span class="choice-card-title">직접 알지는 않지만 인재로 소개</span></span></label>
+                </div>
+                <input id="relation" name="relation" type="hidden">
+                <p class="hint">관계에 따라 이후 질문이 달라집니다.</p>
+              </div>
+
+              <div class="field full">
+                <label class="required">추천 대상자와 가족·친족 관계이신가요</label>
+                <div class="choice-group compact-check-grid">
+                  <label class="choice-card"><input type="radio" name="conflictTypes" value="친족 아님" required><span>아니요</span></label>
+                  <label class="choice-card"><input type="radio" name="conflictTypes" value="친족"><span>예</span></label>
+                </div>
+                <p class="hint">친족이어도 추천이 제한되지 않습니다. 채용 후 배치 및 평가의 공정성을 확인하기 위한 항목입니다.</p>
+              </div>
+
+              <div class="field is-hidden" id="conflictDetailField">
+                <label id="conflictDetailLabel" for="conflictDetail">가족·친족 관계</label>
+                <input id="conflictDetail" name="conflictDetail" placeholder="예: 사촌, 처남, 조카">
+              </div>
+
+              <div class="field full direct-only">
+                <label class="required" for="workTask">같이 한 일</label>
+                <textarea id="workTask" name="workTask" class="compact" required placeholder="예: 2024년 ○○현장 골조공사에서 대상자는 공무, 추천인은 안전관리로 협업"></textarea>
+                <p class="hint">현장·프로젝트 이름, 시기, 각자 맡았던 역할을 적어 주세요.</p>
+              </div>
+
+              <div class="field direct-only">
+                <label>같이 일한 기간</label>
+                <div class="inline-grid period-range">
+                  <div class="period-item">
+                    <span class="period-label">언제부터</span>
+                    <input id="workPeriodStart" name="workPeriodStart" type="hidden">
+                    <div class="inline-grid period-selects">
+                      <select id="workPeriodStartYear" aria-label="공동 과업 시작 연도"></select>
+                      <select id="workPeriodStartMonth" aria-label="공동 과업 시작 월"></select>
+                    </div>
+                  </div>
+                  <div class="period-item">
+                    <span class="period-label">언제까지</span>
+                    <input id="workPeriodEnd" name="workPeriodEnd" type="hidden">
+                    <div class="inline-grid period-selects">
+                      <select id="workPeriodEndYear" aria-label="공동 과업 종료 연도"></select>
+                      <select id="workPeriodEndMonth" aria-label="공동 과업 종료 월"></select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field personal-only">
+                <label class="required" for="personalKnownPeriod">알고 지낸 기간</label>
+                <select id="personalKnownPeriod" name="personalKnownPeriod">
+                  <option value="">선택</option>
+                  <option>1년 미만</option>
+                  <option>1~3년</option>
+                  <option>3~5년</option>
+                  <option>5년 이상</option>
+                </select>
+              </div>
+              <div class="field personal-only">
+                <label class="required" for="personalRelationType">어떤 사이신가요</label>
+                <select id="personalRelationType" name="personalRelationType">
+                  <option value="">선택</option>
+                  <option>학교·동문</option>
+                  <option>이전 직장 인연</option>
+                  <option>업계 지인</option>
+                  <option>친구·개인적 친분</option>
+                  <option>기타</option>
+                </select>
+              </div>
+              <div class="field full personal-only">
+                <label class="required">최근에도 연락하거나 만나고 계신가요</label>
+                <div class="choice-group compact-check-grid">
+                  <label class="choice-card"><input type="radio" name="recentContact" value="예"><span>예</span></label>
+                  <label class="choice-card"><input type="radio" name="recentContact" value="아니요"><span>아니요</span></label>
+                </div>
+                <p class="hint">기간은 참고 정보이며, 최근에도 교류하고 있는지가 더 중요합니다.</p>
+              </div>
+
+            </div>
+          </section>
+
+          <section id="introSection" class="section intro-only">
+            <h2>인재 소개 정보</h2>
+            <div class="grid">
+              <div class="field full">
+                <p class="question-text required">알게 된 경로나 소개받은 맥락을 간단히 적어 주세요.</p>
+                <textarea id="introReason" name="introReason" class="compact" aria-label="어떻게 알게 되셨나요" placeholder="예: 협력사 지인을 통해 ○○ 분야 경력이 좋다고 들었습니다."></textarea>
+              </div>
+              <div class="field full">
+                <p class="question-text required">경력·자격·전문 분야에 대해 알고 계신 내용이 있으신가요?</p>
+                <textarea id="knownCareer" name="knownCareer" class="compact" aria-label="경력·전문 분야" placeholder="예: 토목 현장 공무 경력이 있고, 관련 자격을 보유한 것으로 알고 있습니다. 들은 이야기입니다."></textarea>
+              </div>
+            </div>
+          </section>
+
+          <section class="section recommendation-only">
+            <h2>회사·직무 안내 확인</h2>
+            <div class="grid">
+              <div class="field full">
+                <label class="required">회사와 모집 직무를 안내하셨나요</label>
+                <div class="choice-group">
+                  <label class="choice-card"><input type="radio" name="companyGuideStatus" value="안내자료를 전달하고 충분히 설명했습니다"><span>안내자료를 전달하고 충분히 설명했습니다.</span></label>
+                  <label class="choice-card"><input type="radio" name="companyGuideStatus" value="기본적인 내용만 말씀드렸습니다"><span>기본적인 내용만 말씀드렸습니다.</span></label>
+                  <label class="choice-card"><input type="radio" name="companyGuideStatus" value="아직 안내하지 못했습니다"><span>아직 안내하지 못했습니다.</span></label>
+                </div>
+              </div>
+              <div class="field full">
+                <label class="required">지원 의향을 확인하셨나요</label>
+                <div class="choice-group">
+                  <label class="choice-card"><input type="radio" name="candidateIntentStatus" value="지원하시겠다는 의사를 확인했습니다"><span>지원하시겠다는 의사를 확인했습니다.</span></label>
+                  <label class="choice-card"><input type="radio" name="candidateIntentStatus" value="관심은 있다고 하셨습니다"><span>관심은 있다고 하셨습니다.</span></label>
+                  <label class="choice-card"><input type="radio" name="candidateIntentStatus" value="아직 여쭤보지 못했습니다"><span>아직 여쭤보지 못했습니다.</span></label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>추천·소개 이유</h2>
+            <div class="grid">
+              <div class="field full">
+                <p id="recommendationReasonQuestion" class="question-text required"><span class="candidate-label">대상자</span>을 우리 회사에 추천하고 싶으신 가장 큰 이유는 무엇인가요?</p>
+                <textarea id="recommendationReasonInput" name="recommendationReasonInput" class="emphasis observation-input" required aria-label="추천하시는 이유" placeholder="예: 현장에서 문제가 생겼을 때 먼저 나서서 정리하는 모습을 여러 번 봤습니다."></textarea>
+                <div class="field-meta">
+                  <p id="recommendationReasonHint" class="hint"></p>
+                  <span class="char-count" data-for="recommendationReasonInput">0자</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section recommendation-only">
+            <h2>함께 일하며 본 모습</h2>
+            <div class="grid">
+              <div class="field full direct-only">
+                <div class="strength-card">
+                  <p class="question-text required"><span class="candidate-label">대상자</span>이 특히 잘한다고 느끼신 부분이 있나요? (여러 개 선택 가능)</p>
+                  <div class="strength-tags">
+                    <label class="strength-chip"><input type="checkbox" name="jobStrengthTypes" value="업무 이해"><span>업무 이해</span></label>
+                    <label class="strength-chip"><input type="checkbox" name="jobStrengthTypes" value="문제 해결"><span>문제 해결</span></label>
+                    <label class="strength-chip"><input type="checkbox" name="jobStrengthTypes" value="정확성·꼼꼼함"><span>정확성·꼼꼼함</span></label>
+                    <label class="strength-chip"><input type="checkbox" name="jobStrengthTypes" value="실행·추진"><span>실행·추진</span></label>
+                    <label class="strength-chip"><input type="checkbox" name="jobStrengthTypes" value="보고·소통"><span>보고·소통</span></label>
+                    <label class="strength-chip"><input type="checkbox" name="jobStrengthTypes" value="기타"><span>기타</span></label>
+                  </div>
+                  <textarea id="jobStrength" name="jobStrength" class="strength-input" style="margin-top:8px" aria-label="특히 잘한다고 느끼신 부분" placeholder="예: 새로운 업무나 변경사항이 생기면 핵심 내용을 빠르게 파악하고, 필요한 사항을 정리해 관련 부서나 동료에게 정확하게 전달하는 편이었습니다. 맡은 일은 중간에 놓치지 않고 끝까지 챙기는 모습도 자주 볼 수 있었습니다."></textarea>
+                </div>
+              </div>
+              <div class="field full direct-only">
+                <div class="observation-card">
+                  <div class="observation-head">
+                    <p class="observation-question">그 강점이 잘 드러났던 행동이나 상황이 있다면 알려주세요.</p>
+                  </div>
+                  <div class="observation-row">
+                    <textarea id="performanceCredit" name="performanceCredit" class="observation-input" aria-label="그 강점이 잘 드러났던 행동이나 상황이 있다면 알려주세요." placeholder="예: 마감 직전에 설계 변경 내용이 전달된 적이 있었는데, 변경된 내용을 바로 확인해 필요한 작업과 물량을 다시 정리하고 관련 부서와 협력사에 공유했습니다. 이후 진행 상황까지 확인하면서 재작업 없이 정해진 일정에 맞춰 업무를 마무리했던 것이 기억에 남습니다."></textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="field full direct-only">
+                <div class="observation-card">
+                  <div class="observation-head">
+                    <p class="observation-question">같이 일할 때 주변 사람들이 <span class="candidate-label">대상자</span>에게 주로 어떤 일이나 역할을 맡기거나 부탁했나요?</p>
+                  </div>
+                  <div class="observation-row">
+                    <textarea id="conflictHandling" name="conflictHandling" class="observation-input" aria-label="같이 일할 때 주변 사람들이 이 분에게 주로 어떤 일이나 역할을 맡기거나 부탁했나요?" placeholder="예: 여러 부서나 협력사의 의견과 일정을 맞춰야 하는 일이 생기면 동료들이 이 분에게 먼저 내용을 정리하거나 조율해 달라고 부탁하는 경우가 많았습니다. 서로 의견이 다른 상황에서도 필요한 내용을 정리하고 다음에 해야 할 일을 명확하게 잡아주는 역할을 자주 맡았습니다."></textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="field full direct-only">
+                <div class="observation-card">
+                  <div class="observation-head">
+                    <p class="observation-question">함께 일할 때 조금 더 보완하면 좋겠다고 느꼈던 부분이 있었나요?</p>
+                  </div>
+                  <div class="observation-row">
+                    <textarea id="watchPoint" name="watchPoint" class="observation-input" aria-label="함께 일할 때 조금 더 보완하면 좋겠다고 느꼈던 부분이 있었나요?" placeholder="예: 업무를 빠르게 진행하는 편이었지만, 협력사에 요청사항을 전달할 때 설명이 다소 간략해 상대방이 진행 중 다시 확인하는 경우가 몇 번 있었습니다. 처음 전달할 때 배경이나 세부사항을 조금 더 충분히 설명하면 협업이 더 원활할 것 같다고 느꼈습니다."></textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="field full personal-only">
+                <div class="observation-card">
+                  <div class="observation-head">
+                    <p class="observation-question">알고 지내면서 <span class="candidate-label">대상자</span>에게 주로 어떤 부탁이나 도움을 요청하셨나요?</p>
+                  </div>
+                  <div class="observation-row">
+                    <textarea id="personalHelpAsked" name="personalHelpAsked" class="observation-input" aria-label="알고 지내면서 대상자에게 주로 어떤 부탁이나 도움을 요청하셨나요?" placeholder="예: 이직을 고민할 때 이 분에게 진로 상담을 요청한 적이 있고, 이사할 때도 도움을 요청한 적이 있습니다."></textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="field full personal-only">
+                <div class="observation-card">
+                  <div class="observation-head">
+                    <p class="observation-question">함께한 모임이나 활동에서 <span class="candidate-label">대상자</span>은 주로 어떤 역할을 하는 편이었나요?</p>
+                  </div>
+                  <div class="observation-row">
+                    <textarea id="personalGroupRole" name="personalGroupRole" class="observation-input" aria-label="함께한 모임이나 활동에서 대상자는 주로 어떤 역할을 하는 편이었나요?" placeholder="예: 동호회 모임에서 항상 먼저 나서서 일정을 잡고 참석자들을 챙기는 역할을 했습니다."></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>확인 및 동의</h2>
+            <label class="consent">
+              <input id="guarantee" name="guarantee" type="checkbox" required>
+              <span id="guaranteeText">대상자 본인에게 사내추천 사실과 개인정보 제공에 대해 동의를 받았습니다.</span>
+            </label>
+
+            <label class="consent">
+              <input id="directExperienceConfirm" name="directExperienceConfirm" type="checkbox" required>
+              <span id="experienceConfirmText">직접 겪은 내용과 전해 들은 내용을 구분해 사실대로 작성했습니다.</span>
+            </label>
+
+            <label class="consent">
+              <input id="conflictConfirm" name="conflictConfirm" type="checkbox" required>
+              <span>가족·친족 관계를 사실대로 적었습니다.</span>
+            </label>
+
+          </section>
+
+          <div class="actions">
+            <div id="message" class="message" aria-live="polite"></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+              <button id="draftBtn" class="btn ghost" type="button">임시 저장</button>
+              <button id="submitBtn" class="btn" type="submit">최종 제출</button>
+            </div>
+          </div>
+        </form>
+
+        <section id="completePanel" class="complete-panel">
+          <h2 class="complete-title">접수가 완료되었습니다.</h2>
+          <p id="completeMeta" class="complete-meta"></p>
+          <div id="completeMessage" class="message" aria-live="polite"></div>
+          <div class="complete-actions">
+            <button id="copyReceiptBtn" class="btn secondary" type="button">접수번호 복사</button>
+            <button id="showMyReferralsBtn" class="btn secondary" type="button">내 접수 확인</button>
+            <button id="newReferralBtn" class="btn ghost" type="button">새 접수 시작</button>
+          </div>
+        </section>
+      </main>
+
+      <aside class="side">
+        <div class="note">
+          <h3>접수 후 처리</h3>
+          <div class="timeline">
+            <div class="timeline-row"><div class="timeline-num">1</div><div><div class="timeline-title">피플팀 확인</div><div class="timeline-text">중복 지원 여부와 추천인 정보를 확인합니다.</div></div></div>
+            <div class="timeline-row"><div class="timeline-num">2</div><div><div class="timeline-title">채용 전형 진행</div><div class="timeline-text">적합한 포지션에 연결되면 당사 채용사이트에서 지원서를 작성하시고 전형이 진행됩니다.</div></div></div>
+            <div class="timeline-row"><div class="timeline-num">3</div><div><div class="timeline-title">포상금 검토</div><div class="timeline-text">입사 및 재직 확인 기준 충족 시 지급 검토가 시작됩니다.</div></div></div>
+          </div>
+        </div>
+        <div class="note security-note">
+          <h3>작성 안내</h3>
+          <p>직접 함께 일한 경험이 있다면 실제 경험을 중심으로, 없더라도 검토할 만한 인재를 알고 있다면 소개해 주세요.</p>
+          <p>대상자 연락처와 이메일은 피플팀 및 채용 검토 권한자에게만 제한적으로 공개됩니다.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    // 공개 추천 접수 전용 Apps Script 배포 URL만 사용한다.
+    // 관리자용 DOMAIN 제한 배포 URL을 여기에 넣으면 공개 접수가 막힌다.
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwMa89IxQvjWODNqkYkR8xbDU6llnOUeSPf8GN9LnYSMIhLfDGmMOGvtdVs4t9tImFL/exec';
+    const form = document.getElementById('referral-form');
+    const message = document.getElementById('message');
+    const submitBtn = document.getElementById('submitBtn');
+    const draftBtn = document.getElementById('draftBtn');
+    const verifyPanel = document.getElementById('verifyPanel');
+    const verifyMessage = document.getElementById('verifyMessage');
+    const sendCodeBtn = document.getElementById('sendCodeBtn');
+    const verifyCodeBtn = document.getElementById('verifyCodeBtn');
+    const resetVerifyBtn = document.getElementById('resetVerifyBtn');
+    const myReferralsPanel = document.getElementById('myReferralsPanel');
+    const myReferralsList = document.getElementById('myReferralsList');
+    const refreshMyReferralsBtn = document.getElementById('refreshMyReferralsBtn');
+    const myReferralCount = document.getElementById('myReferralCount');
+    const completePanel = document.getElementById('completePanel');
+    const completeMeta = document.getElementById('completeMeta');
+    const completeMessage = document.getElementById('completeMessage');
+    const copyReceiptBtn = document.getElementById('copyReceiptBtn');
+    const showMyReferralsBtn = document.getElementById('showMyReferralsBtn');
+    const newReferralBtn = document.getElementById('newReferralBtn');
+    const DRAFT_KEY_PREFIX = 'woomic_referral_intake_draft_v2';
+    const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+    const OTP_TTL_MS = 10 * 60 * 1000;
+    let lastSyncedEntryMode = '';
+    const OBSERVATION_FIELD_IDS = ['performanceCredit','conflictHandling','watchPoint','jobStrength','personalHelpAsked','personalGroupRole','introReason','knownCareer','recommendationReasonInput'];
+    const OBSERVATION_STATUS_IDS = ['watchPoint','personalHelpAsked','personalGroupRole'];
+    const CORE_OBSERVATION_IDS = ['performanceCredit', 'conflictHandling', 'watchPoint'];
+    const PERSONAL_OBSERVATION_IDS = ['personalHelpAsked', 'personalGroupRole'];
+    const MIN_OBSERVATION_LENGTH = 15;
+    const DIRECT_RELATION_VALUES = [
+      '같은 회사·조직에서 함께 근무한 적이 있습니다',
+      '프로젝트나 업무를 직접 함께한 적이 있습니다',
+      '학교·동아리·군 복무·봉사활동 등에서 같은 일을 했습니다'
+    ];
+    const PERSONAL_RELATION_VALUES = ['업무를 함께한 적은 없지만 개인적으로 잘 알고 지내는 사이입니다'];
+    const INTRO_RELATION_VALUES = [
+      '지인이나 업계 네트워크를 통해 알게 되었습니다',
+      '직접 잘 알지는 못하지만 검토할 만하다고 생각해 소개합니다'
+    ];
+    let verifiedEmployee = null;
+    let lastReceiptId = '';
+    let otpExpiresAt = 0;
+    let otpTimerId = null;
+
+    function clean(value) {
+      return String(value || '').trim();
+    }
+    function isWeakTextAnswer(value) {
+      const normalized = clean(value).replace(/[\s.,!?~ㆍ·。]+/g, '').toLowerCase();
+      return ['없음','없습니다','없다','해당없음','해당사항없음','모름','잘모름','잘모르겠습니다','모르겠습니다','몰라요','na','n/a'].includes(normalized);
+    }
+    function normalizedEmail(value) {
+      return clean(value).toLowerCase();
+    }
+    function normalizedPhone(value) {
+      return clean(value).replace(/[^\d]/g, '');
+    }
+    function normalizeEmpNo(value) {
+      return clean(value);
+    }
+    function formatKoreanMobile(value) {
+      const digits = normalizedPhone(value).slice(0, 11);
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+      return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+    }
+    function isValidEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean(value));
+    }
+    function addMonths(date, months) {
+      const next = new Date(date);
+      next.setMonth(next.getMonth() + months);
+      return next.toISOString().slice(0, 10);
+    }
+    function setMessage(text, type) {
+      message.textContent = text || '';
+      message.className = `message ${type || ''}`.trim();
+    }
+    function focusField(el) {
+      if (!el) return;
+      const section = el.closest('.accordion-section');
+      if (section) setAccordionOpen(section, true);
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (typeof el.focus === 'function' && el.type !== 'hidden') el.focus({ preventScroll: true });
+      }, 40);
+    }
+    function showRequiredAlert(label, el, detail) {
+      const text = detail || `${label} 항목을 작성해 주세요.`;
+      setMessage(text, 'err');
+      alert(`필수 항목을 확인해 주세요.\n\n- ${text}`);
+      focusField(el);
+    }
+    function setCompleteMessage(text, type) {
+      completeMessage.textContent = text || '';
+      completeMessage.className = `message ${type || ''}`.trim();
+    }
+    function setVerifyMessage(text, type) {
+      verifyMessage.textContent = text || '';
+      verifyMessage.className = `message ${type || ''}`.trim();
+    }
+    function setVerifyEmpNoHint(text, type) {
+      const hint = document.getElementById('verifyEmpNoHint');
+      if (!hint) return;
+      hint.textContent = text || "'인증번호 발송' 버튼을 누르면 회사 이메일로 발송됩니다.";
+      hint.className = `hint ${type || ''}`.trim();
+    }
+    function formatRemaining(ms) {
+      const total = Math.max(0, Math.ceil(ms / 1000));
+      const minutes = String(Math.floor(total / 60)).padStart(2, '0');
+      const seconds = String(total % 60).padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    }
+    function updateSendCodeButtonState() {
+      const empNo = getValue('verifyEmpNo');
+      const busy = sendCodeBtn.dataset.busy === '1';
+      sendCodeBtn.disabled = busy || !empNo;
+    }
+    function updateVerifyCodeButtonState() {
+      const empNo = getValue('verifyEmpNo');
+      const code = getValue('verifyCode');
+      const busy = verifyCodeBtn.dataset.busy === '1';
+      verifyCodeBtn.disabled = busy || !empNo || code.length !== 6;
+    }
+    function clearOtpCountdown() {
+      if (otpTimerId) {
+        clearInterval(otpTimerId);
+        otpTimerId = null;
+      }
+      otpExpiresAt = 0;
+      sendCodeBtn.classList.remove('sent');
+    }
+    function startOtpCountdown() {
+      clearOtpCountdown();
+      otpExpiresAt = Date.now() + OTP_TTL_MS;
+      sendCodeBtn.classList.add('sent');
+      const tick = () => {
+        const remaining = otpExpiresAt - Date.now();
+        if (remaining <= 0) {
+          clearOtpCountdown();
+          setVerifyEmpNoHint('인증번호가 만료되었습니다. 인증번호를 다시 발송해 주세요.', 'err');
+          sendCodeBtn.textContent = '재발송';
+          updateSendCodeButtonState();
+          return;
+        }
+        setVerifyEmpNoHint(`회사 이메일로 인증번호가 발송되었습니다. ${formatRemaining(remaining)} 남음`, 'ok');
+      };
+      sendCodeBtn.textContent = '재발송';
+      tick();
+      otpTimerId = setInterval(tick, 1000);
+    }
+    async function readJsonResponse(res) {
+      const text = await res.text();
+      let result;
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch (err) {
+        throw new Error('invalid_json_response');
+      }
+      if (result && result.error) throw new Error(result.error);
+      return result;
+    }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+    function formatDate(value) {
+      return value ? String(value).slice(0, 10) : '-';
+    }
+    function setStep(step) {
+      const map = {
+        verify: ['on', '', ''],
+        write: ['done', 'on', ''],
+        done: ['done', 'done', 'on']
+      }[step] || ['on', '', ''];
+      ['stepVerify','stepWrite','stepDone'].forEach((id, index) => {
+        const el = document.getElementById(id);
+        el.className = `step ${map[index]}`.trim();
+      });
+    }
+    function getValue(id) {
+      const el = document.getElementById(id);
+      return el ? clean(el.value) : '';
+    }
+    function getCheckedValues(name) {
+      return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(el => el.value);
+    }
+    function setCheckedValues(name, values) {
+      const set = new Set(Array.isArray(values) ? values : []);
+      document.querySelectorAll(`input[name="${name}"]`).forEach(el => {
+        el.checked = set.has(el.value);
+      });
+    }
+    function fillPeriodSelectOptions() {
+      const currentYear = new Date().getFullYear();
+      const yearOptions = ['<option value="">연도</option>'];
+      for (let year = currentYear + 1; year >= currentYear - 40; year -= 1) {
+        yearOptions.push(`<option value="${year}">${year}</option>`);
+      }
+      const monthOptions = ['<option value="">월</option>'];
+      for (let month = 1; month <= 12; month += 1) {
+        const value = String(month).padStart(2, '0');
+        monthOptions.push(`<option value="${value}">${month}월</option>`);
+      }
+      ['workPeriodStartYear','workPeriodEndYear'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.options.length) el.innerHTML = yearOptions.join('');
+      });
+      ['workPeriodStartMonth','workPeriodEndMonth'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.options.length) el.innerHTML = monthOptions.join('');
+      });
+    }
+    function syncPeriodHidden(prefix) {
+      const year = getValue(`${prefix}Year`);
+      const month = getValue(`${prefix}Month`);
+      const hidden = document.getElementById(prefix);
+      if (!hidden) return;
+      hidden.value = year && month ? `${year}-${month}` : '';
+    }
+    function syncPeriodSelects(prefix) {
+      const value = getValue(prefix);
+      const match = value.match(/^(\d{4})-(\d{2})$/);
+      const yearEl = document.getElementById(`${prefix}Year`);
+      const monthEl = document.getElementById(`${prefix}Month`);
+      if (yearEl) yearEl.value = match ? match[1] : '';
+      if (monthEl) monthEl.value = match ? match[2] : '';
+    }
+    function syncAllPeriodSelects() {
+      ['workPeriodStart','workPeriodEnd'].forEach(syncPeriodSelects);
+    }
+    function syncRelationField() {
+      const values = getCheckedValues('workTypes');
+      const relationEl = document.getElementById('relation');
+      relationEl.value = values.join(', ');
+    }
+    function getEntryMode() {
+      const value = getCheckedValues('workTypes')[0] || '';
+      if (DIRECT_RELATION_VALUES.includes(value)) return 'DIRECT_REFERRAL';
+      if (PERSONAL_RELATION_VALUES.includes(value)) return 'PERSONAL_REFERRAL';
+      if (INTRO_RELATION_VALUES.includes(value)) return 'TALENT_INTRO';
+      return '';
+    }
+    function isIntroMode() {
+      return getEntryMode() === 'TALENT_INTRO';
+    }
+    function isDirectMode() {
+      return getEntryMode() === 'DIRECT_REFERRAL';
+    }
+    function isPersonalMode() {
+      return getEntryMode() === 'PERSONAL_REFERRAL';
+    }
+    function setScopedFieldsDisabled(selector, disabled) {
+      document.querySelectorAll(`${selector} textarea, ${selector} select, ${selector} input`).forEach(el => {
+        if (el.id === 'relation') return;
+        if (el.type === 'hidden') return;
+        el.disabled = disabled;
+      });
+    }
+    function resetAgreementChecks() {
+      ['guarantee', 'directExperienceConfirm', 'conflictConfirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
+    }
+    function syncEntryMode() {
+      const entryMode = getEntryMode();
+      if (lastSyncedEntryMode && entryMode && lastSyncedEntryMode !== entryMode) {
+        resetAgreementChecks();
+      }
+      if (entryMode) lastSyncedEntryMode = entryMode;
+      const intro = entryMode === 'TALENT_INTRO';
+      const direct = entryMode === 'DIRECT_REFERRAL';
+      const personal = entryMode === 'PERSONAL_REFERRAL';
+      form.classList.toggle('intro-mode', intro);
+      form.classList.toggle('direct-mode', direct);
+      form.classList.toggle('personal-mode', personal);
+      setScopedFieldsDisabled('.recommendation-only', intro);
+      setScopedFieldsDisabled('.intro-only', !intro);
+      setScopedFieldsDisabled('.direct-only', !direct);
+      setScopedFieldsDisabled('.personal-only', !personal);
+      ['candPhone','candEmail'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.required = !intro;
+        el.disabled = intro;
+        if (intro) {
+          el.setCustomValidity('');
+          el.value = '';
+        }
+      });
+      document.getElementById('workTask').required = direct;
+      document.getElementById('jobStrength').required = direct;
+      document.getElementById('performanceCredit').required = direct;
+      document.getElementById('personalKnownPeriod').required = personal;
+      document.getElementById('personalRelationType').required = personal;
+      document.getElementById('introReason').required = intro;
+      document.getElementById('knownCareer').required = intro;
+      const guaranteeText = document.getElementById('guaranteeText');
+      const experienceText = document.getElementById('experienceConfirmText');
+      if (guaranteeText) {
+        guaranteeText.textContent = intro
+          ? '대상자의 휴대폰 번호·이메일 등 직접 연락을 위한 정보를 임의로 제공하지 않았으며, 대상자가 관심이 있을 때 채용사이트에서 지원서를 작성하시면 된다는 점을 이해했습니다.'
+          : '추천 대상자 본인에게 사내추천 사실과 개인정보 제공에 대해 동의를 받았습니다.';
+      }
+      if (experienceText) {
+        experienceText.textContent = direct
+          ? '적은 내용은 제가 직접 경험하거나 본 내용을 기준으로 작성했습니다.'
+          : personal
+            ? '제가 알고 있는 범위에서 사실대로 작성했습니다.'
+            : '직접 확인하지 않은 내용은 전해 들은 내용임을 구분해 작성했습니다.';
+      }
+      const reasonQuestion = document.getElementById('recommendationReasonQuestion');
+      const reasonInput = document.getElementById('recommendationReasonInput');
+      const actionText = intro ? '소개' : '추천';
+      if (reasonQuestion) {
+        reasonQuestion.innerHTML = `<span class="candidate-label">${escapeHtml(currentCandidateLabel())}</span>을 우리 회사에 ${actionText}하고 싶으신 가장 큰 이유는 무엇인가요?`;
+      }
+      if (reasonInput) reasonInput.setAttribute('aria-label', `${actionText}하시는 이유`);
+      const reasonHint = document.getElementById('recommendationReasonHint');
+      if (reasonHint) {
+        reasonHint.innerHTML = (direct || personal) ? '' : '알고 계신 경력이나 전문성, 소개할 만하다고 생각한 이유를 적어 주세요.';
+      }
+      const observationTitle = document.getElementById('observationSectionTitleText');
+      if (observationTitle) observationTitle.textContent = personal ? '알고 지내며 본 모습' : '함께 일하며 본 모습';
+      syncObservationField('introReason');
+      autoGrowAllObservationInputs();
+      updateAccordionProgress();
+    }
+    function validateWorkScopeFields() {
+      syncRelationField();
+      const workTaskEl = document.getElementById('workTask');
+      const relationMissing = !getCheckedValues('workTypes').length;
+      const workTaskMissing = isDirectMode() && !clean(workTaskEl.value);
+      if (relationMissing) {
+        showRequiredAlert('추천 대상자와의 관계', document.getElementById('workTypeGroup'), '추천 대상자님과 어떤 관계인지 선택해 주세요.');
+      } else if (workTaskMissing) {
+        showRequiredAlert('같이 한 일', workTaskEl, '같이 한 일을 구체적으로 적어 주세요.');
+      } else if (isPersonalMode() && !getValue('personalKnownPeriod')) {
+        showRequiredAlert('알고 지낸 기간', document.getElementById('personalKnownPeriod'), '알고 지낸 기간을 선택해 주세요.');
+      } else if (isPersonalMode() && !getValue('personalRelationType')) {
+        showRequiredAlert('어떤 사이인지', document.getElementById('personalRelationType'), '어떤 사이인지 선택해 주세요.');
+      } else if (isPersonalMode() && !getCheckedValues('recentContact').length) {
+        showRequiredAlert('최근 교류 여부', document.querySelector('input[name="recentContact"]'), '최근에도 연락하거나 만나고 계신지 선택해 주세요.');
+      } else if (isIntroMode() && !getValue('introReason')) {
+        showRequiredAlert('알게 된 경로', document.getElementById('introReason'), '알게 된 경로나 소개받은 맥락을 적어 주세요.');
+      } else if (isIntroMode() && !getValue('knownCareer')) {
+        showRequiredAlert('경력·전문 분야', document.getElementById('knownCareer'), '경력·전문 분야를 아시는 범위에서 적어 주세요.');
+      }
+      return !relationMissing
+        && !workTaskMissing
+        && (!isPersonalMode() || (getValue('personalKnownPeriod') && getValue('personalRelationType') && getCheckedValues('recentContact').length))
+        && (!isIntroMode() || (getValue('introReason') && getValue('knownCareer')));
+    }
+    function syncConflictDetailField() {
+      const isKin = getCheckedValues('conflictTypes').includes('친족');
+      const input = document.getElementById('conflictDetail');
+      const label = document.getElementById('conflictDetailLabel');
+      const field = document.getElementById('conflictDetailField');
+      if (input) {
+        input.required = isKin;
+        if (!isKin) input.value = '';
+      }
+      if (label) label.classList.toggle('required', isKin);
+      if (field) field.classList.toggle('is-hidden', !isKin);
+    }
+    function validateConflictFields() {
+      const conflictValues = getCheckedValues('conflictTypes');
+      if (!conflictValues.length) {
+        showRequiredAlert('가족·친족 여부', document.querySelector('input[name="conflictTypes"]'), '가족·친족 여부를 선택해 주세요.');
+        return false;
+      }
+      if (conflictValues.includes('친족') && !getValue('conflictDetail')) {
+        showRequiredAlert('가족·친족 관계', document.getElementById('conflictDetail'), '가족·친족 관계를 적어 주세요.');
+        return false;
+      }
+      return true;
+    }
+    function getObservationStatus(id) {
+      const el = document.querySelector(`input[data-observe-none="${id}"]`);
+      return el && el.checked ? clean(el.closest('label')?.textContent || '') : '';
+    }
+    function setObservationStatus(id, value) {
+      const el = document.querySelector(`input[data-observe-none="${id}"]`);
+      if (el) el.checked = Boolean(value);
+    }
+    function isObservationWriteChecked(id) {
+      const el = document.querySelector(`input[data-observe-write="${id}"]`);
+      return el ? el.checked : Boolean(getValue(id));
+    }
+    function setObservationWrite(id, checked) {
+      const el = document.querySelector(`input[data-observe-write="${id}"]`);
+      if (el) el.checked = Boolean(checked);
+    }
+    function isObservationNoneChecked(id) {
+      return Boolean(getObservationStatus(id));
+    }
+    function isCoreObservationAnswered(id) {
+      return isObservationNoneChecked(id) || Boolean(getValue(id));
+    }
+    function isTooShortObservationAnswer(id) {
+      if (isObservationNoneChecked(id)) return false;
+      const value = clean(getValue(id));
+      return Boolean(value) && value.length < MIN_OBSERVATION_LENGTH;
+    }
+    function getObservationStatusMap() {
+      const map = {};
+      OBSERVATION_STATUS_IDS.forEach(id => {
+        map[id] = getObservationStatus(id);
+      });
+      return map;
+    }
+    function syncObservationField(id) {
+      const textarea = document.getElementById(id);
+      if (!textarea) return;
+      const hasWriteOption = Boolean(document.querySelector(`input[data-observe-write="${id}"]`));
+      if (hasWriteOption && clean(textarea.value) && !isObservationNoneChecked(id)) {
+        setObservationWrite(id, true);
+      }
+      const noneChecked = isObservationNoneChecked(id);
+      const writeChecked = isObservationWriteChecked(id);
+      if (hasWriteOption) {
+        textarea.classList.toggle('is-hidden', !writeChecked);
+        textarea.disabled = !writeChecked || noneChecked;
+      } else {
+        textarea.disabled = noneChecked;
+      }
+      textarea.required = false;
+      if (noneChecked) textarea.value = '';
+      autoGrowTextarea(textarea);
+      updateCharCountFor(id);
+    }
+    function syncJobStrengthField() {
+      document.querySelectorAll('input[name="jobStrengthTypes"]').forEach(input => {
+        input.closest('.strength-chip')?.classList.toggle('is-checked', input.checked);
+      });
+      updateCharCountFor('jobStrength');
+    }
+    function validateObservationFields() {
+      if (isDirectMode()) {
+        const missingId = CORE_OBSERVATION_IDS.find(id => !isCoreObservationAnswered(id));
+        if (missingId) {
+          showRequiredAlert('함께 일하며 본 모습', document.getElementById(missingId), '각 항목마다 내용을 적어 주세요.');
+          return false;
+        }
+        const tooShortId = CORE_OBSERVATION_IDS.find(isTooShortObservationAnswer);
+        if (tooShortId) {
+          showRequiredAlert('함께 일하며 본 모습', document.getElementById(tooShortId), `조금 더 구체적으로 적어 주세요. (최소 ${MIN_OBSERVATION_LENGTH}자)`);
+          return false;
+        }
+        const jobStrengthEl = document.getElementById('jobStrength');
+        const jobStrengthValue = clean(getValue('jobStrength'));
+        if (!jobStrengthValue) {
+          showRequiredAlert('함께 일하며 본 모습', jobStrengthEl, '특히 잘한다고 느끼신 부분을 적어 주세요.');
+          return false;
+        }
+        if (jobStrengthValue.length < MIN_OBSERVATION_LENGTH) {
+          showRequiredAlert('함께 일하며 본 모습', jobStrengthEl, `조금 더 구체적으로 적어 주세요. (최소 ${MIN_OBSERVATION_LENGTH}자)`);
+          return false;
+        }
+      }
+      if (isPersonalMode()) {
+        const missingId = PERSONAL_OBSERVATION_IDS.find(id => !isCoreObservationAnswered(id));
+        if (missingId) {
+          const target = document.getElementById(missingId);
+          showRequiredAlert('알고 지내며 본 모습', target, '각 항목마다 내용을 적어 주세요.');
+          return false;
+        }
+        const tooShortId = PERSONAL_OBSERVATION_IDS.find(isTooShortObservationAnswer);
+        if (tooShortId) {
+          showRequiredAlert('알고 지내며 본 모습', document.getElementById(tooShortId), `조금 더 구체적으로 적어 주세요. (최소 ${MIN_OBSERVATION_LENGTH}자)`);
+          return false;
+        }
+      }
+      return true;
+    }
+    function validateIntroFields() {
+      return true;
+    }
+    function validateGuideFields() {
+      if (isIntroMode()) return true;
+      if (!getCheckedValues('companyGuideStatus').length) {
+        showRequiredAlert('회사와 모집 직무를 안내하셨나요', document.querySelector('input[name="companyGuideStatus"]'), '회사와 모집 직무를 안내하셨는지 선택해 주세요.');
+        return false;
+      }
+      if (!getCheckedValues('candidateIntentStatus').length) {
+        showRequiredAlert('지원 의향을 확인하셨나요', document.querySelector('input[name="candidateIntentStatus"]'), '지원 의향 확인 여부를 선택해 주세요.');
+        return false;
+      }
+      return true;
+    }
+    function validateRecommendationReason() {
+      const el = document.getElementById('recommendationReasonInput');
+      if (!getValue('recommendationReasonInput') || isWeakTextAnswer(getValue('recommendationReasonInput'))) {
+        showRequiredAlert(isIntroMode() ? '소개하시는 이유' : '추천하시는 이유', el, `${isIntroMode() ? '소개' : '추천'}하고 싶으신 이유를 적어 주세요.`);
+        return false;
+      }
+      return true;
+    }
+    function getActionRequirementStatus() {
+      if (isIntroMode()) return 'INTRO_ONLY';
+      const guide = getCheckedValues('companyGuideStatus')[0] || '';
+      const intent = getCheckedValues('candidateIntentStatus')[0] || '';
+      if (guide === '안내자료를 전달하고 충분히 설명했습니다' && intent === '지원하시겠다는 의사를 확인했습니다') {
+        return 'MET';
+      }
+      if (guide === '아직 안내하지 못했습니다' && intent === '아직 여쭤보지 못했습니다') {
+        return 'NOT_STARTED';
+      }
+      return 'NEEDS_SUPPLEMENT';
+    }
+    function getRewardEligibilityStatus() {
+      const initialTrack = getEntryMode();
+      const actionStatus = getActionRequirementStatus();
+      if (initialTrack === 'TALENT_INTRO') return 'INTRO_REWARD_REVIEW';
+      if (actionStatus === 'MET') return 'REFERRAL_REWARD_ELIGIBLE';
+      return 'REFERRAL_ACTION_INCOMPLETE';
+    }
+    function getReferralTrackLabel(track) {
+      if (track === 'DIRECT_REFERRAL') return '직접 경험 추천';
+      if (track === 'PERSONAL_REFERRAL') return '지인 추천';
+      if (track === 'TALENT_INTRO') return '인재 소개';
+      return '추천·소개';
+    }
+    function getRequirementLabel(status) {
+      if (status === 'MET') return '추천요건 충족';
+      if (status === 'NEEDS_SUPPLEMENT') return '보완 필요';
+      if (status === 'NOT_STARTED') return '안내 전';
+      if (status === 'INTRO_ONLY') return '소개 접수';
+      return '';
+    }
+    function currentCandidateLabel() {
+      const name = clean(getValue('candName'));
+      return name ? `${name} 님` : '이 분';
+    }
+    function updateCandidateText() {
+      const label = currentCandidateLabel();
+      document.querySelectorAll('.candidate-label').forEach(el => {
+        el.textContent = label;
+      });
+    }
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value || '-';
+    }
+    function validateCandidateContactFields() {
+      if (isIntroMode()) return true;
+      const phoneEl = document.getElementById('candPhone');
+      const emailEl = document.getElementById('candEmail');
+      const phoneDigits = normalizedPhone(phoneEl.value);
+      phoneEl.setCustomValidity(phoneDigits.length === 11 && phoneDigits.startsWith('010') ? '' : '휴대폰 번호는 010-0000-0000 형식으로 입력해 주세요.');
+      emailEl.setCustomValidity(isValidEmail(emailEl.value) ? '' : '이메일 형식이 올바르지 않습니다.');
+      return !phoneEl.validationMessage && !emailEl.validationMessage;
+    }
+    function fieldLabel(el) {
+      if (!el) return '필수 항목';
+      if (el.id) {
+        const label = form.querySelector(`label[for="${el.id}"]`);
+        if (label) return clean(label.textContent).replace('*', '');
+      }
+      if (el.type === 'checkbox') {
+        const consentText = el.closest('.consent')?.querySelector('span')?.textContent;
+        if (consentText) return clean(consentText);
+      }
+      if (el.name === 'conflictTypes') return '가족·친족 여부';
+      return el.getAttribute('aria-label') || el.name || '필수 항목';
+    }
+    function validateVisibleRequiredFields() {
+      const fields = [...form.querySelectorAll('input, textarea, select')].filter(el => {
+        if (el.disabled || el.type === 'hidden') return false;
+        return el.required || Boolean(el.validationMessage);
+      });
+      for (const el of fields) {
+        if (el.type === 'radio' && form.querySelector(`input[name="${el.name}"]:checked`)) continue;
+        if (el.type === 'checkbox' && el.checked) continue;
+        if (!['radio','checkbox'].includes(el.type) && el.validity.valid) continue;
+
+        const label = fieldLabel(el);
+        const detail = el.validationMessage && !el.validity.valueMissing
+          ? el.validationMessage
+          : `${label} 항목을 작성해 주세요.`;
+        showRequiredAlert(label, el, detail);
+        return false;
+      }
+      return true;
+    }
+    function updateCharCountFor(id) {
+      const el = document.getElementById(id);
+      const countEl = document.querySelector(`.char-count[data-for="${id}"]`);
+      if (!el || !countEl) return;
+      const count = clean(el.value).length;
+      const min = Number(countEl.dataset.min || 0);
+      countEl.textContent = `${count.toLocaleString('ko-KR')}자`;
+      countEl.classList.toggle('low', Boolean(min && count > 0 && count < min));
+    }
+    function updateAllCharCounts() {
+      OBSERVATION_FIELD_IDS.forEach(updateCharCountFor);
+    }
+    const EXAMPLE_PLACEHOLDER_PREFIX = '예: ';
+    const OBSERVATION_INPUT_BASE_PADDING_LEFT = 14;
+    let _prefixMeasureCanvas = null;
+    function measureTextWidth(el, text) {
+      const cs = getComputedStyle(el);
+      _prefixMeasureCanvas = _prefixMeasureCanvas || document.createElement('canvas');
+      const ctx = _prefixMeasureCanvas.getContext('2d');
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      return ctx.measureText(text).width;
+    }
+    function autoGrowTextarea(el) {
+      if (!el || !(el.classList.contains('observation-input') || el.classList.contains('strength-input'))) return;
+      const originalValue = el.value;
+      const measuringPlaceholder = !originalValue && el.placeholder;
+      if (measuringPlaceholder && el.placeholder.startsWith(EXAMPLE_PLACEHOLDER_PREFIX)) {
+        const prefixWidth = measureTextWidth(el, EXAMPLE_PLACEHOLDER_PREFIX);
+        el.style.textIndent = `${-prefixWidth}px`;
+        el.style.paddingLeft = `${OBSERVATION_INPUT_BASE_PADDING_LEFT + prefixWidth}px`;
+      } else {
+        el.style.textIndent = '';
+        el.style.paddingLeft = '';
+      }
+      if (measuringPlaceholder) el.value = el.placeholder;
+      el.style.height = 'auto';
+      const cs = getComputedStyle(el);
+      const borderY = parseFloat(cs.borderTopWidth || 0) + parseFloat(cs.borderBottomWidth || 0);
+      const height = el.scrollHeight + borderY;
+      if (measuringPlaceholder) el.value = originalValue;
+      el.style.height = `${Math.max(44, height)}px`;
+    }
+    function autoGrowAllObservationInputs() {
+      document.querySelectorAll('textarea.observation-input, textarea.strength-input').forEach(autoGrowTextarea);
+    }
+    function getSectionByTitle(title) {
+      return [...form.querySelectorAll(':scope > .section')].find(section => {
+        const heading = section.querySelector(':scope > h2');
+        return heading && clean(heading.textContent) === title;
+      });
+    }
+    function reorderFormSections() {
+      const candidateSection = getSectionByTitle('대상자 정보');
+      const relationSection = getSectionByTitle('추천인과 대상자의 관계');
+      if (candidateSection && relationSection && candidateSection.previousElementSibling !== relationSection) {
+        form.insertBefore(relationSection, candidateSection);
+      }
+    }
+    function getAccordionChecks(title) {
+      if (title === '추천인과 대상자의 관계') {
+        const checks = [Boolean(getCheckedValues('workTypes').length)];
+        if (isDirectMode()) checks.push(Boolean(getValue('workTask')));
+        if (isPersonalMode()) {
+          checks.push(Boolean(getValue('personalKnownPeriod')));
+          checks.push(Boolean(getValue('personalRelationType')));
+          checks.push(Boolean(getCheckedValues('recentContact').length));
+        }
+        const conflictTypes = getCheckedValues('conflictTypes');
+        checks.push(Boolean(conflictTypes.length));
+        if (conflictTypes.includes('친족')) checks.push(Boolean(getValue('conflictDetail')));
+        return checks;
+      }
+      if (title === '대상자 정보') {
+        validateCandidateContactFields();
+        return ['candName', ...(isIntroMode() ? [] : ['candPhone','candEmail']), 'posText'].map(id => {
+          const el = document.getElementById(id);
+          return Boolean(el && el.validity.valid);
+        });
+      }
+      if (title === '인재 소개 정보') {
+        if (!isIntroMode()) return [];
+        return ['introReason','knownCareer'].map(id => Boolean(getValue(id)));
+      }
+      if (title === '회사·직무 안내 확인') {
+        if (isIntroMode()) return [];
+        return [Boolean(getCheckedValues('companyGuideStatus').length), Boolean(getCheckedValues('candidateIntentStatus').length)];
+      }
+      if (title === '추천·소개 이유') {
+        const value = getValue('recommendationReasonInput');
+        return [Boolean(value && !isWeakTextAnswer(value))];
+      }
+      if (title === '함께 일하며 본 모습') {
+        const isAnsweredEnough = id => isCoreObservationAnswered(id) && !isTooShortObservationAnswer(id);
+        if (isDirectMode()) {
+          const jobStrengthValue = clean(getValue('jobStrength'));
+          const jobStrengthAnswered = jobStrengthValue.length >= MIN_OBSERVATION_LENGTH;
+          return [jobStrengthAnswered, ...CORE_OBSERVATION_IDS.map(isAnsweredEnough)];
+        }
+        if (isPersonalMode()) return PERSONAL_OBSERVATION_IDS.map(isAnsweredEnough);
+        return [];
+      }
+      if (title === '확인 및 동의') {
+        return ['guarantee','directExperienceConfirm','conflictConfirm'].map(id => {
+          const el = document.getElementById(id);
+          return Boolean(el && el.checked);
+        });
+      }
+      return [];
+    }
+    function updateAccordionProgress() {
+      let visibleStep = 1;
+      form.querySelectorAll('.accordion-section').forEach(section => {
+        const title = section.dataset.sectionTitle || '';
+        const step = section.querySelector('.accordion-step');
+        const isVisible = getComputedStyle(section).display !== 'none';
+        if (step && isVisible) step.textContent = String(visibleStep++);
+        const status = section.querySelector('.accordion-status');
+        if (!status) return;
+        const checks = getAccordionChecks(title);
+        const total = checks.length;
+        const done = checks.filter(Boolean).length;
+        status.textContent = total ? `${done}/${total} 작성` : '완료';
+        status.classList.toggle('done', done === total);
+      });
+    }
+    function setReferralFormEnabled(enabled) {
+      form.classList.toggle('is-locked', !enabled);
+      [...form.querySelectorAll('input, textarea, select, button')].forEach(el => {
+        if (el.id === 'verificationToken') return;
+        if (['refName','refEmail','refEmpNo','refDept'].includes(el.id)) return;
+        el.disabled = !enabled;
+      });
+      ['refName','refEmail','refEmpNo','refDept'].forEach(id => {
+        const el = document.getElementById(id);
+        el.disabled = false;
+      });
+      submitBtn.disabled = !enabled;
+      draftBtn.disabled = !enabled;
+    }
+    function applyVerifiedEmployee(employee, token) {
+      verifiedEmployee = employee || {};
+      form.style.display = '';
+      completePanel.classList.remove('on');
+      document.getElementById('verificationToken').value = token || '';
+      document.getElementById('refName').value = verifiedEmployee.name || '';
+      document.getElementById('refEmail').value = verifiedEmployee.email || '';
+      document.getElementById('refEmpNo').value = verifiedEmployee.empNo || '';
+      document.getElementById('refDept').value = verifiedEmployee.dept || '';
+      document.getElementById('verifiedText').textContent = `${verifiedEmployee.name || '직원'}님 인증 완료 · ${verifiedEmployee.dept || '소속 미등록'}`;
+      verifyPanel.classList.add('verified');
+      verifyPanel.classList.add('is-hidden');
+      clearOtpCountdown();
+      setReferralFormEnabled(true);
+      syncEntryMode();
+      setStep('write');
+      restoreDraft();
+      updateAccordionProgress();
+      loadMyReferrals();
+    }
+    function resetVerification() {
+      verifiedEmployee = null;
+      ['verificationToken','refName','refEmail','refEmpNo','refDept','verifyEmpNo','verifyCode'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      document.getElementById('verifiedText').textContent = '';
+      verifyPanel.classList.remove('verified');
+      verifyPanel.classList.remove('is-hidden');
+      clearOtpCountdown();
+      myReferralsPanel.classList.remove('on');
+      myReferralCount.textContent = '접수 확인';
+      completePanel.classList.remove('on');
+      form.style.display = '';
+      setVerifyMessage('사번을 변경하려면 다시 인증해 주세요.', '');
+      setVerifyEmpNoHint("'인증번호 발송' 버튼을 누르면 회사 이메일로 발송됩니다.");
+      sendCodeBtn.textContent = '인증번호 발송';
+      updateSendCodeButtonState();
+      updateVerifyCodeButtonState();
+      setMessage('', '');
+      setReferralFormEnabled(false);
+      setStep('verify');
+      updateAccordionProgress();
+    }
+    async function callReferralAction(action, data) {
+      const url = new URL(SCRIPT_URL);
+      url.searchParams.set('action', action);
+      const res = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, ...data })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await readJsonResponse(res);
+    }
+    async function sendVerificationCode() {
+      const empNo = getValue('verifyEmpNo');
+      setVerifyMessage('', '');
+      setVerifyEmpNoHint("'인증번호 발송' 버튼을 누르면 회사 이메일로 발송됩니다.");
+      if (!empNo) {
+        setVerifyMessage('사번을 입력해 주세요.', 'err');
+        updateSendCodeButtonState();
+        return;
+      }
+      sendCodeBtn.dataset.busy = '1';
+      sendCodeBtn.disabled = true;
+      sendCodeBtn.textContent = '발송 중';
+      try {
+        await callReferralAction('sendReferralVerificationCode', { empNo });
+        startOtpCountdown();
+        setVerifyMessage('인증번호를 입력한 뒤 인증 확인을 눌러주세요.', '');
+      } catch (err) {
+        console.error(err);
+        clearOtpCountdown();
+        const message = String(err && err.message || '');
+        if (message.includes('Unknown action') || message.includes('unknown_action')) {
+          setVerifyEmpNoHint('인증번호 발송 중 문제가 발생했습니다. 잠시 후 다시 시도하거나 피플팀에 문의해 주세요.', 'err');
+        } else if (message.includes('employee_email_missing')) {
+          setVerifyEmpNoHint('사번에 등록된 회사 이메일을 확인할 수 없습니다. 피플팀에 문의해 주세요.', 'err');
+        } else if (message.includes('mail_send_failed')) {
+          setVerifyEmpNoHint('인증번호 발송 중 문제가 발생했습니다. 잠시 후 다시 시도하거나 피플팀에 문의해 주세요.', 'err');
+        } else {
+          setVerifyEmpNoHint('인증번호 발송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 'err');
+        }
+      } finally {
+        sendCodeBtn.dataset.busy = '0';
+        if (!otpTimerId) sendCodeBtn.textContent = '인증번호 발송';
+        updateSendCodeButtonState();
+      }
+    }
+    async function verifyCode() {
+      const empNo = getValue('verifyEmpNo');
+      const code = getValue('verifyCode');
+      setVerifyMessage('', '');
+      if (!empNo || code.length !== 6) {
+        setVerifyMessage('사번과 6자리 인증번호를 입력해 주세요.', 'err');
+        updateVerifyCodeButtonState();
+        return;
+      }
+      verifyCodeBtn.dataset.busy = '1';
+      verifyCodeBtn.disabled = true;
+      verifyCodeBtn.textContent = '확인 중';
+      try {
+        const result = await callReferralAction('verifyReferralCode', { empNo, code });
+        if (!result.ok || !result.token || !result.employee) throw new Error('verification failed');
+        applyVerifiedEmployee(result.employee, result.token);
+        setVerifyMessage('인증이 완료되었습니다.', 'ok');
+      } catch (err) {
+        console.error(err);
+        setVerifyMessage('인증번호가 맞지 않거나 만료되었습니다.', 'err');
+      } finally {
+        verifyCodeBtn.dataset.busy = '0';
+        verifyCodeBtn.disabled = false;
+        verifyCodeBtn.textContent = '인증 확인';
+        updateVerifyCodeButtonState();
+      }
+    }
+    function buildReferralRow() {
+      const now = new Date();
+      const submittedAt = now.toISOString();
+      const refEmail = normalizedEmail(getValue('refEmail'));
+      const entryMode = getEntryMode();
+      const direct = entryMode === 'DIRECT_REFERRAL';
+      const personal = entryMode === 'PERSONAL_REFERRAL';
+      const intro = entryMode === 'TALENT_INTRO';
+      const actionRequirementStatus = getActionRequirementStatus();
+      const rewardEligibilityStatus = getRewardEligibilityStatus();
+      const companyGuideStatus = intro ? '' : (getCheckedValues('companyGuideStatus')[0] || '');
+      const candidateIntentStatus = intro ? '' : (getCheckedValues('candidateIntentStatus')[0] || '');
+      const recommendationReason = getValue('recommendationReasonInput');
+      const candidateConsentAt = intro ? '' : submittedAt;
+      const introPolicyAcknowledgedAt = intro ? submittedAt : '';
+      const directObservationValues = direct
+        ? [getValue('performanceCredit'), getValue('watchPoint'), getValue('conflictHandling')]
+        : [];
+      const personalObservationValues = personal
+        ? [getValue('personalHelpAsked'), getValue('personalGroupRole')]
+        : [];
+      const refItems = {
+        entryType: entryMode === 'TALENT_INTRO' ? 'INTRODUCTION' : 'REFERRAL',
+        referralTrack: entryMode,
+        workTypes: getCheckedValues('workTypes'),
+        workTask: direct ? getValue('workTask') : '',
+        workPeriodStart: direct ? getValue('workPeriodStart') : '',
+        workPeriodEnd: direct ? getValue('workPeriodEnd') : '',
+        personalKnownPeriod: personal ? getValue('personalKnownPeriod') : '',
+        personalRelationType: personal ? getValue('personalRelationType') : '',
+        recentContact: personal ? (getCheckedValues('recentContact')[0] || '') : '',
+        companyGuideStatus,
+        candidateIntentStatus,
+        actionRequirementStatus,
+        rewardEligibilityStatus,
+        actionRequirementMet: actionRequirementStatus === 'MET' ? 'Y' : '',
+        candStatus: getValue('candStatus'),
+        conflictTypes: getCheckedValues('conflictTypes'),
+        conflictDetail: getValue('conflictDetail'),
+        observationStatus: getObservationStatusMap(),
+        performanceCredit: direct ? getValue('performanceCredit') : '',
+        conflictHandling: direct ? getValue('conflictHandling') : '',
+        watchPoint: direct ? getValue('watchPoint') : '',
+        personalHelpAsked: personal ? getValue('personalHelpAsked') : '',
+        personalGroupRole: personal ? getValue('personalGroupRole') : '',
+        jobStrengthTypes: direct ? getCheckedValues('jobStrengthTypes') : [],
+        jobStrength: direct ? getValue('jobStrength') : '',
+        introReason: intro ? getValue('introReason') : '',
+        knownCareer: intro ? getValue('knownCareer') : '',
+        relationshipContext: direct ? getValue('workTask') : '',
+        strengths: direct ? getValue('jobStrength') : '',
+        collaborationEvidence: [...directObservationValues, ...personalObservationValues].filter(Boolean).join('\n\n'),
+        riskNotes: direct ? getValue('watchPoint') : '',
+        recommendationReason,
+        candidateConsentConfirmed: !intro && document.getElementById('guarantee').checked ? 'Y' : '',
+        introPolicyAcknowledged: intro && document.getElementById('guarantee').checked ? 'Y' : '',
+        guaranteeConfirmed: document.getElementById('guarantee').checked ? 'Y' : '',
+        directExperienceConfirmed: document.getElementById('directExperienceConfirm').checked ? 'Y' : '',
+        conflictConfirmed: document.getElementById('conflictConfirm').checked ? 'Y' : '',
+        candidateConsentAt,
+        introPolicyAcknowledgedAt,
+        referralVerifiedAt: submittedAt
+      };
+      return {
+        id: `REF-${Date.now()}`,
+        refEmail,
+        refName: getValue('refName'),
+        refEmpNo: getValue('refEmpNo'),
+        refDept: getValue('refDept'),
+        posText: getValue('posText'),
+        posId: '',
+        candName: getValue('candName'),
+        candPhone: intro ? '' : getValue('candPhone'),
+        candPhoneNormalized: intro ? '' : normalizedPhone(getValue('candPhone')),
+        candEmail: intro ? '' : getValue('candEmail'),
+        candEmailNormalized: intro ? '' : normalizedEmail(getValue('candEmail')),
+        candCompany: getValue('candCompany'),
+        resumeUrl: '',
+        relation: getValue('relation'),
+        refItems: JSON.stringify(refItems),
+        consentAt: candidateConsentAt,
+        submittedAt,
+        status: 'SUBMITTED',
+        dupFlag: '확인필요',
+        reviewedBy: '',
+        reviewedAt: '',
+        rejectReason: '',
+        validUntil: addMonths(now, 6),
+        candId: '',
+        hireDate: '',
+        hireCL: '',
+        updatedAt: submittedAt,
+        updatedBy: refEmail,
+        deletedAt: '',
+        verificationToken: getValue('verificationToken')
+      };
+    }
+    function draftFieldIds() {
+      return ['candName','candPhone','candEmail','candCompany','posText','candStatus','relation','workTask','workPeriodStart','workPeriodEnd','personalKnownPeriod','personalRelationType','conflictDetail', ...OBSERVATION_FIELD_IDS];
+    }
+    function currentDraftKey() {
+      const empNo = clean(verifiedEmployee?.empNo || getValue('refEmpNo'));
+      return empNo ? `${DRAFT_KEY_PREFIX}:${empNo}` : '';
+    }
+    function clearLegacyDraft() {
+      localStorage.removeItem('woomic_referral_intake_draft_v1');
+    }
+    function saveDraft() {
+      if (!verifiedEmployee || !getValue('verificationToken')) {
+        setMessage('사내 직원 사번 인증 후 임시 저장할 수 있습니다.', 'err');
+        return;
+      }
+      const key = currentDraftKey();
+      if (!key) {
+        setMessage('추천인 인증 정보를 확인할 수 없어 임시 저장하지 못했습니다.', 'err');
+        return;
+      }
+      const data = {};
+      draftFieldIds().forEach(id => { data[id] = getValue(id); });
+      data.workTypes = getCheckedValues('workTypes');
+      data.conflictTypes = getCheckedValues('conflictTypes');
+      data.recentContact = getCheckedValues('recentContact');
+      data.companyGuideStatus = getCheckedValues('companyGuideStatus');
+      data.candidateIntentStatus = getCheckedValues('candidateIntentStatus');
+      data.observationStatus = getObservationStatusMap();
+      data.jobStrengthTypes = getCheckedValues('jobStrengthTypes');
+      data.empNo = verifiedEmployee.empNo || getValue('refEmpNo');
+      data.savedAt = new Date().toISOString();
+      data.expiresAt = new Date(Date.now() + DRAFT_TTL_MS).toISOString();
+      localStorage.setItem(key, JSON.stringify(data));
+      clearLegacyDraft();
+      setMessage('임시 저장했습니다. 동의 항목은 저장되지 않으며 24시간 후 만료됩니다.', 'ok');
+    }
+    function restoreDraft() {
+      let data = null;
+      const key = currentDraftKey();
+      if (!key) return;
+      try { data = JSON.parse(localStorage.getItem(key) || 'null'); }
+      catch (err) { data = null; }
+      if (!data) return;
+      if (normalizeEmpNo(data.empNo) !== normalizeEmpNo(verifiedEmployee?.empNo)) {
+        localStorage.removeItem(key);
+        return;
+      }
+      if (data.expiresAt && new Date(data.expiresAt).getTime() < Date.now()) {
+        localStorage.removeItem(key);
+        return;
+      }
+      draftFieldIds().forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value && data[id]) el.value = data[id];
+      });
+      syncAllPeriodSelects();
+      setCheckedValues('workTypes', data.workTypes);
+      setCheckedValues('conflictTypes', data.conflictTypes);
+      syncConflictDetailField();
+      setCheckedValues('recentContact', data.recentContact);
+      setCheckedValues('companyGuideStatus', data.companyGuideStatus);
+      setCheckedValues('candidateIntentStatus', data.candidateIntentStatus);
+      Object.entries(data.observationStatus || data.observationNone || {}).forEach(([id, status]) => {
+        setObservationStatus(id, status);
+        syncObservationField(id);
+      });
+      OBSERVATION_STATUS_IDS.forEach(syncObservationField);
+      setCheckedValues('jobStrengthTypes', data.jobStrengthTypes);
+      syncJobStrengthField();
+      syncRelationField();
+      syncEntryMode();
+      ['guarantee','directExperienceConfirm','conflictConfirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
+      validateCandidateContactFields();
+      updateAllCharCounts();
+      setMessage(`임시 저장된 내용을 불러왔습니다. 저장일: ${formatDate(data.savedAt)}`, 'ok');
+    }
+    async function postReferral(row) {
+      const url = new URL(SCRIPT_URL);
+      url.searchParams.set('action', 'upsert');
+      url.searchParams.set('sheet', 'Referrals');
+      const payload = { action: 'upsert', sheet: 'Referrals', data: row };
+      const res = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await readJsonResponse(res);
+    }
+    function renderMyReferrals(rows) {
+      myReferralsPanel.classList.add('on');
+      myReferralCount.textContent = `접수 ${(rows || []).length}건`;
+      if (!rows || !rows.length) {
+        myReferralsList.innerHTML = '<div class="hint">아직 접수된 추천 건이 없습니다.</div>';
+        return;
+      }
+      myReferralsList.innerHTML = rows.map(row => `
+        <div class="my-referral-card">
+          <div class="my-referral-title">
+            <span>${escapeHtml(row.candidateLabel || '대상자')} · ${escapeHtml(row.posText || '직무 미지정')}</span>
+          </div>
+          <div class="my-referral-receipt">
+            접수일 <b>${escapeHtml(formatDate(row.submittedAt))}</b>
+          </div>
+          <span class="badge process">${escapeHtml(getReferralTrackLabel(row.referralTrack))}</span>
+          ${row.actionRequirementStatus ? `<span class="badge ${row.actionRequirementStatus === 'MET' ? 'done' : 'warn'}">${escapeHtml(getRequirementLabel(row.actionRequirementStatus))}</span>` : ''}
+          <span class="badge done">접수 완료</span>
+        </div>
+      `).join('');
+    }
+    async function loadMyReferrals() {
+      const token = getValue('verificationToken');
+      const refEmail = normalizedEmail(getValue('refEmail'));
+      if (!token || !refEmail) return;
+      refreshMyReferralsBtn.disabled = true;
+      try {
+        const result = await callReferralAction('getMyReferrals', { verificationToken: token, refEmail });
+        renderMyReferrals(result.data || []);
+      } catch (err) {
+        console.error(err);
+        myReferralsPanel.classList.add('on');
+        myReferralsList.innerHTML = '<div class="message err">추천 현황을 불러오지 못했습니다.</div>';
+      } finally {
+        refreshMyReferralsBtn.disabled = false;
+      }
+    }
+    function showCompletion(row) {
+      lastReceiptId = row.id || '';
+      form.style.display = 'none';
+      completePanel.classList.add('on');
+      completeMeta.innerHTML = `접수번호 <b>${escapeHtml(row.id)}</b><br>접수일 ${escapeHtml(formatDate(row.submittedAt))}<br>피플팀에서 접수 내용을 확인합니다.`;
+      setCompleteMessage('', '');
+      setStep('done');
+      completePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    async function copyReceiptId() {
+      if (!lastReceiptId) return;
+      try {
+        await navigator.clipboard.writeText(lastReceiptId);
+        setCompleteMessage('접수번호를 복사했습니다.', 'ok');
+      } catch (err) {
+        setCompleteMessage(`접수번호: ${lastReceiptId}`, 'ok');
+      }
+    }
+    function setAccordionOpen(section, open) {
+      if (!section) return;
+      section.classList.toggle('is-collapsed', !open);
+      const button = section.querySelector('.accordion-toggle');
+      if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function resetFormAccordions() {
+      form.querySelectorAll('.accordion-section').forEach((section, index) => {
+        setAccordionOpen(section, index === 0);
+      });
+    }
+    function initFormAccordions() {
+      const steps = {
+        '추천인과 대상자의 관계': '1',
+        '대상자 정보': '2',
+        '인재 소개 정보': '3',
+        '회사·직무 안내 확인': '3',
+        '추천·소개 이유': '4',
+        '함께 일하며 본 모습': '5',
+        '확인 및 동의': '6'
+      };
+      [...form.querySelectorAll(':scope > .section')].forEach(section => {
+        const heading = section.querySelector(':scope > h2');
+        if (!heading) return;
+        const title = clean(heading.textContent);
+        if (!steps[title] || section.classList.contains('accordion-section')) return;
+        section.dataset.sectionTitle = title;
+
+        const body = document.createElement('div');
+        body.className = 'accordion-body';
+        while (heading.nextSibling) body.appendChild(heading.nextSibling);
+        section.appendChild(body);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'accordion-toggle';
+        button.setAttribute('aria-expanded', 'true');
+        const titleIdAttr = title === '함께 일하며 본 모습' ? ' id="observationSectionTitleText"' : '';
+        button.innerHTML = `
+          <span class="accordion-title"><span class="accordion-step">${steps[title]}</span><span${titleIdAttr}>${escapeHtml(title)}</span></span>
+          <span class="accordion-meta"><span class="accordion-status">미완료</span><span class="accordion-action" aria-hidden="true"><svg class="accordion-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+        `;
+        button.addEventListener('click', () => {
+          const opening = section.classList.contains('is-collapsed');
+          setAccordionOpen(section, opening);
+          if (opening) autoGrowAllObservationInputs();
+        });
+
+        heading.textContent = '';
+        heading.appendChild(button);
+        section.classList.add('accordion-section');
+      });
+      resetFormAccordions();
+      updateAccordionProgress();
+    }
+    function startNewReferral() {
+      const token = getValue('verificationToken');
+      form.reset();
+      applyVerifiedEmployee(verifiedEmployee, token);
+      setMessage('', '');
+      setStep('write');
+      resetFormAccordions();
+    }
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      setMessage('', '');
+      if (!verifiedEmployee || !getValue('verificationToken')) {
+        verifyPanel.classList.remove('is-hidden');
+        const verifyEmpNoEl = document.getElementById('verifyEmpNo');
+        showRequiredAlert('사내 직원 사번 인증', verifyEmpNoEl, '사내 직원 사번 인증을 먼저 완료해 주세요.');
+        return;
+      }
+      syncRelationField();
+      syncEntryMode();
+      validateCandidateContactFields();
+      if (!validateVisibleRequiredFields()) return;
+      if (!validateWorkScopeFields()) return;
+      if (!validateConflictFields()) return;
+      if (!validateGuideFields()) return;
+      if (!validateRecommendationReason()) return;
+      if (!validateIntroFields()) return;
+      if (!validateObservationFields()) return;
+      const row = buildReferralRow();
+      submitBtn.disabled = true;
+      submitBtn.textContent = '접수 중';
+      try {
+        const result = await postReferral(row);
+        if (result && result.error) throw new Error(result.error);
+        form.reset();
+        const draftKey = currentDraftKey();
+        if (draftKey) localStorage.removeItem(draftKey);
+        applyVerifiedEmployee(verifiedEmployee, row.verificationToken);
+        showCompletion(row);
+      } catch (err) {
+        console.error(err);
+        setMessage('접수 저장에 실패했습니다. 잠시 후 다시 시도하거나 피플팀에 문의해 주세요.', 'err');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '최종 제출';
+      }
+    });
+    form.addEventListener('input', updateAccordionProgress);
+    form.addEventListener('change', () => {
+      updateAccordionProgress();
+    });
+    sendCodeBtn.addEventListener('click', sendVerificationCode);
+    verifyCodeBtn.addEventListener('click', verifyCode);
+    resetVerifyBtn.addEventListener('click', resetVerification);
+    draftBtn.addEventListener('click', saveDraft);
+    refreshMyReferralsBtn.addEventListener('click', loadMyReferrals);
+    myReferralCount.addEventListener('click', () => {
+      myReferralsPanel.classList.add('on');
+      myReferralsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      loadMyReferrals();
+    });
+    copyReceiptBtn.addEventListener('click', copyReceiptId);
+    showMyReferralsBtn.addEventListener('click', () => {
+      myReferralsPanel.classList.add('on');
+      myReferralsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    newReferralBtn.addEventListener('click', startNewReferral);
+    document.getElementById('candName').addEventListener('input', updateCandidateText);
+    document.getElementById('candPhone').addEventListener('input', event => {
+      const cursorAtEnd = event.target.selectionStart === event.target.value.length;
+      event.target.value = formatKoreanMobile(event.target.value);
+      if (cursorAtEnd) event.target.setSelectionRange(event.target.value.length, event.target.value.length);
+      validateCandidateContactFields();
+    });
+    document.getElementById('candEmail').addEventListener('input', validateCandidateContactFields);
+    document.querySelectorAll('input[name="workTypes"]').forEach(el => {
+      el.addEventListener('change', () => {
+        syncRelationField();
+        syncEntryMode();
+        setMessage('', '');
+      });
+    });
+    document.getElementById('workTask').addEventListener('input', () => {
+      if (clean(document.getElementById('workTask').value)) setMessage('', '');
+    });
+    ['workPeriodStart','workPeriodEnd'].forEach(prefix => {
+      [`${prefix}Year`, `${prefix}Month`].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', () => {
+            syncPeriodHidden(prefix);
+            updateAccordionProgress();
+          });
+        }
+      });
+    });
+    document.querySelectorAll('input[name="conflictTypes"]').forEach(el => {
+      el.addEventListener('change', () => {
+        syncConflictDetailField();
+        setMessage('', '');
+      });
+    });
+    OBSERVATION_FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => {
+        autoGrowTextarea(el);
+        updateCharCountFor(id);
+        if (CORE_OBSERVATION_IDS.includes(id) || PERSONAL_OBSERVATION_IDS.includes(id)) updateAccordionProgress();
+      });
+    });
+    document.querySelectorAll('input[data-observe-none], input[data-observe-write]').forEach(el => {
+      el.addEventListener('change', () => {
+        syncObservationField(el.dataset.observeNone || el.dataset.observeWrite);
+        setMessage('', '');
+        updateAccordionProgress();
+      });
+    });
+    OBSERVATION_STATUS_IDS.forEach(syncObservationField);
+    document.querySelectorAll('input[name="jobStrengthTypes"]').forEach(el => {
+      el.addEventListener('change', () => {
+        syncJobStrengthField();
+      });
+    });
+    document.getElementById('verifyCode').addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        verifyCode();
+      }
+    });
+    document.getElementById('verifyEmpNo').addEventListener('input', () => {
+      const empNoEl = document.getElementById('verifyEmpNo');
+      empNoEl.value = empNoEl.value.replace(/[^\d]/g, '');
+      clearOtpCountdown();
+      sendCodeBtn.textContent = '인증번호 발송';
+      setVerifyEmpNoHint("'인증번호 발송' 버튼을 누르면 회사 이메일로 발송됩니다.");
+      setVerifyMessage('', '');
+      updateSendCodeButtonState();
+      updateVerifyCodeButtonState();
+    });
+    document.getElementById('verifyCode').addEventListener('input', () => {
+      const codeEl = document.getElementById('verifyCode');
+      codeEl.value = codeEl.value.replace(/[^\d]/g, '').slice(0, 6);
+      setVerifyMessage('', '');
+      updateVerifyCodeButtonState();
+    });
+    reorderFormSections();
+    initFormAccordions();
+    setReferralFormEnabled(false);
+    fillPeriodSelectOptions();
+    syncAllPeriodSelects();
+    syncRelationField();
+    syncEntryMode();
+    syncJobStrengthField();
+    syncConflictDetailField();
+    updateCandidateText();
+    updateSendCodeButtonState();
+    updateVerifyCodeButtonState();
+    updateAllCharCounts();
+    autoGrowAllObservationInputs();
+    updateAccordionProgress();
+  </script>
+</body>
+</html>

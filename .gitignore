@@ -1,0 +1,15 @@
+# Local-only deployment secrets and operator notes
+.env
+.env.*
+*.local
+*.local.json
+config.local.js
+secrets.*
+
+# Logs and temporary exports
+*.log
+*.tmp
+~$*
+
+# Dependency folders
+node_modules/

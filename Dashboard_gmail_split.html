@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="version" content="202606081200">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net 'unsafe-inline'; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; frame-src https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests">
+<title>Recruiting Hub | 우미건설 피플팀</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+<?!= include('app_css'); ?>
+</style>
+</head>
+<body>
+<div id="admin-login" class="admin-login-backdrop" aria-hidden="true">
+  <form id="admin-login-form" class="admin-login-box">
+    <div class="admin-login-title">관리자 로그인</div>
+    <div class="admin-login-sub">채용관리 시스템을 사용하려면 관리자 계정으로 로그인하세요.</div>
+    <label for="admin-login-user">아이디</label>
+    <input id="admin-login-user" autocomplete="username" value="admin" required>
+    <label for="admin-login-password">비밀번호</label>
+    <input id="admin-login-password" type="password" autocomplete="current-password" required>
+    <button id="admin-login-submit" type="submit">로그인</button>
+    <div id="admin-login-msg" class="admin-login-msg"></div>
+  </form>
+</div>
+<div class="app">
+
+<!-- ── 사이드바 ─────────────────────────────────────────── -->
+<aside class="sb">
+  <div class="sb-top">
+    <div class="sb-mark"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEEAAABBCAYAAACO98lFAAAEEUlEQVR4nO1bvYoUQRCukgHZyAkEWRBOcB/AjTQcn8AVzA32BQzHF9DA4FIDzScw8Qk8GBPBF5ATbi4yMLlMRKGkb2vZuaH/qqd7Zjzmg4Wlp6e6u7r+uqoHYMaMGTMOQBgBRLQAgJud5t+I+OtaMoGIcgB4AABPAOApABw5XvkMAF8B4CMAfBmLMVEWTkRbImqoPxSNDUvP9EFEKyKqKB2OWbImu/NVwsXrmJHBFEBEyKI6FoqxGbAQ7n7NdqJgyVG/kpmo/i/5Wcl9JVIxvJej3YR9jJ5azFonuqqNaTS6RTCTN57jNIMaTtoZPxeUhCwddJRUeIk1j1lPghHkZoCayMqDjhL/LpyGjtWlGY0RtBPPKLrJfbsoI9miNIygg/6asIkkTbnAK7XVqYsqurEk/c7t4RT/zuRtul0J52VjxDZosRY97M0AD1p7rCMyIk+tBtuItNrQusxASa3FixZwuQqgpYIgX2yEtNHC4PCoknY7Z4LI+hpcogtZQAAXJFk3LM+eG9ofB5zx34IcbySdEfEHALzUPFL5i/vi0cksXiH66hNhRjFsFumV2wYyT7yIqKs+qCPasUUsI5YlcIkuFJHsj8xAkn73yoiGVYIQFax7eTQynxFWCV2iC9KYRJvokRBY91WFQJfowiKCu8x9XeQtTds5Iv5N7BJdeCXo+9PQfrtPCHrc07OUrbRa5lDFfZpNNw9roqZDK9w4Ur+zftsllpJJW+itWnOqe+YsejGh8Hy3YD8dPR3O3uYyURtborOYE0XEEwA4sUwsZ728a+jyDQAudGE526T3KTLLGSQET1jF7c8A4LXgvXM2rh8Q8Xv7GSL6uzpP3PDs9yhEdAHgDABOJQxoHXrUO6dsY4pIEqCKvMFMuCMwZEpn/wDAO48KtA8UjU+KocLQ90XwiKSP9xuP93Jh5SgUlStw4s0IT91RQMTY87gcAmt9I0bEeGagfc8w4Jb1fkgcsb0wMeKhrhERL7xHID1KYaZ3KKyinyItJ8DlyCpgw9JDpUXJW9AssBSW5GgEG3HFZmlKdeLMErbOALoBbBWpsXBsOc6H1R/ooO+Fp/eYAtaGzRJVtXTpsczWNhXwzl9JxenaggiDXjrEFaiU6BR6u5K7jD1QE2xtE6LjzeqUA636Jl8TzUsXqyxTDVYajNFojLAEa2mklOyVpMHvEzqi1TLVoLll0MuBh7hPyB5q+DtLglC5TqaPhxhlvNtrwjND1IvYk7rH2JmUT7W54r4YKPZrz0TNsAzoHKIkmaSKa4Sr/d3mVvyxv+u8ZoMnuTNdjRrB0m4BMQuv/9ct95Hyi22bM80vYcjPgF3PL18Mic5YqbeGaU1z5wUM2QgSMQ33vaxiwzX+LjLvnQ2eMWPGDEiDf8BbGpXYWSPVAAAAAElFTkSuQmCC" alt="우미"></div>
+    <div class="sb-name">Recruiting Hub</div>
+    <div class="sb-sub">우미건설 피플팀</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="ng">
+      <div class="ng-label">MAIN</div>
+      <button class="nb on" data-action="nav" data-target="dash">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        대시보드
+      </button>
+      <button class="nb" data-action="nav" data-target="recruit-status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+        채용현황
+      </button>
+      <button class="nb" data-action="nav" data-target="position">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        포지션
+        <span class="nbb" id="nb-pos">0</span>
+      </button>
+    </div>
+    <div class="ng">
+      <div class="ng-label">WORKSPACE</div>
+      <button class="nb" data-action="nav" data-target="tracker">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        지원자
+        <span class="nbb" id="nb-total">0</span>
+      </button>
+      <button class="nb" data-action="nav" data-target="interview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        면접
+        <span class="nbb" id="nb-int" style="display:none"></span>
+      </button>
+      <button class="nb" data-action="nav" data-target="reference">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        레퍼런스
+      </button>
+      <button class="nb" data-action="nav" data-target="referral">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 11c1.66 0 3-1.57 3-3.5S17.66 4 16 4s-3 1.57-3 3.5S14.34 11 16 11Z"/><path d="M8 12c1.66 0 3-1.57 3-3.5S9.66 5 8 5 5 6.57 5 8.5 6.34 12 8 12Z"/><path d="M2 20c.7-3 2.8-5 6-5s5.3 2 6 5"/><path d="M12 19c.6-2.4 2.2-4 4.8-4 2.5 0 4.2 1.6 5.2 4"/></svg>
+        사내추천
+        <span class="nbb" id="nb-referral" style="display:none"></span>
+      </button>
+      <button class="nb" data-action="nav" data-target="onboarding">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
+        입사
+      </button>
+    </div>
+    <div class="ng">
+      <div class="ng-label">REPORT</div>
+      <button class="nb" data-action="nav" data-target="notifylog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        리포트
+        <span class="nbb" id="nb-notify" style="display:none"></span>
+      </button>
+    </div>
+    <div class="ng">
+      <div class="ng-label">SYSTEM</div>
+      <button class="nb" data-action="nav" data-target="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        설정
+      </button>
+    </div>
+  </nav>
+
+  <details class="sb-conn">
+    <summary><span>시스템 연동</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></summary>
+    <div class="sb-conn-body">
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#217346"></div><div class="sb-std-text">Google Sheets — 데이터 저장</div></div>
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#4285F4"></div><div class="sb-std-text">레퍼런스 자동화 — 접수</div></div>
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#EA4335"></div><div class="sb-std-text">Gmail — 이메일 발송</div></div>
+      <div class="sb-std-row"><div class="sb-std-dot" style="background:#EA4335"></div><div class="sb-std-text">Apps Script — 자동화</div></div>
+    </div>
+  </details>
+  <div class="sb-sync" id="sb-sync-status"><span class="sb-sync-dot" id="sb-sync-dot"></span><span id="sb-sync-label">동기화 대기</span></div>
+</aside>
+
+<!-- ── 메인 ─────────────────────────────────────────────── -->
+<div class="main">
+  <div id="sync-fail-banner" class="sync-fail-banner">
+    <span>Google Sheets 동기화에 실패했습니다. 데이터가 최신이 아닐 수 있습니다.</span>
+    <button class="btn btn-xs" style="margin-left:auto" data-action="call" data-call="syncCoreFromGS()">재시도</button>
+    <button class="btn btn-xs" data-action="call" data-call="document.getElementById('sync-fail-banner').style.display='none'">닫기</button>
+  </div>
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="tb-title" id="tb-title">대시보드</div>
+      <span class="tb-date-text" id="tb-date"></span>
+    </div>
+    <div class="tb-right">
+      <button class="btn btn-sm" data-action="call" data-call="openAddPosition()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+        포지션 추가
+      </button>
+      <button class="btn btn-sm" data-action="call" data-call="openAddCand()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+        지원자 추가
+      </button>
+      
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ① 대시보드 ──────────────────────────────────────── -->
+    <div id="sect-dash" class="sect on">
+      <div class="mrow g4" id="kpi-row" style="margin-bottom:12px">
+        <div class="mc kpi-operational" data-action="nav" data-target="position" title="포지션 관리로 이동" style="cursor:pointer"><div class="mc-lbl">진행 중 포지션</div><div class="mc-val" id="kpi-active-pos">0</div><div class="mc-sub">채용 진행 중 ↗</div></div>
+        <div class="mc kpi-warning"><div class="mc-lbl">순 필요 인원</div><div class="mc-val" id="kpi-needed">0</div><div class="mc-sub">추가 채용 필요</div></div>
+        <div class="mc" data-action="nav" data-target="tracker" title="지원자 현황으로 이동" style="cursor:pointer"><div class="mc-lbl">파이프라인 지원자</div><div class="mc-val" id="kpi-pipeline">0</div><div class="mc-sub">전형 진행 중 ↗</div></div>
+        <div class="mc" data-action="nav" data-target="interview" title="면접 관리로 이동" style="cursor:pointer"><div class="mc-lbl">금주 면접</div><div class="mc-val" id="kpi-weekint">0</div><div class="mc-sub">이번 주 예정 ↗</div></div>
+      </div>
+
+      <!-- 진행 현황 칸반 (토글) -->
+      <div class="card" id="dash-kanban-card" style="margin-bottom:12px">
+        <div class="ch">
+          <div class="ch-l">진행 현황 <span style="font-size:10px;font-weight:500;color:var(--t3)">(칸반)</span> <span id="kb-progress" style="font-size:11px;font-weight:700;color:var(--acc);background:var(--acc-light);padding:2px 9px;border-radius:6px;margin-left:4px">진행 0명</span></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="seg">
+              <button class="seg-btn"    id="kb-tab-stage" data-action="switch-kanban" data-view="stage">단계별 지원자</button>
+              <button class="seg-btn on" id="kb-tab-pos"   data-action="switch-kanban" data-view="pos">포지션별</button>
+            </div>
+            <button class="btn btn-xs btn-ghost" data-action="nav" data-target="position">포지션 관리 →</button>
+          </div>
+        </div>
+        <div id="dash-stage-kanban" style="display:none"></div>
+        <div id="dash-kanban" style="overflow-x:auto"></div>
+      </div>
+
+      <!-- 처리 필요 -->
+      <div class="card" id="dash-urgent-card" style="margin-bottom:12px;padding:0;overflow:hidden">
+        <div id="dash-urgent"></div>
+      </div>
+    </div>
+
+    <div id="sect-recruit-status" class="sect">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:700">채용 현황</span>
+        <div id="rs-year-btns" style="display:flex;gap:4px"></div>
+        <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--s2);border-radius:var(--rsm);border:1px solid var(--border);font-size:12px;color:var(--t2)"><span id="rs-date-label"></span> 기준</div>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" data-action="call" data-call="openRecruitPlanModal()">채용계획 편집</button>
+          <button class="btn btn-sm btn-ghost" data-action="call" data-call="exportRecruitStatus()">엑셀</button>
+        </div>
+      </div>
+      <div class="mrow g5" id="rs-kpi" style="margin-bottom:16px"></div>
+      <div class="card" style="padding:0;overflow:hidden"><div id="rs-table-wrap" style="overflow-x:auto"></div></div>
+    </div>
+
+    <!-- ② 지원자 트래커 ──────────────────────────────────── -->
+    <!-- ── 포지션 관리 섹션 ─────────────────────────────────── -->
+<div id="sect-position" class="sect">
+  <div class="section-head">
+    <div>
+      <div class="section-title">포지션 관리</div>
+      <div class="section-sub" id="pos-count-label">전체 0개 포지션</div>
+    </div>
+    <div>
+      <button class="btn btn-primary" data-action="call" data-call="openAddPosition()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 2v12M2 8h12"/></svg>
+        포지션 추가
+      </button>
+    </div>
+  </div>
+
+  <!-- 진행중/완료 필터 탭 -->
+  <div style="display:flex;gap:6px;margin-bottom:14px">
+    <button class="btn btn-sm pos-tab pos-tab-on" data-posfilter="active" data-action="filter-position" data-value="active">진행중 <span id="pos-cnt-active" style="opacity:.7"></span></button>
+    <button class="btn btn-sm pos-tab" data-posfilter="done" data-action="filter-position" data-value="done">완료 <span id="pos-cnt-done" style="opacity:.7"></span></button>
+    <button class="btn btn-sm pos-tab" data-posfilter="all" data-action="filter-position" data-value="all">전체 <span id="pos-cnt-all" style="opacity:.7"></span></button>
+  </div>
+  <div id="pos-org-filter" style="display:none;margin:-4px 0 12px;padding:8px 10px;background:var(--acc-light);border:1px solid #C8DEFA;border-radius:var(--rsm);font-size:11.5px;color:var(--acc);align-items:center;gap:8px">
+    <span id="pos-org-filter-label" style="flex:1"></span>
+    <button class="btn btn-xs" data-action="call" data-call="clearPositionOrgFilter()">필터 해제</button>
+  </div>
+
+  <!-- 포지션 목록 -->
+  <div id="pos-list"></div>
+</div>
+
+<div id="sect-posdetail" class="sect">
+  <div class="posdetail-crumb">
+    <button class="btn btn-xs" data-action="call" data-call="nav('position')" style="display:flex;align-items:center;gap:4px;font-size:11px">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      포지션 목록
+    </button>
+    <span style="color:var(--t3);font-size:11px">/</span>
+    <span id="posdetail-title" style="font-size:13px;font-weight:700;color:var(--text)"></span>
+  </div>
+  <div id="posdetail-body" style="padding:12px 20px 0"></div>
+  <div id="posdetail-ft" style="padding:10px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+</div>
+
+<div id="sect-tracker" class="sect">
+      <!-- 6단계 필터 바 -->
+      <div class="stage-bar" id="stage-filter-bar">
+        <div class="stage-seg act" data-action="filter-stage" data-value="-1"><div class="ss-lbl">전체</div><div class="ss-cnt" id="sf-all">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="0"><div class="ss-lbl">서류합격</div><div class="ss-cnt" id="sf-0">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="1"><div class="ss-lbl">1차면접</div><div class="ss-cnt" id="sf-1">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="2"><div class="ss-lbl">레퍼런스</div><div class="ss-cnt" id="sf-2">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="3"><div class="ss-lbl">2차면접</div><div class="ss-cnt" id="sf-3">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="4"><div class="ss-lbl">처우협의</div><div class="ss-cnt" id="sf-4">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="5"><div class="ss-lbl">최종합격</div><div class="ss-cnt" id="sf-5">0</div></div>
+        <div class="stage-seg" data-action="filter-stage" data-value="6" style="background:var(--rbg)"><div class="ss-lbl" style="color:var(--red)">불합격</div><div class="ss-cnt" id="sf-6" style="color:var(--red)">0</div></div>
+      </div>
+      <div class="filter-bar">
+        <input class="search-inp" id="cand-search" placeholder="🔍  이름·직무·부서 검색" data-oninput="renderTracker()">
+        <select id="sort-by" data-onchange="renderTracker()" style="font-size:11.5px;padding:4px 10px;border:1px solid var(--border2);border-radius:6px;font-family:'Pretendard',sans-serif;color:var(--t2)">
+          <option value="stage-desc">단계↑순</option>
+          <option value="stage-asc">단계↓순</option>
+          <option value="name">이름순</option>
+          <option value="date">접수일순</option>
+        </select>
+        <details class="advanced-filter">
+          <summary>상세 필터</summary>
+          <div class="advanced-filter-panel">
+            <button class="fbtn fon" data-action="filter-role" data-value="all" data-group="role">전체 직군</button>
+            <button class="fbtn" data-action="filter-role" data-value="영업직" data-group="role">영업직</button>
+            <button class="fbtn" data-action="filter-role" data-value="기술직" data-group="role">기술직</button>
+            <button class="fbtn" data-action="filter-role" data-value="관리직" data-group="role">관리직</button>
+            <button class="fbtn" data-action="filter-role" data-value="현장직" data-group="role">현장직</button>
+            <span style="width:100%;height:1px;background:var(--border)"></span>
+            <button class="fbtn fon" data-action="filter-etype" data-value="all" data-group="etype">전체 형태</button>
+            <button class="fbtn" data-action="filter-etype" data-value="정규직" data-group="etype">정규직</button>
+            <button class="fbtn" data-action="filter-etype" data-value="전문직" data-group="etype">전문직</button>
+            <button class="fbtn" data-action="filter-etype" data-value="파견직" data-group="etype">파견직</button>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);cursor:pointer;margin-left:auto">
+              <input type="checkbox" id="show-rejected" data-onchange="renderTracker()" style="width:auto;margin:0"> 불합격 포함
+            </label>
+          </div>
+        </details>
+        <button class="btn btn-sm btn-primary" data-action="call" data-call="openAddCand()" style="margin-left:auto">+ 지원자 추가</button>
+      </div>
+      <div class="cl-wrap">
+        <div class="cl-header">
+          <span></span><span>지원자 / 직무</span><span>채용 / 직군</span><span>단계</span><span>레퍼런스</span><span>면접일</span><span>알림</span><span>액션</span>
+        </div>
+        <div id="cand-list"></div>
+        <div id="cand-pagination" style="display:none;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--t2)"></div>
+      </div>
+    </div>
+
+    <!-- ③ 면접 관리 ──────────────────────────────────────── -->
+    <div id="sect-interview" class="sect">
+      <div id="int-inbox-wrap"></div>
+      <div id="int-pos-cards"></div>
+      <details class="help-details">
+        <summary>면접 안내 운영 방식 보기</summary>
+        <div class="help-details-body">면접은 <strong>채용 포지션 기준</strong>으로 운영합니다. 포지션별로 후보일정 안내, 공동일정 확정, 지원자·면접관 안내, 결과 입력을 진행하고 특별한 사유가 있는 지원자만 개별 예외 처리합니다.</div>
+      </details>
+      <details class="int-exception-details">
+        <summary>개별 지원자 예외 일정 등록·수정</summary>
+        <div class="int-exception-body">
+      <div class="grid onboarding-main-layout">
+        <div class="card">
+          <div class="ch"><div class="ch-l">개별 예외 일정 등록</div></div>
+          <div class="fgrid f2" style="gap:10px">
+            <div class="fg full"><label>지원자</label><select id="int-cand" data-onchange="updateIntPreview()"><option value="">-- 선택 --</option></select></div>
+            <div class="fg"><label>면접 유형</label>
+              <select id="int-type" data-onchange="updateIntPreview()">
+                <option value="1차">1차 실무면접</option>
+                <option value="2차">2차 임원면접</option>
+              </select>
+            </div>
+            <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" data-onchange="snapTo10(this);updateIntPreview()"/></div>
+            <div class="fg full"><label>장소 / 방식</label><input id="int-loc" value="린스퀘어" placeholder="본사 3층 A실 / Teams 화상" data-oninput="updateIntPreview()"/></div>
+            <div class="fg full"><label>면접관</label><input id="int-panel" placeholder="김부장, 이팀장" data-oninput="updateIntPreview()"/></div>
+            <div class="fg full"><label>지원자 안내 메모</label><textarea id="int-memo" placeholder="포트폴리오 지참, 기술 테스트 포함 등" data-oninput="updateIntPreview()"></textarea></div>
+          </div>
+          <div class="brow">
+            <button class="btn btn-primary" data-action="call" data-call="addInterview()">등록</button>
+            <button class="btn btn-primary" data-action="call" data-call="sendIntNotify('outlook')">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12l-1 8H3L2 4z"/><path d="M6 4V3a2 2 0 014 0v1"/></svg>
+              메일 발송
+            </button>
+          </div>
+        </div>
+        <!-- 미리보기 -->
+        <div>
+          <div class="card">
+            <div class="ch"><div class="ch-l">이메일 미리보기</div></div>
+            <div class="notify-card">
+              <div class="nc-header">
+                <div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
+                <div><div class="nc-title" style="color:var(--outlook)">발송 이메일</div><div class="nc-sub">지원자 본인 발송</div></div>
+              </div>
+              <div class="nc-body" id="int-preview-outlook">면접 정보를 입력하면 미리보기가 표시됩니다.</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:0 14px">[메일 발송] 버튼 클릭 시 등록된 발신 계정으로 즉시 발송됩니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+        </div>
+      </details>
+      <div class="card" style="margin-top:12px">
+        <div class="ch">
+          <div><div class="ch-l">개별 일정 현황</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">포지션 공동일정 적용 결과와 개별 예외 일정을 확인합니다.</div></div>
+          <select id="int-filter" data-onchange="renderIntTable()" style="font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--border2)">
+            <option value="">전체 면접</option><option value="1차">1차 면접</option><option value="2차">2차 면접</option>
+          </select>
+        </div>
+        <div id="int-table"></div>
+      </div>
+    </div>
+
+    <!-- ④ 레퍼런스 체크 ──────────────────────────────────── -->
+    <div id="sect-reference" class="sect">
+      <div class="mrow g5 ref-kpis" style="margin-bottom:14px">
+        <div class="mc c-blue ref-kpi-secondary" data-action="call" data-call="setRefFilter('ready')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">발송 대기</div><div class="mc-val" id="ref-m-ready">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-amber" data-action="call" data-call="setRefFilter('ing')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">진행 중</div><div class="mc-val" id="ref-m-ing">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-red" data-action="call" data-call="setRefFilter('zero')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">전무응답</div><div class="mc-val" id="ref-m-zero">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-green" data-action="call" data-call="setRefFilter('done')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">완료</div><div class="mc-val" id="ref-m-done">0</div><div class="mc-sub">↗ 클릭</div></div>
+        <div class="mc c-amber ref-kpi-secondary" data-action="call" data-call="setRefFilter('pend')" style="cursor:pointer" title="클릭하여 대상자 보기"><div class="mc-lbl">총 미응답</div><div class="mc-val" id="ref-m-pend">0</div><div class="mc-sub">↗ 클릭</div></div>
+      </div>
+      <div class="card" style="margin-bottom:12px;padding:14px 18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px">전체 응답 수집 진행률</div>
+          <div style="font-size:12px;font-weight:700" id="ref-overall-pct">0 / 0</div>
+        </div>
+        <div class="prog" style="height:8px"><div class="pf-bar pfg" id="ref-overall-bar" style="width:0%"></div></div>
+      </div>
+      <div class="grid g32">
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">레퍼런스 진행 현황</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select id="ref-pos-sort" data-onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2)">
+                <option value="status">상태 우선</option><option value="title">포지션명순</option>
+              </select>
+              <select id="ref-sort" data-onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2)">
+                <option value="name">이름순 (포지션 내)</option><option value="rate">응답률순 (포지션 내)</option>
+              </select>
+              <button class="btn btn-xs btn-ghost" data-action="call" data-call="syncRefFromGS()">↻ 구글시트 동기화</button>
+            </div>
+          </div>
+          <div id="ref-urgency-list" style="max-height:560px;overflow-y:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:8px;align-items:start"></div>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><div class="ch-l">추천인 목록</div></div>
+            <div id="ref-referee-panel"><div style="font-size:12px;color:var(--t3);text-align:center;padding:20px">← 좌측 응답 숫자를 선택하세요</div></div>
+          </div>
+          <div class="card">
+            <div class="ch"><div class="ch-l">AI 레퍼런스 요약</div></div>
+            <div class="fg" style="margin-bottom:10px"><label>대상 지원자</label><select id="ref-ai-cand" style="margin-top:4px"><option value="">-- 선택 --</option></select></div>
+            <div id="ref-ai-progress" style="display:none;margin-bottom:8px">
+              <div style="font-size:11px;color:var(--t3);margin-bottom:3px" id="ref-ai-label">분석 중...</div>
+              <div class="prog"><div class="pf-bar pfb" id="ref-ai-bar" style="width:0%"></div></div>
+            </div>
+            <div id="ref-ai-output" style="display:none"><div id="ref-ai-text"></div></div>
+            <button class="btn btn-primary btn-sm" data-action="call" data-call="generateAI()">AI 요약 생성</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="ch">
+          <div><div class="ch-l">레퍼런스 결과 정리</div><div style="font-size:11px;color:var(--t3);margin-top:2px">추천인 응답을 지원자 단위의 항목별 종합 의견으로 정리합니다.</div></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="ref-report-cand" data-onchange="renderRefReport()" style="font-size:11px;padding:5px 9px;border-radius:6px;border:1px solid var(--border2)"><option value="">-- 지원자 선택 --</option></select>
+            <button class="btn btn-sm btn-primary" data-action="call" data-call="saveRefReport()">결과 저장</button>
+          </div>
+        </div>
+        <div id="ref-report-empty" style="padding:28px;text-align:center;font-size:12px;color:var(--t3)">지원자를 선택하면 결과 정리표가 표시됩니다.</div>
+          <div id="ref-report-wrap" style="display:none;overflow-x:auto">
+            <div id="ref-report-responses" style="margin-bottom:12px"></div>
+          <table class="ref-report-table">
+            <thead><tr><th style="width:120px">구분</th><th>인물평</th></tr></thead>
+            <tbody>
+              <tr><td class="ref-report-label">총평</td><td><textarea id="ref-report-overall" placeholder="· 지원자의 전반적인 역량과 업무 수행 특성을 종합해 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">1. 일하는 방식</td><td><textarea id="ref-report-expertise" placeholder="· 겸손, 갈망, 스마트, 의사결정, 역할·배치 참고사항을 종합해 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">2. 리더십</td><td><textarea id="ref-report-leadership" placeholder="· 후배·팀원의 일이 막혔을 때 개입 방식과 실제 상황을 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">3. 성격·성품</td><td><textarea id="ref-report-character" placeholder="· 주변이 기억하는 표현, 근거 상황, 일이 몰렸을 때의 대응을 작성하세요."></textarea></td></tr>
+              <tr><td class="ref-report-label">4. 퇴직사유</td><td><textarea id="ref-report-reason" placeholder="· 응답자별 출처와 진술, 확인 필요사항과 확인 경로를 작성하세요."></textarea></td></tr>
+            </tbody>
+          </table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <div id="ref-report-saved" style="font-size:11px;color:var(--t3)">아직 저장되지 않았습니다.</div>
+            <button class="btn btn-sm btn-primary" data-action="call" data-call="saveRefReport()">결과 저장</button>
+          </div>
+        </div>
+      </div>
+      <!-- 메트릭 클릭 필터 결과 패널 -->
+      <div id="ref-filter-panel" style="display:none;margin-top:12px">
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:12px 16px;background:var(--acc-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:12px;font-weight:700;color:var(--acc)" id="ref-filter-panel-title"></div>
+            <button class="btn btn-xs btn-ghost" data-action="call" data-call="setRefFilter('')">✕ 필터 해제</button>
+          </div>
+          <div id="ref-filter-panel-body"></div>
+        </div>
+      </div>
+
+      <details class="help-details" style="margin-top:12px">
+        <summary>전체 레퍼런스 현황 보기</summary>
+        <div class="help-details-body">
+        <div class="ch">
+          <div class="ch-l">전체 현황</div>
+          <div style="display:flex;gap:6px">
+            <select id="ref-filter-status" data-onchange="renderReference()" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2)">
+              <option value="">전체</option><option value="미시작">미시작</option><option value="진행중">진행중</option><option value="완료">완료</option><option value="생략">생략</option>
+            </select>
+            <button class="btn btn-xs btn-ghost" data-action="call" data-call="startAllEligible()">2차합격+ 일괄 시작</button>
+          </div>
+        </div>
+        <div id="ref-table"></div>
+        </div>
+      </details>
+    </div>
+
+    <!-- ⑤ 사내추천 관리 ──────────────────────────────────── -->
+    <div id="sect-referral" class="sect">
+      <div class="referral-kpis">
+        <div class="mc c-blue"><div class="mc-lbl">진행중</div><div class="mc-val" id="rf-kpi-submitted">0</div><div class="mc-sub">접수/검토/전형</div></div>
+        <div class="mc c-green"><div class="mc-lbl">합격</div><div class="mc-val" id="rf-kpi-process">0</div><div class="mc-sub">입사/포상 대기</div></div>
+        <div class="mc c-red"><div class="mc-lbl">불합격</div><div class="mc-val" id="rf-kpi-hired">0</div><div class="mc-sub">채용 종료</div></div>
+        <div class="mc c-green"><div class="mc-lbl">입사</div><div class="mc-val" id="rf-kpi-reward">0</div><div class="mc-sub">포상 스케줄 생성</div></div>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <div><div class="ch-l">사내추천 운영</div><div style="font-size:11px;color:var(--t3);margin-top:2px">접수 이후 검토·후보 매칭·포상금 관리를 기존 채용관리시스템 안에서 처리합니다.</div></div>
+          <div class="brow" style="margin-top:0">
+            <a class="btn btn-xs" href="https://wmpeopleteam.github.io/referral/" target="_blank" rel="noopener">직원 접수 화면</a>
+            <button class="btn btn-xs btn-primary" data-action="call" data-call="openReferralDraft()">추천 건 등록</button>
+            <button class="btn btn-xs" data-action="call" data-call="refreshReferralsFromGS()">↻ 시트 동기화</button>
+          </div>
+        </div>
+        <div class="referral-tabs">
+          <button class="btn btn-sm btn-primary" id="rf-tab-inbox" data-action="call" data-call="setReferralView('inbox')">진행중</button>
+          <button class="btn btn-sm btn-ghost" id="rf-tab-completed" data-action="call" data-call="setReferralView('completed')">완료</button>
+          <button class="btn btn-sm btn-ghost" id="rf-tab-rewards" data-action="call" data-call="setReferralView('rewards')">포상금</button>
+          <button class="btn btn-sm btn-ghost" id="rf-tab-history" data-action="call" data-call="setReferralView('history')">추천인 히스토리</button>
+          <button class="btn btn-sm btn-ghost" id="rf-tab-employees" data-action="call" data-call="setReferralView('employees')">인증 DB</button>
+        </div>
+        <div class="referral-layout">
+          <aside>
+            <div class="fgrid" style="grid-template-columns:1fr 110px 120px;margin-bottom:10px">
+              <input id="rf-search" placeholder="검색" data-oninput="renderReferralSection()">
+              <select id="rf-dup-filter" data-onchange="renderReferralSection()">
+                <option value="">전체 플래그</option>
+                <option value="중복추천">중복추천</option>
+                <option value="기지원자">기지원자</option>
+                <option value="확인필요">확인필요</option>
+                <option value="없음">없음</option>
+              </select>
+              <select id="rf-status-filter" data-onchange="renderReferralSection()">
+                <option value="">전체 상태</option>
+                <option value="SUBMITTED">접수</option>
+                <option value="REVIEWING">검토중</option>
+                <option value="IN_PROCESS">전형진행</option>
+                <option value="PASSED">합격</option>
+                <option value="FAILED">불합격</option>
+                <option value="POOLED">인재풀</option>
+                <option value="EXPIRED">만료</option>
+                <option value="HIRED">입사</option>
+                <option value="REJECTED">불인정</option>
+                <option value="WITHDRAWN">취소</option>
+              </select>
+            </div>
+            <div id="rf-list" class="referral-list"></div>
+          </aside>
+          <section>
+            <div id="rf-detail"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑤ 입사 안내 ──────────────────────────────────────── -->
+    <div id="sect-onboarding" class="sect">
+      <p style="font-size:11.5px;color:var(--t3);margin-bottom:14px">최종 합격자에게 입사 안내 메일을 발송하고, 내부 관련 부서에 공유합니다.</p>
+      <div class="grid onboarding-main-layout" style="gap:12px">
+        <div>
+          <div class="card">
+            <div class="ch"><div class="ch-l">입사 예정자 현황</div></div>
+            <div id="ob-table"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="ch"><div class="ch-l">입사 안내 등록</div></div>
+            <div class="fgrid f2" style="gap:10px">
+              <div class="fg full"><label>최종 합격자</label><select id="ob-cand" data-onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
+              <div class="fg full"><label>포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
+              <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="updateObPreview()"/></div>
+              <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" data-onchange="refreshOnboardingDeptRecipients()" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>해당부서 팀장/소장 이메일 <span style="color:var(--green)">자동 선택</span></label><input id="ob-dept-lead" placeholder="배치부서 기준 자동 매핑 · 필요 시 수정 가능" data-oninput="updateObPreview()"/></div>
+              <div class="fg full"><label>내부 공유 수신자</label><div id="ob-recipient-summary" style="padding:8px 10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);font-size:11px;color:var(--t2)">합격자를 선택하면 배치부서 팀장/소장과 관련부서 수신자를 확인할 수 있습니다.</div><button class="btn btn-xs" style="margin-top:5px;width:max-content" data-action="call" data-call="navBtn('settings')">관련부서 수신자 설정</button></div>
+              <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>채용형태</label>
+                <select id="ob-etype" data-onchange="updateObPreview()">
+                  <option>정규직</option><option>전문직</option><option>파견직</option>
+                </select>
+              </div>
+              <div class="fg full"><label>입사 전 준비 안내</label><textarea id="ob-notes" placeholder="건강검진, 서류 목록, 출입증 등" data-oninput="updateObPreview()"></textarea></div>
+            </div>
+            <div class="brow">
+              <button class="btn btn-primary" data-action="call" data-call="addOnboarding()">등록</button>
+              <button class="btn btn-primary" data-action="call" data-call="sendObNotify('outlook')">지원자 입사안내 발송</button>
+              <button class="btn btn-ghost" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
+            </div>
+          </div>
+          <details class="help-details onboarding-preview-details">
+            <summary>메일 내용 미리보기 (선택)</summary>
+            <div class="help-details-body">
+              <div class="onboarding-preview-grid">
+              <div class="card">
+                <div class="ch"><div class="ch-l ob-mail-label">지원자 입사안내 메일 <span class="b bblue">개별 발송</span></div></div>
+                <div class="notify-card">
+                  <div class="nc-header"><div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
+                    <div><div class="nc-title" style="color:var(--outlook)">발송 이메일</div><div class="nc-sub">지원자 본인</div></div></div>
+                  <div class="nc-body" id="ob-preview-outlook">입사 정보를 입력하면 미리보기가 표시됩니다.</div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="ch"><div class="ch-l ob-mail-label">내부 직원 공유 메일 <span class="b bgreen">단체 발송</span></div></div>
+                <div class="notify-card">
+                  <div class="nc-header"><div class="nc-icon" style="background:var(--green)">IN</div>
+                    <div><div class="nc-title" style="color:var(--green)">사내 입사 준비 요청</div><div class="nc-sub" id="ob-preview-internal-to">부서장/소장 + 고정 수신팀 + 피플팀</div></div></div>
+                  <div class="nc-body" id="ob-preview-internal">입사 정보를 입력하면 내부 공유용 미리보기가 표시됩니다.</div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑥ 알림 내역 ──────────────────────────────────────── -->
+    <div id="sect-notifylog" class="sect">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ch">
+          <div class="ch-l">채용 기간 리포트</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="report-month" type="month" style="font-size:11px;padding:4px 7px;border:1px solid var(--border2);border-radius:6px"/>
+            <button class="btn btn-xs" data-action="render-period-report">조회</button>
+            <button class="btn btn-xs btn-primary" data-action="export-period-report">CSV 다운로드</button>
+          </div>
+        </div>
+        <div id="period-report"></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="ch"><div class="ch-l">활동 로그</div><button class="btn btn-xs btn-ghost" data-action="call" data-call="renderActivityLog()">새로고침</button></div>
+        <div id="activity-log-list" style="max-height:320px;overflow-y:auto"></div>
+      </div>
+      <div class="card">
+        <div class="ch">
+          <div class="ch-l">알림 발송 전체 내역</div>
+          <select id="log-filter" data-onchange="renderNotifyLog()" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2)">
+            <option value="">전체</option><option value="Gmail">Gmail</option><option value="Outlook">이메일</option>
+          </select>
+        </div>
+        <div id="notify-log-table"></div>
+      </div>
+    </div>
+
+    <!-- ⑦ 설정 ──────────────────────────────────────────── -->
+    <div id="sect-settings" class="sect">
+      <div class="card">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+          <button class="btn btn-primary btn-sm" data-action="call" data-call="saveSettings()">💾 설정 저장</button>
+        </div>
+        <div class="ch">알림 채널 설정</div>
+        <div class="alert aw"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><path d="M8 7v4"/></svg>
+          <span>Google Sheets 연동: 지원자 추가·수정·단계변경 시 자동으로 Google Sheets에 저장됩니다. 아래 URL 입력 후 연결 테스트를 완료하세요.</span>
+        </div>
+        <details style="margin-bottom:14px;border:1px solid #C8DEFA;border-radius:var(--r);background:#F4F9FF">
+          <summary style="padding:10px 14px;cursor:pointer;font-weight:700;font-size:12.5px;color:var(--outlook)">메일 발송 설정 확인</summary>
+          <div style="padding:0 16px 14px;font-size:12px;line-height:1.7;color:var(--t2)">
+            메일은 Apps Script의 MailApp으로 발송됩니다. 최초 1회 Google 계정 권한 승인이 필요합니다.
+            <div style="margin-top:10px;padding:10px 12px;background:#fff;border-radius:var(--rsm);border:1px solid var(--border)">
+              <b>필수 Script Properties</b><br>
+              Gmail 발송용 추가 값은 필요하지 않습니다.<br>
+              <span style="color:var(--t3)">Google 계정/별칭 정책상 임의의 From 주소를 지정할 수는 없습니다.</span>
+            </div>
+            <div style="margin-top:8px;padding:10px 12px;background:#fff;border-radius:var(--rsm);border:1px solid var(--border)">
+              <b>권한</b><br>
+              Apps Script 실행 계정에 메일 발송 권한이 필요합니다.<br>
+              hr@wm.co.kr로 발송하려면 해당 주소가 Google Workspace 계정 또는 Gmail 발신 별칭으로 구성되어 있어야 합니다.
+            </div>
+            <div style="margin-top:8px;padding:8px 12px;background:#FFF8E8;border-radius:var(--rsm);font-size:11.5px;color:#8A6D00">
+              설정이 없거나 권한이 맞지 않으면 발송 실패 토스트와 MailLog 시트에 오류가 기록됩니다.
+            </div>
+          </div>
+        </details>
+        <div class="fgrid f2" style="gap:12px;margin-bottom:14px">
+          <div class="fg"><label>알림 채널</label>
+            <select id="cfg-default-channel">
+              <option value="outlook" selected>이메일</option>
+            </select>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">지원자는 외부인이므로 이메일로만 발송됩니다 · Apps Script MailApp으로 발송</div>
+          </div>
+          <div class="fg"><label>레퍼런스 응답 기한 (일)</label>
+            <select id="cfg-ref-days"><option value="5">5일</option><option value="7" selected>7일</option><option value="10">10일</option></select>
+          </div>
+          <div class="fg"><label>리마인드 기준 (기한 N일 전)</label>
+            <select id="cfg-remind-days"><option value="2">2일 전</option><option value="3" selected>3일 전</option><option value="5">5일 전</option></select>
+          </div>
+          <div class="fg"><label>발신자 서명</label><input id="cfg-sign" value="우미건설 피플팀"/></div>
+          <div class="fg"><label>피플팀 담당자 이메일 *</label><input id="cfg-hr-email" placeholder="people@company.co.kr" type="email"/></div>
+          <div class="fg full" style="margin-top:12px;padding-top:16px;border-top:2px solid #8A5A12">
+            <label style="color:#8A5A12;font-weight:700">헤드헌팅 업체 DB</label>
+            <textarea id="cfg-headhunter-db" rows="5" data-oninput="renderHeadhunterDbPreview();populateHeadhunterSelect()" placeholder="한 줄에 한 업체씩 입력&#10;업체명,담당자명,담당자이메일,담당자연락처&#10;예: ABC서치,김컨설턴트,abc@search.co.kr,010-0000-0000" style="font-size:12px;font-family:'DM Mono',monospace"></textarea>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">지원자 등록 시 업체명만 선택하면 면접·레퍼런스·처우협의 안내가 업체 담당자에게 발송됩니다.</div>
+            <div id="headhunter-db-preview" style="margin-top:8px;font-size:11.5px;color:var(--t2)"></div>
+          </div>
+          <div class="fg full"><label style="color:var(--t3)">📋 보조 추천인 접수 URL</label><input id="cfg-form-url" placeholder="자동 접수 링크 발급 실패 시 대체용으로만 사용합니다."/></div>
+          <div class="fg full"><label style="color:var(--t3)">📋 보조 레퍼런스 응답 URL</label><input id="cfg-ref-url" placeholder="추천인별 응답 링크 발급 실패 시 대체용으로만 사용합니다."/></div>
+
+          <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid #10A37F">
+            <label style="color:#10A37F;font-weight:700">🤖 AI 요약 서버 설정</label>
+            <input id="cfg-openai-key" type="password" placeholder="Apps Script Script Properties의 OPENAI_API_KEY 사용" disabled style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">API 키는 브라우저에 저장하지 않고 관리자 Apps Script의 OPENAI_API_KEY에서만 사용합니다.</div>
+          </div>
+
+          <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid #147A48">
+            <label style="color:#147A48;font-weight:700">📨 입사 안내 관련부서 고정 수신자</label>
+            <textarea id="cfg-notify-teams" rows="4" placeholder="한 줄에 한 명 또는 쉼표로 구분&#10;IT팀 it@woomic.co.kr&#10;총무팀 general@woomic.co.kr&#10;경영지원팀 admin@woomic.co.kr" style="font-size:12px;font-family:'DM Mono',monospace"></textarea>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">배치부서 팀장/소장은 자동 매핑되며, 여기에 등록한 관련부서 인원과 피플팀 담당자가 내부 공유 메일에 추가됩니다.</div>
+          </div>
+
+          <div class="fg" style="margin-top:16px;padding-top:16px;border-top:2px solid #34A853">
+            <label style="color:#34A853;font-weight:700">📊 Google Sheets 연동 URL</label>
+            <input id="cfg-gs-url" placeholder="관리자 전용 Apps Script 배포 URL" style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">공개 소스에는 URL을 저장하지 않습니다. 관리자용 DOMAIN 제한 배포 URL만 입력하세요.</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+              <button class="btn btn-sm" data-action="call" data-call="testGSConnection()" style="background:#34A853;color:#fff;border-color:#34A853">📊 연결 테스트</button>
+              <div id="gs-conn-status" style="font-size:12px;color:var(--t3)">관리자 배포 URL 입력 후 테스트하세요.</div>
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-top:8px;padding:8px;background:var(--s2);border-radius:var(--rsm)">
+              연동 시: 지원자 추가/수정/단계변경 → Google Sheets 자동 저장<br>
+              어느 PC에서나 같은 데이터 접근 가능 · 완전 무료
+            </div>
+          </div>
+          <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #4A90D9">
+            <label style="color:#0F766E;font-weight:700">🤝 사내추천 접수 DB 파일 URL</label>
+            <input id="cfg-referral-data-url" placeholder="https://docs.google.com/spreadsheets/d/.../edit" style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">추천·소개 접수 데이터 전용 Google Sheets 파일 URL · Referrals/Rewards/RefRules 탭이 자동 생성됩니다.</div>
+          </div>
+          <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #4A90D9">
+            <label style="color:#4A90D9;font-weight:700">👥 면접관 DB URL</label>
+            <input id="cfg-interviewer-url" placeholder="직원 DB Apps Script 배포 URL" style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">직원 DB는 토큰 검사 적용 후 배포한 URL만 사용하세요.</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+              <button class="btn btn-sm" data-action="call" data-call="testInterviewerConnection()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">👥 연결 테스트</button>
+              <button class="btn btn-sm" data-action="call" data-call="loadInterviewers()">🔄 면접관 새로고침</button>
+              <div id="interviewer-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
+            </div>
+            <div style="margin-top:10px;padding:10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm)">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">직원현황 엑셀로 면접관 DB 업데이트</label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input id="interviewer-employee-file" type="file" accept=".xlsx,.xls,.csv" style="font-size:12px;max-width:320px">
+                <button class="btn btn-sm" data-action="call" data-call="importInterviewersFromEmployeeFile()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">엑셀 업로드 적용</button>
+              </div>
+              <div id="interviewer-upload-status" style="font-size:11px;color:var(--t3);margin-top:6px">개인고유사번, 사용자명, 업무 이메일주소, 직급, 통합조직을 면접관 DB 항목으로 반영합니다.</div>
+            </div>
+          </div>
+          <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #1D9E75">
+            <label style="color:#1D9E75;font-weight:700">📋 레퍼런스 자동화 URL</label>
+            <input id="cfg-ref-auto-url" placeholder="레퍼런스 자동화 Apps Script 배포 URL" style="font-family:'DM Mono',monospace;font-size:12px"/>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">레퍼런스 접수·응답을 처리하는 Apps Script 배포 URL입니다.</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+              <button class="btn btn-sm" data-action="call" data-call="testRefAutoConnection()" style="background:#1D9E75;color:#fff;border-color:#1D9E75">📋 연결 테스트</button>
+              <button class="btn btn-sm" data-action="call" data-call="syncRefFromGS()">↻ 레퍼런스 상태 가져오기</button>
+              <div id="ref-auto-conn-status" style="font-size:12px;color:var(--t3)">URL 입력 후 테스트하세요.</div>
+            </div>
+          </div>
+        </div>
+        <details class="help-details" style="margin-top:16px" open>
+          <summary>메시지 템플릿 편집</summary>
+          <div class="help-details-body">
+        <div class="template-editor">
+          <nav class="template-list" aria-label="안내 메시지 목록">
+            <div class="template-list-title">안내 메시지 목록</div>
+            <button class="active" data-action="call" data-call="selectTemplateEditor('tpl-int1',this)"><strong>1차 면접 안내</strong><span>지원자 개별 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-int2',this)"><strong>2차 면접 안내</strong><span>지원자 개별 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-collect',this)"><strong>면접 후보일정 안내</strong><span>지원자 개별 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-panel',this)"><strong>면접관 일정 안내</strong><span>면접관 단체 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-onboard',this)"><strong>입사 안내</strong><span>합격자 개별 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-onboard-internal',this)"><strong>내부 직원 입사 공유</strong><span>내부 직원 단체 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-ref',this)"><strong>레퍼런스 추천인 요청</strong><span>지원자 개별 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-ref-remind',this)"><strong>레퍼런스 리마인드</strong><span>추천인 개별 발송</span></button>
+            <button data-action="call" data-call="selectTemplateEditor('tpl-reject',this)"><strong>불합격 안내</strong><span>지원자 개별 발송</span></button>
+          </nav>
+          <div class="template-workspace">
+          <div class="template-toolbar" aria-label="템플릿 삽입 도구">
+            <button class="btn btn-sm" data-action="call" data-call="insertTemplateSnippet('infoTable')">표 삽입</button>
+            <button class="btn btn-sm" data-action="call" data-call="insertTemplateSnippet('checklist')">체크리스트</button>
+            <button class="btn btn-sm" data-action="call" data-call="insertTemplateSnippet('divider')">구분선</button>
+            <button class="btn btn-sm" data-action="call" data-call="insertTemplateSnippet('cta')">링크 안내</button>
+          </div>
+          <div class="template-panel active" data-template-panel="tpl-int1"><label>1차 면접 안내</label><div class="template-desc">면접 관리에서 1차 면접 지원자 안내 메일 발송 시 사용됩니다.</div><textarea id="tpl-int1">📅 [1차 면접 안내 - 우미건설]
+안녕하세요 {지원자명}님,
+
+우미건설 {포지션} 포지션에 지원해 주셔서 감사합니다.
+서류 전형 결과 1차 면접 대상자로 선정되어 아래와 같이 면접 일정을 안내드립니다.
+
+[면접 일정]
+구분        내용
+----------  --------------------------------
+전형        1차 면접
+일시        {면접일시}
+장소        {장소}
+면접관      {면접관}
+
+[안내 사항]
+- 면접 시작 10분 전까지 도착해 주세요.
+- 부득이하게 참석이 어려운 경우 사전에 회신 부탁드립니다.
+{메모}
+
+우미건설 피플팀 드림</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-int2"><label>2차 면접 안내</label><div class="template-desc">면접 관리에서 2차 면접 지원자 안내 메일 발송 시 사용됩니다.</div><textarea id="tpl-int2">📋 [2차 면접 안내 - 우미건설]
+안녕하세요 {지원자명}님,
+
+우미건설 {포지션} 포지션의 2차 면접 일정을 아래와 같이 안내드립니다.
+
+[면접 일정]
+구분        내용
+----------  --------------------------------
+전형        2차 면접
+일시        {면접일시}
+장소        {장소}
+
+[안내 사항]
+- 면접 시작 10분 전까지 도착해 주세요.
+- 일정 변경이 필요한 경우 본 메일로 회신 부탁드립니다.
+{메모}
+
+우미건설 피플팀 드림</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-panel"><label>면접관 일정 안내</label><div class="template-desc">포지션의 확정 면접 일정 전체를 면접관에게 단체 발송할 때 사용됩니다.</div><textarea id="tpl-panel">면접위원님께,
+
+{부서} {채용형태} 채용 {면접유형}을 아래와 같이 실시하고자 하오니 참고해 주시기 바랍니다.
+
+[면접 개요]
+구분        내용
+----------  --------------------------------
+전형        {면접유형}
+일정        {면접일정}
+장소        {장소}
+대상        총 {대상인원}명
+면접위원    {면접관}
+
+[면접 대상]
+{면접대상}
+
+[확인 사항]
+- 면접조서 및 이력서를 첨부해 드리오니 면접 전 확인 부탁드립니다.
+- 면접 당일 평가 의견은 면접 종료 후 전달 부탁드립니다.
+
+※ 본 메일 발송 전 면접조서·이력서 파일 첨부 여부를 확인해 주세요.</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-onboard"><label>입사 안내 (최종합격 → 입사 단계)</label><div class="template-desc">최종 합격자에게 개별 발송하는 입사 안내 메일입니다.</div><textarea id="tpl-onboard">🎉 [입사 안내 - 우미건설]
+{지원자명}님, 최종 합격을 진심으로 축하드립니다!
+
+{포지션} 포지션으로 입사하시게 되어 환영합니다.
+아래와 같이 입사 일정과 준비사항을 안내드립니다.
+
+[입사 정보]
+구분        내용
+----------  --------------------------------
+입사일      {입사일}
+배치 부서   {부서}
+직책/직급   {직책}
+채용형태    {채용형태}
+근무지      {근무지}
+
+[준비 사항]
+{준비사항}
+
+문의: 우미건설 피플팀
+
+우미건설 피플팀 드림</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-onboard-internal"><label>내부 직원 입사 공유</label><div class="template-desc">고정 수신팀과 해당 부서장·소장에게 단체 발송하는 내부 공유 메일입니다.</div><textarea id="tpl-onboard-internal">[입사안내] {입사일} {부서} {지원자명} {직책}
+
+안녕하세요.
+{입사일} 입사 예정인 신규입사자를 안내드립니다.
+
+[입사자 정보]
+성명        {지원자명}
+포지션      {포지션}
+배치 부서   {부서}
+입사일      {입사일}
+직책/직급   {직책}
+채용형태    {채용형태}
+근무지      {근무지}
+연락처      {연락처}
+
+[현장 담당자 확인 요청]
+입사자와 사전 연락하여 숙소 필요 여부 및 제복 사이즈를 확인해 주시기 바랍니다.
+확인 결과는 {회신기한}까지 피플팀으로 회신 부탁드립니다.
+
+[입사 당일 일정 및 부서별 협조사항]
+입사 당일 일정: {입사당일일정}
+부서별 협조사항: {부서협조사항}
+
+원활한 입사 준비를 위해 관련 부서에서는 입사일 전일까지 준비 사항을 완료해 주시기 바랍니다.
+
+우미건설 피플팀 드림
+
+※ 본 메일에는 입사 예정자의 개인정보가 포함되어 있습니다. 입사 준비 목적 외 이용 및 외부 전달을 금합니다.</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-ref"><label>레퍼런스 추천인 요청 (1차합격 → 레퍼런스 단계)</label><div class="template-desc">지원자에게 추천인 정보 입력을 요청할 때 사용됩니다.</div><textarea id="tpl-ref">안녕하세요, {지원자명}님.
+
+우미건설 {포지션} 포지션 채용 절차와 관련하여 레퍼런스 체크를 진행하고자 합니다.
+
+아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.
+
+추천인 등록 링크
+{추천인폼링크}
+
+등록 정보
+- 성함
+- 이메일
+- 휴대폰 번호
+- 지원자와의 관계
+
+등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.
+추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.
+
+감사합니다.
+우미건설 피플팀 드림</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-ref-remind"><label>레퍼런스 리마인드 (추천인 대상)</label><div class="template-desc">아직 응답하지 않은 추천인에게 재요청할 때 사용됩니다.</div><textarea id="tpl-ref-remind">안녕하세요 {추천인명}님.
+
+우미건설 채용 절차와 관련하여 {지원자명}님의 레퍼런스 체크 응답을 다시 한번 부탁드립니다.
+
+설문 참여 링크
+{결과설문링크}
+
+응답에는 약 10분 정도 소요됩니다.
+바쁘시겠지만 확인 후 회신 부탁드립니다.
+
+감사합니다.
+우미건설 피플팀 드림</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-reject"><label>불합격 안내</label><div class="template-desc">전형 종료 지원자에게 개별 발송하는 안내 메일입니다.</div><textarea id="tpl-reject">안녕하세요 {지원자명}님,
+
+{포지션} 포지션에 지원해 주셔서 진심으로 감사드립니다.
+
+아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.
+소중한 시간 내어 주셔서 감사드립니다.
+
+앞날에 좋은 일들이 가득하시길 바랍니다.
+우미건설 피플팀 드림</textarea></div>
+          <div class="template-panel" data-template-panel="tpl-collect"><label>면접 가능 시간대 안내 (일정 취합용)</label><div class="template-desc">면접관 일정을 확인한 뒤 지원자에게 날짜별 오전·오후 가능 여부를 요청할 때 사용됩니다.</div><textarea id="tpl-collect">안녕하세요 {지원자명}님,
+
+우미건설 {포지션} 포지션 {면접유형}을 진행하고자 합니다.
+아래 링크에서 가능한 날짜의 오전·오후 시간대를 모두 선택해 주세요.
+
+{후보일정}
+{장소}
+응답 마감: {응답마감}
+
+가능 시간대 선택: {응답링크}
+
+정확한 면접시간과 순서는 응답 취합 후 별도로 안내드리겠습니다.
+
+우미건설 피플팀 드림</textarea></div>
+          </div>
+        </div>
+        <div class="template-vars">
+          💡 사용 가능한 치환 변수: <b>{지원자명}</b> <b>{포지션}</b> <b>{부서}</b> <b>{채용형태}</b> <b>{면접유형}</b> <b>{후보일정}</b> <b>{응답링크}</b> <b>{응답마감}</b> <b>{면접일시}</b> <b>{면접일정}</b> <b>{면접대상}</b> <b>{대상인원}</b> <b>{장소}</b> <b>{면접관}</b> <b>{메모}</b> <b>{추천인명}</b> <b>{추천인폼링크}</b> <b>{결과설문링크}</b> — 발송 시 실제 값으로 자동 변환됩니다.
+        </div>
+          </div>
+        </details>
+        <div class="card" style="margin-top:14px;background:var(--s1)">
+          <div class="ch"><div class="ch-l">개인정보 보호 설정</div><button class="btn btn-xs" data-action="call" data-call="renderExpiredPii()">보존기한 점검</button></div>
+          <div class="form-grid">
+            <div class="fg"><label>공유 화면 마스킹</label><select id="cfg-mask-pii" data-onchange="setPrivacyMaskFromControl(this)"><option value="false">사용 안 함</option><option value="true">이름·이메일 마스킹</option></select></div>
+            <div class="fg"><label>지원자 정보 보존기한</label><select id="cfg-retention-months" data-onchange="renderExpiredPii()"><option value="3">3개월</option><option value="6" selected>6개월</option><option value="12">12개월</option><option value="24">24개월</option></select></div>
+            <div class="fg"><label>유휴 화면 잠금</label><select id="cfg-idle-minutes" data-onchange="resetIdleLock()"><option value="0">사용 안 함</option><option value="5">5분</option><option value="10" selected>10분</option><option value="30">30분</option></select></div>
+          </div>
+          <div class="alert aw" style="margin-top:8px"><span>Google Sheets 공유 권한은 피플팀 최소 인원으로 제한하고, 지원자 동의 및 회사 보존 정책에 맞춰 기한을 설정하세요.</span></div>
+          <div id="privacy-expired-list" style="font-size:11.5px;color:var(--t2)"></div>
+        </div>
+        <details class="card settings-fold-card" style="margin-top:14px;background:var(--s1)">
+          <summary class="settings-fold-summary">
+            <div>
+              <div class="settings-fold-title">팀 마스터 <span class="settings-fold-sub">본사 팀 목록</span></div>
+              <div class="settings-fold-sub" id="team-master-summary-count">필요할 때 펼쳐서 관리합니다.</div>
+            </div>
+            <span class="settings-fold-caret">▼</span>
+          </summary>
+          <div class="settings-fold-body">
+            <div class="settings-fold-actions"><button class="btn btn-xs" data-action="call" data-call="syncTeamMasterFromInterviewers(true)">면접관 DB 동기화</button><button class="btn btn-xs btn-primary" data-action="call" data-call="openAddTeam()">+ 직접 추가</button></div>
+            <div id="add-team-form" style="display:none;margin:8px 0 12px;padding:10px;background:var(--s2);border-radius:var(--rsm)">
+              <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                <div class="fg" style="flex:1;min-width:180px;margin:0"><label style="font-size:11px">사업부</label><input id="new-team-division" placeholder="예: 개발영업" style="font-size:13px"></div>
+                <div class="fg" style="flex:1;min-width:180px;margin:0"><label style="font-size:11px">팀명 *</label><input id="new-team-name" placeholder="예: 민간영업팀" style="font-size:13px"></div>
+                <button class="btn btn-xs btn-primary" data-action="call" data-call="saveNewTeam()">저장</button>
+                <button class="btn btn-xs btn-ghost" data-action="call" data-call="closeAddTeam()">취소</button>
+              </div>
+            </div>
+            <div id="team-master-list"></div>
+          </div>
+        </details>
+        <div class="brow" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <button class="btn btn-primary" data-action="call" data-call="saveSettings()">💾 설정 저장</button>
+          <span style="font-size:11.5px;color:var(--t3)">메일 템플릿·URL·서명 등 모든 설정을 저장합니다 (Google Sheets에도 동기화).</span>
+        </div>
+        <div class="brow" style="margin-top:10px">
+          <button class="btn" data-action="call" data-call="runCoreDiagnosticsUI()">자가진단 실행</button>
+          <span id="core-test-result" style="font-size:11.5px;color:var(--t3)">핵심 계산·프로세스·동기화 병합 로직을 점검합니다.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ── 지원자 추가 모달 ───────────────────────────────────── -->
+<div class="overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title">신규 지원자 등록</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="fgrid f2" style="gap:11px">
+        <div class="fg"><label>지원자 성명 *</label><input id="nc-name" placeholder="홍길동"/></div>
+        <div class="fg"><label>지원 직무 *</label><input id="nc-pos" placeholder="현장소장"/></div>
+        <div class="fg"><label>채용 경로 *</label>
+          <select id="nc-source" data-onchange="toggleHeadhunterFields()">
+            <option value="direct">입사지원</option>
+            <option value="headhunting">헤드헌팅</option>
+          </select>
+        </div>
+        <div class="fg"><label>지원자 이메일 <span id="nc-email-required">*</span></label><input id="nc-email" type="email" placeholder="hong@email.com"/></div>
+        <div class="fg full" id="nc-headhunter-wrap" style="display:none">
+          <label>헤드헌팅 업체 *</label>
+          <select id="nc-headhunter-id" data-onchange="updateHeadhunterHint()">
+            <option value="">— 업체를 선택하세요 —</option>
+          </select>
+          <div id="nc-headhunter-hint" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+        </div>
+        <div class="fg"><label>채용형태 *</label>
+          <select id="nc-etype">
+            <option value="정규직">정규직</option>
+            <option value="전문직">전문직</option>
+            <option value="파견직">파견직</option>
+          </select>
+        </div>
+        <div class="fg"><label>직군</label>
+          <select id="nc-role">
+            <option value="영업직">영업직</option><option value="기술직">기술직</option>
+            <option value="관리직">관리직</option><option value="현장직">현장직</option>
+          </select>
+        </div>
+        <div class="fg"><label>부서</label><input id="nc-dept" placeholder="현장지원팀"/></div>
+        <div class="fg"><label>경력</label>
+          <select id="nc-career"><option>경력직</option><option>신입</option><option>인턴</option></select>
+        </div>
+        <div class="fg"><label>접수일</label><input type="date" id="nc-date"/></div>
+        <div class="fg full">
+          <label>포지션 연결 *</label>
+          <select id="nc-pos-id" data-onchange="updateAddCandSeatHint()">
+            <option value="">— 포지션을 선택하세요 —</option>
+          </select>
+          <div id="nc-seat-hint" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+        </div>
+        <div class="fg full"><label>메모</label><textarea id="nc-memo" style="min-height:48px"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-add">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="addCandidate()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 단계 전환 확인 모달 (핵심: 팝업 + 알림 선택) ──────── -->
+<div class="overlay" id="modal-confirm-stage">
+  <div class="modal confirm-modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="cs-title">단계 전환 확인</div>
+      <button class="mclose" data-action="call" data-call="cancelStageChange()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <!-- 지원자 정보 -->
+      <div id="cs-cand-info" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--s2);border-radius:var(--r);margin-bottom:14px">
+        <div id="cs-avatar" style="width:36px;height:36px;border-radius:50%;background:var(--bbg);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--blue);flex-shrink:0"></div>
+        <div><div id="cs-name" style="font-weight:700;font-size:14px"></div><div id="cs-pos" style="font-size:12px;color:var(--t3)"></div></div>
+      </div>
+
+      <!-- 단계 변경 표시 -->
+      <div class="confirm-stage-flow">
+        <div class="csf-box" style="background:var(--s3)">
+          <div class="csf-label">현재</div>
+          <div class="csf-stage" id="cs-from" style="color:var(--t2)"></div>
+        </div>
+        <div class="csf-arrow">→</div>
+        <div class="csf-box" style="background:var(--acc-light)">
+          <div class="csf-label">변경</div>
+          <div class="csf-stage" id="cs-to" style="color:var(--acc)"></div>
+        </div>
+      </div>
+
+      <!-- 안내 메시지 (단계별 자동 생성) -->
+      <div id="cs-guide-msg" class="alert ai" style="margin-bottom:14px"></div>
+
+      <!-- 레퍼런스 최초 안내 메일 발송 선택 -->
+      <div id="cs-ref-mail-choice" style="display:none;margin-bottom:14px;padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r)">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:5px">추천인 등록 안내메일을 발송할까요?</div>
+        <div style="font-size:11px;color:var(--t3);line-height:1.45;margin-bottom:10px">예를 선택하면 채용 경로에 따라 지원자 또는 헤드헌팅 업체 담당자에게 안내메일을 발송하고, 아니오를 선택하면 상태값만 레퍼런스 체크로 변경합니다.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-sm" id="cs-ref-mail-yes" data-action="call" data-call="setReferenceStageMailChoice(true)">예, 발송</button>
+          <button type="button" class="btn btn-sm" id="cs-ref-mail-no" data-action="call" data-call="setReferenceStageMailChoice(false)">아니오, 미발송</button>
+        </div>
+      </div>
+
+      <!-- 알림 발송 옵션 -->
+      <div class="notify-options" id="cs-notify-opts">
+        <div class="no-title">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v6M8 9v.5"/><circle cx="8" cy="8" r="7"/></svg>
+          지원자 알림 발송 (선택)
+        </div>
+        <div id="cs-external-notice" style="font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
+          지원자 안내는 등록된 발신 계정으로 이메일 발송됩니다.
+        </div>
+      </div>
+
+      <!-- 면접 후보 일정 입력 (1차/2차 면접 단계에서만 표시) -->
+      <div id="cs-int-schedule" style="display:none;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px">📅 면접 후보 일정 입력 (선택)</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
+            <input id="cs-slot1-dt" type="datetime-local" step="600" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">2안</span>
+            <input id="cs-slot2-dt" type="datetime-local" step="600" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">3안</span>
+            <input id="cs-slot3-dt" type="datetime-local" step="600" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"/>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:6px 8px;background:var(--bbg);border-radius:var(--rsm)">
+          💡 입력 시 이메일 본문에 자동 포함 · 지원자 회신 후 면접 관리 탭에서 일정 확정
+        </div>
+      </div>
+
+      <!-- 알림 미리보기 -->
+      <div id="cs-preview-area" style="margin-top:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">알림 메시지 미리보기</div>
+        <div class="nc-body" id="cs-preview-msg" style="border-radius:var(--rsm);border:1px solid var(--border);font-size:11.5px;max-height:120px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="call" data-call="cancelStageChange()">취소</button>
+      <button class="btn btn-primary" id="cs-confirm-btn" data-action="call" data-call="confirmStageChange()">단계 변경 확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 지원자 상세 모달 ───────────────────────────────────── -->
+<div class="overlay" id="modal-detail">
+  <div class="modal" style="width:700px">
+    <div class="modal-hd">
+      <div class="modal-title" id="detail-title">지원자 상세</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-detail"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-detail">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 일괄 알림 모달 ────────────────────────────────────── -->
+<div class="overlay" id="modal-bulk-notify">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title">Teams / 이메일 일괄 알림</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-bulk-notify"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="fgrid" style="gap:10px;margin-bottom:12px">
+        <div class="fg"><label>발송 유형</label>
+          <select id="bulk-type" data-onchange="updateBulkPreview()">
+            <option value="int1">1차 면접 안내</option>
+            <option value="int2">2차 면접 안내</option>
+            <option value="offer">최종 합격 안내</option>
+            <option value="remind">레퍼런스 리마인드</option>
+          </select>
+        </div>
+        <div class="fg"><label>단계 필터</label>
+          <select id="bulk-stage" data-onchange="updateBulkPreview()">
+            <option value="-1">전체</option>
+            <option value="0">서류합격</option><option value="1">1차면접</option>
+            <option value="2">레퍼런스</option><option value="3">2차면접</option>
+            <option value="4">처우협의</option><option value="5">최종합격</option>
+          </select>
+        </div>
+        <div class="fg"><label>발송 채널</label>
+          <select id="bulk-channel">
+            <option value="outlook" selected>이메일</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">발송 대상</div>
+      <div id="bulk-targets" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rsm);padding:8px;margin-bottom:12px;font-size:12px"></div>
+      <div class="notify-card">
+        <div class="nc-header"><div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
+          <div><div class="nc-title" style="color:var(--outlook)">미리보기</div></div></div>
+        <div class="nc-body" id="bulk-preview-msg"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-bulk-notify">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="sendBulk()">일괄 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 메트릭 상세 모달 ─────────────────────────────────────── -->
+<div class="overlay" id="modal-metric">
+  <div class="modal" style="width:720px">
+    <div class="modal-hd">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="metric-modal-icon" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0"></div>
+        <div>
+          <div class="modal-title" id="metric-modal-title">상세 현황</div>
+          <div style="font-size:11px;color:var(--t3)" id="metric-modal-sub"></div>
+        </div>
+      </div>
+      <button class="mclose" data-action="close-modal" data-id="modal-metric">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="metric-modal-body" style="padding:0;max-height:70vh;overflow-y:auto"></div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-metric">닫기</button>
+      <button class="btn btn-primary btn-sm" id="metric-modal-action-btn" style="display:none"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 토스트 ─────────────────────────────────────────────── -->
+
+<div class="overlay" id="modal-recruit-plan">
+  <div class="modal" style="width:min(720px,95vw)">
+    <div class="modal-hd"><div class="modal-title">채용계획·이관실적</div><button class="mclose" data-action="close-modal" data-id="modal-recruit-plan">×</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;gap:4px" id="rp-year-btns"></div>
+        <div style="display:flex;gap:4px;margin-left:auto">
+          <button class="btn btn-xs btn-ghost" id="rp-loc-hq" data-action="call" data-call="setRpLocation('본사')">본사</button>
+          <button class="btn btn-xs btn-ghost" id="rp-loc-site" data-action="call" data-call="setRpLocation('현장')">현장</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;margin-bottom:12px">
+        <select id="rp-search-etype" data-onchange="searchRecruitPlanTargets()"><option value="정규직">정규직</option><option value="전문직">전문직</option></select>
+        <div style="position:relative">
+          <input id="rp-search" autocomplete="off" placeholder="팀을 검색해 추가하세요" data-oninput="searchRecruitPlanTargets()" data-onfocus="searchRecruitPlanTargets()">
+          <div id="rp-search-results" style="display:none;position:absolute;z-index:20;top:calc(100% + 3px);left:0;right:0;max-height:180px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm)"></div>
+        </div>
+      </div>
+      <div style="font-size:10.5px;color:var(--t3);margin-bottom:7px">추가된 채용계획</div>
+      <div id="rp-table-wrap" style="overflow:auto;max-height:420px"></div>
+    </div>
+    <div class="modal-ft"><button class="btn" data-action="close-modal" data-id="modal-recruit-plan">닫기</button><button class="btn btn-primary" data-action="call" data-call="saveRecruitPlanModal()">저장</button></div>
+  </div>
+</div>
+
+<!-- ── 포지션 추가/편집 모달 ──────────────────────────── -->
+<div class="overlay" id="modal-position">
+  <div class="modal" style="width:680px">
+    <div class="modal-hd">
+      <div class="modal-title" id="pos-modal-title">포지션 추가</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-position">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="fg" style="grid-column:1/-1">
+        <label>포지션명 *</label>
+        <input id="pos-title" placeholder="예: 현장소장, 구매팀 대리"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>소속 *</label>
+        <div class="pos-location-options">
+          <label id="loc-hq-label" class="pos-location-option">
+            <input type="radio" name="pos-location" value="본사" id="pos-loc-hq" data-onchange="onPosLocationChange()"><span>본사</span>
+          </label>
+          <label id="loc-site-label" class="pos-location-option">
+            <input type="radio" name="pos-location" value="현장" id="pos-loc-site" data-onchange="onPosLocationChange()"><span>현장</span>
+          </label>
+        </div>
+      </div>
+      <div class="fg" id="fg-team" style="display:none;grid-column:1/-1">
+        <label>팀 *</label>
+        <select id="pos-team"><option value="">팀 선택</option></select>
+      </div>
+      <div class="fg" id="fg-jobtype" style="display:none;grid-column:1/-1">
+        <label>직종 *</label>
+        <select id="pos-jobtype"><option value="">직종 선택</option></select>
+      </div>
+      <div class="fg">
+        <label>채용형태</label>
+        <select id="pos-etype">
+          <option value="정규직">정규직</option>
+          <option value="전문직">전문직</option>
+          <option value="파견직">파견직</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>모집인원</label>
+        <input id="pos-headcount" type="number" min="1" value="1" placeholder="명"/>
+      </div>
+      <div class="fg">
+        <label>채용사유</label>
+        <select id="pos-hire-reason">
+          <option value="충원">충원</option>
+          <option value="증원">증원</option>
+          <option value="신규조직">신규조직</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>1차 면접관</label>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="flex:1;position:relative">
+            <input id="pos-panel1-search" placeholder="이름·부서·직급으로 검색…" autocomplete="off"
+              data-oninput="filterInterviewers(1)" data-onfocus="filterInterviewers(1)"
+              data-onblur="setTimeout(()=>hideInterviewerList(1),200)" style="width:100%;box-sizing:border-box"/>
+            <div id="pos-panel1-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:200px;overflow-y:auto;margin-top:2px"></div>
+          </div>
+          <button class="btn btn-sm" data-action="call" data-call="loadInterviewers()" style="white-space:nowrap;flex-shrink:0">🔄 새로고침</button>
+        </div>
+        <div id="pos-panel1-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:28px"></div>
+        <input type="hidden" id="pos-panel1"/>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">검색 후 선택 시 이메일 자동 연결 · 태그 × 클릭으로 제거</div>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>2차 면접관</label>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="flex:1;position:relative">
+            <input id="pos-panel2-search" placeholder="이름·부서·직급으로 검색…" autocomplete="off"
+              data-oninput="filterInterviewers(2)" data-onfocus="filterInterviewers(2)"
+              data-onblur="setTimeout(()=>hideInterviewerList(2),200)" style="width:100%;box-sizing:border-box"/>
+            <div id="pos-panel2-list" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:200px;overflow-y:auto;margin-top:2px"></div>
+          </div>
+        </div>
+        <div id="pos-panel2-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:28px"></div>
+        <input type="hidden" id="pos-panel2"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>면접 장소</label>
+        <input id="pos-loc" placeholder="예: 본사 3층 회의실 A"/>
+      </div>
+      <div class="fg">
+        <label>담당자</label>
+        <input id="pos-owner" placeholder="예: 홍길동 / 피플팀"/>
+      </div>
+      <div class="fg">
+        <label>목표 충원일</label>
+        <input id="pos-target-date" type="date"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>비고</label>
+        <input id="pos-memo" placeholder="추가 안내사항"/>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-position">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="savePosition()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 포지션 상세 모달 ─────────────────────────────────── -->
+<div class="overlay" id="modal-pos-detail">
+  <div class="modal" style="width:min(940px,92vw);max-height:95vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="pos-detail-title">포지션 상세</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-pos-detail"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body" id="pos-detail-body"></div>
+    <div class="modal-ft" id="pos-detail-ft"></div>
+  </div>
+</div>
+
+<!-- ── 면접 일정 확정 모달 ──────────────────────────────── -->
+<div class="overlay" id="modal-confirm-int">
+  <div class="modal" style="width:520px">
+    <div class="modal-hd">
+      <div class="modal-title">면접 일정 확정</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-confirm-int"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="ci-cand-info" style="font-size:13px;font-weight:600;margin-bottom:14px"></div>
+      <div id="ci-slot-picker" style="margin-bottom:14px"></div>
+      <div class="fgrid" style="gap:10px">
+        <div class="fg full"><label>확정 일시</label><input type="datetime-local" id="ci-datetime" step="600" data-onchange="snapTo10(this)"/></div>
+        <div class="fg full"><label>면접 장소</label><input id="ci-loc" placeholder="예: 본사 3층 회의실 A"/></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="call" data-call="cancelInterviewConfirm()">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="applyInterviewConfirm()">일정 확정</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 포지션 지원자 판정 입력 모달 ─────────────────────── -->
+<div class="overlay" id="modal-position-result">
+  <div class="modal" style="width:660px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="pr-title">지원자 판정 입력</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-position-result"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="pr-help" style="font-size:11px;color:var(--t3);padding:8px 10px;background:var(--s2);border-radius:var(--rsm);margin-bottom:10px">지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 이동할 수 있습니다.</div>
+      <div id="pr-list"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-position-result">취소</button>
+      <button class="btn" id="pr-save-btn" data-action="call" data-call="savePositionResults(false)">판정 저장</button>
+      <button class="btn btn-primary" id="pr-confirm-btn" data-action="call" data-call="savePositionResults(true)">판정 확정 및 단계 이동</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 면접 공통일정 확정 모달 ───────────────────────────── -->
+<div class="overlay" id="modal-batch-schedule">
+  <div class="modal" style="width:640px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="bs-title">1차 면접 공통일정 확정</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-batch-schedule"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
+        포지션 공통 면접 날짜를 기준으로 지원자 전원의 일정을 확정합니다. 특별한 사유가 있는 경우에만 확정 후 개인 시간을 수정하세요.
+      </div>
+      <div class="fgrid" style="gap:10px;margin-bottom:14px">
+        <div class="fg"><label>면접 날짜</label><input type="date" id="bs-date"/></div>
+        <div class="fg"><label>시작 시간</label><input type="time" id="bs-start" step="600" value="10:00" data-onchange="snapTo10(this)"/></div>
+        <div class="fg"><label>면접 간격</label>
+          <select id="bs-interval">
+            <option value="20">20분</option>
+            <option value="30" selected>30분</option>
+            <option value="40">40분</option>
+            <option value="60">1시간</option>
+          </select>
+        </div>
+        <div class="fg"><label>면접 장소</label><input id="bs-loc" placeholder="예: 본사 3층 회의실 A"/></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">확정 일정 미리보기</div>
+      <div id="bs-preview" style="border:1px solid var(--border);border-radius:var(--rsm);padding:10px;max-height:240px;overflow-y:auto;font-size:12.5px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-batch-schedule">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="applyBatchSchedule()">일정 확정</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 후보일정 일괄 수집 안내 모달 ──────────────────────── -->
+<div class="overlay" id="modal-collect-slots">
+  <div class="modal" style="width:600px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="csl-title">면접 후보일정 일괄 안내</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-collect-slots"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
+        면접관의 가능 일정을 먼저 확인한 뒤 지원자에게 <b>날짜별 오전·오후 가능 여부</b>를 받습니다. 정확한 시간과 면접순서는 응답 취합 후 피플팀에서 확정합니다.
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">공통 후보 날짜와 시간대 (최대 3일)</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">1안</span>
+          <input id="csl-date1" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <label style="font-size:12px"><input id="csl-date1-am" type="checkbox" checked style="width:auto"> 오전</label>
+          <label style="font-size:12px"><input id="csl-date1-pm" type="checkbox" checked style="width:auto"> 오후</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">2안</span>
+          <input id="csl-date2" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <label style="font-size:12px"><input id="csl-date2-am" type="checkbox" checked style="width:auto"> 오전</label>
+          <label style="font-size:12px"><input id="csl-date2-pm" type="checkbox" checked style="width:auto"> 오후</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--t3);width:20px;flex-shrink:0">3안</span>
+          <input id="csl-date3" type="date" style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm)"/>
+          <label style="font-size:12px"><input id="csl-date3-am" type="checkbox" checked style="width:auto"> 오전</label>
+          <label style="font-size:12px"><input id="csl-date3-pm" type="checkbox" checked style="width:auto"> 오후</label>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <button class="btn btn-sm" data-action="call" data-call="sendPanelAvailabilityRequest()">면접관 확인 메일 발송</button>
+        <span id="csl-panel-status" style="font-size:11px;color:var(--t3)">면접관 확인 전</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:var(--rsm);font-size:12px;font-weight:700">
+        <input id="csl-panel-confirmed" type="checkbox" style="width:auto" data-onchange="setPanelAvailabilityConfirmed()"> 면접관 회신을 확인했으며 위 일정으로 지원자에게 확인합니다
+      </label>
+      <div class="fg" style="margin-bottom:12px"><label>응답 마감일</label><input id="csl-deadline" type="date" style="font-size:12px"/></div>
+      <div class="fg" style="margin-bottom:12px">
+        <label>면접 장소 (선택)</label>
+        <input id="csl-loc" placeholder="예: 본사 3층 회의실 A" style="font-size:12px"/>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px">안내 대상</div>
+      <div id="csl-targets" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rsm);padding:8px;font-size:12px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-collect-slots">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="sendCollectSlots()">지원자 가능일 확인 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 후보일정 일괄 수집 안내 모달 끝 ────────────────────── -->
+
+<!-- ── 후보일정 순차 발송 진행 모달 ──────────────────────── -->
+<div class="overlay" id="modal-collect-send">
+  <div class="modal" style="width:420px">
+    <div class="modal-hd">
+      <div class="modal-title">후보일정 안내 — 순차 발송</div>
+      <button class="mclose" data-action="call" data-call="closeCollectSend()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body" id="csend-body"></div>
+    <div class="modal-ft" id="csend-footer"></div>
+  </div>
+</div>
+
+<!-- ── No Hire 종료 마법사 ───────────────────────────────── -->
+<div class="overlay" id="modal-nohire-wizard">
+  <div class="modal confirm-modal">
+    <div class="modal-hd">
+      <div class="modal-title">미채용 완료 마법사</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-nohire-wizard"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="nh-wiz-info" style="font-size:12.5px;color:var(--t2);margin-bottom:14px;line-height:1.6"></div>
+      <div class="fg" style="margin-bottom:12px">
+        <label>종료 사유</label>
+        <select id="nh-reason">
+          <option value="적합인재부족">적합 인재 부족</option>
+          <option value="조건미달">처우/조건 미달</option>
+          <option value="일정지연">일정 지연</option>
+          <option value="예산/조직변경">예산·조직 변경</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-bottom:12px">
+        <label>잔여 지원자 처리</label>
+        <select id="nh-remain-action">
+          <option value="reject">전원 불합격 처리 + 안내 메일</option>
+          <option value="hold">전원 보류 처리</option>
+          <option value="unlink">포지션 연결 해제 (보류 풀)</option>
+          <option value="keep">현 상태 유지 (수동 처리)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>메모 (선택)</label>
+        <textarea id="nh-memo" rows="2" placeholder="미채용 사유 상세"></textarea>
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--s2);border-radius:var(--rsm);font-size:11.5px;color:var(--t2)">
+        확인 시 이 포지션은 <b>미채용완료</b> 처리되고, 동일 조건의 <b>(재채용N)</b> 포지션이 자동 생성됩니다.
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-nohire-wizard">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="executeNohireWizard()">미채용 완료 실행</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 일괄 등록 모달 ───────────────────────────────────── -->
+<div class="overlay" id="modal-bulk-add">
+  <div class="modal" style="width:620px">
+    <div class="modal-hd">
+      <div class="modal-title">서류합격자 일괄 등록</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-bulk-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="fg" style="margin-bottom:12px">
+        <label>포지션 *</label>
+        <select id="bulk-pos-id" data-onchange="updateBulkSeatHint()"></select>
+        <div id="bulk-seat-hint" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+      </div>
+      <div class="fg">
+        <label>서류합격일 (공통)</label>
+        <input type="date" id="bulk-doc-passed"/>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label>합격자 목록 (한 줄에 1명: <code>이름,이메일</code> 또는 <code>이름,이메일,직무</code>)</label>
+        <textarea id="bulk-lines" rows="10" style="font-family:'DM Mono',monospace;font-size:12px" placeholder="홍길동,hong@email.com&#10;김철수,kim@email.com,현장소장"></textarea>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-bulk-add">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="executeBulkAdd()">일괄 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 미연결 합격자 목록 ───────────────────────────────── -->
+<div class="overlay" id="modal-unlinked">
+  <div class="modal" style="width:640px">
+    <div class="modal-hd">
+      <div class="modal-title">미연결 합격자</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-unlinked"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body" id="unlinked-list-body" style="max-height:60vh;overflow-y:auto"></div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-unlinked">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 불합격 사유 입력 모달 ──────────────────────────────── -->
+<div class="overlay" id="modal-reject-reason">
+  <div class="modal" style="width:440px">
+    <div class="modal-hd">
+      <div class="modal-title">불합격 사유 입력</div>
+      <button class="mclose" data-action="call" data-call="finishRejectReason(false)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="alert aw" style="margin-bottom:12px"><span>대상 지원자 <b id="reject-target-count">1명</b>에게 동일한 불합격 사유가 기록됩니다.</span></div>
+      <div class="fg">
+        <label>불합격 사유 *</label>
+        <select id="reject-reason">
+          <option value="역량부족">역량부족</option>
+          <option value="처우불일치">처우불일치</option>
+          <option value="지원자포기">지원자포기</option>
+          <option value="포지션취소">포지션취소</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-top:12px"><label>메모</label><textarea id="reject-memo" rows="4" placeholder="필요한 상세 내용을 입력하세요."></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="call" data-call="finishRejectReason(false)">취소</button>
+      <button class="btn btn-red" data-action="call" data-call="finishRejectReason(true)">불합격 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 면접 안내 발송 선택 모달 ────────────────────────────── -->
+<div class="overlay" id="modal-interview-notice-flow">
+  <div class="modal" style="width:540px">
+    <div class="modal-hd">
+      <div class="modal-title" id="inf-title">면접 안내</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-interview-notice-flow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="alert aw"><span>지원자에게는 개인별 메일을 발송하고, 면접관에게는 확정 일정 전체를 단체 메일로 발송합니다.</span></div>
+      <div id="inf-status" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-interview-notice-flow">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 메일 발송 확인 바 ───────────────────────────────── -->
+<div class="mail-pending-bar" id="mail-pending-bar">
+  <span id="mail-pending-text">메일 발송 후 [발송 완료]를 눌러주세요.</span>
+  <button class="btn btn-sm" style="background:#fff;color:var(--acc);border-color:#fff;font-weight:700" id="mail-pending-btn" data-action="call" data-call="confirmPendingMail()">발송 완료</button>
+  <button class="btn btn-sm btn-ghost" style="color:rgba(255,255,255,.8)" data-action="call" data-call="dismissPendingMail()">나중에</button>
+</div>
+
+<!-- ── 토스트 ─────────────────────────────────────────────── -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- ── 추천서 인쇄용 시트 (면접 참고용, 평소엔 숨김) ─────────── -->
+<div id="print-referral-sheet"></div>
+
+<?!= include('app_script'); ?>
+</body>
+</html>
+
+
+
+
+
+

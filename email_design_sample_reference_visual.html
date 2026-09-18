@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>레퍼런스 체크 안내메일 비주얼 샘플</title>
+  <style>
+    :root{
+      --blue:#003087;
+      --blue2:#0c4aa2;
+      --soft:#edf6ff;
+      --soft2:#f6fbff;
+      --text:#20242a;
+      --muted:#66717f;
+      --line:#e5e9ef;
+      --lynn:#353d44;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:#edf6fb;font-family:Arial,'Malgun Gothic',sans-serif;color:var(--text);}
+    .page{max-width:760px;margin:0 auto;padding:24px 16px 60px;}
+    .page-title{font-size:18px;font-weight:700;margin:0 0 16px;color:#0f172a;}
+    .mail-card{width:680px;max-width:100%;margin:0 auto;background:#fff;border:1px solid #dbe7f2;border-radius:12px;overflow:hidden;box-shadow:0 14px 32px rgba(15,52,96,.12);}
+    .hero{position:relative;min-height:286px;padding:34px 42px 28px;background:linear-gradient(130deg,#f9fdff 0%,#f3f9ff 50%,#e8f4ff 100%);overflow:hidden;}
+    .hero:before{content:"";position:absolute;right:0;top:0;width:270px;height:286px;background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,.12) 43%,rgba(255,255,255,.6) 43%,rgba(255,255,255,.6) 100%);clip-path:polygon(34% 0,100% 0,100% 100%,0 100%);}
+    .building{position:absolute;right:-22px;bottom:0;width:222px;height:184px;opacity:.48;}
+    .building:before{content:"";position:absolute;right:2px;bottom:0;width:104px;height:180px;background:linear-gradient(115deg,rgba(255,255,255,.52),rgba(214,226,238,.82) 42%,rgba(177,194,212,.62)),linear-gradient(90deg,rgba(128,151,174,.62) 0 1px,transparent 1px 25%,rgba(128,151,174,.48) 25% calc(25% + 1px),transparent calc(25% + 1px) 50%,rgba(128,151,174,.48) 50% calc(50% + 1px),transparent calc(50% + 1px) 75%,rgba(128,151,174,.48) 75% calc(75% + 1px),transparent calc(75% + 1px)),linear-gradient(180deg,rgba(128,151,174,.55) 0 1px,transparent 1px 24px);background-size:100% 100%,100% 100%,100% 24px;clip-path:polygon(35% 0,100% 21%,100% 100%,0 100%,0 22%);border-left:1px solid rgba(148,166,184,.7);border-right:1px solid rgba(148,166,184,.65);box-shadow:inset 16px 0 34px rgba(255,255,255,.38), inset -10px 0 18px rgba(105,126,148,.12);}
+    .building:after{content:"";position:absolute;left:0;bottom:0;width:132px;height:114px;background:linear-gradient(112deg,rgba(233,241,249,.72),rgba(190,207,224,.58)),linear-gradient(90deg,rgba(128,151,174,.52) 0 1px,transparent 1px 24%,rgba(128,151,174,.4) 24% calc(24% + 1px),transparent calc(24% + 1px) 48%,rgba(128,151,174,.4) 48% calc(48% + 1px),transparent calc(48% + 1px) 72%,rgba(128,151,174,.4) 72% calc(72% + 1px),transparent calc(72% + 1px)),linear-gradient(180deg,rgba(128,151,174,.42) 0 1px,transparent 1px 23px);background-size:100% 100%,100% 100%,100% 23px;clip-path:polygon(0 42%,100% 0,100% 100%,0 100%);border-left:1px solid rgba(156,174,192,.52);box-shadow:inset 0 -22px 35px rgba(198,213,228,.32);}
+    .roof-green{position:absolute;right:170px;bottom:0;width:58px;height:9px;background:linear-gradient(90deg,#94a942,#c6d36a);border-radius:80% 80% 0 0;opacity:.45;}
+    .hero-mark{position:absolute;right:48px;top:42px;text-align:left;font-size:7px;font-weight:700;letter-spacing:.28em;line-height:1.85;color:#8597aa;}
+    .hero-mark:after{content:"";display:block;width:24px;height:1px;background:#9aaabc;margin-top:10px;}
+    .brand{display:flex;align-items:center;gap:8px;margin-bottom:23px;}
+    .brand img{width:100px;height:auto;display:block;}
+    .tagline{display:none;}
+    .hero h1{position:relative;margin:0;font-size:40px;line-height:1.06;font-weight:900;letter-spacing:-.04em;color:#091527;}
+    .hero h1 span{display:block;color:var(--blue);font-size:30px;margin-top:7px;letter-spacing:-.03em;}
+    .title-rule{width:54px;height:2px;background:var(--blue);margin-top:20px;}
+    .hero-copy{position:relative;margin-top:21px;font-size:15px;line-height:1.55;color:#50657d;font-weight:500;}
+    .signature{display:none;}
+    .body{padding:38px 42px 28px;font-size:16px;line-height:1.74;color:var(--text);}
+    .lead-name{font-weight:800;margin-bottom:20px;font-size:18px;}
+    .body p{margin:0 0 16px;}
+    .accent{color:var(--blue);font-weight:800;}
+    .info-box{margin:24px 0 22px;padding:18px 20px;background:#f1f7ff;border-radius:10px;display:block;}
+    .info-title{font-size:15px;font-weight:800;color:var(--blue);white-space:nowrap;}
+    .info-icon{display:none;}
+    .info-tags{display:flex;align-items:center;gap:0;margin-top:12px;color:#1f2937;font-size:14px;white-space:nowrap;}
+    .info-tags span{padding:0 16px;border-right:1px solid #aebfd0;}
+    .info-tags span:first-child{padding-left:0;}
+    .info-tags span:last-child{border-right:0;padding-right:0;}
+    .notes{display:grid;gap:10px;margin:8px 0 24px;}
+    .note{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.6;color:#38485a;}
+    .check{width:21px;height:21px;flex:0 0 auto;border-radius:50%;background:#dcecff;color:var(--blue);font-size:13px;display:inline-flex;align-items:center;justify-content:center;margin-top:1px;font-weight:800;}
+    .cta{text-align:center;margin:38px 0 31px;}
+    .cta a{display:inline-block;min-width:300px;background:#003087;color:#fff;text-decoration:none;font-size:16px;font-weight:800;padding:15px 28px;border-radius:9px;box-shadow:0 5px 12px rgba(0,48,135,.12);}
+    .inquiry{margin:34px 0 0;padding-top:24px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1px 132px;gap:24px;align-items:center;}
+    .inquiry-main{display:grid;grid-template-columns:32px 1fr;gap:13px;align-items:start;}
+    .bubble{width:31px;height:31px;border-radius:50%;border:1.5px solid #d4e2ef;color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:17px;}
+    .inquiry-title{font-size:16px;font-weight:800;color:var(--lynn);margin-bottom:5px;}
+    .inquiry-text{font-size:13px;line-height:1.55;color:#45566a;}
+    .inquiry-link{display:inline-block;margin-top:12px;border:1px solid #9fb0c4;border-radius:8px;color:#183b67;text-decoration:none;font-size:13px;font-weight:800;padding:9px 15px;background:#fff;}
+    .divider{height:108px;background:var(--line);}
+    .qrbox{text-align:center;font-size:10px;line-height:1.42;color:#65788d;font-weight:500;}
+    .qrbox img{display:block;width:74px;height:74px;margin:0 auto 8px;border:1px solid var(--line);border-radius:7px;padding:6px;background:#fff;}
+    .foot{padding:20px 42px;background:#f1f8ff;border-top:1px solid #dce8f2;text-align:left;}
+    .foot-brand{display:block;}
+    .foot strong{display:inline-block;color:#253140;font-size:17px;font-weight:800;white-space:nowrap;}
+    .foot-sep,.foot-copy,.foot-right{display:none;}
+    @media(max-width:760px){
+      .hero,.body{padding-left:30px;padding-right:30px;}
+      .hero{min-height:330px;}
+      .signature{display:none;}
+      .building{right:-60px;opacity:.28;transform:scale(.75);transform-origin:right bottom;}
+      .hero-mark{right:28px;top:44px;font-size:9px;}
+      .brand img{width:112px;}
+      .tagline{display:none;}
+      .hero h1{font-size:38px;}
+      .hero h1 span{font-size:28px;}
+      .body{font-size:17px;}
+      .lead-name{font-size:19px;}
+      .info-box{padding:18px;}
+      .info-tags{display:block;}
+      .info-tags span{display:inline-block;margin:2px 10px 2px 0;padding:0;border-right:0;}
+      .note{font-size:14px;}
+      .cta a{width:100%;min-width:0;font-size:17px;}
+      .inquiry{grid-template-columns:1fr;gap:14px;}
+      .divider{display:none;}
+      .qrbox{text-align:left;}
+      .qrbox img{margin:0 0 6px;}
+      .foot{padding-left:26px;padding-right:26px;}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1 class="page-title">비주얼 샘플: 지원자용 레퍼런스 체크 메일</h1>
+    <article class="mail-card">
+      <section class="hero">
+        <div class="hero-mark">SPACE<br>FOR<br>A BETTER<br>TOMORROW</div>
+        <div class="building"></div>
+        <div class="roof-green"></div>
+        <div class="brand"><img src="woomi-ci.png" alt="우미건설"></div>
+        <h1>레퍼런스 체크<span>추천인 등록 안내</span></h1>
+        <div class="title-rule"></div>
+        <div class="signature">사람이<br>만드는 내일</div>
+        <div class="hero-copy">신뢰를 바탕으로 함께 배우고 도전하는<br>우미의 채용 여정에 함께해 주셔서 감사합니다.</div>
+      </section>
+
+      <section class="body">
+        <div class="lead-name">안녕하세요, 이예슬님.</div>
+        <p>우미건설 홍보 포지션 채용 절차와 관련하여<br>레퍼런스 체크를 진행하고자 합니다.</p>
+        <p>아래 버튼을 통해 <span class="accent">추천인 3인의 정보</span>를 등록해 주시기 바랍니다.</p>
+
+        <div class="info-box">
+          <div class="info-title">등록하실 정보</div>
+          <div class="info-tags">
+            <span>성함</span>
+            <span>이메일</span>
+            <span>휴대폰 번호</span>
+            <span>지원자와의 관계</span>
+          </div>
+        </div>
+
+        <div class="notes">
+          <div class="note"><span class="check">✓</span><span>등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.</span></div>
+          <div class="note"><span class="check">✓</span><span>추천인 등록 전, 연락처 제공 및 설문 발송 예정임을 추천인께 미리 안내해 주세요.</span></div>
+          <div class="note"><span class="check">✓</span><span>응답 내용은 채용 검토 목적으로만 활용됩니다.</span></div>
+        </div>
+
+        <div class="cta"><a href="#">추천인 정보 등록하기 →</a></div>
+
+        <div class="inquiry">
+          <div class="inquiry-main">
+            <div class="bubble">?</div>
+            <div>
+              <div class="inquiry-title">문의사항</div>
+              <div class="inquiry-text">레퍼런스 체크와 관련하여 궁금한 점이 있으시면<br>카카오톡 채널로 문의해 주세요.</div>
+              <a class="inquiry-link" href="#">카카오톡 채널 문의하기 →</a>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="qrbox">
+            <img src="kakao-channel-qr.png" alt="카카오톡 채널 QR">
+            QR코드를 스캔하시면<br>바로 연결됩니다.
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <div class="foot-brand">
+          <strong>우미건설 피플팀</strong>
+        </div>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

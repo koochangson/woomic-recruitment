@@ -1,0 +1,148 @@
+/**
+ * Woomi recruitment ATS - Google Apps Script backend.
+ *
+ * Deploy this file as a Web App and use the /exec URL in the ATS.
+ * It supports the existing ATS Google Sheets API plus employee-email
+ * verification and referral file uploads.
+ *
+ * Required sheets:
+ * Candidates, Interviews, Positions, RecruitPlans, Referrals, Rewards,
+ * RefRules, Interviewers, Employees, Settings
+ *
+ * Optional Settings:
+ * referralDataUrl: Google Sheets file URL for Referrals/Rewards/RefRules.
+ *                 If empty, referral sheets stay in this script's bound file.
+ *
+ * Interviewers/Employees header:
+ * email | name | empNo | dept | status | updatedAt
+ */
+
+const REFERRAL_UPLOAD_FOLDER_ID = 'PUT_GOOGLE_DRIVE_FOLDER_ID_HERE';
+const ADMIN_TOKEN_PROPERTY = 'RECRUITMENT_ADMIN_TOKEN';
+const ADMIN_ALLOWLIST_PROPERTY = 'RECRUITMENT_ADMIN_ALLOWLIST';
+const LOCAL_ADMIN_USERS_PROPERTY = 'RECRUITMENT_LOCAL_ADMIN_USERS';
+const ADMIN_SESSION_SECONDS_PROPERTY = 'RECRUITMENT_ADMIN_SESSION_SECONDS';
+const DEPLOYMENT_ROLE_PROPERTY = 'RECRUITMENT_DEPLOYMENT_ROLE';
+const OPENAI_API_KEY_PROPERTY = 'OPENAI_API_KEY';
+const EMPLOYEE_DIRECTORY_LOOKUP_TOKEN_PROPERTY = 'INTERVIEWER_DB_LOOKUP_TOKEN';
+const EMPLOYEE_DIRECTORY_ADMIN_TOKEN_PROPERTY = 'INTERVIEWER_DB_ADMIN_TOKEN';
+const REFERRAL_CODE_TTL_SECONDS = 10 * 60;
+const REFERRAL_TOKEN_TTL_SECONDS = 60 * 60;
+const REFERRAL_CODE_SEND_LIMIT = 3;
+const REFERRAL_CODE_VERIFY_LIMIT = 5;
+const REFERRAL_CODE_LOCK_SECONDS = 10 * 60;
+const REFERRAL_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const REFERRAL_ALLOWED_EXTENSIONS = ['pdf','doc','docx','ppt','pptx','hwp','hwpx','zip'];
+const CHANGE_LOG_SHEET = '_Changes';
+const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
+const REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS = ['referralEmployeeDirectoryUrl', 'interviewerUrl'];
+const REFERRAL_DATA_SHEETS = ['Referrals', 'Rewards', 'RefRules'];
+const REFERRAL_DATA_URL_PROPERTY = 'REFERRAL_DATA_SPREADSHEET_URL';
+const REFERRAL_DATA_URL_SETTING_KEYS = ['referralDataUrl', 'referralStorageUrl'];
+const EMPLOYEE_DIRECTORY_CACHE_TTL_SECONDS = 5 * 60;
+const EMPLOYEE_DIRECTORY_CACHE_KEY_PREFIX = 'empDirChunk_';
+const EMPLOYEE_DIRECTORY_CACHE_CHUNK_SIZE = 50000;
+// 레퍼런스체크 후보자/추천인 링크는 최소 며칠~몇 주 동안 유효해야 하는데
+// CacheService는 최대 보관 시간이 6시간으로 제한돼 있어 쓸 수 없다(referralToken류와의 핵심 차이).
+// 그래서 토큰을 캐시가 아니라 시트의 컬럼 값으로 저장하고, 매 요청마다 시트에서 대조한다.
+const REFERENCE_LINK_TTL_DAYS = 21;
+const REFERENCE_REQUIRED_REFEREES = 3;
+const REFERENCE_CANDIDATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_candidate_intake.html';
+const REFERENCE_RESPONSE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_check_intake.html';
+const INTERVIEW_AVAILABILITY_LINK_TTL_DAYS = 10;
+const INTERVIEW_AVAILABILITY_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/interview_availability.html';
+
+const SHEET_SCHEMAS = {
+  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
+  RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
+  Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
+  Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
+  RefRules: ['id','recordType','key','value','clFrom','clTo','amount3M','amount6M','effectiveFrom','effectiveTo','isActive','updatedAt'],
+  Interviewers: ['email','name','empNo','dept','rank','status','updatedAt'],
+  Employees: ['email','name','empNo','dept','status','updatedAt'],
+  Settings: ['id','value'],
+  MailLog: ['id','to','subject','status','error','sentAt'],
+  ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
+  ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','link','verifiedAt','submittedAt','status',
+    'q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
+    'q1_2_mainTask','q1_2_projectScale','q1_2_soloVsShared',
+    'q2_startStyle',
+    'q3_judgeStyle','q3_initiative',
+    'q4_successNarrative','q4_failureNarrative',
+    'q5_feedbackResponse',
+    'q6_conflictStyle','q6_example',
+    'q7_entrustedRoles',
+    'q8_reliableAreas','q8_supportNeededAreas',
+    'q9_word','q9_reason',
+    'q10_firstAction','q10_sharedTiming',
+    'q11_juniorSupportStyle','q11_example',
+    'q12_exitReasonSource','q12_exitReasonDetail',
+    'respondentName','respondentAffiliation','respondentContact','respondentConsentObserved','respondentConsentDataUse',
+    'updatedAt'],
+};
+
+function doGet(e) {
+  try {
+    const params = e && e.parameter ? e.parameter : {};
+    const action = params.action || '';
+
+    if (!action && !isPublicDeployment_()) {
+      return HtmlService.createTemplateFromFile('Dashboard')
+        .evaluate()
+        .setTitle('채용관리 대시보드')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+
+    const sheet = params.sheet || '';
+    let data = {};
+    if (params.data) data = JSON.parse(params.data);
+    if (params.id) data.id = params.id;
+    return routeRequest_({ action: action || 'getAll', sheet, data, query: params });
+  } catch (err) {
+    return json_({ error: String(err && err.message || err) });
+  }
+}
+
+function doPost(e) {
+  try {
+    const body = e && e.postData && e.postData.contents ? e.postData.contents : '{}';
+    const payload = JSON.parse(body || '{}');
+    return routeRequest_(payload);
+  } catch (err) {
+    return json_({ error: String(err && err.message || err) });
+  }
+}
+
+function routeRequest_(payload) {
+  const securityResult = handleReferralSecurityAction_(payload);
+  if (securityResult) return securityResult;
+
+  const action = payload.action || '';
+  const sheetName = payload.sheet || '';
+  const data = payload.data || {};
+  const query = payload.query || payload || {};
+  const isPublicReferralSubmit = action === 'upsert' && sheetName === 'Referrals' && data && data.verificationToken;
+  const isAdmin = !isPublicDeployment_() && isAdminRequest_(payload);
+
+  if (!isAdmin && !isPublicReferralSubmit) throw new Error('admin_auth_required');
+
+  if (action === 'generateReferenceSummary') return generateReferenceSummary_(data);
+  if (action === 'sendMail' && isAdminRequest_(payload)) return handleSendMail_(payload);
+  if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
+  if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
+  if (action === 'getChanges') return getChanges_(query);
+
+  assertKnownSheet_(sheetName);
+  ensureSheet_(sheetName);
+
+  if (action === 'getAll') return getAll_(sheetName, query);
+  if (action === 'upsert') return upsert_(sheetName, data, isAdmin);
+  if (action === 'batchUpsert') return batchUpsert_(sheetName, data, isAdmin);
+  if (action === 'replaceAll') return replaceAll_(sheetName, data, isAdmin);
+  if (action === 'deleteRow') return deleteRow_(sheetName, data.id);
+
+  return json_({ error: 'unknown_action' });
+}
+

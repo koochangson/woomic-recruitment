@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests">
+  <title>레퍼런스 체크 · 추천인 등록 · 우미건설</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-soft: #f1f5f9;
+      --line: #e2e8f0;
+      --line-hover: #cbd5e1;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #005ca1;
+      --accent-dark: #004578;
+      --accent-light: #e0f2fe;
+      --warn: #d97706;
+      --danger: #dc2626;
+      --ok: #059669;
+      --radius: 12px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 1px 3px rgba(15, 23, 42, .04);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", "Segoe UI", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+    button, input, textarea, select { font: inherit; }
+    .wrap { width: min(640px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 60px; }
+    .brand { font-size: 15px; font-weight: 800; color: var(--muted); letter-spacing: -0.01em; margin-bottom: 18px; }
+    h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 10px; text-wrap: balance; }
+    .intro-panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 24px 26px;
+      margin-bottom: 20px;
+    }
+    .intro-panel p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.65; color: var(--text); }
+    .intro-panel p:last-child { margin-bottom: 0; }
+    .intro-panel .muted-line { color: var(--muted); font-size: 13.5px; }
+
+    .q-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 22px 24px;
+      margin-bottom: 14px;
+    }
+    .q-sub { font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 0 6px; }
+    .q-note { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.55; }
+
+    input[type="text"], input[type="email"], select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    input:focus, select:focus {
+      background: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-light);
+    }
+
+    .referee-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin-bottom: 12px;
+      position: relative;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .referee-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 18px;
+      background: var(--accent-light);
+      border-bottom: 1px solid var(--line);
+    }
+    .referee-num-badge {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 999px; flex: 0 0 auto;
+      background: var(--accent); color: #fff; font-size: 14px; font-weight: 800;
+    }
+    .referee-title { font-size: 15px; font-weight: 800; color: var(--accent-dark); }
+    .referee-body { padding: 18px; }
+    .field-row { display: grid; gap: 6px; margin-bottom: 12px; }
+    .field-row label { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+    .req-mark { color: var(--danger); font-weight: 700; }
+    .field-row.split2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .field-row.split2 { grid-template-columns: 1fr; } }
+
+    .add-referee-btn {
+      width: 100%; appearance: none; border: 1.5px dashed var(--line-hover); border-radius: 10px;
+      background: transparent; color: var(--accent-dark); font-size: 14px; font-weight: 700;
+      padding: 13px; cursor: pointer; margin-bottom: 14px;
+    }
+    .add-referee-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+    .add-referee-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+    .btn {
+      appearance: none; border: 1px solid var(--accent); border-radius: 9px;
+      background: var(--accent); color: #fff; font-size: 15px; font-weight: 700;
+      padding: 13px 22px; cursor: pointer; transition: background .15s ease;
+    }
+    .btn:hover { background: var(--accent-dark); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    #completePanel, #loadingPanel, #errorPanel { display: none; }
+    #completePanel .q-card, #loadingPanel .q-card, #errorPanel .q-card { text-align: center; padding: 40px 24px; }
+    #completePanel h2, #errorPanel h2 { font-size: 20px; margin: 0 0 8px; }
+    #completePanel p, #loadingPanel p, #errorPanel p { color: var(--muted); font-size: 14px; }
+    #errorPanel h2 { color: var(--danger); }
+    .preview-banner {
+      background: var(--warn); color: #fff; text-align: center;
+      font-size: 12.5px; font-weight: 700; padding: 9px 12px;
+      border-radius: 9px; margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">우미건설 · 레퍼런스 체크</div>
+
+    <div id="loadingPanel" style="display:block">
+      <div class="q-card"><p>확인 중입니다...</p></div>
+    </div>
+
+    <div id="errorPanel">
+      <div class="q-card">
+        <h2 id="errorTitle">링크를 확인할 수 없습니다</h2>
+        <p id="errorMessage">링크가 만료되었거나 올바르지 않습니다. 담당 채용 담당자에게 문의해 주세요.</p>
+      </div>
+    </div>
+
+    <div id="formRoot" style="display:none">
+      <div class="intro-panel">
+        <h1><span class="cand-name">OOO</span> 님, 추천인을 등록해 주세요</h1>
+        <p>채용 절차의 일환으로 레퍼런스 체크를 진행합니다. 함께 일했던 경험을 잘 이야기해 주실 수 있는 분 <b>3명</b>을 등록해 주세요.</p>
+        <p class="muted-line">등록하신 분들께는 별도의 이메일로 짧은 설문 링크가 발송됩니다. 응답 내용은 채용 참고용으로만 사용되며, 등록 후에는 담당 채용 담당자를 통해서만 변경할 수 있습니다.</p>
+      </div>
+
+      <form id="candidateForm" novalidate>
+        <div id="refereeList"></div>
+
+        <div class="actions">
+          <button type="submit" class="btn" id="submitBtn">추천인 등록 완료</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="completePanel">
+      <div class="q-card">
+        <h2>등록이 완료되었습니다</h2>
+        <p>등록해 주신 추천인분들께 설문 링크를 발송했습니다. 감사합니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwMa89IxQvjWODNqkYkR8xbDU6llnOUeSPf8GN9LnYSMIhLfDGmMOGvtdVs4t9tImFL/exec';
+    const REQUIRED_REFEREES = 3;
+    const RELATION_OPTIONS = ['직속 상사', '상위 관리자', '동료', '타 부서 협업자', '부하·후배', '협력사·고객 등 업무 관계자', '기타'];
+
+    function clean(v) { return String(v == null ? '' : v).trim(); }
+
+    function showPanel(id) {
+      ['loadingPanel', 'errorPanel', 'formRoot', 'completePanel'].forEach(panelId => {
+        document.getElementById(panelId).style.display = panelId === id ? 'block' : 'none';
+      });
+    }
+
+    function showError(title, message) {
+      document.getElementById('errorTitle').textContent = title;
+      document.getElementById('errorMessage').textContent = message;
+      showPanel('errorPanel');
+    }
+
+    let candidateToken = '';
+    let previewMode = false;
+    let refereeSeq = 0;
+
+    function refereeCardHtml(index) {
+      const options = RELATION_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('');
+      return `
+        <div class="referee-card" data-referee-card>
+          <div class="referee-head">
+            <span class="referee-num-badge">${index}</span>
+            <span class="referee-title">추천인 ${index}</span>
+          </div>
+          <div class="referee-body">
+            <div class="field-row split2">
+              <div>
+                <label>이름 <span class="req-mark">*</span></label>
+                <input type="text" data-field="name" required>
+              </div>
+              <div>
+                <label>이메일 <span class="req-mark">*</span></label>
+                <input type="email" data-field="email" required>
+              </div>
+            </div>
+            <div class="field-row split2">
+              <div>
+                <label>휴대폰 번호 <span class="req-mark">*</span></label>
+                <input type="text" inputmode="numeric" data-field="phone" placeholder="숫자만 입력 (예: 01012345678)" required>
+              </div>
+              <div>
+                <label>관계</label>
+                <select data-field="relation">${options}</select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div>
+                <label>소속 회사 (선택)</label>
+                <input type="text" data-field="company">
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // 추천인은 항상 정확히 3명 — 추가·삭제 없이 카드 3개를 고정으로 렌더링한다.
+    function renderRefereeCards() {
+      const list = document.getElementById('refereeList');
+      list.innerHTML = '';
+      for (let i = 1; i <= REQUIRED_REFEREES; i++) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = refereeCardHtml(i);
+        list.appendChild(wrap.firstElementChild);
+      }
+    }
+
+    // 휴대폰 번호 입력칸은 숫자가 아닌 문자가 입력되는 즉시 걸러낸다(하이픈 등도 자동 제거).
+    // 카드가 나중에 다시 그려져도(renderRefereeCards) 계속 동작하도록 상위 컨테이너에 위임한다.
+    document.getElementById('refereeList').addEventListener('input', (event) => {
+      if (event.target.matches('[data-field="phone"]')) {
+        const digitsOnly = event.target.value.replace(/[^\d]/g, '');
+        if (digitsOnly !== event.target.value) event.target.value = digitsOnly;
+      }
+    });
+
+    function collectReferees() {
+      return [...document.querySelectorAll('[data-referee-card]')].map(card => ({
+        name: clean(card.querySelector('[data-field="name"]').value),
+        email: clean(card.querySelector('[data-field="email"]').value).toLowerCase(),
+        phone: clean(card.querySelector('[data-field="phone"]').value).replace(/[^\d]/g, ''),
+        relation: clean(card.querySelector('[data-field="relation"]').value),
+        company: clean(card.querySelector('[data-field="company"]').value)
+      }));
+    }
+
+    function validateReferees(referees) {
+      for (let i = 0; i < referees.length; i++) {
+        const r = referees[i];
+        if (!r.name || !r.email || !r.phone) {
+          alert(`추천인 ${i + 1}의 이름·이메일·휴대폰 번호를 모두 입력해 주세요.`);
+          return false;
+        }
+        if (!r.email.includes('@')) {
+          alert(`추천인 ${i + 1}의 이메일 형식을 확인해 주세요.`);
+          return false;
+        }
+      }
+      const emails = referees.map(r => r.email);
+      if (new Set(emails).size !== emails.length) {
+        alert('추천인 이메일이 중복되지 않도록 입력해 주세요.');
+        return false;
+      }
+      return true;
+    }
+
+    async function verifyTokenAndInit() {
+      const params = new URLSearchParams(location.search);
+      // 문구·디자인 확정 전 테스트용: ?preview=1로 열면 토큰·백엔드 없이 바로 폼을 볼 수 있다.
+      // 실제 제출은 되지 않는다(제출 버튼에서 다시 분기 처리).
+      if (params.get('preview') === '1') {
+        previewMode = true;
+        document.querySelectorAll('.cand-name').forEach(el => { el.textContent = clean(params.get('cand')) || '홍길동'; });
+        renderRefereeCards();
+        const root = document.getElementById('formRoot');
+        if (root && !root.querySelector('.preview-banner')) {
+          root.insertAdjacentHTML('afterbegin', '<div class="preview-banner">미리보기 모드 — 문구·디자인 확인용입니다. 실제로 제출되지 않습니다.</div>');
+        }
+        showPanel('formRoot');
+        return;
+      }
+      candidateToken = clean(params.get('token'));
+      if (!candidateToken) {
+        showError('잘못된 접근입니다', '이메일로 받으신 링크를 통해 다시 접속해 주세요.');
+        return;
+      }
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'verifyReferenceCandidateToken', token: candidateToken })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          if (data.error === 'token_expired') {
+            showError('링크가 만료되었습니다', '채용 담당자에게 새 링크 발송을 요청해 주세요.');
+          } else {
+            showError('링크를 확인할 수 없습니다', '링크가 올바르지 않습니다. 채용 담당자에게 문의해 주세요.');
+          }
+          return;
+        }
+        document.querySelectorAll('.cand-name').forEach(el => { el.textContent = data.candName || 'OOO'; });
+        document.title = `${data.candName || 'OOO'} 님 추천인 등록 · 우미건설`;
+        if (data.alreadySubmitted) {
+          showError('이미 등록을 완료하셨습니다', '추천인 등록은 1회만 가능합니다. 변경이 필요하면 채용 담당자에게 문의해 주세요.');
+          return;
+        }
+        renderRefereeCards();
+        showPanel('formRoot');
+      } catch (err) {
+        console.error(err);
+        showError('연결에 실패했습니다', '네트워크 상태를 확인하신 뒤 페이지를 새로고침해 주세요.');
+      }
+    }
+    verifyTokenAndInit();
+
+    document.getElementById('candidateForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const referees = collectReferees();
+      if (!referees.length || !validateReferees(referees)) return;
+
+      if (previewMode) {
+        showPanel('completePanel');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '등록 중...';
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'submitReferenceCandidateReferees', token: candidateToken, referees })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          alert('등록 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '추천인 등록 완료';
+          return;
+        }
+        showPanel('completePanel');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        console.error(err);
+        alert('등록 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '추천인 등록 완료';
+      }
+    });
+  </script>
+</body>
+</html>

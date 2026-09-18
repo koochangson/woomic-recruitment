@@ -1,0 +1,215 @@
+function nowIso_() {
+  return new Date().toISOString();
+}
+
+function isAdminRequest_(payload) {
+  const token = String(payload.adminToken || payload.query && payload.query.adminToken || payload.data && payload.data.adminToken || '').trim();
+  const configuredToken = getScriptProperty_(ADMIN_TOKEN_PROPERTY);
+  if (configuredToken && token === configuredToken) return true;
+  const email = getActiveUserEmail_();
+  return !!email && getAdminAllowlist_().includes(email);
+}
+
+function isPublicDeployment_() {
+  return getScriptProperty_(DEPLOYMENT_ROLE_PROPERTY).toLowerCase() === 'public';
+}
+
+function getScriptProperty_(key) {
+  return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
+}
+
+function getActiveUserEmail_() {
+  try {
+    return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  } catch (err) {
+    return '';
+  }
+}
+
+function getAdminAllowlist_() {
+  return getScriptProperty_(ADMIN_ALLOWLIST_PROPERTY)
+    .split(/[,\n;]/)
+    .map(email => String(email || '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isGoogleAllowlistedAdmin_() {
+  const email = getActiveUserEmail_();
+  return !!email && getAdminAllowlist_().includes(email);
+}
+
+function compactReferralStatus_(status) {
+  const map = {
+    SUBMITTED: '접수',
+    REVIEWING: '검토중',
+    IN_PROCESS: '전형진행',
+    PASSED: '합격',
+    FAILED: '불합격',
+    HIRED: '입사',
+    REJECTED: '종료',
+    EXPIRED: '만료',
+    CANCELLED: '종료'
+  };
+  return map[String(status || '').toUpperCase()] || '접수';
+}
+
+function compactRewardStatus_(status) {
+  const map = {
+    SCHEDULED: '예정',
+    RETENTION_OK: '재직확인',
+    REQUESTED: '지급요청',
+    PAID: '지급완료',
+    CANCELLED: '취소'
+  };
+  return map[String(status || '').toUpperCase()] || '예정';
+}
+
+function maskName_(value) {
+  const text = String(value || '').trim();
+  if (!text) return '후보자';
+  if (text.length <= 1) return text + '*';
+  return text.slice(0, 1) + '*'.repeat(Math.min(2, text.length - 1));
+}
+
+function sendReferralReceipt_(row) {
+  try {
+    if (!row || !row.refEmail) return;
+    const message = [
+      '사내추천 접수가 완료되었습니다.',
+      '',
+      '접수번호: ' + row.id,
+      '접수일: ' + String(row.submittedAt || '').slice(0, 10),
+      '유효기간: ' + String(row.validUntil || '').slice(0, 10),
+      '',
+      '접수 현황은 추천 접수 화면에서 동일한 사번 인증 후 확인할 수 있습니다.',
+      '',
+      '우미건설 피플팀'
+    ].join('\n');
+    const result = sendMailViaGmail_(row.refEmail, '[우미건설] 사내추천 접수 완료', message);
+    if (!result.ok) throw new Error(result.error || 'mail_send_failed');
+  } catch (err) {
+    console.warn('sendReferralReceipt_ failed: ' + String(err && err.message || err));
+  }
+}
+
+function json_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function adminLogin_(payload) {
+  const data = payload && payload.data || {};
+  const username = String(data.username || '').trim().toLowerCase();
+  const password = String(data.password || '');
+  if (!username || !password) return { ok: false, error: 'missing_credentials' };
+  if (isAdminLoginLocked_(username)) return { ok: false, error: 'login_locked' };
+
+  const users = getLocalAdminUsers_();
+  const expectedHash = users[username];
+  if (!expectedHash || sha256Hex_(password) !== expectedHash) {
+    recordAdminLoginFailure_(username);
+    return { ok: false, error: 'invalid_credentials' };
+  }
+
+  clearAdminLoginFailures_(username);
+  const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+  const ttl = getAdminSessionSeconds_();
+  CacheService.getScriptCache().put(adminSessionKey_(token), JSON.stringify({
+    username,
+    issuedAt: nowIso_()
+  }), ttl);
+  return { ok: true, token, username, expiresIn: ttl };
+}
+
+function adminLogout_(payload) {
+  const token = getAdminSessionTokenFromPayload_(payload);
+  if (token) CacheService.getScriptCache().remove(adminSessionKey_(token));
+  return { ok: true };
+}
+
+function hasValidAdminSession_(token) {
+  token = String(token || '').trim();
+  if (!token) return false;
+  try {
+    const raw = CacheService.getScriptCache().get(adminSessionKey_(token));
+    if (!raw) return false;
+    const session = JSON.parse(raw);
+    return !!session && !!session.username;
+  } catch (err) {
+    return false;
+  }
+}
+
+function getAdminSessionTokenFromPayload_(payload) {
+  return String(payload && (payload.sessionToken || payload.data && payload.data.sessionToken || payload.query && payload.query.sessionToken) || '').trim();
+}
+
+function getLocalAdminUsers_() {
+  const raw = getScriptProperty_(LOCAL_ADMIN_USERS_PROPERTY);
+  const users = {};
+  raw.split(/[,\n;]/).forEach(entry => {
+    const text = String(entry || '').trim();
+    if (!text) return;
+    const idx = text.indexOf(':');
+    if (idx <= 0) return;
+    const username = text.slice(0, idx).trim().toLowerCase();
+    const hash = text.slice(idx + 1).trim().toLowerCase();
+    if (username && /^[a-f0-9]{64}$/.test(hash)) users[username] = hash;
+  });
+  return users;
+}
+
+function getAdminSessionSeconds_() {
+  const configured = Number(getScriptProperty_(ADMIN_SESSION_SECONDS_PROPERTY));
+  if (!Number.isFinite(configured) || configured <= 0) return 6 * 60 * 60;
+  return Math.max(60, Math.min(configured, 6 * 60 * 60));
+}
+
+function adminSessionKey_(token) {
+  return 'admin_session:' + token;
+}
+
+function adminLoginFailKey_(username) {
+  return 'admin_login_fail:' + username;
+}
+
+function adminLoginLockKey_(username) {
+  return 'admin_login_lock:' + username;
+}
+
+function isAdminLoginLocked_(username) {
+  return !!CacheService.getScriptCache().get(adminLoginLockKey_(username));
+}
+
+function recordAdminLoginFailure_(username) {
+  const cache = CacheService.getScriptCache();
+  const key = adminLoginFailKey_(username);
+  const count = Number(cache.get(key) || '0') + 1;
+  if (count >= 5) {
+    cache.put(adminLoginLockKey_(username), '1', 10 * 60);
+    cache.remove(key);
+  } else {
+    cache.put(key, String(count), 10 * 60);
+  }
+}
+
+function clearAdminLoginFailures_(username) {
+  const cache = CacheService.getScriptCache();
+  cache.remove(adminLoginFailKey_(username));
+  cache.remove(adminLoginLockKey_(username));
+}
+
+function sha256Hex_(value) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value), Utilities.Charset.UTF_8)
+    .map(byte => {
+      const normalized = byte < 0 ? byte + 256 : byte;
+      return ('0' + normalized.toString(16)).slice(-2);
+    })
+    .join('');
+}
+
+function makeAdminPasswordHash(password) {
+  return sha256Hex_(password || '');
+}
+

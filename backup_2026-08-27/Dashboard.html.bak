@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -51,6 +51,15 @@ html,body{height:100%;font-family:'Pretendard',-apple-system,sans-serif;backgrou
 .sb-mark img{width:32px;height:auto;display:block;}
 .sb-name{font-size:13px;font-weight:700;color:#fff;line-height:1.25;}
 .sb-sub{font-size:10px;color:rgba(255,255,255,.42);margin-top:1px;}
+.admin-login-backdrop{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(10,22,35,.62);backdrop-filter:blur(4px);padding:20px;}
+.admin-login-backdrop.on{display:flex;}
+.admin-login-box{width:min(380px,100%);background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);padding:24px;}
+.admin-login-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;}
+.admin-login-sub{font-size:12.5px;color:var(--t2);margin-bottom:18px;}
+.admin-login-box label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin:12px 0 6px;}
+.admin-login-box input{width:100%;height:40px;border:1px solid var(--border);border-radius:6px;padding:0 11px;font-family:'Pretendard',sans-serif;font-size:14px;}
+.admin-login-box button{width:100%;height:40px;margin-top:16px;border:1px solid var(--acc);border-radius:6px;background:var(--acc);color:#fff;font-weight:700;cursor:pointer;}
+.admin-login-msg{min-height:18px;margin-top:10px;font-size:12px;color:var(--danger);}
 .sb-nav{padding:10px 8px;flex:1;overflow-y:auto;}
 .ng{margin-bottom:16px;}
 .ng-label{font-size:9px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:.8px;text-transform:uppercase;padding:0 8px;margin-bottom:4px;}
@@ -481,18 +490,17 @@ html,body{line-height:1.55;}
 /* 포지션 칸반: 동일 배경, 충분한 폭과 읽기 쉬운 정보 밀도 */
 .position-kanban{gap:12px;padding:4px 2px 12px;}
 .position-kanban-col{flex:1 0 145px;min-width:145px;background:var(--s2);border:1px solid var(--border);padding:11px 10px;}
-.position-kanban-card{padding:8px 9px 7px;margin-bottom:7px;min-height:54px;overflow:hidden;}
-.position-kanban-title{font-size:12.8px;font-weight:800;line-height:1.25;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.position-kanban-card{padding:7px 9px;margin-bottom:7px;height:72px;overflow:hidden;}
+.position-kanban-title{font-size:12.5px;font-weight:650;line-height:1.3;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .position-kanban-title.is-long{font-size:11.5px;letter-spacing:-.2px;}
 .position-kanban-title.is-xlong{font-size:10.5px;letter-spacing:-.35px;}
 .position-kanban-col-h{font-size:12.5px;}
 .position-kanban-col-sub{font-size:11px;margin-bottom:9px;}
 .stage-col{background:var(--s2);}
 .stage-col-title{font-size:12.5px;font-weight:700;}
-/* 포지션 칸반 카드: 채용인원 · 지원자 수 · 현재 상태 */
-.pk-meta{font-size:10.5px;color:var(--t2);display:flex;gap:4px;align-items:center;white-space:nowrap;overflow:hidden;margin-bottom:3px;}
+/* 포지션 칸반 카드: 채용인원 · 지원자 수 · 현재 단계 · 면접일 */
+.pk-meta{font-size:10.5px;color:var(--t2);margin-bottom:3px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
 .pk-meta .pk-dot{color:var(--t3);}
-.pk-status{font-size:10px;font-weight:650;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9;}
 .pk-stage{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pk-stage-date{font-weight:600;}
 .pk-stage-date.warn{color:var(--amber);}
@@ -538,22 +546,21 @@ html,body{line-height:1.55;}
 #sect-reference .grid.g32{grid-template-columns:minmax(0,1fr) minmax(280px,320px);}
 .ref-pos-group{border:1px solid var(--border);border-radius:var(--rsm);margin:0;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
 .ref-pos-group:hover{border-color:var(--border2);box-shadow:0 2px 8px rgba(15,52,96,.08);}
-.ref-pos-head{padding:9px 14px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.ref-pos-head{padding:10px 14px 8px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
 .ref-pos-head[data-action]{cursor:pointer;transition:background .15s;}
 .ref-pos-head[data-action]:hover{background:var(--acc-light);}
+.ref-pos-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .ref-pos-main{min-width:0;flex:1;}
-.ref-pos-title{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;font-weight:700;color:var(--text);}
-.ref-pos-title-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.ref-pos-meta{font-size:10px;color:var(--t3);font-weight:600;white-space:nowrap;}
-.ref-pos-total{display:flex;align-items:center;justify-content:flex-end;gap:4px;text-align:right;white-space:nowrap;font-size:10.5px;color:var(--t3);}
-.ref-pos-total strong{display:inline;font-size:11px;}
+.ref-pos-title{font-size:12px;font-weight:700;color:var(--text);}
+.ref-pos-meta{font-size:10px;color:var(--t3);margin-top:1px;}
+.ref-pos-total{text-align:right;white-space:nowrap;}
+.ref-pos-total strong{display:block;font-size:11px;}
 .ref-pos-total span{font-size:10px;color:var(--t3);}
-.ref-cand-card{display:flex;align-items:center;gap:10px;padding:7px 10px 7px 14px;border-bottom:1px solid var(--border);cursor:pointer;min-height:36px;}
+.ref-cand-card{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 14px;border-bottom:1px solid var(--border);cursor:pointer;min-height:44px;}
 .ref-cand-card:last-child{border-bottom:0;}
 .ref-cand-main{min-width:0;flex:1;}
-.ref-cand-title{display:flex;align-items:center;gap:7px;min-width:0;}
-.ref-cand-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;}
-.ref-cand-status{font-size:10px;color:var(--t3);white-space:nowrap;padding-left:7px;border-left:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;}
+.ref-cand-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ref-cand-status{font-size:10.5px;color:var(--t3);margin-top:2px;}
 .ref-cand-bar{flex:1 1 45px;min-width:40px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
 .ref-cand-bar-fill{height:100%;border-radius:2px;transition:width .3s;}
 .ref-cand-count{font-size:11px;font-weight:700;flex-shrink:0;white-space:nowrap;}
@@ -659,14 +666,14 @@ html,body{line-height:1.55;}
 /* 포지션 관리: 컴팩트 다열 카드 */
 #pos-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch;}
 #pos-list>.empty{grid-column:1/-1;}
-.pos-manage-card{min-width:0;min-height:86px;display:flex;flex-direction:column;cursor:pointer;text-align:left;transition:transform .12s,box-shadow .12s,border-color .12s;}
+.pos-manage-card{min-width:0;height:100%;display:flex;flex-direction:column;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;}
 .pos-manage-card:hover{transform:translateY(-1px);border-color:var(--border2);box-shadow:0 6px 16px rgba(15,34,58,.09);}
 .pos-manage-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
-.pos-card-main{padding:10px 13px 9px;display:flex;flex-direction:column;flex:1;align-items:stretch;justify-content:space-between;}
-.pos-card-info{min-width:0;flex:1;margin-bottom:0;display:flex;align-items:baseline;justify-content:flex-start;gap:7px;text-align:left;}
-.pos-card-title{min-width:0;flex:0 1 auto;font-size:13.5px;font-weight:800;line-height:1.3;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
-.pos-card-title-meta{flex:0 0 auto;font-size:10.5px;color:var(--t3);font-weight:650;line-height:1.2;white-space:nowrap;}
-.pos-card-progress{display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:7px;background:var(--s2);font-size:11.5px;font-weight:700;margin-bottom:9px;}
+.pos-card-main{padding:15px 16px 14px;display:flex;flex-direction:column;flex:1;}
+.pos-card-info{min-width:0;margin-bottom:13px;}
+.pos-card-title{font-size:14px;font-weight:750;line-height:1.35;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pos-card-dept{font-size:11.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pos-card-progress{display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:7px;background:var(--s2);font-size:11.5px;font-weight:700;margin-bottom:11px;}
 .pos-card-progress-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--border2);}
 .pos-card-progress.is-current{color:var(--acc);background:var(--acc-light);}
 .pos-card-progress.is-current .pos-card-progress-dot{background:var(--amber);}
@@ -674,15 +681,18 @@ html,body{line-height:1.55;}
 .pos-card-progress.is-complete .pos-card-progress-dot{background:var(--green);}
 .pos-card-progress.is-stopped{color:var(--t2);}
 .pos-card-progress.is-stopped .pos-card-progress-dot{background:var(--t3);}
-.pos-card-summary{display:none;}
+.pos-card-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:11.5px;color:var(--t2);}
+.pos-card-summary-item{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;padding:0 2px;white-space:nowrap;}
+.pos-card-summary-label{overflow:hidden;text-overflow:ellipsis;}
+.pos-card-summary strong{font-weight:750;color:var(--text);flex:0 0 auto;}
 .pos-manage-card.is-risk{border-left:3px solid var(--red);}
-.pos-card-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px;margin-bottom:5px;text-align:left;}
+.pos-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:11px;}
 .pos-card-head .pos-card-info{margin-bottom:0;}
 .pos-card-stage{flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--acc);background:var(--acc-light);padding:3px 7px;border-radius:20px;white-space:nowrap;}
 .pos-card-stage.is-complete{color:var(--green);background:#EDFAF3;}
 .pos-card-stage.is-stopped{color:var(--t2);background:var(--s2);}
-.pos-card-action{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;margin-top:6px;padding-top:0;border-top:0;text-align:left;}
-.pos-card-action-label{display:flex;align-items:center;gap:6px;min-width:0;max-width:calc(100% - 48px);font-size:11px;color:var(--t2);}
+.pos-card-action{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--border);}
+.pos-card-action-label{display:flex;align-items:center;gap:6px;min-width:0;font-size:11px;color:var(--t2);}
 .pos-card-action-label strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
 .pos-card-action-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:0 0 auto;}
 .pos-card-action-ok .pos-card-action-dot{background:var(--green);}
@@ -705,11 +715,9 @@ html,body{line-height:1.55;}
 .dash-ac-title{font-size:13px;font-weight:750;}
 .dash-ac-sub{font-size:10.5px;color:var(--t3);margin-top:2px;}
 .dash-ac-count{font-size:10.5px;font-weight:750;color:var(--amber);background:var(--amber-light);padding:3px 8px;border-radius:20px;}
-.dash-ac-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
-.dash-ac-group{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:7px 14px 6px;background:var(--s2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:11px;font-weight:800;color:var(--t2);}
-.dash-ac-group-count{font-size:10px;font-weight:750;color:var(--t3);background:var(--surface);border:1px solid var(--border);padding:2px 6px;border-radius:20px;}
-.dash-ac-item{display:flex;align-items:center;gap:9px;min-width:0;padding:9px 14px;border-bottom:1px solid var(--border);}
-.dash-ac-item.is-left{border-right:1px solid var(--border);}
+.dash-ac-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));}
+.dash-ac-item{display:flex;align-items:center;gap:9px;min-width:0;padding:10px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
+.dash-ac-item:last-child{border-right:0;}
 .dash-ac-main{min-width:0;flex:1;}
 .dash-ac-name{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dash-ac-pos{font-size:10.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
@@ -719,7 +727,6 @@ html,body{line-height:1.55;}
 @media (max-width:980px){
   #pos-list{grid-template-columns:repeat(2,minmax(0,1fr));}
   .dash-ac-list{grid-template-columns:1fr;}
-  .dash-ac-item.is-left{border-right:0;}
 }
 @media (max-width:720px){
   #pos-list{grid-template-columns:1fr;}
@@ -866,12 +873,24 @@ html,body{line-height:1.55;}
 </style>
 </head>
 <body>
+<div id="admin-login" class="admin-login-backdrop" aria-hidden="true">
+  <form id="admin-login-form" class="admin-login-box">
+    <div class="admin-login-title">관리자 로그인</div>
+    <div class="admin-login-sub">채용관리 시스템을 사용하려면 관리자 계정으로 로그인하세요.</div>
+    <label for="admin-login-user">아이디</label>
+    <input id="admin-login-user" autocomplete="username" value="admin" required>
+    <label for="admin-login-password">비밀번호</label>
+    <input id="admin-login-password" type="password" autocomplete="current-password" required>
+    <button id="admin-login-submit" type="submit">로그인</button>
+    <div id="admin-login-msg" class="admin-login-msg"></div>
+  </form>
+</div>
 <div class="app">
 
 <!-- ── 사이드바 ─────────────────────────────────────────── -->
 <aside class="sb">
   <div class="sb-top">
-    <div class="sb-mark"><img src="woomi-ci-mark-white.png" alt="우미"></div>
+    <div class="sb-mark"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEEAAABBCAYAAACO98lFAAAEEUlEQVR4nO1bvYoUQRCukgHZyAkEWRBOcB/AjTQcn8AVzA32BQzHF9DA4FIDzScw8Qk8GBPBF5ATbi4yMLlMRKGkb2vZuaH/qqd7Zjzmg4Wlp6e6u7r+uqoHYMaMGTMOQBgBRLQAgJud5t+I+OtaMoGIcgB4AABPAOApABw5XvkMAF8B4CMAfBmLMVEWTkRbImqoPxSNDUvP9EFEKyKqKB2OWbImu/NVwsXrmJHBFEBEyKI6FoqxGbAQ7n7NdqJgyVG/kpmo/i/5Wcl9JVIxvJej3YR9jJ5azFonuqqNaTS6RTCTN57jNIMaTtoZPxeUhCwddJRUeIk1j1lPghHkZoCayMqDjhL/LpyGjtWlGY0RtBPPKLrJfbsoI9miNIygg/6asIkkTbnAK7XVqYsqurEk/c7t4RT/zuRtul0J52VjxDZosRY97M0AD1p7rCMyIk+tBtuItNrQusxASa3FixZwuQqgpYIgX2yEtNHC4PCoknY7Z4LI+hpcogtZQAAXJFk3LM+eG9ofB5zx34IcbySdEfEHALzUPFL5i/vi0cksXiH66hNhRjFsFumV2wYyT7yIqKs+qCPasUUsI5YlcIkuFJHsj8xAkn73yoiGVYIQFax7eTQynxFWCV2iC9KYRJvokRBY91WFQJfowiKCu8x9XeQtTds5Iv5N7BJdeCXo+9PQfrtPCHrc07OUrbRa5lDFfZpNNw9roqZDK9w4Ur+zftsllpJJW+itWnOqe+YsejGh8Hy3YD8dPR3O3uYyURtborOYE0XEEwA4sUwsZ728a+jyDQAudGE526T3KTLLGSQET1jF7c8A4LXgvXM2rh8Q8Xv7GSL6uzpP3PDs9yhEdAHgDABOJQxoHXrUO6dsY4pIEqCKvMFMuCMwZEpn/wDAO48KtA8UjU+KocLQ90XwiKSP9xuP93Jh5SgUlStw4s0IT91RQMTY87gcAmt9I0bEeGagfc8w4Jb1fkgcsb0wMeKhrhERL7xHID1KYaZ3KKyinyItJ8DlyCpgw9JDpUXJW9AssBSW5GgEG3HFZmlKdeLMErbOALoBbBWpsXBsOc6H1R/ooO+Fp/eYAtaGzRJVtXTpsczWNhXwzl9JxenaggiDXjrEFaiU6BR6u5K7jD1QE2xtE6LjzeqUA636Jl8TzUsXqyxTDVYajNFojLAEa2mklOyVpMHvEzqi1TLVoLll0MuBh7hPyB5q+DtLglC5TqaPhxhlvNtrwjND1IvYk7rH2JmUT7W54r4YKPZrz0TNsAzoHKIkmaSKa4Sr/d3mVvyxv+u8ZoMnuTNdjRrB0m4BMQuv/9ct95Hyi22bM80vYcjPgF3PL18Mic5YqbeGaU1z5wUM2QgSMQ33vaxiwzX+LjLvnQ2eMWPGDEiDf8BbGpXYWSPVAAAAAElFTkSuQmCC" alt="우미"></div>
     <div class="sb-name">Recruiting Hub</div>
     <div class="sb-sub">우미건설 피플팀</div>
   </div>
@@ -1617,37 +1636,24 @@ html,body{line-height:1.55;}
 전산 계정, 장비, 좌석 및 출입 준비를 부탁드립니다.
 
 우미건설 피플팀 드림</textarea></div>
-          <div class="template-panel" data-template-panel="tpl-ref"><label>레퍼런스 추천인 요청 (1차합격 → 레퍼런스 단계)</label><div class="template-desc">지원자에게 추천인 정보 입력을 요청할 때 사용됩니다.</div><textarea id="tpl-ref">안녕하세요, {지원자명}님.
+          <div class="template-panel" data-template-panel="tpl-ref"><label>레퍼런스 추천인 요청 (1차합격 → 레퍼런스 단계)</label><div class="template-desc">지원자에게 추천인 정보 입력을 요청할 때 사용됩니다.</div><textarea id="tpl-ref">안녕하세요 {지원자명}님,
 
-우미건설 {포지션} 포지션 채용 절차와 관련하여 레퍼런스 체크를 진행하고자 합니다.
+{포지션} 포지션 1차 면접에 합격하셨습니다. 진심으로 축하드립니다!
 
-아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.
+채용 절차의 일환으로 레퍼런스 체크를 진행합니다.
+아래 링크에서 추천인 3분의 정보(성함·이메일·관계)를 입력해 주세요.
+입력해 주신 추천인분들께 자동으로 설문이 발송됩니다.
 
-추천인 등록 링크
-{추천인폼링크}
+▶ 추천인 정보 입력: {추천인폼링크}
 
-등록 정보
-- 성함
-- 이메일
-- 휴대폰 번호
-- 지원자와의 관계
-
-등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.
-추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.
-
-감사합니다.
 우미건설 피플팀 드림</textarea></div>
-          <div class="template-panel" data-template-panel="tpl-ref-remind"><label>레퍼런스 리마인드 (추천인 대상)</label><div class="template-desc">아직 응답하지 않은 추천인에게 재요청할 때 사용됩니다.</div><textarea id="tpl-ref-remind">안녕하세요 {추천인명}님.
+          <div class="template-panel" data-template-panel="tpl-ref-remind"><label>레퍼런스 리마인드 (추천인 대상)</label><div class="template-desc">아직 응답하지 않은 추천인에게 재요청할 때 사용됩니다.</div><textarea id="tpl-ref-remind">안녕하세요 {추천인명}님,
 
-우미건설 채용 절차와 관련하여 {지원자명}님의 레퍼런스 체크 응답을 다시 한번 부탁드립니다.
+앞서 요청드린 {지원자명}님 레퍼런스 체크 설문에 아직 응답하지 않으셨습니다.
 
-설문 참여 링크
-{결과설문링크}
+▶ 설문 참여: {결과설문링크}
 
-응답에는 약 10분 정도 소요됩니다.
-바쁘시겠지만 확인 후 회신 부탁드립니다.
-
-감사합니다.
+바쁘신 중에 협조해 주셔서 감사드립니다.
 우미건설 피플팀 드림</textarea></div>
           <div class="template-panel" data-template-panel="tpl-reject"><label>불합격 안내</label><div class="template-desc">전형 종료 지원자에게 개별 발송하는 안내 메일입니다.</div><textarea id="tpl-reject">안녕하세요 {지원자명}님,
 
@@ -2423,7 +2429,7 @@ function normalizeRecruitPlanRow(row) {
 }
 
 async function loadRecruitPlansFromGS(options={}) {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   try {
     const result = await gsGetAllResult('RecruitPlans', {forceFull:options.forceFull, force:options.force});
     if(!result || result.error) return (await loadRecruitPlansFromSettingsGS()) || true;
@@ -2469,7 +2475,7 @@ async function syncRecruitPlansSnapshotToSettingsGS() {
 }
 
 async function loadRecruitPlansFromSettingsGS() {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   try {
     const rows = await gsGetAll('Settings');
     const row = (rows || []).find(r=>String(r.id)==='recruitPlans:v1');
@@ -2660,7 +2666,7 @@ function buildRsRows() {
     rows.push({...key,division,label,to,done,itv,offer,sortOrder:Number.isFinite(Number(plan?.sortOrder))?Number(plan.sortOrder):9999,remain:to?to-done-itv-offer:null,rate:to?Math.round(done/to*100):null});
   };
   ['정규직','전문직'].forEach(empType=>teamMaster.forEach(tm=>append({location:'본사',empType,team:tm.name,jobType:null},tm.division||'-',tm.name)));
-  ['정규직','전문직'].forEach(empType=>JOB_TYPES.forEach(jobType=>append({location:'현장',empType,team:null,jobType},'-',jobType)));
+  ['정규직','전문직'].forEach(empType=>JOB_TYPES.forEach(jobType=>append({location:'현장',empType,team:null,jobType},'',jobType)));
   const locationRank={본사:0,현장:1};
   return rows.sort((a,b)=>(locationRank[a.location]??9)-(locationRank[b.location]??9)||a.sortOrder-b.sortOrder||String(a.empType).localeCompare(String(b.empType),'ko')||String(a.label).localeCompare(String(b.label),'ko'));
 }
@@ -2678,12 +2684,12 @@ function renderRsTable() {
   const rows=buildRsRows();
   if(!rows.length){wrap.innerHTML='<div style="padding:28px;text-align:center;color:var(--t3);font-size:12px">데이터가 없습니다. 팀 마스터와 포지션 소속 또는 채용계획을 확인하세요.</div>';return;}
   const cell=(value,style='')=>`<td style="padding:7px 8px;border:1px solid var(--border);font-size:11.5px;${style}">${value??'-'}</td>`;
-  const rateCell=rate=>rate===null?cell('-','text-align:center'):cell(`${rate}%`,`text-align:center;font-weight:700;color:${rate>=100?'var(--green)':'var(--acc)'}`);
+  const rateCell=rate=>rate===null?cell('-','text-align:center'):`<td style="padding:7px 8px;border:1px solid var(--border)"><div style="font-size:10.5px;text-align:center;color:${rate>=100?'var(--green)':'var(--acc)'}">${rate}%</div><div style="height:4px;background:var(--border);border-radius:3px"><div style="height:100%;width:${Math.min(rate,100)}%;background:${rate>=100?'var(--green)':'var(--acc)'};border-radius:3px"></div></div></td>`;
   const remainCell=(remain,to)=>!to?cell('-','text-align:center'):cell(remain<0?`+${Math.abs(remain)}`:remain,`text-align:center;font-weight:700;color:${remain>0?'var(--amber)':'var(--green)'}`);
-  const body=subset=>subset.map(r=>`<tr class="rs-row" data-action="call" data-call="filterPosToTeam('${esc(r.location)}','${esc(r.empType)}','${esc(r.team||'')}','${esc(r.jobType||'')}')">${cell(r.location,'text-align:center')}${cell(r.empType,'text-align:center')}${cell(esc(r.division||'-'),'text-align:center')}${cell(esc(r.label),'text-align:center')}${cell(r.to||'-','text-align:center')}${cell(r.done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(r.rate)}${cell(r.itv||'-','text-align:center;color:var(--acc)')}${cell(r.offer||'-','text-align:center;color:var(--amber)')}${remainCell(r.remain,r.to)}</tr>`).join('');
-  const subtotal=(label,subset)=>{const sum=k=>subset.reduce((n,r)=>n+(Number(r[k])||0),0),to=sum('to'),done=sum('done'),itv=sum('itv'),offer=sum('offer'),rate=to?Math.round(done/to*100):null;return `<tr style="background:var(--s2)"><td colspan="4" style="padding:7px 9px;border:1px solid var(--border);text-align:right;font-weight:700">${label}</td>${cell(to||'-','text-align:center;font-weight:700')}${cell(done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(rate)}${cell(itv,'text-align:center')}${cell(offer,'text-align:center')}${remainCell(to?to-done-itv-offer:null,to)}</tr>`;};
+  const body=subset=>subset.map(r=>`<tr class="rs-row" data-action="call" data-call="filterPosToTeam('${esc(r.location)}','${esc(r.empType)}','${esc(r.team||'')}','${esc(r.jobType||'')}')">${cell(r.location,'text-align:center')}${cell(r.empType,'text-align:center')}${cell(esc(r.label))}${cell(r.to||'-','text-align:center')}${cell(r.done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(r.rate)}${cell(r.itv||'-','text-align:center;color:var(--acc)')}${cell(r.offer||'-','text-align:center;color:var(--amber)')}${remainCell(r.remain,r.to)}</tr>`).join('');
+  const subtotal=(label,subset)=>{const sum=k=>subset.reduce((n,r)=>n+(Number(r[k])||0),0),to=sum('to'),done=sum('done'),itv=sum('itv'),offer=sum('offer'),rate=to?Math.round(done/to*100):null;return `<tr style="background:var(--s2)"><td colspan="3" style="padding:7px 9px;border:1px solid var(--border);text-align:right;font-weight:700">${label}</td>${cell(to||'-','text-align:center;font-weight:700')}${cell(done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(rate)}${cell(itv,'text-align:center')}${cell(offer,'text-align:center')}${remainCell(to?to-done-itv-offer:null,to)}</tr>`;};
   const hq=rows.filter(r=>r.location==='본사'),site=rows.filter(r=>r.location==='현장');
-  wrap.innerHTML=`<table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr>${['소속','채용형태','본부','팀 / 직종','TO','완료','달성률','면접','입사예정','잔여'].map(v=>`<th style="padding:7px 8px;border:1px solid var(--border);background:var(--s2);font-size:11px;color:var(--t2);text-align:center">${v}</th>`).join('')}</tr></thead><tbody><tr><td colspan="10" class="rs-section">본사 — 팀 기준</td></tr>${body(hq)}${subtotal('본사 계',hq)}<tr><td colspan="10" class="rs-section">현장 — 직종 기준</td></tr>${body(site)}${subtotal('현장 계',site)}${subtotal('총계',rows)}</tbody></table>`;
+  wrap.innerHTML=`<table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr>${['소속','채용형태','팀 / 직종','TO','완료','달성률','면접','입사예정','잔여'].map(v=>`<th style="padding:7px 8px;border:1px solid var(--border);background:var(--s2);font-size:11px;color:var(--t2)">${v}</th>`).join('')}</tr></thead><tbody><tr><td colspan="9" class="rs-section">본사 — 팀 기준</td></tr>${body(hq)}${subtotal('본사 계',hq)}<tr><td colspan="9" class="rs-section">현장 — 직종 기준</td></tr>${body(site)}${subtotal('현장 계',site)}${subtotal('총계',rows)}</tbody></table>`;
 }
 
 function loadRpDraftRows() {
@@ -2771,52 +2777,10 @@ async function saveRecruitPlanModal() {
   toast(`${rpYear}년 ${rpLocation} 채용계획 저장 완료${GS_CONFIG.scriptUrl ? (synced ? ' · Google Sheets 반영' : ' · 로컬 저장, GS 반영 실패') : ''}`, synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
 }
 
-function exportRecruitStatus(){const rows=buildRsRows(),data=[['소속','채용형태','본부','팀/직종','TO','완료','달성률(%)','면접','입사예정','잔여'],...rows.map(r=>[r.location,r.empType,r.division||'-',r.label,r.to,r.done,r.rate??'-',r.itv,r.offer,r.remain??'-'])];const csv=data.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`채용현황_${rsYear}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function exportRecruitStatus(){const rows=buildRsRows(),data=[['소속','채용형태','팀/직종','TO','완료','달성률(%)','면접','입사예정','잔여'],...rows.map(r=>[r.location,r.empType,r.label,r.to,r.done,r.rate??'-',r.itv,r.offer,r.remain??'-'])];const csv=data.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`채용현황_${rsYear}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 
 function filterPosToTeam(location,empType,team,jobType){positionOrgFilter={location,empType,team,jobType};posFilter='all';document.querySelectorAll('.pos-tab').forEach(btn=>btn.classList.toggle('pos-tab-on',btn.dataset.posfilter==='all'));nav('position');renderPositions();toast(`${location} · ${empType} · ${team||jobType} 포지션을 표시합니다.`,'tok');}
 function clearPositionOrgFilter(){positionOrgFilter=null;renderPositions();}
-
-function compactPositionActionTitle(title) {
-  const text = String(title || '').trim();
-  const rules = [
-    [/지원자 등록 필요/, '지원자 등록 필요'],
-    [/후보일정 안내 필요/, '후보일정 안내'],
-    [/공동일정 확정 필요|면접일정 확정 필요/, '일정 확정 필요'],
-    [/면접관 안내 미발송/, '면접관 안내 필요'],
-    [/지원자 안내 미발송/, '지원자 안내 필요'],
-    [/면접 실시 후 완료 처리 필요/, '면접완료 필요'],
-    [/면접 결과 입력 필요/, '결과 입력 필요'],
-    [/레퍼런스 체크 요청 필요/, '레퍼런스 요청'],
-    [/레퍼런스 재요청 필요/, '레퍼런스 재요청'],
-    [/레퍼런스 미응답 독촉 필요/, '레퍼런스 독촉'],
-    [/레퍼런스 완료 확인 필요/, '레퍼런스 확인'],
-    [/처우협의 결과 입력 필요/, '처우협의 입력'],
-    [/충원완료 처리 필요/, '충원완료 필요'],
-    [/부분충원 상태/, '부분충원'],
-    [/잔여 지원자 정리 필요/, '잔여 지원자 정리']
-  ];
-  const found = rules.find(([pattern]) => pattern.test(text));
-  return found ? found[1] : (text || '처리 필요');
-}
-
-function compactPositionActionLabel(label) {
-  const text = String(label || '').trim();
-  const rules = [
-    [/충원완료 처리/, '처리'],
-    [/면접 완료 처리/, '완료'],
-    [/후보일정 안내/, '안내'],
-    [/레퍼런스 재요청/, '재요청'],
-    [/레퍼런스 요청/, '요청'],
-    [/레퍼런스 보기/, '보기'],
-    [/지원자 추가/, '추가'],
-    [/지원자 확인/, '확인'],
-    [/결과 입력/, '입력'],
-    [/일정 확정/, '확정'],
-    [/면접관 안내|지원자 안내/, '안내']
-  ];
-  const found = rules.find(([pattern]) => pattern.test(text));
-  return found ? found[1] : (text || '처리');
-}
 
 // ── 트래커 필터/정렬 상태 ────────────────────────────────────
 let stageFilter     = -1;   // -1: 전체, 0~6: 특정 단계
@@ -3919,7 +3883,152 @@ async function flushGsRetryQueue() {
   showSyncStatus(remain.length ? `GS 재시도 대기 ${remain.length}건` : 'GS 동기화 완료', remain.length ? 'warn' : 'ok');
 }
 
+function isAppsScriptDashboard_() {
+  return typeof google !== 'undefined'
+    && google.script
+    && google.script.run;
+}
+
+function hasGsBridge_() {
+  return !!GS_CONFIG.scriptUrl || isAppsScriptDashboard_();
+}
+
+const ADMIN_SESSION_KEY = 'woomic_admin_session';
+
+function getAdminSession_() {
+  try { return JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+
+function getAdminSessionToken_() {
+  return getAdminSession_()?.token || '';
+}
+
+function setAdminSession_(session) {
+  if(session?.token) sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+}
+
+function clearAdminSession_() {
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
+function showAdminLogin_(message='') {
+  const box = document.getElementById('admin-login');
+  const msg = document.getElementById('admin-login-msg');
+  if(msg) msg.textContent = message;
+  if(box) {
+    box.classList.add('on');
+    box.setAttribute('aria-hidden', 'false');
+    setTimeout(() => document.getElementById('admin-login-user')?.focus(), 50);
+  }
+}
+
+function hideAdminLogin_() {
+  const box = document.getElementById('admin-login');
+  if(box) {
+    box.classList.remove('on');
+    box.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function bindAdminLogin_() {
+  const form = document.getElementById('admin-login-form');
+  if(!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const username = document.getElementById('admin-login-user')?.value?.trim() || '';
+    const password = document.getElementById('admin-login-password')?.value || '';
+    const btn = document.getElementById('admin-login-submit');
+    const msg = document.getElementById('admin-login-msg');
+    if(btn) btn.disabled = true;
+    if(msg) msg.textContent = '';
+    try {
+      const result = await adminApiRun_({ action:'adminLogin', data:{ username, password } }, { skipAuth:true });
+      if(!result?.ok || !result.token) throw new Error(result?.error || 'login_failed');
+      setAdminSession_({ token:result.token, username:result.username, issuedAt:Date.now(), expiresIn:result.expiresIn });
+      hideAdminLogin_();
+      await reloadAdminDataAfterLogin_();
+    } catch(err) {
+      if(msg) msg.textContent = err.message === 'login_locked'
+        ? '로그인 시도가 잠시 잠겼습니다. 10분 후 다시 시도하세요.'
+        : '아이디 또는 비밀번호를 확인하세요.';
+    } finally {
+      if(btn) btn.disabled = false;
+    }
+  });
+}
+
+async function reloadAdminDataAfterLogin_() {
+  showSyncStatus('관리자 로그인 완료 — 데이터를 불러오는 중...', 'warn');
+  try {
+    await loadSettingsWithGS();
+  } catch(e) {
+    console.warn('[adminLogin] 설정 재로드 실패:', e.message);
+  }
+  if(hasGsBridge_()) {
+    try {
+      const loaded = await syncCoreFromGS({forceFull:true});
+      showSyncStatus(loaded ? 'Google Sheets 기준으로 로드됨' : '⚠ GS 응답 없음 — 로컬 캐시로 표시 중', loaded ? 'ok' : 'warn');
+    } catch(e) {
+      showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
+    }
+    try {
+      await loadAuxStateFromGS();
+      renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog();
+    } catch(e) {}
+    try {
+      const loadedRef = await syncReferralCoreFromGS();
+      if(loadedRef) renderReferralSection();
+    } catch(e) {}
+  }
+  if(GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function') {
+    try { await loadInterviewers(); } catch(e) {}
+  }
+  updateMetrics();
+  renderDashboard();
+  renderRecruitStatus();
+  renderTracker();
+  renderPositions();
+  renderIntTable();
+  renderReferralSection();
+}
+
+function adminApiRun_(payload, options={}) {
+  return new Promise((resolve, reject) => {
+    const nextPayload = Object.assign({}, payload || {});
+    if(!options.skipAuth) nextPayload.sessionToken = getAdminSessionToken_();
+    google.script.run
+      .withSuccessHandler(result => {
+        if(result?.error === 'admin_login_required') {
+          clearAdminSession_();
+          showAdminLogin_('관리자 로그인이 필요합니다.');
+        }
+        resolve(result);
+      })
+      .withFailureHandler(reject)
+      .adminApi(nextPayload);
+  });
+}
+
 async function gsFetch(action, sheet, data={}, options={}) {
+  const isWrite = action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow';
+  if(isAppsScriptDashboard_()) {
+    try {
+      const result = await adminApiRun_({
+        action,
+        sheet,
+        data,
+        query: options.query || {}
+      });
+      if(result?.error) throw new Error(result.error);
+      return result;
+    } catch(e) {
+      console.warn('[GS] Apps Script 호출 오류:', e.message);
+      if(isWrite && options.allowQueue !== false) queueGsRetry(action, sheet, data);
+      return null;
+    }
+  }
   if(!GS_CONFIG.scriptUrl) return null;
   const url = new URL(gsBaseUrlForSheet_(sheet));
   url.searchParams.set('action', action);
@@ -3928,8 +4037,7 @@ async function gsFetch(action, sheet, data={}, options={}) {
     if(value !== '' && value != null) url.searchParams.set(key, value);
   });
   const hasData = Object.keys(data).length > 0;
-  const isWrite = action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow';
-  const mustPost = isWrite || action === 'generateReferenceSummary' || action === 'issueReferenceCandidateLink' || action === 'sendReferenceEmail';
+  const mustPost = isWrite || action === 'generateReferenceSummary';
   try {
     if(mustPost && hasData && GS_CONFIG.usePostWrites) {
       const postRes = await fetch(url.toString(), {
@@ -4374,7 +4482,7 @@ function applyGsChanges(changes) {
 }
 
 async function syncCoreFromGS(options={}) {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   const cursor = options.forceFull ? null : getGsChangeCursor();
   if(cursor !== null) {
     showSyncStatus('GS 변경사항 확인 중...', '');
@@ -4456,7 +4564,7 @@ async function syncReferralCoreFromGS(options={}) {
 }
 
 async function loadPositionsFromGS(options={}) {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   try {
     const result = await gsGetAllResult('Positions', {delta:true, forceFull:options.forceFull, force:options.force});
     if(!result) return false;
@@ -4502,7 +4610,7 @@ async function loadPositionsFromGS(options={}) {
 }
 
 async function loadInterviewsFromGS(options={}) {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   try {
     const result = await gsGetAllResult('Interviews', {delta:true, forceFull:options.forceFull, force:options.force});
     if(!result) return false;
@@ -4541,7 +4649,7 @@ async function loadInterviewsFromGS(options={}) {
 }
 
 async function loadReferralsFromGS(options={}) {
-  if(!GS_CONFIG.scriptUrl) {
+  if(!hasGsBridge_()) {
     renderReferralSection();
     return false;
   }
@@ -4592,7 +4700,7 @@ function mergeEmployeeRecords(current=[], remote=[]) {
 }
 
 async function loadEmployeesFromGS(options={}) {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   try {
     const result = await gsGetAllResult('Employees', {delta:true, forceFull:options.forceFull, force:options.force});
     if(!result) return false;
@@ -4751,7 +4859,7 @@ async function syncRefRuleToGS(row) {
 }
 
 async function loadFromGS(options={}) {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   showSyncStatus('Google Sheets에서 로드 중...', '');
   const result = await gsGetAllResult('Candidates', {delta:true, forceFull:options.forceFull, force:options.force});
   if(!result) return false;
@@ -4904,21 +5012,23 @@ function renderPositions() {
     const risk = !!actions.find(a => a.priority === 'high');
     let actionCall = nextAction ? nextAction.actionCall : '';
     if(actionCall && actionCall.startsWith('scrollPositionDetail(')) actionCall = `openPosDetail(${pos.id});${actionCall}`;
-    const actionTitle = nextAction ? compactPositionActionTitle(nextAction.title) : '처리 없음';
-    const actionLabel = nextAction ? compactPositionActionLabel(nextAction.actionLabel) : '';
 
     return `<div class="card pos-manage-card ${risk?'is-risk':''}" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" aria-label="${esc(pos.title)} 상세보기" style="${done?'opacity:.75':''}">
       <div class="pos-card-main">
         <div class="pos-card-head">
           <div class="pos-card-info">
             <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
-            <div class="pos-card-title-meta">채용${passed.length} · 지원${active.length}</div>
+            <div class="pos-card-dept" title="${esc(pos.dept || '부서 미지정')}">${esc(pos.dept || '부서 미지정')}</div>
           </div>
           <span class="pos-card-stage ${progress.className}">${esc(progress.label)}</span>
         </div>
+        <div class="pos-card-summary">
+          <div class="pos-card-summary-item"><span class="pos-card-summary-label">채용인원 :</span><strong>${passed.length}명</strong></div>
+          <div class="pos-card-summary-item"><span class="pos-card-summary-label">진행중 지원자 :</span><strong>${active.length}명</strong></div>
+        </div>
         <div class="pos-card-action ${nextAction?'':'pos-card-action-ok'}">
-          <div class="pos-card-action-label"><span class="pos-card-action-dot"></span><strong title="${esc(nextAction ? nextAction.title : '처리할 업무 없음')}">${esc(actionTitle)}</strong></div>
-          ${nextAction ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(actionCall)}">${esc(actionLabel)}</button>` : ''}
+          <div class="pos-card-action-label"><span class="pos-card-action-dot"></span><strong title="${esc(nextAction ? nextAction.title : '처리할 업무 없음')}">${esc(nextAction ? nextAction.title : '처리할 업무 없음')}</strong></div>
+          ${nextAction ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(actionCall)}">${esc(nextAction.actionLabel)}</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -5541,19 +5651,6 @@ function renderPositionProcessChecklist(positionId) {
     { title:'2차 면접', stage:3, tasks:[mergeTask('후보일정 안내',['int2_slots'],'int2_slots'),mergeTask('면접안내',['int2_notice'],'int2_notice'),mergeTask('면접결과',['int2_result'],'int2_result')] },
     { title:'처우협의', stage:4, tasks:[mergeTask('처우협의 및 결과 판단',['offer','final'],'offer_decision'),mergeTask('입사안내',['onboard'],'onboard')] },
   ];
-  const flow = d ? getPositionFlow(d.pos) : FLOW;
-  const candidateFlowIndexes = d ? d.list
-    .filter(c => Number(c.stage) !== 6 && !c.held)
-    .map(c => flowIndex(Number(c.stage), flow))
-    .filter(idx => idx >= 0) : [];
-  const alignGroupStatusWithCandidates = (groupStatus, groupStage) => {
-    const targetIndex = flow.indexOf(groupStage);
-    if(targetIndex < 0 || !candidateFlowIndexes.length) return groupStatus;
-    if(candidateFlowIndexes.every(idx => idx > targetIndex)) return 'complete';
-    if(candidateFlowIndexes.some(idx => idx === targetIndex)) return groupStatus === 'delayed' ? 'delayed' : 'current';
-    if(candidateFlowIndexes.some(idx => idx > targetIndex)) return groupStatus === 'delayed' ? 'delayed' : 'active';
-    return groupStatus;
-  };
   const shortNote = d && isShortProcessEtype(d.pos.etype)
     ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
     : '';
@@ -5562,13 +5659,13 @@ function renderPositionProcessChecklist(positionId) {
     <div class="pp-process-groups">${groups.map(g=>{
       const tasks = g.tasks;
       const activeTasks = tasks.filter(s=>s.status!=='skipped');
-      const taskGroupStatus = !activeTasks.length ? 'skipped'
+      const groupStatus = !activeTasks.length ? 'skipped'
         : activeTasks.every(s=>s.status==='complete') ? 'complete'
         : activeTasks.some(s=>s.status==='delayed') ? 'delayed'
         : activeTasks.some(s=>s.status==='current') ? 'current'
         : activeTasks.some(s=>s.status==='complete') ? 'active' : 'upcoming';
-      const groupStatus = alignGroupStatusWithCandidates(taskGroupStatus, g.stage);
       const groupStatusLabel = groupStatus==='complete'?'완료':groupStatus==='current'?'현재 진행':groupStatus==='delayed'?'처리 필요':groupStatus==='active'?'진행 보유':groupStatus==='skipped'?'생략':'예정';
+      const flow = getPositionFlow(d.pos);
       const targetIndex = flow.indexOf(g.stage);
       const fromStage = targetIndex > 0 ? flow[targetIndex-1] : -1;
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
@@ -6374,6 +6471,20 @@ async function loadInterviewers() {
       console.warn('[loadInterviewers] GS Interviewers 로드 실패:', e.message);
     }
   }
+  if (isAppsScriptDashboard_()) {
+    try {
+      const data = await adminApiRun_({ action:'getInterviewersFromDirectory', data:{ url } });
+      if (data?.success) {
+        interviewers = (data.interviewers || []).map(normalizeInterviewerForUi).filter(iv => iv.email);
+        syncTeamMasterFromInterviewers(false);
+        loadInterviewerOptions();
+        return;
+      }
+      if (data?.error) console.warn('[loadInterviewers] 직원DB 서버 조회 실패:', data.error);
+    } catch(e) {
+      console.warn('[loadInterviewers] 직원DB 서버 조회 오류:', e.message);
+    }
+  }
   if (!url) return;
   try {
     const res  = await fetch(url + '?action=getInterviewers');
@@ -7007,7 +7118,7 @@ function scheduleAuxStateSync() {
 }
 
 async function loadAuxStateFromGS() {
-  if(!GS_CONFIG.scriptUrl) return false;
+  if(!hasGsBridge_()) return false;
   const rows = await gsGetAll('Settings');
   const coreDeleted = applyRemoteGsTombstones(rows);
   if(coreDeleted) {
@@ -7407,11 +7518,7 @@ function buildRefRequestEmail(cand) {
     .replace(/\{지원자명\}/g, cand.name||'')
     .replace(/\{포지션\}/g, cand.pos||'')
     .replace(/\{추천인폼링크\}/g, formUrl);
-  return `안녕하세요, ${cand.name}님.\n\n우미건설 ${cand.pos} 포지션 채용 절차와 관련하여 레퍼런스 체크를 진행하고자 합니다.\n\n아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.\n\n추천인 등록 링크\n${formUrl}\n\n등록 정보\n- 성함\n- 이메일\n- 휴대폰 번호\n- 지원자와의 관계\n\n등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.\n추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
-}
-
-function requiresReferenceCheck(c) {
-  return getFlowForCandidate(c).includes(2);
+  return `안녕하세요 ${cand.name}님,\n\n${cand.pos} 포지션 1차 면접에 합격하셨습니다. 진심으로 축하드립니다!\n\n채용 절차의 일환으로 레퍼런스 체크를 진행합니다.\n아래 링크에서 추천인 3분의 정보(성함·이메일·관계)를 입력해 주세요.\n입력해 주신 추천인분들께 자동으로 설문이 발송됩니다.\n\n▶ 추천인 정보 입력: ${formUrl}\n\n우미건설 피플팀 드림`;
 }
 
 
@@ -7441,16 +7548,16 @@ function renderRefFilterPanel() {
 
   // 필터별 대상 결정
   const configs = {
-    ready: { label:'발송 대기 — 레퍼런스 대상 미시작', color:'var(--blue)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=2&&c.ref==='미시작') },
+    ready: { label:'발송 대기 — 2차면접 이상 미시작', color:'var(--blue)',
+             list: candidates.filter(c=>c.stage>=2&&c.ref==='미시작') },
     ing:   { label:'진행 중 — 레퍼런스 응답 수집 중', color:'var(--amber)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중') },
+             list: candidates.filter(c=>c.ref==='진행중') },
     zero:  { label:'전무응답 — 추천인 0명 응답 (즉시 리마인드 필요)', color:'var(--red)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중'&&c.refD===0) },
+             list: candidates.filter(c=>c.ref==='진행중'&&c.refD===0) },
     done:  { label:'완료 — 전원 응답 완료', color:'var(--green)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='완료') },
+             list: candidates.filter(c=>c.ref==='완료') },
     pend:  { label:'총 미응답 추천인 보유 — 리마인드 필요', color:'var(--purple)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중'&&c.refD<c.refT) },
+             list: candidates.filter(c=>c.ref==='진행중'&&c.refD<c.refT) },
   };
 
   const cfg = configs[refMetricFilter];
@@ -7574,7 +7681,7 @@ function renderStageKanban() {
                        data-ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"
                        data-action="open-candidate" data-id="${c.id}">
             <div class="stage-card-name">${esc(c.name)} ${etypePill(c.etype)}</div>
-            <div class="stage-card-meta">${esc(c.pos || '')}</div>
+            <div class="stage-card-meta">${esc(c.pos || '')}${c.dept ? ' · ' + esc(c.dept) : ''}</div>
             <div class="stage-card-tags">
               ${c.role ? `<span class="role ${ROLE_CLS[c.role] || ''}">${esc(c.role)}</span>` : ''}
               ${refWarn ? '<span class="b bred" style="font-size:10px">레퍼런스 확인</span>' : ''}
@@ -7665,48 +7772,6 @@ function getDashboardActionCall(positionId, actionCall) {
   return call.startsWith('scrollPositionDetail(') ? `openPosDetail(${positionId});${call}` : call;
 }
 
-function compactDashboardActionDesc(action, pos) {
-  const title = String(action?.title || '');
-  const desc = String(action?.desc || '');
-  const position = pos?.title || '포지션 미지정';
-  if(/충원완료 처리 필요/.test(title)) return `${position} · 최종합격자 있음`;
-  if(/지원자 등록 필요/.test(title)) return `${position} · 등록된 지원자 없음`;
-  if(/후보일정 안내 필요/.test(title)) return `${position} · 후보일정 안내 필요`;
-  if(/공동일정 확정 필요|면접일정 확정 필요/.test(title)) return `${position} · 일정 확정 필요`;
-  if(/면접관 안내 미발송/.test(title)) return `${position} · 면접관 안내 필요`;
-  if(/지원자 안내 미발송/.test(title)) return `${position} · 지원자 안내 필요`;
-  if(/면접 실시 후 완료 처리 필요/.test(title)) return `${position} · 면접 완료 확인`;
-  if(/면접 결과 입력 필요/.test(title)) return `${position} · 결과 입력 필요`;
-  if(/레퍼런스/.test(title)) return `${position} · ${desc.replace(/·.*/, '').trim() || '레퍼런스 확인'}`;
-  if(/처우협의/.test(title)) return `${position} · 결과 입력 필요`;
-  return `${position} · ${desc || '확인 필요'}`;
-}
-
-function dashboardActionCategory(item) {
-  const type = String(item?.type || '');
-  const title = String(item?.title || '');
-  const label = String(item?.label || '');
-  if(/referral|reward/.test(type) || /사내추천|포상금/.test(title)) return '사내추천';
-  if(/reference|ref_/.test(type) || /레퍼런스/.test(title) || /레퍼런스/.test(label)) return '레퍼런스';
-  if(/mail|notice/.test(type) || /메일|발송|안내 확인|면접안내/.test(title) || label === '완료') return '메일 확인';
-  if(/interview|schedule|slots|first_|second_/.test(type) || /면접|일정|후보일정/.test(title)) return '면접 운영';
-  if(/candidate|fill|offer|residual|unlinked/.test(type) || /충원|지원자 등록|미연결|처우협의|잔여/.test(title)) return '포지션 관리';
-  return '기타';
-}
-
-function renderDashboardActionList(items) {
-  const order = ['포지션 관리','면접 운영','레퍼런스','사내추천','메일 확인','기타'];
-  return order.map(category => {
-    const group = items.filter(item => item.category === category);
-    if(!group.length) return '';
-    return `<div class="dash-ac-group">${esc(category)}<span class="dash-ac-group-count">${group.length}건</span></div>${group.map((item,index) => `<div class="dash-ac-item ${index%2===0?'is-left':''}">
-      <span class="dash-ac-dot ${item.danger?'is-danger':''}"></span>
-      <div class="dash-ac-main"><div class="dash-ac-name">${esc(item.title)}</div><div class="dash-ac-pos">${esc(item.desc)}</div></div>
-      <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
-    </div>`).join('')}`;
-  }).join('');
-}
-
 function getDashboardActionItems() {
   const { noInt, noRef, noNoti, unlinked, mailPending } = getActionItems();
   lastMailPendingItems = mailPending;
@@ -7716,26 +7781,25 @@ function getDashboardActionItems() {
     getPositionActionItems(pos.id).filter(a => a.priority === 'high').forEach(a => {
       positionTypes.add(a.type);
       items.push({
-        type:a.type,
-        title:compactPositionActionTitle(a.title), desc:compactDashboardActionDesc(a,pos), label:compactPositionActionLabel(a.actionLabel),
+        title:a.title, desc:`${pos.dept || '부서 미지정'} · ${pos.title}`, label:a.actionLabel,
         call:getDashboardActionCall(pos.id,a.actionCall), danger:false
       });
     });
   });
   const hasScheduleAction = ['first_schedule_reply','first_schedule','second_schedule'].some(type => positionTypes.has(type));
-  if(noInt.length && !hasScheduleAction) items.push({type:'interview_schedule',title:`면접일정 미확정 ${noInt.length}명`,desc:'공동일정 확정 필요',label:'면접',call:"navBtn('interview')",danger:false});
-  if(noRef.length && !positionTypes.has('reference_remind')) items.push({type:'reference_remind',title:`레퍼런스 미응답 ${noRef.length}명`,desc:'리마인드 또는 완료 확인 필요',label:'레퍼런스',call:"navBtn('reference')",danger:false});
-  if(noNoti.length) items.push({type:'interview_notice',title:`면접안내 미발송 ${noNoti.length}건`,desc:'지원자/면접관 안내 확인',label:'면접',call:"navBtn('interview')",danger:true});
-  if(unlinked.length) items.push({type:'unlinked',title:`미연결 합격자 ${unlinked.length}명`,desc:'포지션 연결 필요',label:'확인',call:'showUnlinkedList()',danger:true});
+  if(noInt.length && !hasScheduleAction) items.push({title:`면접 일정 미확정 ${noInt.length}명`,desc:'면접 일정을 확인하고 확정해 주세요.',label:'면접 관리',call:"navBtn('interview')",danger:false});
+  if(noRef.length && !positionTypes.has('reference_remind')) items.push({title:`레퍼런스 미응답 ${noRef.length}명`,desc:'응답 현황을 확인하고 필요한 경우 리마인드해 주세요.',label:'레퍼런스',call:"navBtn('reference')",danger:false});
+  if(noNoti.length) items.push({title:`면접 안내 미발송 ${noNoti.length}건`,desc:'지원자 및 면접관 안내 상태를 확인해 주세요.',label:'면접 관리',call:"navBtn('interview')",danger:true});
+  if(unlinked.length) items.push({title:`미연결 합격자 ${unlinked.length}명`,desc:'포지션이 연결되지 않은 합격자를 확인해 주세요.',label:'확인',call:'showUnlinkedList()',danger:true});
   if(typeof getReferralActionItems === 'function') {
     const rf = getReferralActionItems();
     const rfSubmitted = rf.filter(i => i.type === 'referral').length;
     const rfReward = rf.filter(i => i.type === 'reward').length;
-    if(rfSubmitted) items.push({type:'referral',title:`사내추천 미처리 ${rfSubmitted}건`,desc:'접수 후 검토 필요',label:'사내추천',call:"navBtn('referral')",danger:true});
-    if(rfReward) items.push({type:'reward',title:`포상금 마감 임박 ${rfReward}건`,desc:'재직확인/지급요청 필요',label:'포상금',call:"navBtn('referral');setReferralView('rewards')",danger:true});
+    if(rfSubmitted) items.push({title:`사내추천 미처리 ${rfSubmitted}건`,desc:'접수 후 3일 이상 검토가 시작되지 않은 추천 건입니다.',label:'사내추천',call:"navBtn('referral')",danger:true});
+    if(rfReward) items.push({title:`포상금 마감 임박 ${rfReward}건`,desc:'재직확인 또는 지급요청 처리가 필요한 포상금입니다.',label:'포상금',call:"navBtn('referral');setReferralView('rewards')",danger:true});
   }
-  mailPending.forEach((m,index) => items.push({type:'mail_pending',title:m.label ? `${m.label} 확인` : '메일 발송 확인',desc:'Outlook 발송 완료 확인',label:'완료',call:`confirmMailPendingAt(${index})`,danger:false}));
-  return items.map(item => ({...item, category:dashboardActionCategory(item)}));
+  mailPending.forEach((m,index) => items.push({title:m.label || '메일 발송 확인 필요',desc:'Outlook 발송 후 완료 상태를 확인해 주세요.',label:'발송 완료',call:`confirmMailPendingAt(${index})`,danger:false}));
+  return items;
 }
 
 // ── 처리 필요 업무: 포지션 우선 업무 + 전역 누락/메일 확인 항목 ──
@@ -7760,7 +7824,11 @@ function renderUrgent() {
       </div>
       <button class="btn btn-xs" data-action="call" data-call="generateDashboardBrief()" style="flex-shrink:0">새로고침</button>
     </div>
-    ${items.length ? `<div class="dash-ac-list">${renderDashboardActionList(items)}</div>` : '<div class="dash-ac-empty">현재 처리 필요한 업무가 없습니다.</div>'}`;
+    ${items.length ? `<div class="dash-ac-list">${items.map(item => `<div class="dash-ac-item">
+      <span class="dash-ac-dot ${item.danger?'is-danger':''}"></span>
+      <div class="dash-ac-main"><div class="dash-ac-name">${esc(item.title)}</div><div class="dash-ac-pos">${esc(item.desc)}</div></div>
+      <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
+    </div>`).join('')}</div>` : '<div class="dash-ac-empty">현재 처리 필요한 업무가 없습니다.</div>'}`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -7835,12 +7903,13 @@ function renderKanban() {
     if(!cands.length) { emptyPos.push(pos); return; }
     const cur = Math.max(...cands.map(c=>c.stage));   // 현재 단계
     const col = stageColor(cur);
-    const title = pos.title || '미지정 포지션';
+    const title = (pos.dept ? pos.dept + ' · ' : '') + pos.title;
     const titleSizeClass = title.length > 20 ? ' is-xlong' : (title.length > 14 ? ' is-long' : '');
     const progressStatus = getPositionKanbanStatus(pos,cands,cur);
     const card = `<div class="position-kanban-card" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" style="border-left-color:${col}">
       <div class="position-kanban-title${titleSizeClass}" title="${esc(title)}">${esc(title)}</div>
-      <div class="pk-status" style="color:${col}" title="${esc(progressStatus)}">${esc(progressStatus)}</div>
+      <div class="pk-meta"><span>채용 ${parseInt(pos.headcount)||1}명</span><span class="pk-dot">·</span><span>지원 ${cands.length}명</span></div>
+      <div class="pk-stage" style="color:${col}" title="${esc(progressStatus)}"><span style="width:6px;height:6px;border-radius:50%;background:${col};display:inline-block;flex:0 0 auto"></span>${esc(progressStatus)}</div>
     </div>`;
     (colCards[cur] = colCards[cur] || []).push(card);
   });
@@ -9219,8 +9288,6 @@ function renderTracker() {
   const pageList = list.slice(pageStart, pageStart + TRACKER_PAGE_SIZE);
   const onboardedIds = new Set(onboardings.map(o=>Number(o.candId)));
   wrap.innerHTML = pageList.map(c => {
-    const nextStage = nextFlowStage(c.stage, c.posId);
-    const hasNextStage = nextStage !== c.stage;
     const refBadge = c.ref==='완료'?'<span class="b bgreen">완료</span>':c.ref==='진행중'?`<span class="b bamber">${c.refD}/${c.refT}</span>`:'<span class="b bgray">-</span>';
     const intInfo  = renderTrackerInterviewDate(c.intDate);
     const notified = c.notified ? '<span class="b bteams" style="font-size:10px">발송</span>' : '<span style="font-size:11px;color:var(--t3)">-</span>';
@@ -9235,7 +9302,7 @@ function renderTracker() {
       <div>${notified}</div>
       <div style="display:flex;gap:4px">
         <button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
-        ${hasNextStage?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${nextStage})">→ 다음</button>`:''}
+        ${c.stage<5?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${c.stage+1})">→ 다음</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -9271,7 +9338,6 @@ function openDetail(id) {
     return !hasConfirmed;
   });
   const ob  = onboardings.find(o => o.candId===id);
-  const availableStageButtons = [...getFlowForCandidate(c), 6].filter((stage, index, arr) => stage !== 7 && arr.indexOf(stage) === index);
   document.getElementById('detail-title').textContent = `${esc(c.name)} · ${esc(c.pos)}`;
   document.getElementById('detail-body').innerHTML = `
     <div class="grid g2" style="gap:10px;margin-bottom:14px">
@@ -9296,7 +9362,7 @@ function openDetail(id) {
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">단계 변경 (클릭 시 확인 팝업)</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
-      ${availableStageButtons.map(si=>`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" data-action="call" data-call="closeModal('modal-detail');requestStageChange(${c.id},${si})">${STAGES[si]}</button>`).join('')}
+      ${STAGES.map((s,si)=>si===7?'':`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" data-action="call" data-call="closeModal('modal-detail');requestStageChange(${c.id},${si})">${s}</button>`).join('')}
     </div>
     <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">면접 일정</div>
     ${itv.length ? itv.map(i=>{
@@ -9586,14 +9652,13 @@ function cleanupLegacyPlaceholderRefs() {
 
 function renderReference() {
   if(cleanupLegacyPlaceholderRefs()) scheduleLocalCacheSave();
-  const refEligible = candidates.filter(requiresReferenceCheck);
-  const ready  = refEligible.filter(c=>c.stage>=2&&c.ref==='미시작').length;
-  const ing    = refEligible.filter(c=>c.ref==='진행중').length;
-  const zero   = refEligible.filter(c=>c.ref==='진행중'&&c.refD===0).length;
-  const done   = refEligible.filter(c=>c.ref==='완료').length;
-  const pend   = refEligible.filter(c=>c.ref==='진행중').reduce((a,c)=>a+(c.refT-c.refD),0);
-  const totalD = refEligible.reduce((a,c)=>a+c.refD,0);
-  const totalT = refEligible.filter(c=>c.ref!=='미시작').reduce((a,c)=>a+c.refT,0);
+  const ready  = candidates.filter(c=>c.stage>=2&&c.ref==='미시작').length;
+  const ing    = candidates.filter(c=>c.ref==='진행중').length;
+  const zero   = candidates.filter(c=>c.ref==='진행중'&&c.refD===0).length;
+  const done   = candidates.filter(c=>c.ref==='완료').length;
+  const pend   = candidates.filter(c=>c.ref==='진행중').reduce((a,c)=>a+(c.refT-c.refD),0);
+  const totalD = candidates.reduce((a,c)=>a+c.refD,0);
+  const totalT = candidates.filter(c=>c.ref!=='미시작').reduce((a,c)=>a+c.refT,0);
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   set('ref-m-ready',ready);set('ref-m-ing',ing);set('ref-m-zero',zero);set('ref-m-done',done);set('ref-m-pend',pend);
   // 선택된 카드 테두리 강조
@@ -9610,7 +9675,7 @@ function renderReference() {
   // 레퍼런스 진행 현황 리스트 — 포지션 단위 그룹
   const sortMode=document.getElementById('ref-sort')?.value||'name';
   const posSortMode=document.getElementById('ref-pos-sort')?.value||'status';
-  const ingList=candidates.filter(c=>requiresReferenceCheck(c) && Number(c.stage)>=2 && Number(c.stage)!==6);
+  const ingList=candidates.filter(c=>Number(c.stage)>=2 && Number(c.stage)!==6);
   const posGroups=new Map();
   ingList.forEach(c=>{
     const unassigned=c.posId==null||c.posId==='';
@@ -9659,7 +9724,8 @@ function renderReference() {
           c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="selectRefCand(${c.id});completeRef(${c.id})">완료</button>`:''
         ].filter(Boolean).join('');
         return `<div class="ref-cand-card" data-action="call" data-call="selectRefCand(${c.id})" style="background:${isSel?'var(--acc-light)':'transparent'}">
-          <div class="ref-cand-main"><div class="ref-cand-title"><div class="ref-cand-name" title="${esc(c.name)}">${esc(c.name)}</div><div class="ref-cand-status">${statusText}</div></div></div>
+          <span style="width:6px;height:6px;border-radius:50%;background:${urgC};flex-shrink:0"></span>
+          <div class="ref-cand-main"><div class="ref-cand-name" title="${esc(c.name)}">${esc(c.name)}</div><div class="ref-cand-status">${statusText}</div></div>
           <span class="ref-cand-count" style="color:${urgC}">응답 ${done}/${tot}</span>
           <div class="ref-cand-actions">${actionBtns}</div>
         </div>`;
@@ -9668,8 +9734,9 @@ function renderReference() {
       const groupCall=Number.isFinite(posIdNum)?`selectRefPosition(${posIdNum})`:`selectRefCand(${cands[0]?.id})`;
       return `<section class="ref-pos-group" data-action="call" data-call="${groupCall}" title="추천인 상세 현황 보기">
         <div class="ref-pos-head">
-          <div class="ref-pos-main"><div class="ref-pos-title"><span class="ref-pos-title-name">${esc(pos.title||'미분류')}</span><span class="ref-pos-meta">지원자 ${cands.length}명</span></div></div>
-          <div class="ref-pos-total"><strong style="color:${state.color}">${totalD}/${totalT} 응답</strong><span>· ${posPct}%</span></div>
+          <span class="ref-pos-dot" style="background:${state.color}"></span>
+          <div class="ref-pos-main"><div class="ref-pos-title">${esc(pos.title||'미분류')}</div><div class="ref-pos-meta">${esc(pos.dept||'부서 미지정')} · 지원자 ${cands.length}명</div></div>
+          <div class="ref-pos-total"><strong style="color:${state.color}">${totalD}/${totalT} 응답</strong><span>${state.label} · ${posPct}%</span></div>
         </div>
         <div style="height:3px;background:var(--border)"><div style="height:100%;width:${posPct}%;background:${state.color};transition:width .3s"></div></div>
         ${cards}
@@ -9679,7 +9746,7 @@ function renderReference() {
 
   // 전체 테이블
   const statusF=document.getElementById('ref-filter-status')?.value||'';
-  let tableList=candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=1&&(!statusF||c.ref===statusF));
+  let tableList=candidates.filter(c=>c.stage>=1&&(!statusF||c.ref===statusF));
   const wrap=document.getElementById('ref-table');
   if(!wrap)return;
   if(!tableList.length){wrap.innerHTML=empty('조건에 맞는 지원자가 없습니다.');return;}
@@ -9723,12 +9790,12 @@ function renderReference() {
 
   // AI 셀렉트
   const aiSel=document.getElementById('ref-ai-cand');
-  if(aiSel){const pv=aiSel.value;aiSel.innerHTML='<option value="">-- 선택 --</option>';candidates.filter(c=>requiresReferenceCheck(c)&&(c.ref==='진행중'||c.ref==='완료')).forEach(c=>aiSel.add(new Option(`${esc(c.name)} (${c.refD}/${c.refT})`,c.id)));if(pv)aiSel.value=pv;}
+  if(aiSel){const pv=aiSel.value;aiSel.innerHTML='<option value="">-- 선택 --</option>';candidates.filter(c=>c.ref==='진행중'||c.ref==='완료').forEach(c=>aiSel.add(new Option(`${esc(c.name)} (${c.refD}/${c.refT})`,c.id)));if(pv)aiSel.value=pv;}
   const reportSel=document.getElementById('ref-report-cand');
   if(reportSel){
     const pv=reportSel.value;
     reportSel.innerHTML='<option value="">-- 지원자 선택 --</option>';
-    candidates.filter(c=>requiresReferenceCheck(c)&&(c.ref==='진행중'||c.ref==='완료')).forEach(c=>reportSel.add(new Option(`${esc(c.name)} · ${esc(c.pos)} (${c.refD}/${c.refT})`,c.id)));
+    candidates.filter(c=>c.ref==='진행중'||c.ref==='완료').forEach(c=>reportSel.add(new Option(`${esc(c.name)} · ${esc(c.pos)} (${c.refD}/${c.refT})`,c.id)));
     if(pv) reportSel.value=pv;
   }
 }
@@ -9845,33 +9912,20 @@ async function sendSurveyEmailsViaGS(queue, refFormUrl, refAutoUrl) {
   }
 }
 
-async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targetName) {
-  if(!GS_CONFIG.scriptUrl) {
-    toast('Gmail 발송은 관리자 Apps Script 연결이 필요합니다.', 'terr');
-    return false;
-  }
-  const result = await gsFetch('sendReferenceEmail', '', { toEmail, subject, body }, { allowQueue:false });
-  if(!result || !result.ok) {
-    toast(`Gmail 발송 실패: ${result?.error || 'Apps Script 설정/권한을 확인하세요.'}`, 'terr');
-    return false;
-  }
-  logNotify('Gmail', logType || '레퍼런스안내', targetName || '', toEmail);
-  return true;
-}
-
-async function remindOneRef(candId,ri){
+function remindOneRef(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;
   ensureRefDetails(c);
   const r=refDetails[candId][ri];
   if(!r){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'[레퍼런스 체크 설문 URL]';
-  const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
-  const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 7일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
-  const sent=await sendReferenceEmailViaGmail(r.email,subject,body,'추천인리마인드',`${esc(c.name)}-${esc(r.name)}`);
+  const subject=`[레퍼런스 체크 리마인드] ${esc(c.name)}님 레퍼런스 체크 응답 부탁드립니다`;
+  const body=`안녕하세요 ${esc(r.name)}님,\n\n앞서 요청드린 ${esc(c.name)}님 레퍼런스 체크 설문에 아직 응답하지 않으셨습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.`;
+  const sent=openMailto(r.email,subject,body);
   if(!sent)return;
   r.remindCnt=(r.remindCnt||0)+1;
+  logNotify('Outlook','추천인리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);
   saveState();selectRefCand(candId);
-  toast(`${esc(r.name)}님 리마인드 Gmail 발송 완료`,'tok');
+  toast(`${esc(r.name)}님 리마인드 Outlook이 열렸습니다.`,'toutlook');
 }
 function markRefResponse(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;
@@ -9895,7 +9949,7 @@ function markOneResponse(id){
   toast(`${esc(c.name)} +1응답 (${c.refD}/${c.refT})`,'tok');
 }
 // 추천인 접수(등록) 처리: 대기 상태 추천인 1명을 등록으로 + 설문 자동 발송
-async function markRefRegistered(id){
+function markRefRegistered(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
   const refs=ensureRefDetails(c);
   if(!refs.length){toast('추천인 접수는 구글폼 동기화로 반영됩니다. 접수된 정보가 없습니다.','terr');return;}
@@ -9907,11 +9961,12 @@ async function markRefRegistered(id){
   // 추천인에게 설문(Form B) 자동 발송
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'';
   if(pend.email && refFormUrl){
-    const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 요청`;
-    const body=`${esc(pend.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(pend.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 7일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
-    const sent=await sendReferenceEmailViaGmail(pend.email,subject,body,'추천인설문발송',`${esc(c.name)}-${esc(pend.name)}`);
+    const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 설문 요청`;
+    const body=`안녕하세요 ${esc(pend.name)}님,\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 추천인으로 등록해 주셨습니다.\n아래 링크를 통해 레퍼런스 체크 설문에 응답해 주시면 감사하겠습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.\n\n우미건설 피플팀 드림`;
+    const sent=openMailto(pend.email,subject,body);
     if(sent){
-      toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT}) · ${esc(pend.name)}님 설문 Gmail 발송 완료`,'tok');
+      logNotify('Outlook','추천인설문발송',`${esc(c.name)}-${esc(pend.name)}`,pend.email);
+      toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT}) · ${esc(pend.name)}님 설문 Outlook이 열렸습니다.`,'toutlook');
       return;
     }
   } else if(!refFormUrl){
@@ -9920,11 +9975,14 @@ async function markRefRegistered(id){
   }
   toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT})`,'tok');
 }
-async function startRef(id, resend=false){
+function startRef(id, resend=false){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 추천인 등록 안내`;
   const body=buildRefRequestEmail(c);
-  const sent=await sendReferenceEmailViaGmail(c.email, subject, body, resend?'레퍼런스재요청':'레퍼런스발송', c.name);
+  const sent=openMailtoWithConfirm(
+    { type:'cand', id:c.id, candId:c.id, label:`${c.name} 레퍼런스 ${resend?'재요청':'추천인 등록 안내'}`, logType:resend?'레퍼런스재요청':'레퍼런스발송' },
+    c.email, subject, body
+  );
   if(!sent)return false;
   if(!resend) {
     c.ref='진행중';
@@ -9933,51 +9991,52 @@ async function startRef(id, resend=false){
     ensureRefDetails(c);
   }
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();
-  toast(`${esc(c.name)}님 레퍼런스 ${resend?'재요청':'안내'} Gmail 발송 완료`,'tok');
+  toast(`${esc(c.name)}님 레퍼런스 ${resend?'재요청':'안내'} Outlook이 열렸습니다.`,'toutlook');
   return true;
 }
 // 포지션 상세에서 추천인 접수 요청 (startRef + 포지션 복귀)
-async function sendRefRequest(id){
+function sendRefRequest(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const pid=c.posId;
-  const sent=await startRef(id, c.ref==='진행중');
+  const sent=startRef(id, c.ref==='진행중');
   if(!sent)return;
   if(GS_CONFIG.scriptUrl) syncCandToGS(c);
   if(pid!=null) setTimeout(()=>openPosDetail(Number(pid)),900);
 }
-async function startAllEligible(){
-  const el=candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=2&&c.stage<=5&&c.ref==='미시작');
+function startAllEligible(){
+  const el=candidates.filter(c=>c.stage>=2&&c.stage<=5&&c.ref==='미시작');
   if(!el.length){alert('일괄 시작할 대상이 없습니다.');return;}
-  if(!confirm(`레퍼런스 대상 미시작 ${el.length}명에게 일괄 발송하시겠습니까?`))return;
-  let sentCount = 0;
-  for(const c of el){
+  if(!confirm(`2차면접 이상 미시작 ${el.length}명에게 일괄 발송하시겠습니까?`))return;
+  el.forEach((c,idx)=>{
     c.ref='진행중';c.refT=3;c.refD=0;ensureRefDetails(c);
     const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 추천인 등록 안내`;
     const body=buildRefRequestEmail(c);
-    const sent = await sendReferenceEmailViaGmail(c.email,subject,body,'레퍼런스발송',c.name);
-    if(sent) sentCount++;
+    setTimeout(()=>openMailto(c.email,subject,body,true),idx*650);
+    logNotify('Outlook','레퍼런스발송',c.name,c.email);
     if(GS_CONFIG.scriptUrl)syncCandToGS(c);
-  }
+  });
   saveState();renderReference();updateMetrics();
-  toast(`${sentCount}명 레퍼런스 안내 Gmail 발송 완료`,'tok');
+  toast(`${el.length}명 레퍼런스 안내 개인 메일을 순차적으로 엽니다.`,'toutlook');
 }
 // 레퍼런스 리마인드 메일 본문 (템플릿 기반)
-async function remindRef(id){
+function remindRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const refs=ensureRefDetails(c);
   if(!refs.length){toast('접수된 추천인 정보가 없어 리마인드를 발송할 수 없습니다.','terr');return;}
   const pendingRefs=refDetails[id].filter(r=>r.status==='대기'||r.status==='등록');
   if(!pendingRefs.length){toast('미응답 추천인이 없습니다.');return;}
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'[레퍼런스 체크 설문 URL]';
-  let sentCount = 0;
-  for(const r of pendingRefs){
+  pendingRefs.forEach((r,i)=>{
     r.remindCnt=(r.remindCnt||0)+1;
-    const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
-    const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 7일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
-    const sent = await sendReferenceEmailViaGmail(r.email,subject,body,'리마인드',`${esc(c.name)}-${esc(r.name)}`);
-    if(sent) sentCount++;
-  }
-  toast(`${sentCount}명 리마인드 Gmail 발송 완료`,'tok');
+    logNotify('Outlook','리마인드',`${esc(c.name)}-${esc(r.name)}`,r.email);
+    if(i===0){
+      const subject=`[레퍼런스 체크 리마인드] ${esc(c.name)}님 레퍼런스 체크 응답 부탁드립니다`;
+      const body=`안녕하세요 ${esc(r.name)}님,\n\n앞서 요청드린 ${esc(c.name)}님 레퍼런스 체크 설문의 응답 기한이 다가왔습니다.\n\n▶ 설문 참여: ${refFormUrl}\n\n바쁘신 중에 협조해 주셔서 감사드립니다.`;
+      openMailto(r.email,subject,body);
+    }
+  });
+  const msg=pendingRefs.length>1?`추천인 ${pendingRefs.length}명 중 1명 Outlook 열림. 나머지는 추천인 패널에서 개별 발송하세요.`:`${esc(c.name)}님 리마인드 Outlook이 열렸습니다.`;
+  toast(msg,'toutlook');
   saveState();if(selectedRefCandId===id)selectRefCand(id);
 }
 
@@ -10427,7 +10486,7 @@ async function saveSettingsToGS(cfg) {
 }
 
 async function loadSettingsFromGS() {
-  if(!GS_CONFIG.scriptUrl) return null;
+  if(!hasGsBridge_()) return null;
   try {
     const data = await gsGetAll('Settings');
     if(!data || !data.length) return null;
@@ -10451,7 +10510,7 @@ async function loadSettingsFromGS() {
 // localStorage 먼저 로드 → GS URL이 있으면 GS에서 덮어쓰기 (GS 우선)
 async function loadSettingsWithGS() {
   loadSettings();
-  if(GS_CONFIG.scriptUrl) {
+  if(hasGsBridge_()) {
     const gsCfg = await loadSettingsFromGS();
     if(gsCfg) {
       localStorage.setItem('woomic_settings', JSON.stringify(gsCfg));
@@ -10529,7 +10588,7 @@ function saveSettings() {
     setPrivacyMask(cfg.maskPii === 'true');
     resetIdleLock();
     // GS Settings 시트에도 저장
-    if(GS_CONFIG.scriptUrl) {
+    if(hasGsBridge_()) {
       saveSettingsToGS(cfg).then(()=>{
         toast('설정이 저장되었습니다 (GS 동기화 완료).','tok');
       }).catch(()=>{
@@ -10717,6 +10776,8 @@ function handleDelegatedFormEvent(eventName, target, delegatedEvent) {
 // ══════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
 try {
+  bindAdminLogin_();
+  if(isAppsScriptDashboard_() && !getAdminSessionToken_()) showAdminLogin_();
   // data-action 기반 단일 이벤트 위임: 정적 내비게이션과 신규 리포트 영역부터 점진 적용
   document.addEventListener('click', e => {
     const target = e.target.closest?.('[data-action]');
@@ -10870,7 +10931,7 @@ try {
     // 레퍼런스 상태 자동 동기화
     if(GS_CONFIG.refAutoUrl && typeof syncRefFromGS === 'function') syncRefFromGS();
     // 이전 세션에서 실패한 GS 저장 요청 재시도
-    if(GS_CONFIG.scriptUrl) setTimeout(flushGsRetryQueue, 1500);
+    if(hasGsBridge_()) setTimeout(flushGsRetryQueue, 1500);
   });
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   renderDashboard();

@@ -1,0 +1,8 @@
+# Replace with the GitHub team or users responsible for Recruiting Hub releases.
+* @WMPeopleteam/recruiting-admins
+
+# Security-sensitive deployment files require explicit review.
+*.gs @WMPeopleteam/recruiting-admins
+appsscript.*.json @WMPeopleteam/recruiting-admins
+SECURITY_DEPLOYMENT_STEPS.md @WMPeopleteam/recruiting-admins
+scripts/security-scan.mjs @WMPeopleteam/recruiting-admins
