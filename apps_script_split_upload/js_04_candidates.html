@@ -1,0 +1,718 @@
+function hasConfirmedRoundSchedule(candId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : stageIdx === 3 ? '2차' : '';
+  if(!round) return true;
+  return interviews.some(i => Number(i.candId) === Number(candId) && i.type === round &&
+    (i.status === 'confirmed' || i.status === 'done') && i.date);
+}
+
+function preserveCompletedStage(c, fromStage, decision='') {
+  if(!c) return null;
+  c.lastCompletedStage = Number(fromStage);
+  c.lastStageChangedAt = new Date().toISOString();
+  if(fromStage !== 1 && fromStage !== 3) return null;
+  const round = fromStage === 1 ? '1차' : '2차';
+  const itv = interviews.find(i => Number(i.candId)===Number(c.id) && i.type===round);
+  if(!itv) return null;
+  itv.status = 'done';
+  if(decision) itv.result = decision;
+  itv.evaluatedAt = new Date().toISOString();
+  return itv;
+}
+
+function resetCandidateProgressForRollback(c, newStage) {
+  const removedInterviewIds = [];
+  if(!c) return removedInterviewIds;
+
+  interviews = interviews.filter(i => {
+    if(Number(i.candId) !== Number(c.id)) return true;
+    const interviewStage = i.type === '1차' ? 1 : i.type === '2차' ? 3 : 99;
+    const remove = newStage === 0 || interviewStage > newStage;
+    if(remove) removedInterviewIds.push(i.id);
+    return !remove;
+  });
+
+  if(newStage < 2) {
+    c.ref = '미시작';
+    c.refD = 0;
+    c.refT = 0;
+    delete refDetails[c.id];
+    delete refReports[c.id];
+  }
+
+  c.lastCompletedStage = newStage > 0 ? newStage - 1 : null;
+  c.lastStageChangedAt = new Date().toISOString();
+  c.decision = '';
+  c.finalAt = '';
+  c.rejectedAt = '';
+  c.rejectReason = '';
+  c.rejectMemo = '';
+  c.held = false;
+
+  const remainingSchedule = interviews.find(i => Number(i.candId) === Number(c.id) && i.date);
+  c.intDate = remainingSchedule ? remainingSchedule.date : '';
+  if(newStage === 0) {
+    c.notified = false;
+    c.mailPending = false;
+    c.mailPendingLabel = '';
+  }
+  return removedInterviewIds;
+}
+
+async function batchStageChange(posId, fromStage, toStage) {
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === fromStage);
+  if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+
+  // 면접 단계 진입은 포지션 공통일정을 먼저 확정한 뒤 일괄 이동한다.
+  if(toStage === 1 || toStage === 3) {
+    const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, toStage));
+    if(missing.length) {
+      if(!confirm(`${STAGES[toStage]} 공통일정이 확정되지 않았습니다.\n\n일정 요청·이메일 안내 없이 ${targets.length}명을 바로 이동할까요?\n미완료 항목은 대시보드 '처리 필요'에 표시됩니다.`)) return;
+    }
+  }
+
+  // 면접 단계에서 다음 단계로 일괄 이동할 때도 전원 일정 확정을 필수로 한다.
+  if(fromStage === 1 || fromStage === 3) {
+    const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, fromStage));
+    if(missing.length) {
+      if(!confirm(`면접 일정이 확정되지 않은 지원자가 ${missing.length}명 있습니다.\n\n일정 확정·안내 없이 다음 단계로 이동할까요?\n단계를 지나간 뒤에는 일정 미확정 건이 '처리 필요'에서 자동 추적되지 않을 수 있습니다.`)) return;
+    }
+  }
+
+  if(!confirm(`${targets.length}명을 ${STAGES[toStage]} 단계로 이동하시겠습니까?`)) return;
+  const completedInterviews = [];
+  const removedInterviewIds = [];
+  const flow = positions.find(p => Number(p.id) === Number(posId)) ? getPositionFlow(positions.find(p => Number(p.id) === Number(posId))) : FLOW;
+  const movingBackward = flowIndex(toStage, flow) < flowIndex(fromStage, flow);
+  targets.forEach(c => {
+    if(movingBackward) {
+      removedInterviewIds.push(...resetCandidateProgressForRollback(c, toStage));
+    } else {
+      const itv = preserveCompletedStage(c, fromStage);
+      if(itv) completedInterviews.push(itv);
+    }
+    c.stage = toStage;
+    syncReferralFromCandidate(c);
+  });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync([
+    ...targets.map(c => syncCandToGS(c)),
+    ...completedInterviews.map(i => syncIntToGS(i)),
+    ...removedInterviewIds.map(id => deleteIntFromGS(id)),
+  ], movingBackward ? '단계 일괄 되돌리기 동기화' : '단계 일괄 이동 동기화');
+  renderDashboard(); renderTracker(); renderPositions();
+  toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
+}
+
+// ── 포지션 추가/편집 모달 열기 ─────────────────────────────
+function openAddPosition() {
+  try {
+    editingPosId = null;
+    document.getElementById('pos-modal-title').textContent = '포지션 추가';
+    ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-owner','pos-target-date','pos-memo'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.value = '';
+    });
+    document.getElementById('pos-etype').value = '정규직';
+    document.getElementById('pos-headcount').value = '1';
+    document.getElementById('pos-hire-reason').value = '충원';
+    document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked=false; });
+    const team = document.getElementById('pos-team'); if(team) team.value = '';
+    const jobType = document.getElementById('pos-jobtype'); if(jobType) jobType.value = '';
+    onPosLocationChange();
+    // 면접관 태그 초기화
+    const t1 = document.getElementById('pos-panel1-tags'); if(t1) t1.innerHTML = '';
+    const t2 = document.getElementById('pos-panel2-tags'); if(t2) t2.innerHTML = '';
+    const h1 = document.getElementById('pos-panel1'); if(h1) h1.value = '';
+    const h2 = document.getElementById('pos-panel2'); if(h2) h2.value = '';
+    const s1 = document.getElementById('pos-panel1-search'); if(s1) s1.value = '';
+    const s2 = document.getElementById('pos-panel2-search'); if(s2) s2.value = '';
+    loadInterviewerOptions();
+    openModal('modal-position');
+  } catch(err) {
+    console.error('[openAddPosition] error:', err);
+    alert('오류: ' + err.message);
+  }
+}
+
+function editPosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  editingPosId = posId;
+  document.getElementById('pos-modal-title').textContent = '포지션 수정';
+  document.getElementById('pos-title').value  = pos.title || '';
+  document.getElementById('pos-etype').value  = pos.etype || '정규직';
+  document.getElementById('pos-headcount').value = pos.headcount || 1;
+  document.getElementById('pos-hire-reason').value = pos.hireReason || '충원';
+  document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked = r.value === (pos.location||''); });
+  onPosLocationChange(pos.team || pos.dept || '', pos.jobType || '');
+  restorePanelistTags(1, pos.panel1 || '');
+  restorePanelistTags(2, pos.panel2 || '');
+  loadInterviewerOptions();
+  document.getElementById('pos-loc').value    = pos.loc    || '';
+  document.getElementById('pos-owner').value  = pos.owner  || '';
+  document.getElementById('pos-target-date').value = pos.targetDate || '';
+  document.getElementById('pos-memo').value   = pos.memo   || '';
+  openModal('modal-position');
+}
+
+function savePosition() {
+  const title = document.getElementById('pos-title')?.value.trim();
+  if(!title) { toast('포지션명을 입력하세요.', 'terr'); return; }
+  const location = document.querySelector('input[name="pos-location"]:checked')?.value || '';
+  const team = document.getElementById('pos-team')?.value || '';
+  const jobType = document.getElementById('pos-jobtype')?.value || '';
+  if(!location) { toast('소속을 선택하세요.', 'terr'); return; }
+  if(location==='본사' && !team) { toast('본사 팀을 선택하세요.', 'terr'); return; }
+  if(location==='현장' && !jobType) { toast('현장 직종을 선택하세요.', 'terr'); return; }
+  const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
+
+  const posData = {
+    id:        editingPosId || nextId(),
+    title,
+    etype:     document.getElementById('pos-etype')?.value   || '정규직',
+    role:      existingPos.role || '',
+    headcount: parseInt(document.getElementById('pos-headcount')?.value) || 1,
+    hireReason: document.getElementById('pos-hire-reason')?.value || '충원',
+    dept:      location==='본사' ? team : (existingPos.dept || jobType || ''),
+    location,
+    team:      location==='본사' ? team : null,
+    jobType:   location==='현장' ? jobType : null,
+    panel1:    document.getElementById('pos-panel1')?.value  || '',
+    panel2:    document.getElementById('pos-panel2')?.value  || '',
+    loc:       document.getElementById('pos-loc')?.value     || '',
+    owner:     document.getElementById('pos-owner')?.value   || '',
+    targetDate: document.getElementById('pos-target-date')?.value || '',
+    memo:      document.getElementById('pos-memo')?.value    || '',
+    createdAt: existingPos.createdAt || today(),
+    status: existingPos.status || 'active',
+    closedAt: existingPos.closedAt || '',
+    parentPosId: existingPos.parentPosId != null ? existingPos.parentPosId : null,
+    closeReason: existingPos.closeReason || '',
+    closeMemo: existingPos.closeMemo || '',
+  };
+
+  if(editingPosId) {
+    const idx = positions.findIndex(p => p.id === editingPosId);
+    if(idx >= 0) positions[idx] = posData;
+    toast(`${title} 수정 완료`, 'tok');
+  } else {
+    positions.push(posData);
+    logActivity('포지션 등록', title, 'position', posData.id);
+    toast(`${title} 등록 완료`, 'tok');
+  }
+
+  closeModal('modal-position');
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(posData);
+  renderPositions();
+  renderDashboard(); // 대시보드 칸반(미배정 스트립 포함) 즉시 반영
+  if(currentPosDetailId && Number(currentPosDetailId) === Number(posData.id) && document.getElementById('sect-posdetail')?.classList.contains('on')) {
+    renderPosDetailSection(posData.id);
+  }
+}
+
+async function deletePosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const linked = candidates.filter(c => Number(c.posId) === Number(posId)).length;
+  if(linked > 0) {
+    if(!confirm(`이 포지션에 연결된 지원자 ${linked}명이 있습니다. 삭제하면 연결이 해제됩니다. 계속할까요?`)) return;
+    const unlinked = candidates.filter(c => Number(c.posId) === Number(posId));
+    unlinked.forEach(c => { c.posId = null; });
+    if(GS_CONFIG.scriptUrl && typeof syncCandToGS === 'function') await settleSync(unlinked.map(c => syncCandToGS(c)), '지원자 연결 해제 동기화');
+  }
+  positions = positions.filter(p => p.id !== posId);
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof deletePosFromGS === 'function') await deletePosFromGS(posId);
+  renderPositions(); renderDashboard();
+  toast(`${esc(pos.title)} 삭제 완료`, 'tok');
+}
+
+// ══════════════════════════════════════════════════════════════
+// 상태 (localStorage 연동)
+// ══════════════════════════════════════════════════════════════
+const LS_KEY = 'woomic_recruit_v4';
+
+
+
+function showSyncStatus(msg, type='') {
+  const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
+  const el = document.getElementById('gs-conn-status');
+  if(el) { el.textContent = msg; el.style.color = colors[type]||colors['']; }
+  const dot = document.getElementById('sb-sync-dot');
+  const label = document.getElementById('sb-sync-label');
+  const banner = document.getElementById('sync-fail-banner');
+  const failed = type === 'warn' && /실패|응답 없음|연결 실패/.test(String(msg));
+  const syncing = type === '' && /중|로드|확인/.test(String(msg));
+  if(dot) dot.className = `sb-sync-dot${failed?' fail':type==='ok'?' ok':syncing?' ing':''}`;
+  if(label) label.textContent = failed ? '동기화 실패 · 수동 확인 필요' : type === 'ok' ? `마지막 동기화 · ${now()}` : String(msg || '동기화 대기').replace(/^⚠\s*/,'');
+  if(banner) banner.style.display = failed ? 'flex' : type === 'ok' ? 'none' : banner.style.display;
+}
+
+function updateSidebarUrgency() {
+  const posUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high'));
+  const interviewUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high' && /^(first|second)_/.test(item.type)));
+  const mailUrgent = getMailPendingItems().length > 0;
+  document.getElementById('nb-pos')?.classList.toggle('urgent', posUrgent);
+  document.getElementById('nb-int')?.classList.toggle('urgent', interviewUrgent);
+  document.getElementById('nb-notify')?.classList.toggle('urgent', mailUrgent);
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { lastLocalStateJson = raw; return JSON.parse(raw); }
+  } catch(e) {}
+  return null;
+}
+
+function getAuxStateSnapshot() {
+  return {
+    updatedAt: auxUpdatedAt || new Date().toISOString(),
+    onboardings,
+    notifyLog: notifyLog.slice(0,200),
+    refDetails,
+    refReports,
+    activityLog: activityLog.slice(0,300),
+  };
+}
+
+function getAuxFingerprint() {
+  return JSON.stringify({
+    onboardings,
+    notifyLog: notifyLog.slice(0,200),
+    refDetails,
+    refReports,
+    activityLog: activityLog.slice(0,300),
+  });
+}
+
+function chunkText(text, size=1400) {
+  return String(text || '').match(new RegExp(`[\\s\\S]{1,${size}}`, 'g')) || [''];
+}
+
+async function syncAuxStateToGS() {
+  if(!GS_CONFIG.scriptUrl || auxSyncSuspended) return;
+  const json = JSON.stringify(getAuxStateSnapshot());
+  const chunks = chunkText(json);
+  const tasks = [
+    gsUpsert('Settings', {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})}),
+    ...chunks.map((value,i)=>gsUpsert('Settings',{id:`auxState:${i}`,value})),
+  ];
+  await settleSync(tasks, '보조 데이터 동기화');
+}
+
+function scheduleAuxStateSync() {
+  if(auxSyncSuspended || !GS_CONFIG.scriptUrl) return;
+  clearTimeout(auxSyncTimer);
+  auxSyncTimer = setTimeout(syncAuxStateToGS, 1800);
+}
+
+async function loadAuxStateFromGS() {
+  if(!hasGsBridge_()) return false;
+  const rows = await gsGetAll('Settings');
+  const coreDeleted = applyRemoteGsTombstones(rows);
+  if(coreDeleted) {
+    renderDashboard();
+    renderTracker();
+    renderPositions();
+  }
+  const map = new Map(rows.map(r=>[String(r.id),String(r.value??'')]));
+  let meta;
+  try { meta = JSON.parse(map.get('auxState:meta') || ''); } catch(e) { return false; }
+  if(!meta?.count) return false;
+  let json = '';
+  for(let i=0;i<meta.count;i++) json += map.get(`auxState:${i}`) || '';
+  try {
+    const remote = JSON.parse(json);
+    if(auxUpdatedAt && remote.updatedAt && String(auxUpdatedAt) >= String(remote.updatedAt)) return false;
+    onboardings = remote.onboardings || onboardings;
+    notifyLog = remote.notifyLog || notifyLog;
+    refDetails = remote.refDetails || refDetails;
+    refReports = remote.refReports || refReports;
+    activityLog = remote.activityLog || activityLog;
+    auxUpdatedAt = remote.updatedAt || meta.updatedAt || '';
+    saveState();
+    return true;
+  } catch(e) {
+    console.warn('보조 데이터 GS 로드 실패:', e);
+    return false;
+  }
+}
+
+function saveState() {
+  let auxChanged = false;
+  try {
+    const auxFingerprint = getAuxFingerprint();
+    auxChanged = auxFingerprint !== lastAuxFingerprint;
+    if(auxChanged) {
+      lastAuxFingerprint = auxFingerprint;
+      if(!auxSyncSuspended) auxUpdatedAt = new Date().toISOString();
+    }
+    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog: activityLog.slice(0,300), auxUpdatedAt });
+    if(data !== lastLocalStateJson) {
+      localStorage.setItem(LS_KEY, data);
+      lastLocalStateJson = data;
+    }
+    if(auxChanged) scheduleAuxStateSync();
+  } catch(e) {
+    if(e.name === 'QuotaExceededError' || e.code === 22) {
+      notifyLog = notifyLog.slice(0, 50);
+      activityLog = activityLog.slice(0, 100);
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog, auxUpdatedAt })); if(auxChanged) scheduleAuxStateSync(); }
+      catch(e2) { console.warn('localStorage 저장 실패:', e2); }
+    }
+  }
+}
+
+
+function nav(id, btn) {
+  document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
+  const section = document.getElementById('sect-'+id);
+  if(!section) return;
+  section.classList.add('on');
+  if(id !== 'posdetail') currentPosDetailId = null;
+  // btn 미전달(프로그램적 호출) 시 해당 섹션의 사이드바 버튼을 자동 활성화
+  if(btn) btn.classList.add('on');
+  else {
+    const navTarget = id === 'posdetail' ? 'position' : id;
+    const auto = document.querySelector(`.nb[data-action="nav"][data-target="${navTarget}"]`);
+    if(auto) auto.classList.add('on');
+  }
+  document.getElementById('tb-title').textContent = TITLES[id]||id;
+  if(id==='dash') renderDashboard();
+  if(id==='recruit-status') renderRecruitStatus();
+  if(id==='tracker') { populateSel('int-cand'); populateSel('ob-cand'); renderTracker(); }
+  if(id==='interview') { populateSel('int-cand'); renderIntTable(); }
+  if(id==='reference') { renderReference(); }
+  if(id==='referral') { renderReferralSection(); }
+  if(id==='onboarding') { populateSel('ob-cand'); renderOnboarding(); }
+  if(id==='notifylog') { renderNotifyLog(); renderActivityLog(); }
+  if(id==='notifylog') renderPeriodReport();
+  if(id==='position') renderPositions();
+  if(id==='settings') renderTeamMaster();
+}
+function navBtn(id) {
+  const btn = document.querySelector(`.nb[data-action="nav"][data-target="${id}"]`);
+  if(btn) nav(id, btn);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 모달
+// ══════════════════════════════════════════════════════════════
+// 시간 입력을 10분 단위로 보정 (정시 00분 기준)
+function snapTo10(el) {
+  if(!el || !el.value) return;
+  const v = el.value;
+  // datetime-local: "2026-06-05T14:23" / time: "14:23"
+  const isDT = v.indexOf('T') !== -1;
+  const timePart = isDT ? v.split('T')[1] : v;
+  if(!timePart) return;
+  let [h, m] = timePart.split(':').map(Number);
+  if(isNaN(h) || isNaN(m)) return;
+  // 가장 가까운 10분으로 반올림
+  let snapped = Math.round(m / 10) * 10;
+  if(snapped === 60) { snapped = 0; h = (h + 1) % 24; }
+  const hh = String(h).padStart(2,'0');
+  const mm = String(snapped).padStart(2,'0');
+  el.value = isDT ? `${v.split('T')[0]}T${hh}:${mm}` : `${hh}:${mm}`;
+}
+
+function openModal(id) {
+  const el = document.getElementById(id);
+  if(!el) { console.error('[openModal] element not found:', id); return; }
+  el.style.display = 'flex';
+  el.style.position = 'fixed';
+  el.style.top = '0';
+  el.style.left = '0';
+  el.style.width = '100vw';
+  el.style.height = '100vh';
+  el.style.background = 'rgba(0,0,0,.45)';
+  el.style.zIndex = '9999';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.style.padding = '20px';
+  el.style.boxSizing = 'border-box';
+  el.classList.add('open');
+  // 접근성: 다이얼로그 역할 + 포커스 이동(이전 포커스 저장)
+  el.setAttribute('role','dialog');
+  el.setAttribute('aria-modal','true');
+  const title = el.querySelector('.modal-title');
+  if(title) {
+    if(!title.id) title.id = `${id}-title`;
+    el.setAttribute('aria-labelledby', title.id);
+  }
+  document.querySelectorAll('.sb,.main').forEach(x => { x.inert = true; });
+  el._prevFocus = document.activeElement;
+  setTimeout(() => {
+    const f = el.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
+    if(f) { try{ f.focus(); }catch(e){} }
+    else { el.setAttribute('tabindex','-1'); el.focus(); }
+  }, 30);
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = 'none';
+  el.classList.remove('open');
+  if(!document.querySelector('.overlay.open')) document.querySelectorAll('.sb,.main').forEach(x => { x.inert = false; });
+  if(el._prevFocus && el._prevFocus.focus){ try{ el._prevFocus.focus(); }catch(e){} el._prevFocus=null; } // 포커스 복귀
+}
+
+// 신규 지원자 등록 모달 열기 (포지션 드롭다운 자동 채움)
+// 포지션 상세에서 신규 지원자 바로 추가 (포지션 정보 자동 채움)
+function addCandToPos(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const modal = document.getElementById('modal-add');
+  if(!modal) return;
+  delete modal.dataset.editId;
+  modal.dataset.returnPosId = posId;   // 저장 후 복귀용
+  document.querySelector('#modal-add .modal-title').textContent = `신규 지원자 등록 — ${esc(pos.title)}`;
+  // 입력 초기화 후 포지션 정보 자동 채움
+  const setv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  setv('nc-name','');  setv('nc-email',''); setv('nc-memo',''); setv('nc-date', today());
+  setv('nc-source','direct'); setv('nc-headhunter-id','');
+  setv('nc-pos', pos.title);
+  setv('nc-dept', pos.dept || '');
+  // 직군/채용형태 select가 있으면 포지션 값으로
+  const roleEl = document.getElementById('nc-role'); if(roleEl) roleEl.value = pos.role || roleEl.value;
+  const etypeEl = document.getElementById('nc-etype'); if(etypeEl) etypeEl.value = pos.etype || etypeEl.value;
+  populatePosSelect(posId);            // 이 포지션 선택 고정
+  populateHeadhunterSelect();
+  toggleHeadhunterFields();
+  updateAddCandSeatHint();
+  closeModal('modal-pos-detail');
+  openModal('modal-add');
+}
+
+function openAddCand() {
+  const modal = document.getElementById('modal-add');
+  if(!modal) return;
+  delete modal.dataset.editId;
+  delete modal.dataset.returnPosId;
+  document.querySelector('#modal-add .modal-title').textContent = '서류합격자 등록';
+  ['nc-name','nc-pos','nc-email','nc-dept','nc-memo'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  const sourceEl = document.getElementById('nc-source'); if(sourceEl) sourceEl.value = 'direct';
+  const hhEl = document.getElementById('nc-headhunter-id'); if(hhEl) hhEl.value = '';
+  const dateEl = document.getElementById('nc-date');
+  if(dateEl) dateEl.value = today();
+  populatePosSelect();
+  populateHeadhunterSelect();
+  toggleHeadhunterFields();
+  updateAddCandSeatHint();
+  openModal('modal-add');
+}
+
+function populateHeadhunterSelect(selectedId) {
+  const sel = document.getElementById('nc-headhunter-id');
+  if(!sel) return;
+  const firms = getHeadhunterDb();
+  sel.innerHTML = '<option value="">— 업체를 선택하세요 —</option>' +
+    firms.map(f => `<option value="${esc(f.id)}">${esc(f.name)}${f.manager ? ' · ' + esc(f.manager) : ''}</option>`).join('');
+  if(selectedId) sel.value = selectedId;
+  updateHeadhunterHint();
+}
+
+function toggleHeadhunterFields() {
+  const isHH = document.getElementById('nc-source')?.value === 'headhunting';
+  const wrap = document.getElementById('nc-headhunter-wrap');
+  const req = document.getElementById('nc-email-required');
+  if(wrap) wrap.style.display = isHH ? '' : 'none';
+  if(req) req.style.display = isHH ? 'none' : '';
+  updateHeadhunterHint();
+}
+
+function updateHeadhunterHint() {
+  const hint = document.getElementById('nc-headhunter-hint');
+  if(!hint) return;
+  const id = document.getElementById('nc-headhunter-id')?.value || '';
+  const firm = getHeadhunterDb().find(x => x.id === id);
+  hint.textContent = firm ? `${firm.manager || '담당자 미입력'} · ${firm.email || '이메일 미입력'}${firm.phone ? ' · ' + firm.phone : ''}` : '설정 탭의 헤드헌팅 업체 DB에서 업체를 관리합니다.';
+}
+
+function renderHeadhunterDbPreview() {
+  const el = document.getElementById('headhunter-db-preview');
+  if(!el) return;
+  const firms = getHeadhunterDb();
+  el.innerHTML = firms.length
+    ? firms.map(f => `<span class="b bamber" style="margin:0 4px 4px 0">${esc(f.name)}${f.manager ? ' · ' + esc(f.manager) : ''}</span>`).join('')
+    : '등록된 헤드헌팅 업체가 없습니다.';
+}
+
+// nc-pos-id 드롭다운에 포지션 목록 채우기
+function populatePosSelect(selectedId) {
+  const sel = document.getElementById('nc-pos-id');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— 포지션을 선택하세요 —</option>' +
+    positions.filter(p => posStatus(p) === 'active').map(p => `<option value="${p.id}">${esc(p.title)} (${esc(p.etype)})</option>`).join('');
+  if(selectedId !== undefined && selectedId !== null) sel.value = selectedId;
+  sel.onchange = () => {
+    const p = positions.find(x => Number(x.id) === Number(sel.value));
+    if(p) {
+      const posEl = document.getElementById('nc-pos'); if(posEl) posEl.value = p.title;
+      const deptEl = document.getElementById('nc-dept'); if(deptEl && p.dept) deptEl.value = p.dept;
+      const roleEl = document.getElementById('nc-role'); if(roleEl && p.role) roleEl.value = normalizeRole(p.role);
+      const etypeEl = document.getElementById('nc-etype'); if(etypeEl && p.etype) etypeEl.value = p.etype;
+    }
+    updateAddCandSeatHint();
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// 토스트
+// ══════════════════════════════════════════════════════════════
+function toast(msg, type='') {
+  const w = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const s = document.createElement('span');
+  s.textContent = msg;
+  t.appendChild(s);
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 유틸
+// ══════════════════════════════════════════════════════════════
+function populateSel(id) {
+  const s = document.getElementById(id); if(!s) return;
+  const v = s.value;
+  s.innerHTML = '<option value="">-- 선택 --</option>';
+  const list = id === 'ob-cand' ? candidates.filter(c=>c.stage===5) : candidates;
+  list.forEach(c => s.add(new Option(`${esc(c.name)} (${esc(c.pos)})`, c.id)));
+  if(v) s.value = v;
+}
+function badge(stage) { return `<span class="b ${SBG[stage]||'bgray'}">${STAGES[stage]||''}</span>`; }
+function rolePill(r) { return `<span class="role ${ROLE_CLS[r]||''}">${r}</span>`; }
+function etypePill(e) { return `<span class="etype ${ETYPE_CLS[e]||''}">${e}</span>`; }
+function empty(msg, sub='', actionHtml='') { return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-3-3v6m7 4H5a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v12a2 2 0 01-2 2z"/></svg><div style="font-size:13px;font-weight:700;color:var(--t2)">${msg}</div>${sub?`<div style="font-size:11.5px;color:var(--t3);margin-top:3px">${sub}</div>`:''}${actionHtml?`<div style="margin-top:8px">${actionHtml}</div>`:''}</div>`; }
+function now() { return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }
+
+// ── 날짜 형식 정규화 ─────────────────────────────────────────
+function formatDate(val) {
+  if(!val) return '';
+  // ISO 형식 (2026-05-18T15:00:00.000Z) → YYYY-MM-DD
+  if(typeof val === 'string' && val.includes('T')) {
+    return val.split('T')[0];
+  }
+  // Excel 날짜 숫자 (46160 등) → YYYY-MM-DD
+  if(typeof val === 'number' || (typeof val === 'string' && /^\d{5}$/.test(val))) {
+    const num = parseInt(val);
+    const date = new Date((num - 25569) * 86400 * 1000);
+    return date.toISOString().split('T')[0];
+  }
+  // 이미 YYYY-MM-DD 형식
+  return String(val).split('T')[0];
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function logNotify(ch, type, target, to) {
+  notifyLog.unshift({ ch, type, target, to, time:now(), date:today() });
+  const nb = document.getElementById('nb-notify');
+  nb.style.display = ''; nb.textContent = notifyLog.length;
+  updateSidebarUrgency();
+  saveState();
+}
+
+// 내부 직원 단체메일 수신자: 유효한 이메일만 중복 없이 한 메일에 묶는다.
+function groupMailRecipients(emails) {
+  return [...new Set((emails||[]).flatMap(e=>String(e||'').split(/[;,]/)).map(e=>e.trim()).filter(e=>e.includes('@')))].join(';');
+}
+
+// ── Gmail 이메일 발송 헬퍼 ───────────────────────
+async function sendMailViaGmail(to, subject, body) {
+  try {
+    const result = await gsFetch('sendMail', '', { to, subject, body }, { allowQueue:false });
+    if(!result || !result.ok) {
+      toast(`메일 발송 실패 (${to}): ${result?.error || 'Apps Script/Gmail 권한을 확인하세요.'}`, 'terr');
+      return false;
+    }
+    toast(`메일 발송 완료 (${to})`, 'tok');
+    return true;
+  } catch(err) {
+    console.error(err);
+    toast(`메일 발송 중 오류가 발생했습니다 (${to})`, 'terr');
+    return false;
+  }
+}
+
+function openMailto(toEmail, subject, body, sequential) {
+  if(!toEmail || !toEmail.includes('@')) {
+    alert('이메일 주소가 등록되지 않았습니다.\n지원자/대상 정보를 수정해 이메일을 입력해주세요.');
+    return false;
+  }
+  const to = toEmail.replace(/;/g, ',');
+  sendMailViaGmail(to, subject, body);
+  return true;
+}
+
+function buildIntEmail(itv, cand) {
+  const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
+  const tplId = itv.type === '1차' ? 'tpl-int1' : 'tpl-int2';
+  const tpl = document.getElementById(tplId)?.value || '';
+  if(tpl) {
+    return tpl
+      .replace(/\{지원자명\}/g, cand?.name || '')
+      .replace(/\{포지션\}/g, cand?.pos || '')
+      .replace(/\{면접유형\}/g, type)
+      .replace(/\{면접일시\}/g, itv.date || '별도 안내 예정')
+      .replace(/\{장소\}/g,    itv.loc  || '별도 안내 예정')
+      .replace(/\{면접관\}/g,  itv.panel || '')
+      .replace(/\{메모\}/g,    itv.memo ? '\n안내사항: ' + itv.memo : '');
+  }
+  return `안녕하세요 ${cand?.name || ''}님,\n\n${type} 일정을 안내드립니다.\n\n일시: ${itv.date || '별도 안내 예정'}\n장소: ${itv.loc || '별도 안내 예정'}${itv.memo ? '\n안내: ' + itv.memo : ''}`;
+}
+
+function selectTemplateEditor(templateId, trigger) {
+  document.querySelectorAll('.template-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.templatePanel === templateId);
+  });
+  document.querySelectorAll('.template-list button').forEach(button => button.classList.remove('active'));
+  if(trigger) trigger.classList.add('active');
+  document.getElementById(templateId)?.focus();
+}
+
+function getActiveTemplateTextarea() {
+  return document.querySelector('.template-panel.active textarea');
+}
+
+function insertTemplateSnippet(type) {
+  const textarea = getActiveTemplateTextarea();
+  if(!textarea) return;
+  const snippets = {
+    infoTable: `\n[안내 정보]\n구분        내용\n----------  --------------------------------\n전형        {면접유형}\n일시        {면접일시}\n장소        {장소}\n담당        우미건설 피플팀\n`,
+    checklist: `\n[확인 사항]\n- 면접 시작 10분 전까지 도착해 주세요.\n- 신분증을 지참해 주세요.\n- 일정 변경이 필요한 경우 본 메일로 회신 부탁드립니다.\n`,
+    divider: `\n------------------------------------------------------------\n`,
+    cta: `\n[바로가기]\n{결과설문링크}\n`
+  };
+  const text = snippets[type] || snippets.infoTable;
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const end = textarea.selectionEnd ?? start;
+  textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+  const cursor = start + text.length;
+  textarea.focus();
+  textarea.setSelectionRange(cursor, cursor);
+  toast('템플릿에 서식 블록을 삽입했습니다.', 'tok');
+}
+
+function buildOfferEmail(ob, cand) {
+  const tpl = document.getElementById('tpl-onboard')?.value || '';
+  if(tpl) {
+    return tpl
+      .replace(/\{지원자명\}/g, ob.candName || cand?.name || '')
+      .replace(/\{포지션\}/g,   ob.pos || cand?.pos || '')
+      .replace(/\{입사일\}/g,   ob.joinDate || '')
+      .replace(/\{부서\}/g,     ob.dept || '')
+      .replace(/\{직책\}/g,     ob.rank || '')
+      .replace(/\{채용형태\}/g, ob.etype || '')
+      .replace(/\{근무지\}/g,   ob.loc  || '')
+      .replace(/\{준비사항\}/g, ob.notes ? '\n준비사항:\n' + ob.notes : '');
+  }
+  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;

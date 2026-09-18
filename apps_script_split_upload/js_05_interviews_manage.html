@@ -1,0 +1,226 @@
+      headhunterName: source === 'headhunting' ? headhunter.name : '',
+      headhunterManager: source === 'headhunting' ? headhunter.manager : '',
+      headhunterEmail: source === 'headhunting' ? headhunter.email : '',
+      headhunterPhone: source === 'headhunting' ? headhunter.phone : '',
+      stage:     0,
+      ref:       '미시작', refD:0, refT:0,
+      receivedAt,
+      docPassedAt: receivedAt,
+      memo:      document.getElementById('nc-memo').value,
+      posId:     finalPosId,
+      intDate:   '', notified: false,
+    };
+    candidates.push(newCand);
+    logActivity('합격자 등록', `${name} → ${pos}`, 'candidate', newCand.id);
+    saveState();
+    closeModal('modal-add');
+    renderDashboard(); renderTracker(); renderPositions();
+    populateSel('int-cand'); populateSel('ob-cand');
+    toast(`${name}님 등록 완료`, 'tok');
+    if(GS_CONFIG.scriptUrl) syncCandToGS(newCand);
+    saveState();
+    // 포지션 상세에서 추가한 경우 → 포지션 상세로 복귀
+    const rp = modal.dataset.returnPosId;
+    if(rp) {
+      delete modal.dataset.returnPosId;
+      document.querySelector('#modal-add .modal-title').textContent = '신규 지원자 등록';
+      setTimeout(() => openPosDetail(Number(rp)), 300);
+    }
+  }
+  ['nc-name','nc-pos','nc-email','nc-dept','nc-memo'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+}
+
+// ══════════════════════════════════════════════════════════════
+// 트래커
+// ══════════════════════════════════════════════════════════════
+function filterStage(si, el) {
+  stageFilter = si;
+  trackerPage = 1;
+  document.querySelectorAll('.stage-seg').forEach(s => s.classList.remove('act'));
+  el.classList.add('act');
+  renderTracker();
+}
+function filterRole(r, el) {
+  roleFilter = r;
+  trackerPage = 1;
+  document.querySelectorAll('.fbtn[data-group="role"]').forEach(b => b.classList.remove('fon'));
+  el.classList.add('fon');
+  renderTracker();
+}
+function filterEtype(e, el) {
+  etypeFilter = e;
+  trackerPage = 1;
+  document.querySelectorAll('.fbtn[data-group="etype"]').forEach(b => b.classList.remove('fon'));
+  el.classList.add('fon');
+  renderTracker();
+}
+
+function updateStageBar() {
+  const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  const counts = Array(STAGES.length).fill(0);
+  let active = 0;
+  candidates.forEach(c => {
+    if(c.stage === 6 || !c.held) counts[c.stage] = (counts[c.stage] || 0) + 1;
+    if(c.stage !== 6 && !c.held) active++;
+  });
+  set('sf-all', active);
+  counts.forEach((count,i) => set('sf-'+i, count));
+}
+
+function renderTracker() {
+  updateStageBar();
+  const q = (document.getElementById('cand-search')?.value||'').toLowerCase();
+  const showRejected = document.getElementById('show-rejected')?.checked || false;
+  const sortBy = document.getElementById('sort-by')?.value || 'stage-desc';
+  let list = candidates.filter(c => {
+    // 기본 목록(전체 보기)에서는 최종합격(5)·불합격(6) 제외
+    // 단, 해당 단계 카드를 직접 선택한 경우(stageFilter가 5 또는 6)는 조회 허용
+    if(stageFilter === -1) {
+      if(c.stage === 5) return false;            // 최종합격 제외
+      if(c.stage === 6 && !showRejected) return false; // 불합격 제외(체크박스로 표시 가능)
+    }
+    const stOk  = stageFilter===-1 || c.stage===stageFilter;
+    const roOk  = roleFilter==='all' || c.role===roleFilter;
+    const etOk  = etypeFilter==='all' || c.etype===etypeFilter;
+    const srOk  = !q || c.name.toLowerCase().includes(q) || c.pos.toLowerCase().includes(q) || (c.dept||'').toLowerCase().includes(q);
+    return stOk && roOk && etOk && srOk;
+  });
+  // 정렬
+  if(sortBy==='stage-desc') list.sort((a,b)=>b.stage-a.stage);
+  else if(sortBy==='stage-asc') list.sort((a,b)=>a.stage-b.stage);
+  else if(sortBy==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  else if(sortBy==='date') list.sort((a,b)=>b.receivedAt.localeCompare(a.receivedAt));
+  const wrap = document.getElementById('cand-list');
+  const pagination = document.getElementById('cand-pagination');
+  if(!wrap) return;
+  if(!list.length) {
+    wrap.innerHTML = empty('조건에 맞는 지원자가 없습니다.');
+    if(pagination) pagination.style.display = 'none';
+    return;
+  }
+  const totalPages = Math.max(1, Math.ceil(list.length / TRACKER_PAGE_SIZE));
+  trackerPage = Math.min(Math.max(1, trackerPage), totalPages);
+  const pageStart = (trackerPage - 1) * TRACKER_PAGE_SIZE;
+  const pageList = list.slice(pageStart, pageStart + TRACKER_PAGE_SIZE);
+  const onboardedIds = new Set(onboardings.map(o=>Number(o.candId)));
+  wrap.innerHTML = pageList.map(c => {
+    const nextStage = nextFlowStage(c.stage, c.posId);
+    const hasNextStage = nextStage !== c.stage;
+    const refBadge = c.ref==='완료'?'<span class="b bgreen">완료</span>':c.ref==='진행중'?`<span class="b bamber">${c.refD}/${c.refT}</span>`:'<span class="b bgray">-</span>';
+    const intInfo  = renderTrackerInterviewDate(c.intDate);
+    const notified = c.notified ? '<span class="b bteams" style="font-size:10px">발송</span>' : '<span style="font-size:11px;color:var(--t3)">-</span>';
+    const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardedIds.has(Number(c.id)) ? 'urg-red' : 'urg-none';
+    return `<div class="cl-row" data-action="open-candidate" data-id="${c.id}">
+      <div class="urg ${urg}"></div>
+      <div><div class="tname">${esc(c.name)}${headhunterSearchPill(c)}</div><div class="tsub">${esc(c.pos)}${c.dept?' · '+c.dept:''}${Number(c.stage)===5?' · '+esc(getCandidateJoinDateLabel(c)):''}</div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px">${etypePill(c.etype)}${rolePill(c.role)}</div>
+      <div>${badge(c.stage)}</div>
+      <div>${refBadge}</div>
+      <div>${intInfo}</div>
+      <div>${notified}</div>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
+        ${hasNextStage?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${nextStage})">→ 다음</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  if(pagination) {
+    pagination.style.display = 'flex';
+    pagination.innerHTML = `<span>전체 ${list.length}명 · ${pageStart + 1}-${Math.min(pageStart + TRACKER_PAGE_SIZE, list.length)}명 표시</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn btn-xs" data-action="call" data-call="setTrackerPage(${trackerPage - 1})" ${trackerPage===1?'disabled':''}>이전</button>
+        <strong>${trackerPage} / ${totalPages}</strong>
+        <button class="btn btn-xs" data-action="call" data-call="setTrackerPage(${trackerPage + 1})" ${trackerPage===totalPages?'disabled':''}>다음</button>
+      </div>`;
+  }
+}
+
+function setTrackerPage(page) {
+  trackerPage = Math.max(1, Number(page) || 1);
+  renderTracker();
+}
+
+// ══════════════════════════════════════════════════════════════
+// 상세 모달
+// ══════════════════════════════════════════════════════════════
+function openDetail(id) {
+  const c = candidates.find(x => x.id===id);
+  if(!c) return;
+  const itvAll = interviews.filter(i => i.candId===id);
+  // 같은 type(1차/2차)에 확정/완료 일정이 있으면 pending(회신대기)은 숨김
+  const itv = itvAll.filter(i => {
+    const st = i.status || 'pending';
+    if(st !== 'pending') return true;
+    // 같은 type에 confirmed/done이 있으면 이 pending은 제외
+    const hasConfirmed = itvAll.some(o => o.type === i.type && (o.status==='confirmed' || o.status==='done'));
+    return !hasConfirmed;
+  });
+  const ob  = onboardings.find(o => o.candId===id);
+  const availableStageButtons = [...getFlowForCandidate(c), 6].filter((stage, index, arr) => stage !== 7 && arr.indexOf(stage) === index);
+  document.getElementById('detail-title').innerHTML = `${esc(c.name)}${headhunterSearchPill(c)} · ${esc(c.pos)}`;
+  document.getElementById('detail-body').innerHTML = `
+    <div class="grid g2" style="gap:10px;margin-bottom:14px">
+      <div style="background:var(--s2);border-radius:var(--rsm);padding:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">기본 정보</div>
+        <table style="font-size:12.5px;width:100%"><tbody>
+          <tr><td style="color:var(--t3);padding:3px 0;width:70px">채용형태</td><td>${etypePill(c.etype)}</td></tr>
+          <tr><td style="color:var(--t3);padding:3px 0">채용경로</td><td><span class="b ${isHeadhuntingCandidate(c)?'bamber':'bblue'}">${esc(candidateRouteLabel(c))}</span></td></tr>
+          <tr><td style="color:var(--t3);padding:3px 0">직군</td><td>${rolePill(c.role)}</td></tr>
+          <tr><td style="color:var(--t3);padding:3px 0">부서</td><td>${c.dept||'-'}</td></tr>
+          <tr><td style="color:var(--t3);padding:3px 0">이메일</td><td>${esc(c.email)}</td></tr>
+          ${isHeadhuntingCandidate(c)?`<tr><td style="color:var(--t3);padding:3px 0">업체담당</td><td>${esc(getCandidateMailTarget(c).label)} · ${esc(getCandidateMailTarget(c).to || '이메일 미입력')}</td></tr>`:''}
+          <tr><td style="color:var(--t3);padding:3px 0">경력</td><td>${c.career}</td></tr>
+          <tr><td style="color:var(--t3);padding:3px 0">접수일</td><td>${c.receivedAt}</td></tr>
+        </tbody></table>
+      </div>
+      <div style="background:var(--s2);border-radius:var(--rsm);padding:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">채용 현황</div>
+        <div style="margin-bottom:8px">${badge(c.stage)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:4px">레퍼런스: ${c.ref==='완료'?'<span style="color:var(--green);font-weight:700">완료</span>':c.ref==='진행중'?`<span style="color:var(--amber);font-weight:700">${c.refD}/${c.refT}</span>`:c.ref==='생략'?'<span style="color:var(--t3);font-weight:700">생략</span>':'미시작'}</div>
+        ${c.stage===6?`<div style="font-size:11px;color:var(--red);margin-bottom:4px">불합격 사유: <b>${esc(c.rejectReason||'미기록')}</b>${c.rejectMemo?` · ${esc(c.rejectMemo)}`:''}</div>`:''}
+        ${Number(c.stage)===5?`<div style="font-size:11px;color:${getCandidateJoinDate(c)?'var(--green)':'var(--amber)'};font-weight:700">입사일: ${esc(getCandidateJoinDate(c) || '미정')}</div>`:''}
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">단계 변경 (클릭 시 확인 팝업)</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
+      ${availableStageButtons.map(si=>`<button class="btn btn-sm ${si===c.stage?'btn-primary':''}" data-action="call" data-call="closeModal('modal-detail');requestStageChange(${c.id},${si})">${STAGES[si]}</button>`).join('')}
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">면접 일정</div>
+    ${itv.length ? itv.map(i=>{
+      const st = i.status || 'pending';
+      const stBadge = st==='done' ? '<span class="b bgreen" style="font-size:10px">면접완료</span>'
+        : st==='confirmed' ? '<span class="b bblue" style="font-size:10px">일정확정</span>'
+        : '<span class="b bamber" style="font-size:10px">회신대기</span>';
+      const candidates_note = (st==='pending' && i.memo) ? `<div style="font-size:11px;color:var(--t3);margin-top:2px">${i.memo}</div>` : '';
+      return `<div style="padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+          <span style="font-weight:600">${i.type} 면접</span>
+          <span style="font-family:'DM Mono',monospace;color:var(--blue)">${i.date}</span>
+          ${stBadge}
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">📍 ${i.loc} · 면접관: ${i.panel}</div>
+        ${candidates_note}
+        <div style="display:flex;gap:5px;margin-top:6px">
+          ${st!=='done' ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="confirmInterview(${i.id})">${st==='confirmed'?'일정 수정':'일정 확정'}</button>` : ''}
+          ${st==='confirmed' ? `<button class="btn btn-xs" data-action="call" data-call="markInterviewDone(${i.id})">면접 완료 처리</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') : '<div style="font-size:12px;color:var(--t3)">등록된 면접 일정이 없습니다.</div>'}
+    <div style="display:flex;gap:6px;margin-top:14px">
+      <button class="btn btn-outlook btn-sm" data-action="call" data-call="quickNotify(${c.id},'outlook')">✉ 메일 안내</button>
+      <button class="btn btn-sm" data-action="call" data-call="editCandidate(${c.id})">✏ 정보 수정</button>
+      <button class="btn btn-sm btn-red" data-action="call" data-call="rejectCandidate(${c.id})">✗ 불합격</button>
+    </div>`;
+  openModal('modal-detail');
+}
+
+async function quickNotify(id, ch) {
+  const c = candidates.find(x=>x.id===id);
+  if(!c) return;
+  if(ch === 'outlook') {
+    const target = getCandidateMailTarget(c);
+    const subject = routeMailSubject(c, `[우미건설] ${esc(c.name)}님 채용 진행 안내`);
+    const directBody = `안녕하세요 ${esc(c.name)}님,\n\n우미건설 ${esc(c.pos)} 포지션 채용 진행 관련 안내드립니다.\n현재 단계: ${STAGES[c.stage]}\n\n추가 안내가 있으면 연락드리겠습니다.`;
+    await sendHeadhunterForwardEmailViaGmail(c, subject, '채용 진행', directBody, '개별알림(업체경유)');
+    return;
+  }

@@ -1,0 +1,713 @@
+}
+function renderReferralRewardsView() {
+  const list = document.getElementById('rf-list'), detail = document.getElementById('rf-detail');
+  if(!list || !detail) return;
+  const rows = rewardExportRows();
+  const groups = new Map();
+  rows.forEach(r=>{
+    const key = r.payMonth || '미지정';
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  });
+  const groupRows = [...groups.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  list.innerHTML = rows.length ? groupRows.map(([month,items])=>{
+    const total = items.reduce((sum,r)=>sum+Number(r.amount||0),0);
+    const ready = items.filter(r=>r.status==='RETENTION_OK').length;
+    const requested = items.filter(r=>r.status==='REQUESTED').length;
+    const paid = items.filter(r=>r.status==='PAID').length;
+    return `<div class="referral-item">
+      <div class="referral-item-title"><span>급여월 ${esc(month)}</span><span class="b bblue">${items.length}건</span></div>
+      <div class="referral-item-sub">${total.toLocaleString('ko-KR')}원 · 재직확인 ${ready} · 지급요청 ${requested} · 지급완료 ${paid}</div>
+      <div style="margin-top:8px"><button class="btn btn-xs" data-action="call" data-call="exportReferralRewardsCsv('${esc(month)}')">CSV</button></div>
+    </div>`;
+  }).join('') : '<div class="referral-empty">포상금 스케줄이 없습니다.</div>';
+  const totalAmount = rows.reduce((sum,r)=>sum+Number(r.amount||0),0);
+  detail.innerHTML = `<div class="referral-box">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px">
+      <div><h3>포상금 지급 스케줄</h3><p style="font-size:12px;color:var(--t3);line-height:1.5;margin:4px 0 0">급여월 기준으로 묶어 급여팀 전달용 CSV를 생성합니다.</p></div>
+      <button class="btn" data-action="call" data-call="exportReferralRewardsCsv()">전체 CSV</button>
+    </div>
+    <div class="referral-reward-row"><div><b>전체</b></div><div>${rows.length}건 · ${totalAmount.toLocaleString('ko-KR')}원</div><div></div></div>
+    ${groupRows.length?groupRows.map(([month,items])=>{
+      const sum = items.reduce((acc,r)=>acc+Number(r.amount||0),0);
+      const cutoff = items.map(r=>r.payCutoff).filter(Boolean).sort()[0] || '-';
+      return `<div class="referral-box" style="margin-top:10px">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:8px">
+          <h3>급여월 ${esc(month)} <span style="font-size:12px;color:var(--t3);font-weight:500">마감 ${esc(cutoff)}</span></h3>
+          <button class="btn btn-xs" data-action="call" data-call="exportReferralRewardsCsv('${esc(month)}')">CSV</button>
+        </div>
+        <div class="referral-reward-row"><div><b>합계</b></div><div>${items.length}건 · ${sum.toLocaleString('ko-KR')}원</div><div>${items.filter(r=>r.status==='RETENTION_OK').length}건 확인</div></div>
+        ${items.map(r=>{
+          const ref = referrals.find(x=>x.id===r.referralId);
+          return `<div class="referral-reward-row"><div><b>${esc(r.milestone)}</b><br><span style="color:var(--t3)">${esc(r.dueDate||'')}</span></div><div>${esc(ref?.candName||'-')} · ${esc(ref?.refName||r.refEmail||'-')}<br><span style="color:var(--t3)">${Number(r.amount||0).toLocaleString('ko-KR')}원 · ${esc(r.referralId)}</span></div><div>${rewardBadge(r.status)}</div></div>`;
+        }).join('')}
+      </div>`;
+    }).join(''):'<div class="referral-empty">표시할 포상금이 없습니다.</div>'}
+  </div>`;
+}
+function renderReferralHistoryView() {
+  const list = document.getElementById('rf-list'), detail = document.getElementById('rf-detail');
+  if(!list || !detail) return;
+  const map = new Map();
+  referrals.filter(r=>!r.deletedAt).forEach(r=>{
+    const key = r.refEmail || r.refName;
+    if(!map.has(key)) map.set(key,{name:r.refName,email:r.refEmail,dept:r.refDept,count:0,hired:0,amount:0,flags:0});
+    const row = map.get(key);
+    row.count += 1;
+    if(r.status==='HIRED') row.hired += 1;
+    if(r.dupFlag && r.dupFlag!=='없음') row.flags += 1;
+    referralRewards(r.id).forEach(w=>{ if(w.status==='PAID') row.amount += Number(w.amount||0); });
+  });
+  const rows = [...map.values()].sort((a,b)=>b.count-a.count);
+  list.innerHTML = rows.length ? rows.map(r=>`<div class="referral-item"><div class="referral-item-title"><span>${esc(r.name||r.email)}</span><span class="b bblue">${r.count}건</span></div><div class="referral-item-sub">${esc(r.dept||'-')} · 입사 ${r.hired}건 · 지급 ${r.amount.toLocaleString('ko-KR')}원</div></div>`).join('') : '<div class="referral-empty">추천인 이력이 없습니다.</div>';
+  detail.innerHTML = `<div class="referral-box"><h3>추천인 히스토리</h3>${rows.length?`<div class="tw"><table><thead><tr><th>추천인</th><th>소속</th><th>추천</th><th>입사</th><th>성사율</th><th>지급완료</th><th>플래그</th></tr></thead><tbody>${rows.map(r=>`<tr><td><div class="tname">${esc(r.name||'-')}</div><div class="tsub">${esc(r.email||'')}</div></td><td>${esc(r.dept||'-')}</td><td>${r.count}</td><td>${r.hired}</td><td>${r.count?Math.round(r.hired/r.count*100):0}%</td><td>${r.amount.toLocaleString('ko-KR')}원</td><td>${r.flags}</td></tr>`).join('')}</tbody></table></div>`:'<div class="referral-empty">표시할 이력이 없습니다.</div>'}</div>`;
+}
+function renderReferralEmployeesView() {
+  const list = document.getElementById('rf-list'), detail = document.getElementById('rf-detail');
+  if(!list || !detail) return;
+  const q = (document.getElementById('rf-search')?.value||'').toLowerCase();
+  const rows = employees.filter(e=>{
+    if(!q) return true;
+    return [e.email,e.name,e.empNo,e.dept,e.status].join(' ').toLowerCase().includes(q);
+  }).sort((a,b)=>String(a.name||a.email).localeCompare(String(b.name||b.email),'ko'));
+  list.innerHTML = rows.length ? rows.map(e=>`<div class="referral-item">
+    <div class="referral-item-title"><span>${esc(e.name||e.email)}</span><span class="b ${isActiveEmployee(e)?'bgreen':'bgray'}">${esc(e.status||'재직')}</span></div>
+    <div class="referral-item-sub">${esc(e.email)}<br>${esc(e.dept||'-')} · ${esc(e.empNo||'-')}</div>
+  </div>`).join('') : '<div class="referral-empty">인증 DB가 없습니다.</div>';
+  detail.innerHTML = `<div class="referral-box">
+    <h3>사내추천 인증 DB</h3>
+    <p style="font-size:12px;color:var(--t3);line-height:1.5;margin:0 0 12px">사내추천 인증은 면접관 DB를 우선 활용합니다. 아래 목록은 면접관 DB에 없는 직원을 보완 등록하는 예비 인증 명부입니다.</p>
+    <div class="fgrid f2">
+      <div class="fg"><label>회사 이메일</label><input id="emp-email" type="email" placeholder="name@company.co.kr"></div>
+      <div class="fg"><label>성명</label><input id="emp-name"></div>
+      <div class="fg"><label>사번</label><input id="emp-no"></div>
+      <div class="fg"><label>소속</label><input id="emp-dept"></div>
+      <div class="fg"><label>상태</label><select id="emp-status"><option>재직</option><option>휴직</option><option>퇴직</option></select></div>
+    </div>
+    <div class="referral-form-actions">
+      <button class="btn btn-primary" data-action="call" data-call="saveReferralEmployee()">인증 대상 저장</button>
+      <button class="btn" data-action="call" data-call="refreshEmployeesFromGS()">인증 DB 동기화</button>
+    </div>
+  </div>
+  <div class="referral-box" style="margin-top:12px">
+    <h3>보완 등록 ${rows.length}명</h3>
+    ${rows.length?`<div class="tw"><table><thead><tr><th>성명</th><th>이메일</th><th>사번</th><th>소속</th><th>상태</th><th></th></tr></thead><tbody>${rows.map(e=>`<tr><td>${esc(e.name||'-')}</td><td>${esc(e.email)}</td><td>${esc(e.empNo||'-')}</td><td>${esc(e.dept||'-')}</td><td>${esc(e.status||'재직')}</td><td><button class="btn btn-xs" data-action="call" data-call="editReferralEmployee('${esc(e.email)}')">수정</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="referral-empty">보완 등록된 인증 대상자가 없습니다.</div>'}
+  </div>`;
+}
+function isActiveEmployee(e) {
+  const status = String(e?.status||'').trim().toLowerCase();
+  return !status || ['재직','재직중','active'].includes(status);
+}
+async function saveReferralEmployee() {
+  const val = id => document.getElementById(id)?.value?.trim() || '';
+  const row = normalizeGsEmployee({
+    email: val('emp-email'),
+    name: val('emp-name'),
+    empNo: val('emp-no'),
+    dept: val('emp-dept'),
+    status: val('emp-status') || '재직',
+    updatedAt: new Date().toISOString(),
+  });
+  if(!row.email || !row.name) { toast('회사 이메일과 성명은 필수입니다.','terr'); return; }
+  employees = mergeEmployeeRecords(employees.filter(e=>normalizeReferralEmail(e.email)!==row.email), [row]);
+  saveState();
+  const synced = GS_CONFIG.scriptUrl ? await syncEmployeeToGS(row) : null;
+  renderReferralSection();
+  const viaFrame = synced?.status === 'sent-via-frame';
+  toast(GS_CONFIG.scriptUrl ? (synced ? (viaFrame ? '인증 DB 저장 요청을 Google Sheets로 전송했습니다. 잠시 후 인증 DB 동기화로 확인하세요.' : '인증 DB를 저장하고 Google Sheets에 반영했습니다.') : '인증 DB는 로컬 저장됐지만 Google Sheets 반영에 실패했습니다.') : '인증 DB를 로컬에 저장했습니다.', synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
+}
+function editReferralEmployee(email) {
+  const row = employees.find(e=>normalizeReferralEmail(e.email)===normalizeReferralEmail(email));
+  if(!row) return;
+  const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value = val || ''; };
+  set('emp-email', row.email);
+  set('emp-name', row.name);
+  set('emp-no', row.empNo);
+  set('emp-dept', row.dept);
+  set('emp-status', row.status || '재직');
+}
+function refreshEmployeesFromGS() {
+  return loadEmployeesFromGS({forceFull:true, force:true}).then(ok=>{
+    toast(ok?'인증 DB를 동기화했습니다.':'인증 DB 동기화 실패', ok?'tok':'tw');
+  });
+}
+function parseReferralItems(raw) { try { return JSON.parse(raw||'{}') || {}; } catch(e) { return {recommendationReason:String(raw||'')}; } }
+function referralItemLabel(key) {
+  return ({
+    entryType:'유형', workTypes:'후보자와의 관계', workTask:'같이 한 일',
+    workPeriodStart:'같이 일한 시작', workPeriodEnd:'같이 일한 종료',
+    personalKnownPeriod:'알고 지낸 기간', personalRelationType:'어떤 사이',
+    recentContact:'최근 교류 여부',
+    candStatus:'후보자 현재 상황', conflictTypes:'가족·친족 여부', conflictDetail:'가족·친족 관계',
+    jobStrengthTypes:'잘한다고 느낀 점 유형', jobStrength:'잘한다고 느낀 점',
+    performanceCredit:'강점이 드러난 행동·사례',
+    conflictHandling:'주변에서 맡기거나 부탁한 일·역할',
+    watchPoint:'보완하면 좋을 점',
+    personalHelpAsked:'부탁하거나 도움을 요청한 일',
+    personalGroupRole:'모임·활동에서의 역할',
+    introReason:'알게 된 경로·맥락',
+    knownCareer:'알고 있는 경력·전문 분야',
+    recommendationReason:'추천 사유', guaranteeConfirmed:'후보자 동의 확인',
+    directExperienceConfirmed:'내용 출처 구분 확인', conflictConfirmed:'가족·친족 사실 확인',
+    // 구버전(현재 접수 화면에서 더 이상 쓰이지 않음) 필드 — 과거 제출 건 표시용으로만 유지
+    unknownHandling:'모르는 일이 있을 때', mistakeHandling:'실수나 문제가 생겼을 때',
+    feedbackHandling:'반대 의견이나 지적을 받았을 때', proactiveCompletion:'스스로 시작하고 마무리한 경험',
+    improvementPoint:'미리 알았으면 좋았을 점', difficultSituation:'특히 어려워했던 상황',
+    helpfulSupport:'도움이 됐던 지원·업무 방식', referenceSourceStatus:'같이 일해 보신 분 여부',
+    referenceSourceInfo:'해당 인물 정보', relationshipContext:'후보자를 알게 된 맥락과 보증 근거',
+    strengths:'강점과 직무 적합성', collaborationEvidence:'협업 방식과 사례', riskNotes:'우려사항'
+  }[key] || key);
+}
+function formatReferralItemValue(value) {
+  if(Array.isArray(value)) return value.length ? value.map(esc).join(', ') : '-';
+  if(value && typeof value === 'object') return Object.entries(value).filter(([,v])=>v).map(([k,v])=>`${esc(referralItemLabel(k))}: ${esc(v)}`).join('<br>') || '-';
+  return esc(value || '-');
+}
+function renderReferralItemLine(items, key) {
+  const value = items[key];
+  if(value === undefined || value === null || value === '' || Array.isArray(value) && !value.length) return '';
+  if(value && typeof value === 'object' && !Array.isArray(value) && !Object.values(value).some(Boolean)) return '';
+  return `<p style="font-size:12px;margin-top:8px;line-height:1.55"><b>${esc(referralItemLabel(key))}</b><br>${formatReferralItemValue(value)}</p>`;
+}
+function renderConfirmChecksLine(items, keys) {
+  const checked = keys.filter(k => items[k]);
+  if(!checked.length) return '';
+  const conflictValues = Array.isArray(items.conflictTypes) ? items.conflictTypes : [];
+  const conflictNote = conflictValues.includes('친족')
+    ? `친족(${esc(items.conflictDetail || '관계 미기재')})`
+    : (conflictValues.length ? esc(conflictValues[0]) : '');
+  const chips = checked.map(k => {
+    const extra = (k === 'conflictConfirmed' && conflictNote) ? ` — ${conflictNote}` : '';
+    return `<span style="color:var(--green)">✓ ${esc(referralItemLabel(k))}${extra}</span>`;
+  }).join('<span style="color:var(--muted);margin:0 6px">·</span>');
+  return `<p style="font-size:12px;margin-top:8px">${chips}</p>`;
+}
+function monthsBetweenYm(startStr, endStr) {
+  const m1 = /^(\d{4})-(\d{2})/.exec(startStr || '');
+  const m2 = /^(\d{4})-(\d{2})/.exec(endStr || '');
+  if(!m1 || !m2) return null;
+  const months = (Number(m2[1]) - Number(m1[1])) * 12 + (Number(m2[2]) - Number(m1[2])) + 1;
+  return months > 0 ? months : null;
+}
+function renderPeriodRangeLine(items, startKey, endKey, label) {
+  const start = items[startKey], end = items[endKey];
+  if(!start && !end) return '';
+  const months = monthsBetweenYm(start, end);
+  const suffix = months ? ` (${months}개월)` : '';
+  return `<p style="font-size:12px;margin-top:8px;line-height:1.55"><b>${esc(label)}</b><br>${esc(start||'-')} ~ ${esc(end||'-')}${suffix}</p>`;
+}
+function renderCandStatusLine(items) {
+  if(!items.candStatus) return '';
+  return `<p style="font-size:12px;margin-top:8px;color:var(--muted)">${esc(items.candStatus)}</p>`;
+}
+function renderReferralItemsSummary(items) {
+  const track = items.referralTrack;
+  const isPersonal = track === 'PERSONAL_REFERRAL';
+  const isIntro = items.entryType === 'INTRODUCTION' || track === 'TALENT_INTRO';
+  const scopeKeys = isPersonal
+    ? ['personalKnownPeriod','personalRelationType','recentContact']
+    : ['workTask'];
+  const mainKeys = isIntro
+    ? ['introReason','knownCareer']
+    : isPersonal
+      ? ['personalHelpAsked','personalGroupRole']
+      : ['jobStrengthTypes','jobStrength','performanceCredit','conflictHandling','watchPoint'];
+  const confirmKeys = ['guaranteeConfirmed','directExperienceConfirmed','conflictConfirmed'];
+  // 구버전 스키마로 제출된 과거 건(현재 필드가 전부 비어있을 때만) 대비용 표시
+  const ancientKeys = ['unknownHandling','mistakeHandling','feedbackHandling','proactiveCompletion','improvementPoint','difficultSituation','helpfulSupport','referenceSourceStatus','referenceSourceInfo','relationshipContext','strengths','collaborationEvidence','riskNotes'];
+  const ancient = mainKeys.some(k=>items[k]) ? [] : ancientKeys;
+  return `
+    ${renderReferralItemLine(items,'workTypes')}
+    ${renderCandStatusLine(items)}
+    ${scopeKeys.map(k=>renderReferralItemLine(items,k)).join('')}
+    ${!isPersonal ? renderPeriodRangeLine(items,'workPeriodStart','workPeriodEnd','같이 일한 기간') : ''}
+    ${mainKeys.map(k=>renderReferralItemLine(items,k)).join('')}
+    ${renderReferralItemLine(items,'recommendationReason')}
+    ${renderConfirmChecksLine(items, confirmKeys)}
+    ${ancient.map(k=>renderReferralItemLine(items,k)).join('')}
+  ` || '<div class="referral-empty">표시할 추천서 내용이 없습니다.</div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// 단계 변경 확인 팝업 (핵심 기능)
+// ══════════════════════════════════════════════════════════════
+
+// ── 단계 전환 모달 미리보기 업데이트 ────────────────────────
+// 후보 일정 datetime-local 값 ("2026-06-05T14:30" 형식, 없으면 '')
+function getSlotValue(n) {
+  return document.getElementById(`cs-slot${n}-dt`)?.value || '';
+}
+
+// 기존 호출부 호환 유지: datetime-local 입력은 별도 드롭다운 초기화가 필요하지 않음
+function initSlotDropdowns() {
+  return;
+}
+
+function updateCsPreview(c, newStage) {
+  const previewEl = document.getElementById('cs-preview-msg');
+  if(!previewEl) return;
+  let msg = buildStageNotifyMsg(c, newStage);
+  // buildStageNotifyMsg가 1차/2차 면접 일정을 이미 포함 (중복 추가 안 함)
+  previewEl.textContent = msg;
+}
+
+function updateReferenceStageMailChoiceUI() {
+  const choice = pendingStageChange?.referenceMailChoice;
+  const yes = document.getElementById('cs-ref-mail-yes');
+  const no = document.getElementById('cs-ref-mail-no');
+  if(yes) yes.className = `btn btn-sm ${choice === true ? 'btn-primary' : ''}`;
+  if(no) no.className = `btn btn-sm ${choice === false ? 'btn-primary' : ''}`;
+}
+
+function setReferenceStageMailChoice(value) {
+  if(!pendingStageChange) return;
+  pendingStageChange.referenceMailChoice = value === true;
+  updateReferenceStageMailChoiceUI();
+}
+
+function requestStageChange(candId, newStage) {
+  const c = candidates.find(x => x.id === candId);
+  if(!c || newStage < 0 || newStage > 7) return;
+  if(c.stage === newStage) { toast('이미 해당 단계입니다.'); return; }
+
+  const needsReferenceMailChoice = newStage === 2
+    && c.stage !== 2
+    && requiresReferenceCheck(c)
+    && c.ref === '미시작';
+  pendingStageChange = { candId, newStage, referenceMailChoice: needsReferenceMailChoice ? null : false };
+  const guide = STAGE_GUIDES[newStage] || { msg:'', notify:false };
+
+  // 지원자 정보 표시
+  document.getElementById('cs-avatar').textContent = c.name.charAt(0);
+  document.getElementById('cs-name').textContent = `${c.name} · ${c.pos}`;
+  document.getElementById('cs-pos').innerHTML = `${etypePill(c.etype)} ${esc(c.dept||'')}`;
+  document.getElementById('cs-from').textContent = STAGES[c.stage];
+  document.getElementById('cs-to').textContent = STAGES[newStage];
+  document.getElementById('cs-from').style.color = STAGE_COLORS[c.stage];
+  document.getElementById('cs-to').style.color = STAGE_COLORS[newStage];
+
+  // 안내 메시지
+  const gEl = document.getElementById('cs-guide-msg');
+  gEl.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><circle cx="8" cy="8" r="7"/><path d="M8 7v4M8 5v.5"/></svg><span>${guide.msg.replace(/\n/g,'<br>')}</span>`;
+
+  const refMailChoice = document.getElementById('cs-ref-mail-choice');
+  if(refMailChoice) refMailChoice.style.display = needsReferenceMailChoice ? '' : 'none';
+  updateReferenceStageMailChoiceUI();
+
+  // 알림 옵션 표시/숨김
+  const no = document.getElementById('cs-notify-opts');
+  no.style.display = guide.notify && newStage !== 2 ? '' : 'none';
+
+  // 지원자 안내는 항상 이메일
+  const outlookCheck = document.getElementById('cs-notify-outlook');
+  if(outlookCheck) outlookCheck.checked = true;
+
+  // 미리보기 메시지 생성
+  const preview = buildStageNotifyMsg(c, newStage);
+  updateCsPreview(c, newStage);
+
+  // 면접 단계(1차/2차)일 때 일정 입력 섹션 표시
+  const intSched = document.getElementById('cs-int-schedule');
+  if(intSched) {
+    intSched.style.display = (newStage===1||newStage===3) ? '' : 'none';
+    // 후보 일정 드롭다운 초기화 + 입력값 비우기
+    initSlotDropdowns();
+    [1,2,3].forEach(n=>{
+      const dtEl=document.getElementById(`cs-slot${n}-dt`); if(dtEl) dtEl.value='';
+    });
+  }
+  openModal('modal-confirm-stage');
+}
+
+function buildStageNotifyMsg(c, newStage) {
+  const msgs = {
+    6: `😔 [채용 결과 안내 - 우미건설]
+안녕하세요 ${esc(c.name)}님,
+우미건설 ${esc(c.pos)} 포지션에 지원해 주셔서 감사합니다.
+아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.
+소중한 시간 내주셔서 감사드립니다.
+우미건설 피플팀 드림`,
+    1: (() => {
+      const s1 = getSlotValue(1);
+      const s2 = getSlotValue(2);
+      const s3 = getSlotValue(3);
+      const slots = [s1,s2,s3].filter(Boolean).map((s,i) => {
+        const d = new Date(s);
+        return `  ${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+      });
+      const scheduleText = slots.length
+        ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
+        : '\n\n면접 일정은 별도 안내드릴 예정입니다.';
+      return `📅 [1차 면접 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n\n우미건설 ${esc(c.pos)} 포지션 서류 전형에 합격하셨습니다. 진심으로 축하드립니다!\n\n이어서 1차 실무면접을 진행하고자 합니다.${scheduleText}\n\n우미건설 피플팀 드림`;
+    })(),
+    2: `📝 [레퍼런스 체크 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n1차 면접을 통과하셨습니다. 수고 많으셨습니다.\n\n채용 절차의 일환으로 레퍼런스 체크를 진행합니다.\n아래 링크에서 추천인 정보를 입력해 주세요.\n[입력하기 →]\n\n우미건설 피플팀 드림`,
+    3: (() => {
+      const s1 = getSlotValue(1);
+      const s2 = getSlotValue(2);
+      const s3 = getSlotValue(3);
+      const slots = [s1,s2,s3].filter(Boolean).map((s,i) => {
+        const d = new Date(s);
+        return `  ${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+      });
+      const scheduleText = slots.length
+        ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
+        : '\n\n2차 임원면접 일정을 곧 안내드리겠습니다.';
+      return `📋 [2차 면접 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n레퍼런스 체크가 완료되었습니다. 감사합니다!${scheduleText}\n\n우미건설 피플팀 드림`;
+    })(),
+    4: `💼 [처우 협의 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n채용 절차가 순조롭게 진행되고 있습니다.\n\n처우 협의를 위해 연락드리겠습니다.\n우미건설 피플팀 드림`,
+    5: `🎉 [최종 합격 안내 - 우미건설]\n${esc(c.name)}님, 진심으로 축하드립니다!\n\n우미건설 ${esc(c.pos)} 포지션 최종 합격을 알려드립니다.\n\n입사 예정일: ${getCandidateJoinDate(c) || '입사안내 화면에서 확정 예정'}\n\n입사 준비 사항은 별도 안내드리겠습니다.\n\n우미건설 피플팀 드림`,
+  };
+  return msgs[newStage] || `${esc(c.name)}님, ${STAGES[newStage]} 단계로 안내드립니다.\n우미건설 피플팀 드림`;
+}
+
+// 단계 변경 취소 (포지션에서 진입한 경우 복귀)
+function cancelStageChange() {
+  closeModal('modal-confirm-stage');
+  pendingStageChange = null;
+  if(returnToPosId != null) {
+    const pid = returnToPosId;
+    returnToPosId = null;
+    setTimeout(() => openPosDetail(Number(pid)), 300);
+  }
+}
+
+async function confirmStageChange() {
+  if(!pendingStageChange) return;
+  const { candId, newStage, referenceMailChoice } = pendingStageChange;
+  const c = candidates.find(x => x.id === candId);
+  if(!c) return;
+
+  const needsReferenceMailChoice = newStage === 2
+    && c.stage !== 2
+    && requiresReferenceCheck(c)
+    && c.ref === '미시작';
+  if(needsReferenceMailChoice && referenceMailChoice === null) {
+    toast('추천인 등록 안내메일 발송 여부를 예/아니오로 선택해 주세요.', 'tw');
+    return;
+  }
+
+  // ── A. 소프트 경고: 1·2차 면접 이동 시 일정 후보 미입력이면 확인 ──
+  if(newStage === 1 || newStage === 3) {
+    const round = newStage===1 ? '1차' : '2차';
+    const hasSlot = [1,2,3].some(n => getSlotValue(n));
+    const hasItv  = interviews.some(i => Number(i.candId)===Number(candId) && i.type===round && i.date);
+    if(!hasSlot && !hasItv) {
+      if(!confirm(`포지션 공통 면접일정이 확정되지 않았습니다.\n특별한 사유로 이 지원자만 '${STAGES[newStage]}' 단계로 예외 이동할까요?\n\n일반적인 단계 이동은 포지션 상세의 '공통일정 확정 후 이동'을 사용하세요.`)) return;
+    }
+  }
+
+  // ── B. 소프트 경고: 레퍼런스를 완료하지 않고 레퍼런스 단계를 지나치면 확인 ──
+  let skipRef = false;
+  if(newStage !== 6 && requiresReferenceCheck(c) && c.ref !== '완료' && c.ref !== '생략') {
+    const flowForRef = getFlowForCandidate(c);
+    if(flowIndex(newStage, flowForRef) > flowIndex(2, flowForRef)) {
+      const refLabel = c.ref === '진행중' ? `레퍼런스가 진행 중입니다 (${c.refD||0}/${c.refT||3}명 응답).` : '레퍼런스 체크가 아직 시작되지 않았습니다.';
+      if(!confirm(`${refLabel}\n완료하지 않고 '${STAGES[newStage]}' 단계로 건너뛸까요?\n건너뛰면 레퍼런스 상태가 '생략'으로 기록되고, 상단 진행현황도 함께 '완료'로 표시됩니다.`)) return;
+      skipRef = true;
+    }
+  }
+
+  const oldStage = c.stage;
+  const shouldPromptReferenceStart = newStage === 2
+    && oldStage !== 2
+    && requiresReferenceCheck(c)
+    && c.ref === '미시작';
+  const rejectionInfo = newStage === 6 ? await askRejectReason(1) : null;
+  if(newStage === 6 && !rejectionInfo) return;
+  if(newStage === 5 && c.posId != null) {
+    if(!warnSeatOverflow(c.posId, 1)) return;
+  }
+  const previousFlow = getFlowForCandidate(c);
+  const movingForwardStage = (newStage === 6) || (flowIndex(newStage, previousFlow) > flowIndex(oldStage, previousFlow));
+  const movingBackwardStage = newStage !== 6 && flowIndex(newStage, previousFlow) < flowIndex(oldStage, previousFlow);
+  const completedInterview = movingForwardStage ? preserveCompletedStage(c, oldStage) : null;
+  const removedInterviewIds = movingBackwardStage ? resetCandidateProgressForRollback(c, newStage) : [];
+  c.stage = newStage;
+  if(newStage === 5 && !c.joinDate) c.joinDate = '';
+  if(newStage === 6) recordRejection(c, rejectionInfo.reason, rejectionInfo.memo);
+
+  const candFlow = getFlowForCandidate(c);
+  const movingForward = (newStage === 6) || (flowIndex(newStage, candFlow) > flowIndex(oldStage, candFlow));
+  if(movingForward || newStage === 6) {
+    // 1) 1차면접(1)을 벗어나면 → 1차 pending 면접 정리
+    if(oldStage === 1 && newStage !== 1) {
+      interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && i.type==='1차' && (i.status||'pending')==='pending'));
+    }
+    // 2) 2차면접(3)을 벗어나면 → 2차 pending 면접 정리
+    if(oldStage === 3 && newStage !== 3) {
+      interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && i.type==='2차' && (i.status||'pending')==='pending'));
+    }
+    // 3) 불합격 시 → 모든 pending 면접 제거 + 진행중 레퍼런스 중단
+    if(newStage === 6) {
+      interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && (i.status||'pending')==='pending'));
+      if(c.ref === '진행중') { c.ref = '미시작'; c.refD = 0; c.refT = 0; delete refDetails[c.id]; }
+    }
+    // 4) 레퍼런스 단계를 벗어나 2차 이상으로 가는데 레퍼런스가 미완료면 → 진행중 상태 정리(미완료 추천인 임시데이터 제거)
+    if(oldStage === 2 && newStage !== 2 && newStage !== 6 && c.ref === '진행중') {
+      // 응답 완료분은 남기되, 대기 상태 추천인은 정리
+      if(refDetails[c.id]) refDetails[c.id] = refDetails[c.id].filter(r => r.status === '응답' || r.status === '등록');
+    }
+    // 5) 레퍼런스 미완료 상태로 건너뛰기를 확인받았으면 '생략'으로 기록 → 프로세스 진행현황도 지원자현황과 일치하게 됨
+    if(skipRef) c.ref = '생략';
+    // GS에서도 정리된 면접 반영 (남은 면접만 동기화, 삭제분은 표시상 정리)
+    if(GS_CONFIG.scriptUrl && typeof deleteIntFromGS === 'function') {
+      // 삭제된 면접은 화면 기준이므로 별도 처리 없이 다음 동기화에서 정리됨
+    }
+  }
+  // 레퍼런스 단계 진입 시에는 추천인 등록 안내 메일 발송 여부를 별도로 확인한다.
+  if(newStage === 2 && c.ref === '진행중') ensureRefDetails(c);
+  syncReferralFromCandidate(c);
+
+  // 알림 발송 (지원자는 외부인 → 이메일만)
+  const guide = STAGE_GUIDES[newStage];
+
+  if(guide && guide.notify && newStage !== 2) {
+    const target = getCandidateMailTarget(c);
+    let subject = `[우미건설] ${esc(c.name)}님 채용 진행 안내`;
+    let body = buildStageNotifyMsg(c, newStage);
+    if(newStage === 6) {
+      subject = `[우미건설] ${esc(c.name)}님 채용 결과 안내`;
+      body = buildRejectEmail(c);
+    } else if(newStage === 1 || newStage === 3) {
+      const intType = newStage===1?'1차 실무':'2차 임원';
+      subject = `[우미건설] ${esc(c.name)}님 ${intType}면접 일정 안내`;
+      body = buildStageNotifyMsg(c, newStage);
+    } else if(newStage === 2) {
+      subject = `[우미건설] ${esc(c.name)}님 레퍼런스 체크 안내`;
+      body = buildRefRequestEmail(c);
+    } else if(newStage === 7) {
+      subject = `[우미건설] ${esc(c.name)}님 입사 안내`;
+      body = buildOnboardEmail ? buildOnboardEmail(c) : buildStageNotifyMsg(c, newStage);
+    }
+    if(isHeadhuntingCandidate(c)) {
+      subject = routeMailSubject(c, subject);
+      await sendHeadhunterForwardEmailViaGmail(c, subject, `${STAGES[newStage]} 단계`, body, STAGES[newStage]+'안내(업체경유)');
+    } else if(newStage === 6) {
+      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
+        templateType: 'rejection', candidateName: c.name, positionText: c.pos
+      });
+    } else if(newStage === 1 || newStage === 3) {
+      const slots = [1,2,3].map(n => getSlotValue(n)).filter(Boolean);
+      const slotOptions = slots.map((s,i) => {
+        const d = new Date(s);
+        return `${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+      }).join('\n') || '면접 일정은 별도로 안내드릴 예정입니다.';
+      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
+        templateType: 'interview_slot_request', candidateName: c.name, positionText: c.pos,
+        interviewType: newStage===1?'1차 실무면접':'2차 임원면접', slotOptions, location: c.loc || ''
+      });
+    } else if(newStage === 7) {
+      await sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, {
+        templateType: 'onboarding', candidateName: c.name, positionText: c.pos,
+        joinDate: c.joinDate || '', dept: c.dept || '', rank: '', etype: c.etype || '', location: c.loc || '', prepNotes: ''
+      });
+    } else {
+      subject = routeMailSubject(c, subject);
+      await sendHeadhunterForwardEmailViaGmail(c, subject, `${STAGES[newStage]} 단계`, body, STAGES[newStage]+'안내(업체경유)');
+    }
+  }
+
+  if(shouldPromptReferenceStart) {
+    if(referenceMailChoice === true) {
+      const sent = await startRef(c.id, false);
+      if(!sent) toast('단계 이동은 완료됐지만 추천인 등록 안내 메일은 발송되지 않았습니다.', 'tw');
+    } else {
+      toast('레퍼런스 단계로 이동했습니다. 추천인 등록 안내 메일은 발송하지 않았습니다.', 'tw');
+    }
+  }
+
+  // 면접 후보 일정 자동 등록 (1차/2차 면접 단계) — 같은 type 면접 1건만 유지(갱신)
+  if(newStage === 1 || newStage === 3) {
+    const slots = [1,2,3]
+      .map(n => getSlotValue(n))
+      .filter(Boolean);
+    if(slots.length > 0) {
+      const intType = newStage === 1 ? '1차' : '2차';
+      const candidateSlots = slots.map((s,i) => {
+        const dd = new Date(s);
+        return `${['①','②','③'][i]} ${dd.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${dd.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+      }).join(' / ');
+      const firstDate = slots[0].replace('T',' ').slice(0,16);
+
+      // 기존 같은 type 면접이 있으면 갱신, 없으면 새로 생성 (중복 방지)
+      let itv = interviews.find(i => i.candId === c.id && i.type === intType);
+      if(itv) {
+        itv.date = firstDate;
+        itv.memo = `후보일정: ${candidateSlots} — 지원자 회신 후 확정 필요`;
+        itv.slots = slots;
+        itv.status = 'pending';
+        itv.notified = false;
+      } else {
+        interviews.push({
+          id: nextId(), candId: c.id, candName: c.name,
+          type: intType,
+          date: firstDate,
+          loc: '미정 (지원자 회신 후 확정)',
+          panel: '미정',
+          memo: `후보일정: ${candidateSlots} — 지원자 회신 후 확정 필요`,
+          notified: false,
+          status: 'pending',     // pending(예정/회신대기) → confirmed(확정) → done(완료)
+          slots: slots,
+        });
+      }
+      c.intDate = firstDate;
+      // 생성/갱신된 면접 GS 저장
+      if(GS_CONFIG.scriptUrl) {
+        const savedItv = interviews.find(i => i.candId === c.id && i.type === intType);
+        if(savedItv) syncIntToGS(savedItv);
+      }
+      toast(`면접 후보 일정 ${slots.length}개 등록 (면접 관리 탭에서 확정하세요)`, 'tok');
+    }
+  }
+
+  logActivity('단계 변경', `${c.name}: ${STAGES[oldStage]} → ${STAGES[newStage]}`, 'candidate', c.id);
+  saveState();
+  if(GS_CONFIG.scriptUrl) {
+    await settleSync([
+      syncCandToGS(c),
+      ...(completedInterview ? [syncIntToGS(completedInterview)] : []),
+      ...removedInterviewIds.map(id => deleteIntFromGS(id)),
+    ], movingBackwardStage ? '단계 되돌리기 동기화' : '단계 변경 동기화');
+  }
+  closeModal('modal-confirm-stage');
+  pendingStageChange = null;
+  renderTracker(); renderDashboard(); renderPositions(); renderReferralSection();
+  toast(`${esc(c.name)} → ${STAGES[newStage]}`, 'tok');
+  saveState();
+  // 포지션 상세에서 진입한 경우 복귀
+  if(returnToPosId != null) {
+    const pid = returnToPosId;
+    returnToPosId = null;
+    setTimeout(() => openPosDetail(Number(pid)), 300);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 지원자 추가
+// ══════════════════════════════════════════════════════════════
+// ── 불합격 처리 ──────────────────────────────────────
+function rejectCandidate(id) {
+  const c = candidates.find(x=>x.id===id);
+  if(!c) return;
+  closeModal('modal-detail');
+  requestStageChange(id, 6);
+  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+}
+
+// ── 지원자 정보 수정 ──────────────────────────────────
+function editCandidate(id) {
+  const c = candidates.find(x=>x.id===id);
+  if(!c) return;
+  closeModal('modal-detail');
+  // 수정 모달 열고 기존 값 채우기
+  document.getElementById('nc-name').value = c.name;
+  document.getElementById('nc-pos').value  = c.pos;
+  document.getElementById('nc-email').value= c.email;
+  document.getElementById('nc-etype').value= c.etype;
+  document.getElementById('nc-role').value = c.role;
+  document.getElementById('nc-dept').value = c.dept||'';
+  document.getElementById('nc-career').value = c.career;
+  document.getElementById('nc-memo').value = c.memo||'';
+  const dateEl = document.getElementById('nc-date');
+  if(dateEl) dateEl.value = c.receivedAt || today();
+  document.getElementById('modal-add').dataset.editId = id;
+  document.querySelector('#modal-add .modal-title').textContent = '지원자 정보 수정';
+  // 포지션 드롭다운 채우기
+  populatePosSelect(c.posId);
+  const sourceEl = document.getElementById('nc-source'); if(sourceEl) sourceEl.value = c.source || 'direct';
+  populateHeadhunterSelect(c.headhunterId || '');
+  toggleHeadhunterFields();
+  openModal('modal-add');
+}
+
+// ── 면접 결과 입력 ────────────────────────────────────
+function openIntResult(intId) {
+  const itv = interviews.find(i=>i.id===intId);
+  if(!itv) return;
+  const score = prompt(
+    `[${itv.candName}] ${itv.type} 면접 결과 입력
+
+` +
+    `종합 평가 (합격/불합격/보류): `,
+    itv.result || '합격'
+  );
+  if(score === null) return;
+  const note = prompt('면접 소견 (자유 기술):', itv.note || '');
+  if(note === null) return;
+  itv.result = score.trim();
+  itv.note   = note;
+  itv.evaluatedAt = today();
+  saveState();
+  renderIntTable();
+  toast(`${itv.candName} 면접 결과 저장 완료`, 'tok');
+}
+
+function addCandidate() {
+  const name    = document.getElementById('nc-name').value.trim();
+  const pos     = document.getElementById('nc-pos').value.trim();
+  const email   = document.getElementById('nc-email').value.trim();
+  const etype   = document.getElementById('nc-etype').value;
+  const source  = document.getElementById('nc-source')?.value || 'direct';
+  const headhunterId = document.getElementById('nc-headhunter-id')?.value || '';
+  const headhunter = getHeadhunterDb().find(x => x.id === headhunterId);
+  if(!name||!pos) { alert('성명, 직무는 필수입니다.'); return; }
+  if(source !== 'headhunting' && !email) { alert('입사지원자는 이메일이 필수입니다.'); return; }
+  if(source === 'headhunting' && !headhunter) { alert('헤드헌팅 업체를 선택해주세요.'); return; }
+  if(source === 'headhunting' && !headhunter.email) { alert('선택한 헤드헌팅 업체의 담당자 이메일을 설정 탭 DB에 입력해주세요.'); return; }
+  const modal = document.getElementById('modal-add');
+  const editId = modal.dataset.editId ? parseInt(modal.dataset.editId) : null;
+  const posIdVal = parseInt(document.getElementById('nc-pos-id')?.value) || null;
+  const fromPos = modal.dataset.returnPosId ? parseInt(modal.dataset.returnPosId) : null;
+  const finalPosId = editId ? (parseInt(document.getElementById('nc-pos-id')?.value) || null) : (posIdVal || fromPos);
+  if(!editId && !finalPosId) {
+    alert('포지션 연결이 필수입니다.\n포지션 상세에서 등록하거나, 드롭다운에서 포지션을 선택해주세요.');
+    return;
+  }
+  const seatInfo = finalPosId ? getPosSeatInfo(finalPosId) : null;
+  if(seatInfo && seatInfo.isFull && !editId) {
+    if(!confirm(`⚠ 이 포지션은 목표 인원(${seatInfo.headcount}명)에 이미 도달했습니다.\n추가 등록을 계속할까요?`)) return;
+  }
+  const dupEmail = email ? candidates.find(c=>String(c.email||'').toLowerCase()===email.toLowerCase() && c.id !== editId) : null;
+  if(dupEmail) { if(!confirm(`${dupEmail.name}님과 동일한 이메일(${email})이 이미 등록되어 있습니다.\n계속 등록하시겠습니까?`)) return; }
+
+  if(editId) {
+    // 수정 모드
+    const existing = candidates.find(x=>x.id===editId);
+    if(existing) {
+      existing.name   = name;
+      existing.pos    = pos;
+      existing.email  = email;
+      existing.etype  = document.getElementById('nc-etype').value;
+      existing.role   = document.getElementById('nc-role').value;
+      existing.dept   = document.getElementById('nc-dept').value;
+      existing.career = document.getElementById('nc-career').value;
+      existing.memo   = document.getElementById('nc-memo').value;
+      existing.posId  = finalPosId;
+      existing.source = source;
+      existing.headhunterId = source === 'headhunting' ? headhunter.id : '';
+      existing.headhunterName = source === 'headhunting' ? headhunter.name : '';
+      existing.headhunterManager = source === 'headhunting' ? headhunter.manager : '';
+      existing.headhunterEmail = source === 'headhunting' ? headhunter.email : '';
+      existing.headhunterPhone = source === 'headhunting' ? headhunter.phone : '';
+      existing.docPassedAt = existing.docPassedAt || existing.receivedAt || today();
+    }
+    delete modal.dataset.editId;
+    document.querySelector('#modal-add .modal-title').textContent = '서류합격자 등록';
+    logActivity('합격자 수정', name, 'candidate', editId);
+    saveState();
+    closeModal('modal-add');
+    renderDashboard(); renderTracker();
+    populateSel('int-cand'); populateSel('ob-cand');
+    toast(`${name}님 정보 수정 완료`, 'tok');
+    if(GS_CONFIG.scriptUrl) syncCandToGS(existing);
+    saveState();
+  } else {
+    // 신규 등록 모드
+    const receivedAt = formatDate(document.getElementById('nc-date').value) || today();
+    const newCand = {
+      id: nextId(), name, pos, email, etype,
+      role:      document.getElementById('nc-role').value,
+      dept:      document.getElementById('nc-dept').value,
+      career:    document.getElementById('nc-career').value,
+      source,
+      headhunterId: source === 'headhunting' ? headhunter.id : '',
