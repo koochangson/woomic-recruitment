@@ -27,7 +27,7 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 - `js_06_onboarding_settings.html`
 - `js_99_app.html`
 
-`Dashboard.html`이 진입 파일이며 `app_css.html`과 위 JavaScript 모듈 8개를 `include()`로 합칩니다. 파일명은 Apps Script 편집기에서 자동으로 붙는 `.html` 확장자를 제외한 이름으로 표시될 수 있습니다.
+`Dashboard.html`이 진입 파일이며 `app_css.html`과 위 JavaScript 모듈 8개를 `include()`로 합칩니다. 업로드용 `app_css.html`은 `<style>` 태그를, 각 `js_*.html`은 `<script>` 태그를 자체 포함합니다. 파일명은 Apps Script 편집기에서 자동으로 붙는 `.html` 확장자를 제외한 이름으로 표시될 수 있습니다.
 
 ## 2. 메일 템플릿 HTML
 

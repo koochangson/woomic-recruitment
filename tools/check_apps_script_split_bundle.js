@@ -47,7 +47,12 @@ const gs = files
 new Function(gs);
 
 const js = adminJsFiles
-  .map(name => fs.readFileSync(path.join(bundleDir, name), 'utf8'))
+  .map(name => {
+    const html = fs.readFileSync(path.join(bundleDir, name), 'utf8');
+    const match = html.match(/^\s*<script>\s*([\s\S]*?)\s*<\/script>\s*$/);
+    if (!match) throw new Error(`${name} must contain one script wrapper`);
+    return match[1];
+  })
   .join('');
 new Function(js);
 

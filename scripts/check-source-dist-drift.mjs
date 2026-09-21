@@ -23,6 +23,7 @@ const errors = [];
 const expectSame = (source, output) => {
   if (read(source) !== read(output)) errors.push(`${output} is stale relative to ${source}`);
 };
+const wrapScript = source => `<script>\n${source}\n</script>\n`;
 
 const adminParts = [
   'admin_00_core.gs',
@@ -44,7 +45,11 @@ if (adminParts.map(name => read(path.join(adminIntermediateDir, name))).join('')
 expectSame(adminHtmlSource, path.join(adminIntermediateDir, 'Dashboard.html'));
 expectSame(adminCssSource, path.join(adminIntermediateDir, 'app_css.html'));
 for (const name of adminJsFiles) {
-  expectSame(path.join(adminJsDir, name), path.join(adminIntermediateDir, name));
+  const source = path.join(adminJsDir, name);
+  const output = path.join(adminIntermediateDir, name);
+  if (wrapScript(read(source)) !== read(output)) {
+    errors.push(`${output} is stale relative to ${source}`);
+  }
 }
 new Function(adminJsFiles.map(name => read(path.join(adminJsDir, name))).join(''));
 

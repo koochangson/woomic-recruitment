@@ -27,8 +27,13 @@ fs.rmSync(adminIntermediateDir, { recursive: true, force: true });
 fs.mkdirSync(adminIntermediateDir, { recursive: true });
 fs.copyFileSync(adminHtmlSource, path.join(adminIntermediateDir, 'Dashboard.html'));
 fs.copyFileSync(adminCssSource, path.join(adminIntermediateDir, 'app_css.html'));
-for (const name of adminJsFiles) {
-  fs.copyFileSync(path.join(adminJsDir, name), path.join(adminIntermediateDir, name));
+for (let index = 0; index < adminJsFiles.length; index++) {
+  const name = adminJsFiles[index];
+  fs.writeFileSync(
+    path.join(adminIntermediateDir, name),
+    `<script>\n${moduleSources[index]}\n</script>\n`,
+    'utf8',
+  );
 }
 
 console.log(`Prepared admin frontend with ${adminJsFiles.length} JavaScript modules.`);
