@@ -54,6 +54,7 @@ const INTERVIEW_AVAILABILITY_PAGE_URL = 'https://wmpeopleteam.github.io/referenc
 const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','updatedAt'],
+  PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
@@ -251,6 +252,10 @@ function handleReferralSecurityAction_(payload) {
   if (payload.action === 'issueInterviewAvailabilityLink') return issueInterviewAvailabilityLink_(payload);
   if (payload.action === 'verifyInterviewAvailabilityToken') return verifyInterviewAvailabilityToken_(payload);
   if (payload.action === 'submitInterviewAvailability') return submitInterviewAvailability_(payload);
+  if (payload.action === 'issuePanelAvailabilityLink') return issuePanelAvailabilityLink_(payload);
+  if (payload.action === 'getPanelAvailabilityResponses') return getPanelAvailabilityResponses_(payload);
+  if (payload.action === 'verifyPanelAvailabilityToken') return verifyPanelAvailabilityToken_(payload);
+  if (payload.action === 'submitPanelAvailability') return submitPanelAvailability_(payload);
   if (payload.action === 'verifyReferenceCandidateToken') return verifyReferenceCandidateToken_(payload);
   if (payload.action === 'submitReferenceCandidateReferees') return submitReferenceCandidateReferees_(payload);
   if (payload.action === 'verifyReferenceRefereeToken') return verifyReferenceRefereeToken_(payload);
@@ -513,6 +518,110 @@ function submitInterviewAvailability_(payload) {
     sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('Interviews', 'upsert', row.id, normalized);
     return json_({ ok:true, status:normalized.availabilityStatus, respondedAt:normalized.availabilityRespondedAt });
+  } finally { lock.releaseLock(); }
+}
+
+function panelAvailabilityId_(positionId, round, email) {
+  return [String(positionId || '').trim(), String(round || '').trim(), normalizeEmail_(email)].join(':');
+}
+
+function parseJsonArray_(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value || '[]'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function buildPanelAvailabilityLinkUrl_(token) {
+  return buildUrlWithParams_(INTERVIEW_AVAILABILITY_PAGE_URL, { audience: 'panel', token: token });
+}
+
+function panelAvailabilityExpired_(row) {
+  return !!(row.tokenExpiresAt && new Date(row.tokenExpiresAt).getTime() < Date.now());
+}
+
+function issuePanelAvailabilityLink_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const positionId = String(body.positionId || '').trim();
+  const positionTitle = String(body.positionTitle || '').trim();
+  const round = String(body.round || '').trim();
+  const panelistName = String(body.panelistName || '').trim();
+  const panelistEmail = normalizeEmail_(body.panelistEmail);
+  const options = normalizeInterviewAvailabilityOptions_(body.options);
+  if (!positionId || !positionTitle || !round || !panelistEmail || !options.length) return json_({ error: 'missing_panel_availability_fields' });
+  const sheet = ensureSheet_('PanelAvailability');
+  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.PanelAvailability);
+  const id = panelAvailabilityId_(positionId, round, panelistEmail);
+  const rowIndex = findRowIndex_(sheet, 'id', id, headers);
+  const existing = readRows_('PanelAvailability').find(row => String(row.id) === id) || {};
+  const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+  const expiresAt = body.expiresAt ? new Date(body.expiresAt).toISOString() : new Date(Date.now() + INTERVIEW_AVAILABILITY_LINK_TTL_DAYS * 86400000).toISOString();
+  const link = buildPanelAvailabilityLinkUrl_(token);
+  const normalized = schemaRow_('PanelAvailability', Object.assign({}, existing, {
+    id, positionId, positionTitle, round, panelistName, panelistEmail,
+    availabilityOptions:JSON.stringify(options), token, tokenExpiresAt:expiresAt, link,
+    selections:'', status:'SENT', respondedAt:'', note:'',
+    createdAt:existing.createdAt || nowIso_(), updatedAt:nowIso_()
+  }));
+  const values = headers.map(header => normalized[header] == null ? '' : normalized[header]);
+  if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]); else sheet.appendRow(values);
+  appendChange_('PanelAvailability', 'upsert', id, normalized);
+  return json_({ ok:true, id, link, tokenExpiresAt:expiresAt, response:normalized });
+}
+
+function getPanelAvailabilityResponses_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const positionId = String(body.positionId || body.query && body.query.positionId || '').trim();
+  const round = String(body.round || body.query && body.query.round || '').trim();
+  if (!positionId || !round) return json_({ error: 'missing_panel_availability_query' });
+  const responses = readRows_('PanelAvailability').filter(row => String(row.positionId) === positionId && String(row.round) === round).map(row => Object.assign({}, row, {
+    availabilityOptions:normalizeInterviewAvailabilityOptions_(row.availabilityOptions), selections:parseJsonArray_(row.selections)
+  }));
+  return json_({ ok:true, responses });
+}
+
+function verifyPanelAvailabilityToken_(payload) {
+  const token = String(payload && (payload.token || payload.data && payload.data.token) || '').trim();
+  if (!token) return json_({ ok:false, error:'token_required' });
+  const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
+  if (!row) return json_({ ok:false, error:'invalid_token' });
+  if (panelAvailabilityExpired_(row)) return json_({ ok:false, error:'token_expired' });
+  return json_({ ok:true, participantRole:'panel', participantName:row.panelistName || '', positionText:row.positionTitle || '', interviewType:row.round || '',
+    options:normalizeInterviewAvailabilityOptions_(row.availabilityOptions), alreadySubmitted:row.status === 'RESPONDED' || row.status === 'UNAVAILABLE',
+    unavailable:row.status === 'UNAVAILABLE', selections:parseJsonArray_(row.selections), note:row.note || '' });
+}
+
+function submitPanelAvailability_(payload) {
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const token = String(body.token || '').trim();
+  const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
+  const requested = Array.isArray(body.selections) ? body.selections.map(value => String(value || '').trim()) : [];
+  const note = String(body.note || '').trim().slice(0, 500);
+  if (!token) return json_({ ok:false, error:'token_required' });
+  if (!unavailable && !requested.length) return json_({ ok:false, error:'selection_required' });
+  if (unavailable && !note) return json_({ ok:false, error:'alternative_note_required' });
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sheet = ensureSheet_('PanelAvailability');
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.PanelAvailability);
+    const rowIndex = findRowIndex_(sheet, 'token', token, headers);
+    if (rowIndex < 0) return json_({ ok:false, error:'invalid_token' });
+    const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
+    if (!row || panelAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
+    const allowed = {};
+    normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => option.periods.forEach(period => { allowed[option.date + '|' + period] = true; }));
+    const selections = requested.filter((value,index,array) => allowed[value] && array.indexOf(value) === index);
+    if (!unavailable && selections.length !== requested.length) return json_({ ok:false, error:'invalid_selection' });
+    const normalized = schemaRow_('PanelAvailability', Object.assign({}, row, { selections:JSON.stringify(unavailable ? [] : selections),
+      status:unavailable ? 'UNAVAILABLE' : 'RESPONDED', respondedAt:nowIso_(), note, updatedAt:nowIso_() }));
+    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
+    appendChange_('PanelAvailability', 'upsert', row.id, normalized);
+    return json_({ ok:true, status:normalized.status, respondedAt:normalized.respondedAt });
   } finally { lock.releaseLock(); }
 }
 

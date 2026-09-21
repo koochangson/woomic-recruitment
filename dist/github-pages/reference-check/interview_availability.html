@@ -13,16 +13,16 @@
   <main class="page">
     <header class="header">
       <div class="brand">우미</div>
-      <h1>면접 가능 일정 확인</h1>
+      <h1 id="page-title">면접 가능 일정 확인</h1>
       <p>우미건설 채용 안내</p>
     </header>
     <section class="body">
       <div id="loading" class="state"><h2>일정을 확인하고 있습니다</h2><div>잠시만 기다려 주세요.</div></div>
       <div id="error" class="state hidden"><h2 class="error">일정을 확인할 수 없습니다</h2><div id="error-message">링크가 유효하지 않거나 만료되었습니다.</div></div>
       <form id="form" class="hidden">
-        <p class="hello">안녕하세요 <span id="candidate-name"></span>님,</p>
-        <p class="intro"><b id="position-text"></b> <span id="interview-type"></span> 진행을 위해 가능한 시간대를 확인합니다. 가능한 항목을 모두 선택해 주세요.</p>
-        <div class="meta"><b>안내</b><br>정확한 면접시간과 순서는 응답 취합 후 피플팀에서 별도로 안내드립니다.<span id="location-wrap" class="hidden"><br>예정 장소: <span id="location"></span></span></div>
+        <p class="hello">안녕하세요 <span id="participant-name"></span>님,</p>
+        <p id="intro" class="intro"><b id="position-text"></b> <span id="interview-type"></span> 진행을 위해 가능한 시간대를 확인합니다. 가능한 항목을 모두 선택해 주세요.</p>
+        <div id="guide" class="meta"><b>안내</b><br>정확한 면접시간과 순서는 응답 취합 후 피플팀에서 별도로 안내드립니다.<span id="location-wrap" class="hidden"><br>예정 장소: <span id="location"></span></span></div>
         <div id="options" class="options"></div>
         <div class="unavailable">
           <label><input id="unavailable" type="checkbox"> 제시된 일정이 모두 어렵습니다</label>
@@ -31,13 +31,15 @@
         <div class="notice">응답은 마감 전까지 다시 제출할 수 있습니다. 일정 변경이 필요한 경우 피플팀에 알려 주세요.</div>
         <div class="actions"><button id="submit" class="submit" type="submit">가능 일정 제출</button></div>
       </form>
-      <div id="complete" class="state hidden"><h2>응답이 저장되었습니다</h2><div>면접시간이 확정되면 별도 메일로 안내드리겠습니다.</div></div>
+      <div id="complete" class="state hidden"><h2>응답이 저장되었습니다</h2><div id="complete-message">면접시간이 확정되면 별도 메일로 안내드리겠습니다.</div></div>
     </section>
     <footer class="footer">우미건설 피플팀<br>본 링크는 수신자 본인만 사용해 주세요.</footer>
   </main>
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwMa89IxQvjWODNqkYkR8xbDU6llnOUeSPf8GN9LnYSMIhLfDGmMOGvtdVs4t9tImFL/exec';
-    const token = new URLSearchParams(location.search).get('token') || '';
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+    const audience = params.get('audience') === 'panel' ? 'panel' : 'candidate';
     const loading = document.getElementById('loading');
     const error = document.getElementById('error');
     const form = document.getElementById('form');
@@ -66,11 +68,18 @@
     async function load() {
       if(!token) return showError('응답 링크의 토큰이 없습니다.');
       try {
-        const data = await api('verifyInterviewAvailabilityToken', {token});
+        const data = await api(audience === 'panel' ? 'verifyPanelAvailabilityToken' : 'verifyInterviewAvailabilityToken', {token});
         if(!data.ok) return showError(data.error === 'token_expired' ? '응답 기간이 종료되었습니다. 피플팀에 문의해 주세요.' : '유효하지 않은 응답 링크입니다.');
-        document.getElementById('candidate-name').textContent = data.candName || '';
+        const isPanel = data.participantRole === 'panel' || audience === 'panel';
+        document.getElementById('participant-name').textContent = isPanel ? (data.participantName || '') : (data.candName || '');
         document.getElementById('position-text').textContent = data.positionText || '';
         document.getElementById('interview-type').textContent = data.interviewType ? `${data.interviewType} 면접` : '면접';
+        if(isPanel) {
+          document.getElementById('page-title').textContent = '면접위원 가능 일정 확인';
+          document.getElementById('intro').lastChild.textContent = ' 참석 가능한 날짜와 오전·오후를 모두 선택해 주세요.';
+          document.getElementById('guide').innerHTML = '<b>안내</b><br>지원자 일정까지 취합한 뒤 피플팀에서 정확한 면접시간과 순서를 별도로 안내드립니다.';
+          document.getElementById('complete-message').textContent = '지원자 일정 취합 후 확정된 면접시간을 별도 메일로 안내드리겠습니다.';
+        }
         if(data.location) { document.getElementById('location').textContent = data.location; document.getElementById('location-wrap').classList.remove('hidden'); }
         const selected = new Set(data.selections || []);
         document.getElementById('options').innerHTML = (data.options || []).map(item => `<div class="option"><div class="date">${dateLabel(item.date)}</div><div class="periods">${item.periods.map(period => { const value=`${item.date}|${period}`; return `<label class="period"><input type="checkbox" name="availability" value="${value}" ${selected.has(value)?'checked':''}> ${period==='AM'?'오전':'오후'}</label>`; }).join('')}</div></div>`).join('');
@@ -88,7 +97,7 @@
       if(unavailable.checked && !note.value.trim()) return alert('가능한 대체 일정을 입력해 주세요.');
       const button = document.getElementById('submit'); button.disabled=true; button.textContent='저장 중...';
       try {
-        const result = await api('submitInterviewAvailability', {token,selections,unavailable:unavailable.checked,note:note.value.trim()});
+        const result = await api(audience === 'panel' ? 'submitPanelAvailability' : 'submitInterviewAvailability', {token,selections,unavailable:unavailable.checked,note:note.value.trim()});
         if(!result.ok) throw new Error(result.error || 'save_failed');
         form.classList.add('hidden'); complete.classList.remove('hidden');
       } catch(err) {

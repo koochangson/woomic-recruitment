@@ -1423,7 +1423,11 @@
       </div>
       <div id="csl-panel-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:var(--rsm)">
         <span id="csl-panel-status" style="font-size:11px;color:var(--t3)">면접관 확인 전</span>
-        <button id="csl-panel-resend" class="btn btn-xs" style="display:none;margin-left:auto" data-action="call" data-call="sendPanelAvailabilityRequest()">확인 메일 재발송</button>
+        <label style="font-size:11px;color:var(--t3);margin-left:auto;display:flex;align-items:center;gap:5px">응답 마감
+          <input id="csl-panel-deadline" type="date" style="width:126px;font-size:11px;padding:5px 7px"/>
+        </label>
+        <button id="csl-panel-refresh" class="btn btn-xs" style="display:none" data-action="call" data-call="refreshCurrentPanelAvailability()">응답 새로고침</button>
+        <button id="csl-panel-resend" class="btn btn-xs" style="display:none" data-action="call" data-call="sendPanelAvailabilityRequest()">미응답자 재발송</button>
       </div>
       <div id="csl-candidate-fields">
         <div class="fg" style="margin-bottom:12px"><label>응답 마감일</label><input id="csl-deadline" type="date" style="font-size:12px"/></div>

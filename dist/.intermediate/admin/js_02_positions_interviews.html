@@ -136,6 +136,7 @@ function getOnboardInternalRecipients(cand, onboarding) {
 // 포지션 상세에서 입사 안내 - 사내 관련 부서(팀장·전산 등)
 // ── 후보일정 일괄 수집 (포지션 단위) ──────────────────────
 let collectSlotsCtx = { posId: null, stageIdx: null, mode: 'panel' };
+const panelAvailabilityCache = {};
 
 function openCollectSlots(posId, stageIdx) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
@@ -176,6 +177,8 @@ function openCollectSlots(posId, stageIdx) {
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);
   const deadlineEl = document.getElementById('csl-deadline');
   if(deadlineEl) deadlineEl.value = deadline.toISOString().slice(0,10);
+  const panelDeadlineEl = document.getElementById('csl-panel-deadline');
+  if(panelDeadlineEl) panelDeadlineEl.value = deadline.toISOString().slice(0,10);
   const panelControls = document.getElementById('csl-panel-controls');
   if(panelControls) panelControls.style.display = panelMode ? 'flex' : 'none';
   const panelStatus = document.getElementById('csl-panel-status');
@@ -184,6 +187,8 @@ function openCollectSlots(posId, stageIdx) {
     : pos[requestedKey] ? `확인 요청 발송 · ${fmtDate(pos[requestedKey])}` : '면접관 확인 전';
   const panelResend = document.getElementById('csl-panel-resend');
   if(panelResend) panelResend.style.display = panelMode && pos[requestedKey] ? '' : 'none';
+  const panelRefresh = document.getElementById('csl-panel-refresh');
+  if(panelRefresh) panelRefresh.style.display = panelMode && pos[requestedKey] ? '' : 'none';
   const candidateFields = document.getElementById('csl-candidate-fields');
   if(candidateFields) candidateFields.style.display = panelMode ? 'none' : '';
   document.getElementById('csl-loc').value = pos.loc || '';
@@ -202,13 +207,7 @@ function openCollectSlots(posId, stageIdx) {
   const tw = document.getElementById('csl-targets');
   if(tw) {
     if(panelMode) {
-      const keys = panelAvailabilityKeys(stageIdx);
-      const panelists = parsePanelists(pos[keys.panel]).filter(p => p.email);
-      tw.innerHTML = panelists.length ? panelists.map(p => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-        <span style="font-weight:600">${esc(p.name || '면접관')}</span>
-        <span style="color:var(--t3);flex:1">${esc(p.email)}</span>
-        <span class="b ${pos[requestedKey]?'bblue':'bgray'}">${pos[requestedKey]?'요청 발송':'미발송'}</span>
-      </div>`).join('') : '<div style="padding:8px;color:var(--red)">이메일이 등록된 면접관이 없습니다. 포지션의 면접관 정보를 확인하세요.</div>';
+      renderPanelAvailabilityTargets(pos, stageIdx);
     } else {
       tw.innerHTML = targets.map(c => {
         const existing = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
@@ -223,6 +222,7 @@ function openCollectSlots(posId, stageIdx) {
   }
   closeModal('modal-pos-detail');
   openModal('modal-collect-slots');
+  if(panelMode && pos[requestedKey]) refreshPanelAvailabilityResponses(posId, stageIdx);
 }
 
 function collectAvailabilityOptions() {
@@ -267,6 +267,90 @@ function panelAvailabilityKeys(stageIdx) {
     : { options:'panel2AvailabilityOptions', requested:'panel2AvailabilityRequestedAt', confirmed:'panel2AvailabilityConfirmedAt', panel:'panel2' };
 }
 
+function panelAvailabilityCacheKey(posId, stageIdx) {
+  return `${posId}|${stageIdx === 1 ? '1차' : '2차'}`;
+}
+
+function panelAvailabilityResponseText(response) {
+  if(response?.status === 'RESPONDED') return formatAvailabilitySelections(response.selections) || '응답완료';
+  if(response?.status === 'UNAVAILABLE') return `모두 어려움${response.note ? ` · ${response.note}` : ''}`;
+  if(response?.status === 'SENT') return '응답대기';
+  return '미발송';
+}
+
+function renderPanelAvailabilityTargets(pos, stageIdx) {
+  const target = document.getElementById('csl-targets');
+  if(!target) return;
+  const keys = panelAvailabilityKeys(stageIdx);
+  const panelists = parsePanelists(pos[keys.panel]).filter(panelist => panelist.email);
+  if(!panelists.length) {
+    target.innerHTML = '<div style="padding:8px;color:var(--red)">이메일이 등록된 면접관이 없습니다. 포지션의 면접관 정보를 확인하세요.</div>';
+    return;
+  }
+  const cached = panelAvailabilityCache[panelAvailabilityCacheKey(pos.id, stageIdx)];
+  const byEmail = new Map((cached || []).map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
+  target.innerHTML = panelists.map(panelist => {
+    const response = byEmail.get(String(panelist.email || '').toLowerCase());
+    const status = response ? panelAvailabilityResponseText(response) : (pos[keys.requested] ? '응답 확인 중' : '미발송');
+    const badge = response?.status === 'RESPONDED' ? 'bgreen' : response?.status === 'UNAVAILABLE' ? 'bred' : response?.status === 'SENT' ? 'bblue' : 'bgray';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-weight:600">${esc(panelist.name || '면접관')}</span>
+      <span style="color:var(--t3);flex:1">${esc(panelist.email)}</span>
+      <span class="b ${badge}" style="max-width:260px;white-space:normal;text-align:right">${esc(status)}</span>
+    </div>`;
+  }).join('');
+}
+
+async function refreshPanelAvailabilityResponses(posId, stageIdx, showToast=false) {
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const result = await gsFetch('getPanelAvailabilityResponses', '', { positionId:posId, round }, { allowQueue:false });
+  if(!result?.ok) {
+    if(showToast) toast('면접관 응답을 불러오지 못했습니다.', 'terr');
+    return [];
+  }
+  panelAvailabilityCache[panelAvailabilityCacheKey(posId, stageIdx)] = result.responses || [];
+  const pos = positions.find(item => Number(item.id) === Number(posId));
+  if(pos && collectSlotsCtx.mode === 'panel' && Number(collectSlotsCtx.posId) === Number(posId) && Number(collectSlotsCtx.stageIdx) === Number(stageIdx)) {
+    renderPanelAvailabilityTargets(pos, stageIdx);
+    const expected = parsePanelists(pos[panelAvailabilityKeys(stageIdx).panel]).filter(panelist => panelist.email);
+    const responded = (result.responses || []).filter(response => ['RESPONDED','UNAVAILABLE'].includes(response.status)).length;
+    const status = document.getElementById('csl-panel-status');
+    if(status) status.textContent = `면접관 응답 ${responded}/${expected.length}`;
+  }
+  if(showToast) toast('면접관 응답 현황을 새로고침했습니다.', 'tok');
+  return result.responses || [];
+}
+
+function refreshCurrentPanelAvailability() {
+  return refreshPanelAvailabilityResponses(collectSlotsCtx.posId, collectSlotsCtx.stageIdx, true);
+}
+
+function commonPanelAvailability(options, responses) {
+  const responded = (responses || []).filter(response => response?.status === 'RESPONDED');
+  if(!responded.length || (responses || []).some(response => response?.status === 'UNAVAILABLE')) return [];
+  const common = new Set(responded[0].selections || []);
+  responded.slice(1).forEach(response => {
+    const selected = new Set(response.selections || []);
+    [...common].forEach(value => { if(!selected.has(value)) common.delete(value); });
+  });
+  return (options || []).map(option => ({
+    date: option.date,
+    periods: (option.periods || []).filter(period => common.has(`${option.date}|${period}`))
+  })).filter(option => option.periods.length);
+}
+
+function applyAvailabilityOptionsToInputs(options) {
+  [1,2,3].forEach(index => {
+    const option = options[index - 1];
+    const date = document.getElementById(`csl-date${index}`);
+    const am = document.getElementById(`csl-date${index}-am`);
+    const pm = document.getElementById(`csl-date${index}-pm`);
+    if(date) date.value = option?.date || '';
+    if(am) am.checked = !!option?.periods?.includes('AM');
+    if(pm) pm.checked = !!option?.periods?.includes('PM');
+  });
+}
+
 async function sendPanelAvailabilityRequest() {
   const { posId, stageIdx } = collectSlotsCtx;
   const pos = positions.find(p => Number(p.id) === Number(posId));
@@ -277,26 +361,50 @@ async function sendPanelAvailabilityRequest() {
   const panelists = parsePanelists(pos[keys.panel]).filter(p => p.email && p.email.includes('@'));
   if(!panelists.length) { toast('이메일이 등록된 면접관이 없습니다. 포지션의 면접관 정보를 확인하세요.', 'terr'); return; }
   const round = stageIdx === 1 ? '1차' : '2차';
+  const deadline = document.getElementById('csl-panel-deadline')?.value || '';
+  if(!deadline) { toast('면접관 응답 마감일을 입력하세요.', 'terr'); return; }
+  const expiresAt = new Date(`${deadline}T23:59:59+09:00`).toISOString();
   const optionText = formatAvailabilityOptions(options);
-  const body = [
-    '안녕하세요.', '',
-    `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
-    '아래 후보 일정 중 참석이 어려운 날짜 또는 시간대가 있으면 본 메일로 회신해 주세요.', '',
-    optionText, '',
-    '지원자 일정 확인 후 정확한 면접 시간과 순서를 다시 안내드리겠습니다.', '',
-    '감사합니다.', '우미건설 피플팀 드림'
-  ].join('\n');
-  const recipients = groupMailRecipients(panelists.map(p => p.email));
-  const sent = await sendGeneralEmailViaGmail(recipients, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, pos.title, {
-    templateType:'general_notice', title:`${round} 면접 가능 일정 확인`, recipientName:'면접위원님'
-  });
-  if(!sent) return;
+  const existing = await refreshPanelAvailabilityResponses(posId, stageIdx);
+  const responseByEmail = new Map(existing.map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
+  const pendingPanelists = panelists.filter(panelist => !['RESPONDED','UNAVAILABLE'].includes(responseByEmail.get(String(panelist.email).toLowerCase())?.status));
+  if(!pendingPanelists.length) { toast('모든 면접관이 이미 응답했습니다. 공통 일정을 확정해 주세요.', 'tw'); return; }
+  let sentCount = 0;
+  const failed = [];
+  for(const panelist of pendingPanelists) {
+    const issued = await gsFetch('issuePanelAvailabilityLink', '', {
+      positionId: pos.id,
+      positionTitle: pos.title,
+      round,
+      panelistName: panelist.name || '면접관',
+      panelistEmail: panelist.email,
+      options,
+      expiresAt
+    }, { allowQueue:false });
+    if(!issued?.ok || !issued.link) { failed.push(panelist.name || panelist.email); continue; }
+    const body = [
+      `안녕하세요 ${panelist.name || '면접위원'}님,`, '',
+      `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
+      '아래 후보 일정을 확인하시고 링크에서 참석 가능한 날짜와 오전·오후를 모두 선택해 주세요.', '',
+      optionText, '',
+      `응답 마감: ${deadline}`,
+      '지원자 일정 확인 후 정확한 면접 시간과 순서를 다시 안내드리겠습니다.', '',
+      '감사합니다.', '우미건설 피플팀 드림'
+    ].join('\n');
+    const sent = await sendGeneralEmailViaGmail(panelist.email, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, panelist.name || pos.title, {
+      templateType:'general_notice', candidateName:panelist.name || '면접위원', positionText:pos.title,
+      noticeBody:body, actionLink:issued.link, actionLabel:'면접 가능 일정 선택'
+    });
+    if(sent) sentCount++; else failed.push(panelist.name || panelist.email);
+  }
+  if(!sentCount && failed.length) { toast(`면접관 확인 메일을 발송하지 못했습니다: ${failed.join(', ')}`, 'terr'); return; }
   pos[keys.options] = options;
   pos[keys.requested] = new Date().toISOString();
   pos[keys.confirmed] = '';
   saveState();
   if(GS_CONFIG.scriptUrl) await syncPosToGS(pos);
-  toast(`면접관 ${panelists.length}명에게 가능 일정 확인 메일을 발송했습니다.`, 'tok');
+  await refreshPanelAvailabilityResponses(posId, stageIdx);
+  toast(`면접관 ${sentCount}명에게 일정 선택 링크를 발송했습니다.${failed.length ? ` 실패 ${failed.length}명` : ''}`, failed.length ? 'tw' : 'tok');
   openCollectSlots(posId, stageIdx);
 }
 
@@ -308,8 +416,23 @@ async function confirmPanelAvailabilityAndContinue() {
   const options = collectAvailabilityOptions();
   if(!options.length) { toast('확인 완료로 처리할 면접 후보일정을 먼저 입력하세요.', 'terr'); return; }
   if(!pos[keys.requested]) { toast('면접관 확인 메일을 먼저 발송하세요.', 'terr'); return; }
-  if(!confirm('면접관 회신을 확인했으며, 현재 후보일정으로 지원자 가능일 확인을 진행할까요?')) return;
-  pos[keys.options] = options;
+  const panelists = parsePanelists(pos[keys.panel]).filter(panelist => panelist.email);
+  const responses = await refreshPanelAvailabilityResponses(posId, stageIdx);
+  const byEmail = new Map(responses.map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
+  const missing = panelists.filter(panelist => !['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(panelist.email).toLowerCase())?.status));
+  if(missing.length) {
+    toast(`아직 응답하지 않은 면접관이 있습니다: ${missing.map(panelist => panelist.name || panelist.email).join(', ')}`, 'terr');
+    return;
+  }
+  const selectedResponses = panelists.map(panelist => byEmail.get(String(panelist.email).toLowerCase()));
+  const commonOptions = commonPanelAvailability(options, selectedResponses);
+  if(!commonOptions.length) {
+    toast('모든 면접관이 공통으로 가능한 시간대가 없습니다. 후보일정을 다시 조정해 주세요.', 'terr');
+    return;
+  }
+  applyAvailabilityOptionsToInputs(commonOptions);
+  if(!confirm(`면접관 공통 가능 일정을 지원자에게 안내할 후보로 확정할까요?\n\n${formatAvailabilityOptions(commonOptions)}`)) return;
+  pos[keys.options] = commonOptions;
   pos[keys.confirmed] = new Date().toISOString();
   saveState();
   if(GS_CONFIG.scriptUrl) {
