@@ -1,11 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { adminDistDir } from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const bundleDir = path.join(root, 'apps_script_split_upload');
+const bundleDir = adminDistDir;
 
 const forbidden = new Set([
   'Code_admin_gmail.gs',

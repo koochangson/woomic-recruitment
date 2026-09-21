@@ -1,16 +1,46 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import {
+  configDir,
+  publicDistDir,
+  publicGsSource,
+  publicPagesDir,
+  referenceDistDir,
+  referralDistDir,
+  root,
+} from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const outDir = path.join(root, 'apps_script_public_upload');
+for (const dir of [publicDistDir, referralDistDir, referenceDistDir]) {
+  fs.mkdirSync(dir, { recursive: true });
+}
 
-fs.mkdirSync(outDir, { recursive: true });
-fs.copyFileSync(path.join(root, 'apps_script_referral_security.gs'), path.join(outDir, 'Code.gs'));
-fs.copyFileSync(path.join(root, 'appsscript.public.template.json'), path.join(outDir, 'appsscript.json'));
-fs.copyFileSync(path.join(root, 'referral_intake.html'), path.join(root, 'index.html'));
+fs.copyFileSync(publicGsSource, path.join(publicDistDir, 'Code.gs'));
+fs.copyFileSync(path.join(configDir, 'appsscript.public.json'), path.join(publicDistDir, 'appsscript.json'));
 
-console.log(`Prepared ${outDir}`);
-console.log('Copied Code.gs, appsscript.json, and referral index.html');
+const readme = `# Public Apps Script Upload Set
+
+공개 접수용 Apps Script 프로젝트의 Code.gs와 appsscript.json을 이 폴더의 파일로 교체합니다.
+관리자용 파일은 이 프로젝트에 넣지 않습니다.
+`;
+fs.writeFileSync(path.join(publicDistDir, 'README.md'), readme, 'utf8');
+
+fs.copyFileSync(
+  path.join(publicPagesDir, 'referral', 'index.html'),
+  path.join(referralDistDir, 'index.html')
+);
+fs.copyFileSync(path.join(root, 'woomi-ci.png'), path.join(referralDistDir, 'woomi-ci.png'));
+
+for (const name of [
+  'reference_candidate_intake.html',
+  'reference_check_intake.html',
+  'interview_availability.html',
+]) {
+  fs.copyFileSync(path.join(publicPagesDir, 'reference-check', name), path.join(referenceDistDir, name));
+}
+for (const name of ['woomi-ci.png', 'woomi-ci-mark-white.png']) {
+  fs.copyFileSync(path.join(root, name), path.join(referenceDistDir, name));
+}
+
+console.log(`Prepared ${publicDistDir}`);
+console.log(`Prepared ${referralDistDir}`);
+console.log(`Prepared ${referenceDistDir}`);

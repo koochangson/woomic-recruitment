@@ -14,7 +14,7 @@ C:\Users\user\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\
 
 ## 1. 직원 DB Apps Script
 
-`interviewer_db_apps_script_updated.gs`를 직원/면접관 DB Apps Script 프로젝트에 반영합니다.
+`src/integrations/interviewer-directory/Code.gs`를 직원/면접관 DB Apps Script 프로젝트에 반영합니다.
 
 Script Properties:
 
@@ -28,8 +28,8 @@ Script Properties:
 
 ## 2. 공개 추천 접수 Apps Script
 
-공개 접수 전용 Apps Script 프로젝트를 따로 만들고 `apps_script_referral_security.gs`를 반영합니다.
-`appsscript.public.template.json` 내용을 해당 프로젝트의 `appsscript.json`으로 사용합니다.
+공개 접수 전용 Apps Script 프로젝트에는 `dist/apps-script-public/` 파일을 반영합니다.
+원본 설정은 `config/appsscript.public.json`에서 관리합니다.
 
 Script Properties:
 
@@ -41,13 +41,13 @@ Script Properties:
 - `RECRUITMENT_ADMIN_TOKEN`
 - `INTERVIEWER_DB_ADMIN_TOKEN`
 
-배포 후 `referral_intake.html`의 `SCRIPT_URL`을 공개 추천 접수 배포 URL로 교체합니다.
+배포 후 `src/public/pages/referral/index.html`의 `SCRIPT_URL`을 공개 추천 접수 배포 URL로 교체합니다.
 GitHub Pages에 배포되는 `index.html`도 같은 공개 추천 접수 배포 URL을 사용해야 합니다.
 
 ## 3. 관리자 Apps Script
 
-관리자 전용 Apps Script 프로젝트를 따로 만들고 `apps_script_referral_security.gs`를 반영합니다.
-`appsscript.admin.template.json` 내용을 해당 프로젝트의 `appsscript.json`으로 사용합니다.
+관리자 전용 Apps Script 프로젝트에는 `dist/apps-script-admin/` 파일을 반영합니다.
+원본 설정은 `config/appsscript.admin.json`에서 관리합니다.
 
 Script Properties:
 

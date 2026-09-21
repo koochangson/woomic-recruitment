@@ -1,13 +1,16 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import {
+  mailTemplateFiles,
+  mailTemplatePath,
+  previewDistDir,
+  root,
+} from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const outPath = path.join(root, 'mail_samples_preview.html');
-
-const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
+fs.mkdirSync(previewDistDir, { recursive: true });
+const outPath = path.join(previewDistDir, 'mail_samples_preview.html');
+const templatePaths = new Map(mailTemplateFiles.map(([group, name]) => [name, mailTemplatePath(group, name)]));
+const read = name => fs.readFileSync(templatePaths.get(name), 'utf8');
 const assetDataUri = (name) => {
   const ext = path.extname(name).replace('.', '').toLowerCase();
   const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';

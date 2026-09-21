@@ -4,7 +4,7 @@
 
 ## 0. 로컬 재생성
 
-분리 파일과 업로드 세트를 다시 만들 때는 아래 명령을 실행합니다.
+분리 파일과 `dist` 업로드 세트를 다시 만들 때는 아래 명령을 실행합니다.
 
 ```bash
 node tools/rebuild_apps_script_split_bundle.js
@@ -50,7 +50,7 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 - `admin_09_auth.gs`
 - `admin_99_admin_api.gs`
 
-중요: 기존 단일 서버 파일 `Code_admin_gmail.gs`와 위 `admin_*.gs` 파일을 Apps Script 안에 동시에 두지 않습니다. 동시에 두면 같은 함수와 상수가 중복 정의됩니다.
+중요: 원본 단일 서버 파일 `src/admin/backend/Code.gs`와 위 `admin_*.gs` 파일을 Apps Script 안에 동시에 두지 않습니다. 동시에 두면 같은 함수와 상수가 중복 정의됩니다.
 
 ## 4. 운영 반영 순서
 
@@ -64,8 +64,8 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 
 로컬 분리 검증 결과:
 
-- `Dashboard_gmail.html`의 CSS는 `app_css.html`과 동일합니다.
-- `app_script.html`은 `Dashboard_gmail.html`의 전체 인라인 JavaScript와 동일합니다.
-- 루트의 `js_*.html`을 순서대로 합치면 원본 JS와 동일합니다.
-- 분리된 `admin_*.gs`를 순서대로 합치면 `Code_admin_gmail.gs`와 동일합니다.
+- `src/admin/frontend/Dashboard.html`의 CSS는 `app_css.html`과 동일합니다.
+- `app_script.html`은 관리자 화면 원본의 전체 인라인 JavaScript와 동일합니다.
+- `dist/.intermediate/admin/js_*.html`을 순서대로 합치면 원본 JS와 동일합니다.
+- 분리된 `admin_*.gs`를 순서대로 합치면 `src/admin/backend/Code.gs`와 동일합니다.
 - 분리된 JS와 GS 모두 구문 검사를 통과했습니다.

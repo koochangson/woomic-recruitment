@@ -1,53 +1,34 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import {
+  adminDistDir,
+  adminIntermediateDir,
+  configDir,
+  mailTemplateFiles,
+  mailTemplatePath,
+} from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const outDir = path.join(root, 'apps_script_split_upload');
+const outDir = adminDistDir;
 
 const files = [
-  ['appsscript.admin.template.json', 'appsscript.json'],
-
-  'admin_00_core.gs',
-  'admin_01_mail_base.gs',
-  'admin_02_sheet_api.gs',
-  'admin_03_referral_public.gs',
-  'admin_04_reference.gs',
-  'admin_05_general_mail.gs',
-  'admin_06_ai_referral_directory.gs',
-  'admin_07_sheet_utils.gs',
-  'admin_08_referral_tokens.gs',
-  'admin_09_auth.gs',
-  'admin_99_admin_api.gs',
-
-  ['Dashboard_gmail_split.html', 'Dashboard.html'],
-  'app_css.html',
-  'app_script.html',
-
-  'mail_01_reference_candidate_request.html',
-  'mail_02_reference_candidate_reminder.html',
-  'mail_03_reference_referee_request.html',
-  'mail_04_reference_referee_reminder.html',
-  'mail_05_reference_referee_complete.html',
-  'mail_asset_ci_src.html',
-  'mail_asset_header_art_src.html',
-  'mail_body_general_notice.html',
-  'mail_body_headhunter_forward.html',
-  'mail_body_interview_first.html',
-  'mail_body_interview_second.html',
-  'mail_body_interview_slot_request.html',
-  'mail_body_onboarding.html',
-  'mail_body_onboarding_internal.html',
-  'mail_body_panel_schedule.html',
-  'mail_body_rejection.html',
-  'mail_shared_body_close.html',
-  'mail_shared_body_open.html',
-  'mail_shared_contact_qr.html',
-  'mail_shared_footer.html',
-  'mail_shared_header_bottom.html',
-  'mail_shared_header_top.html',
+  [path.join(configDir, 'appsscript.admin.json'), 'appsscript.json'],
+  ...[
+    'admin_00_core.gs',
+    'admin_01_mail_base.gs',
+    'admin_02_sheet_api.gs',
+    'admin_03_referral_public.gs',
+    'admin_04_reference.gs',
+    'admin_05_general_mail.gs',
+    'admin_06_ai_referral_directory.gs',
+    'admin_07_sheet_utils.gs',
+    'admin_08_referral_tokens.gs',
+    'admin_09_auth.gs',
+    'admin_99_admin_api.gs',
+    'Dashboard.html',
+    'app_css.html',
+    'app_script.html',
+  ].map(name => [path.join(adminIntermediateDir, name), name]),
+  ...mailTemplateFiles.map(([group, name]) => [mailTemplatePath(group, name), name]),
 ];
 
 fs.mkdirSync(outDir, { recursive: true });
@@ -58,10 +39,9 @@ for (const name of fs.readdirSync(outDir)) {
 
 const copied = [];
 for (const item of files) {
-  const [srcName, destName] = Array.isArray(item) ? item : [item, item];
-  const src = path.join(root, srcName);
+  const [src, destName] = item;
   const dest = path.join(outDir, destName);
-  if (!fs.existsSync(src)) throw new Error(`missing required file: ${srcName}`);
+  if (!fs.existsSync(src)) throw new Error(`missing required file: ${src}`);
   fs.copyFileSync(src, dest);
   copied.push(destName);
 }
@@ -76,7 +56,7 @@ const readme = `# Apps Script Split Upload Set
 
 ## 넣지 않는 파일
 
-기존 단일본 \`Code_admin_gmail.gs\`, \`Dashboard_gmail.html\`과 이전에 생성된 \`js_*.html\`은 이 세트와 동시에 두지 않습니다.
+원본 \`src/admin/backend/Code.gs\`, \`src/admin/frontend/Dashboard.html\`과 이전에 생성된 \`js_*.html\`은 이 세트와 동시에 두지 않습니다.
 
 화면 JavaScript는 \`app_script.html\` 하나에 포함됩니다. \`js_*.html\`은 소스 구간 검증용 생성물이며 런타임 include 대상이 아닙니다.
 

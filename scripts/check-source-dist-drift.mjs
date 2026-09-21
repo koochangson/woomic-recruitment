@@ -1,18 +1,25 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import {
+  adminDistDir,
+  adminGsSource,
+  adminHtmlSource,
+  adminIntermediateDir,
+  configDir,
+  mailTemplateFiles,
+  mailTemplatePath,
+  publicDistDir,
+  publicGsSource,
+  publicPagesDir,
+  referenceDistDir,
+  referralDistDir,
+} from '../tools/project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const read = name => fs.readFileSync(path.join(root, name), 'utf8');
+const read = file => fs.readFileSync(file, 'utf8');
 const errors = [];
-
-function expectSame(sourceName, outputName) {
-  if (read(sourceName) !== read(outputName)) {
-    errors.push(`${outputName} is stale relative to ${sourceName}`);
-  }
-}
+const expectSame = (source, output) => {
+  if (read(source) !== read(output)) errors.push(`${output} is stale relative to ${source}`);
+};
 
 const adminParts = [
   'admin_00_core.gs',
@@ -27,24 +34,25 @@ const adminParts = [
   'admin_09_auth.gs',
   'admin_99_admin_api.gs',
 ];
-
-if (adminParts.map(read).join('') !== read('Code_admin_gmail.gs')) {
-  errors.push('admin_*.gs files are stale relative to Code_admin_gmail.gs');
+if (adminParts.map(name => read(path.join(adminIntermediateDir, name))).join('') !== read(adminGsSource)) {
+  errors.push('intermediate admin_*.gs files are stale relative to the admin backend source');
 }
 
-const dashboard = read('Dashboard_gmail.html');
+const dashboard = read(adminHtmlSource);
 const styleMatch = dashboard.match(/<style[^>]*>[\s\S]*?<\/style>/);
 const scriptMatch = dashboard.match(/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/);
 const styleInner = styleMatch
-  ? styleMatch[0]
-    .replace(/^<style[^>]*>\r?\n?/, '')
-    .replace(/\r?\n?<\/style>$/, '')
+  ? styleMatch[0].replace(/^<style[^>]*>\r?\n?/, '').replace(/\r?\n?<\/style>$/, '')
   : null;
-if (styleInner === null || styleInner !== read('app_css.html')) {
-  errors.push('app_css.html is stale relative to Dashboard_gmail.html');
+const scriptInner = scriptMatch
+  ? scriptMatch[0].replace(/^<script[^>]*>\r?\n?/, '').replace(/\r?\n?<\/script>$/, '')
+  : null;
+
+if (styleInner === null || styleInner !== read(path.join(adminIntermediateDir, 'app_css.html'))) {
+  errors.push('intermediate app_css.html is stale relative to the admin frontend source');
 }
-if (!scriptMatch || scriptMatch[0] !== read('app_script.html')) {
-  errors.push('app_script.html is stale relative to Dashboard_gmail.html');
+if (!scriptMatch || scriptMatch[0] !== read(path.join(adminIntermediateDir, 'app_script.html'))) {
+  errors.push('intermediate app_script.html is stale relative to the admin frontend source');
 }
 
 const jsParts = [
@@ -62,26 +70,24 @@ const jsParts = [
   'js_09_settings.html',
   'js_99_app.html',
 ];
-const scriptInner = scriptMatch
-  ? scriptMatch[0]
-    .replace(/^<script[^>]*>\r?\n?/, '')
-    .replace(/\r?\n?<\/script>$/, '')
-  : null;
-if (scriptInner === null || jsParts.map(read).join('') !== scriptInner) {
-  errors.push('js_*.html files are stale relative to Dashboard_gmail.html');
+if (scriptInner === null || jsParts.map(name => read(path.join(adminIntermediateDir, name))).join('') !== scriptInner) {
+  errors.push('intermediate js_*.html files are stale relative to the admin frontend source');
 }
 
-expectSame('Dashboard_gmail_split.html', 'apps_script_split_upload/Dashboard.html');
-for (const name of adminParts) expectSame(name, `apps_script_split_upload/${name}`);
-expectSame('app_css.html', 'apps_script_split_upload/app_css.html');
-expectSame('app_script.html', 'apps_script_split_upload/app_script.html');
-expectSame('appsscript.admin.template.json', 'apps_script_split_upload/appsscript.json');
-for (const name of fs.readdirSync(root).filter(name => /^mail_(?:\d{2}|body|shared|asset)_.*\.html$/.test(name))) {
-  expectSame(name, `apps_script_split_upload/${name}`);
+for (const name of ['Dashboard.html', 'app_css.html', 'app_script.html', ...adminParts]) {
+  expectSame(path.join(adminIntermediateDir, name), path.join(adminDistDir, name));
 }
-expectSame('apps_script_referral_security.gs', 'apps_script_public_upload/Code.gs');
-expectSame('appsscript.public.template.json', 'apps_script_public_upload/appsscript.json');
-expectSame('referral_intake.html', 'index.html');
+expectSame(path.join(configDir, 'appsscript.admin.json'), path.join(adminDistDir, 'appsscript.json'));
+for (const [group, name] of mailTemplateFiles) {
+  expectSame(mailTemplatePath(group, name), path.join(adminDistDir, name));
+}
+
+expectSame(publicGsSource, path.join(publicDistDir, 'Code.gs'));
+expectSame(path.join(configDir, 'appsscript.public.json'), path.join(publicDistDir, 'appsscript.json'));
+expectSame(path.join(publicPagesDir, 'referral', 'index.html'), path.join(referralDistDir, 'index.html'));
+for (const name of ['reference_candidate_intake.html', 'reference_check_intake.html', 'interview_availability.html']) {
+  expectSame(path.join(publicPagesDir, 'reference-check', name), path.join(referenceDistDir, name));
+}
 
 if (errors.length) {
   console.error(errors.join('\n'));

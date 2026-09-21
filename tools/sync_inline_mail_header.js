@@ -1,11 +1,8 @@
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { adminGsSource, mailTemplateFiles, mailTemplatePath } from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const codePath = path.join(root, 'Code_admin_gmail.gs');
+const codePath = adminGsSource;
+const templatePaths = new Map(mailTemplateFiles.map(([group, name]) => [name, mailTemplatePath(group, name)]));
 
 let code = fs.readFileSync(codePath, 'utf8');
 
@@ -28,7 +25,7 @@ const fragments = [
 ];
 
 function syncFragment(name) {
-  const html = fs.readFileSync(path.join(root, name + '.html'), 'utf8');
+  const html = fs.readFileSync(templatePaths.get(name + '.html'), 'utf8');
   const nextIndex = fragments.indexOf(name) + 1;
   const nextName = fragments[nextIndex];
   const pattern = nextName
@@ -45,4 +42,4 @@ function syncFragment(name) {
 fragments.forEach(syncFragment);
 
 fs.writeFileSync(codePath, code, 'utf8');
-console.log('Code_admin_gmail.gs inline mail fragments synced');
+console.log('Admin backend inline mail fragments synced');

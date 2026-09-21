@@ -3,19 +3,19 @@ import fs from 'node:fs';
 const checks = [
   {
     id: 'public-template-role',
-    file: 'appsscript.public.template.json',
+    file: 'config/appsscript.public.json',
     pattern: /"access"\s*:\s*"ANYONE_ANONYMOUS"/,
     message: 'Public template must allow anonymous access for referral intake.',
   },
   {
     id: 'admin-template-domain',
-    file: 'appsscript.admin.template.json',
+    file: 'config/appsscript.admin.json',
     pattern: /"access"\s*:\s*"DOMAIN"/,
     message: 'Admin template must use DOMAIN access.',
   },
   {
     id: 'admin-template-user-accessing',
-    file: 'appsscript.admin.template.json',
+    file: 'config/appsscript.admin.json',
     pattern: /"executeAs"\s*:\s*"USER_ACCESSING"/,
     message: 'Admin template must execute as the accessing user.',
   },

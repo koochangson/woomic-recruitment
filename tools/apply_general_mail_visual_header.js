@@ -1,11 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { adminGsSource, root } from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const codePath = path.join(root, 'Code_admin_gmail.gs');
+const codePath = adminGsSource;
 
 const dataUri = (name) => {
   const ext = path.extname(name).replace('.', '').toLowerCase();
@@ -67,4 +64,4 @@ code = code.replace(
 );
 
 fs.writeFileSync(codePath, code, 'utf8');
-console.log('Code_admin_gmail.gs visual general mail header applied');
+console.log('Admin backend visual general mail header applied');

@@ -9,6 +9,7 @@ secrets.*
 # Logs and temporary exports
 *.log
 *.tmp
+*.zip
 ~$*
 
 # Dependency folders

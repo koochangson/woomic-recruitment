@@ -1,13 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { adminHtmlSource, adminIntermediateDir } from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const sourceName = 'Dashboard_gmail.html';
-const splitName = 'Dashboard_gmail_split.html';
-const sourcePath = path.join(root, sourceName);
+const sourceName = 'src/admin/frontend/Dashboard.html';
+const splitName = 'Dashboard.html';
+const sourcePath = adminHtmlSource;
+fs.mkdirSync(adminIntermediateDir, { recursive: true });
 
 const source = fs.readFileSync(sourcePath, 'utf8');
 const newline = source.includes('\r\n') ? '\r\n' : '\n';
@@ -113,9 +111,9 @@ if (generated.get('app_css') !== styleInner) {
   throw new Error('extracted CSS differs from original style contents');
 }
 
-fs.writeFileSync(path.join(root, splitName), splitHtml, 'utf8');
+fs.writeFileSync(path.join(adminIntermediateDir, splitName), splitHtml, 'utf8');
 for (const [name, content] of generated.entries()) {
-  fs.writeFileSync(path.join(root, `${name}.html`), content, 'utf8');
+  fs.writeFileSync(path.join(adminIntermediateDir, `${name}.html`), content, 'utf8');
 }
 
 const counts = jsRanges.map(([name, start, end]) => `${name}.html ${end - start + 1} lines`);

@@ -2,14 +2,18 @@ import fs from 'node:fs';
 
 const htmlFiles = [
   'recruitment_dashboard_v4.html',
-  'referral_intake.html',
-  'index.html',
+  'src/admin/frontend/Dashboard.html',
+  'src/public/pages/referral/index.html',
+  'src/public/pages/reference-check/reference_candidate_intake.html',
+  'src/public/pages/reference-check/reference_check_intake.html',
+  'src/public/pages/reference-check/interview_availability.html',
   '새 폴더/index.html',
 ];
 
 const scriptFiles = [
-  'apps_script_referral_security.gs',
-  'interviewer_db_apps_script_updated.gs',
+  'src/admin/backend/Code.gs',
+  'src/public/backend/Code.gs',
+  'src/integrations/interviewer-directory/Code.gs',
 ];
 
 for (const file of htmlFiles) {

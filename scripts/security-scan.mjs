@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
-const ignoredDirs = new Set(['.git', 'node_modules']);
+const ignoredDirs = new Set(['.git', 'node_modules', 'dist', 'backups', 'backup_2026-08-27']);
 const targetExts = new Set(['.html', '.js', '.gs', '.json', '.md']);
 
 const rules = [
@@ -44,7 +44,7 @@ const rules = [
 const requiredPatterns = [
   {
     id: 'uploaded-file-sharing-hardened',
-    file: 'apps_script_referral_security.gs',
+    file: 'src/public/backend/Code.gs',
     pattern: /hardenUploadedFileSharing_\(\s*file\s*\)/,
     message: 'Referral file uploads must harden Drive file sharing after creation.',
   },
@@ -56,7 +56,7 @@ const requiredPatterns = [
   },
   {
     id: 'deployment-role-gate',
-    file: 'apps_script_referral_security.gs',
+    file: 'src/public/backend/Code.gs',
     pattern: /isPublicDeployment_\(\)\s*&&\s*isAdminRequest_|!\s*isPublicDeployment_\(\)\s*&&\s*isAdminRequest_/,
     message: 'Apps Script must gate admin actions by deployment role.',
   },

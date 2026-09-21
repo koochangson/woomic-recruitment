@@ -1,11 +1,7 @@
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { adminGsSource, mailTemplatePath } from './project_paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
-const targets = ['Code_admin_gmail.gs', 'admin_05_general_mail.gs'];
+const targets = [adminGsSource];
 
 function extractConst(code, name) {
   const re = new RegExp(`const ${name} = "([^"]*)";`);
@@ -57,12 +53,12 @@ function refactor(code) {
   return replaceFunction(code, 'renderGeneralMailHeader_', renderReplacement);
 }
 
-const originalCode = fs.readFileSync(path.join(root, 'Code_admin_gmail.gs'), 'utf8');
+const originalCode = fs.readFileSync(adminGsSource, 'utf8');
 let ciSrc = extractConst(originalCode, 'GENERAL_MAIL_CI_SRC');
 let headerArtSrc = extractConst(originalCode, 'GENERAL_MAIL_HEADER_ART_SRC');
 
-const ciAssetPath = path.join(root, 'mail_asset_ci_src.html');
-const headerArtAssetPath = path.join(root, 'mail_asset_header_art_src.html');
+const ciAssetPath = mailTemplatePath('assets', 'mail_asset_ci_src.html');
+const headerArtAssetPath = mailTemplatePath('assets', 'mail_asset_header_art_src.html');
 
 if (!ciSrc && fs.existsSync(ciAssetPath)) ciSrc = fs.readFileSync(ciAssetPath, 'utf8');
 if (!headerArtSrc && fs.existsSync(headerArtAssetPath)) headerArtSrc = fs.readFileSync(headerArtAssetPath, 'utf8');
@@ -74,9 +70,8 @@ fs.writeFileSync(ciAssetPath, ciSrc, 'utf8');
 fs.writeFileSync(headerArtAssetPath, headerArtSrc, 'utf8');
 
 for (const target of targets) {
-  const filePath = path.join(root, target);
-  const code = fs.readFileSync(filePath, 'utf8');
-  fs.writeFileSync(filePath, refactor(code), 'utf8');
+  const code = fs.readFileSync(target, 'utf8');
+  fs.writeFileSync(target, refactor(code), 'utf8');
   console.log(`Refactored ${target}`);
 }
 

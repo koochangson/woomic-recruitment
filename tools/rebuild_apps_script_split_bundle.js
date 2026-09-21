@@ -11,6 +11,7 @@ const steps = [
   ['Split server GS', 'tools/split_code_admin_gmail.js'],
   ['Prepare admin upload bundle', 'tools/prepare_apps_script_split_bundle.js'],
   ['Prepare public upload bundle', 'tools/prepare_apps_script_public_bundle.js'],
+  ['Build mail preview', 'tools/build_mail_samples_preview.js'],
   ['Check admin upload bundle', 'tools/check_apps_script_split_bundle.js'],
   ['Check source/build drift', 'scripts/check-source-dist-drift.mjs'],
 ];
