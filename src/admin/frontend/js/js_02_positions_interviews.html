@@ -70,10 +70,8 @@ function renderPositions() {
     return `<div class="card pos-manage-card ${risk?'is-risk':''}" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" aria-label="${esc(pos.title)} 상세보기" style="${done?'opacity:.75':''}">
       <div class="pos-card-main">
         <div class="pos-card-head">
-          <div class="pos-card-info">
-            <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
-            <div class="pos-card-title-meta">${esc(pos.hireReason || '충원')} · 채용${passed.length} · 지원${active.length}${finalJoinSummary?' · '+esc(finalJoinSummary):''}</div>
-          </div>
+          <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
+          <div class="pos-card-title-meta">${esc(pos.hireReason || '충원')} · 채용${passed.length} · 지원${active.length}${finalJoinSummary?' · '+esc(finalJoinSummary):''}</div>
           <span class="pos-card-stage ${progress.className}">${esc(progress.label)}</span>
         </div>
         <div class="pos-card-action ${nextAction?'':'pos-card-action-ok'}">
