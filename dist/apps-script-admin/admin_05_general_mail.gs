@@ -217,8 +217,9 @@ function handleSendGeneralMail_(payload) {
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
     return json_({ ok: true, to: to });
   } catch (err) {
-    console.warn('handleSendGeneralMail_ failed: ' + String(err && err.message || err));
-    return json_({ error: 'mail_send_failed' });
+    const errorText = String(err && err.message || err);
+    console.warn('handleSendGeneralMail_ failed: ' + errorText);
+    return json_({ error: errorText || 'mail_send_failed' });
   }
 }
 

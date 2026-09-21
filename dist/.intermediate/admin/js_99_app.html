@@ -28,7 +28,7 @@ const DELEGATED_CALLS = Object.freeze({
   posdetailClosePos, posdetailDeletePos, posdetailStopPos, printReferralInterviewSheet, purgeExpiredPii, renderExpiredPii, renderReferralSection, renderTeamMaster, requestStageChange, resetIdleLock, saveNewTeam, savePosition, savePositionResults, saveRecruitPlanModal, saveRefReport, saveReferralDraft, saveReferralEmployee, saveReferralStatus, selectPositionResult, selectReferral, setInterviewPositionFilter, setPrivacyMaskFromControl, setReferralView, setRpLocation, setRpYear, setRsYear, setTrackerPage, snapTo10,
   exportReferralRewardsCsv, finishRejectReason, runCoreDiagnosticsUI,
   refreshOnboardingDeptRecipients, saveSettings, searchRecruitPlanTargets, selectRefCand, selectRefPosition, selectTemplateEditor, insertTemplateSnippet, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
-  sendAllCandSchedule, sendInterviewNoticeCandidates, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelNotice, sendRefRequest, setDashPipeFilter, setRefFilter, showUnlinkedList, scrollPositionDetail,
+  sendAllCandSchedule, sendInterviewNoticeCandidates, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelAvailabilityRequest, sendPanelNotice, sendRefRequest, setDashPipeFilter, confirmPanelAvailabilityAndContinue, setRefFilter, showUnlinkedList, scrollPositionDetail,
   closeAddTeam, createCandidateFromReferral, deleteTeam, editReferralEmployee, importInterviewersFromEmployeeFile, refreshEmployeesFromGS, refreshReferralsFromGS, skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, syncTeamMasterFromInterviewers, testGSConnection, testInterviewerConnection,
   setReferenceStageMailChoice, testRefAutoConnection, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateHeadhunterHint, updateIntPreview, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
   populateHeadhunterSelect, renderHeadhunterDbPreview,
@@ -293,4 +293,5 @@ try {
   alert('대시보드 초기화 오류: ' + initErr.message + '\n\nF12 → Console 탭을 확인하세요.');
 }
 });
+
 </script>

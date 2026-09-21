@@ -1397,7 +1397,7 @@
       <button class="mclose" data-action="close-modal" data-id="modal-collect-slots"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
-      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
+      <div id="csl-intro" style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
         면접관의 가능 일정을 먼저 확인한 뒤 지원자에게 <b>날짜별 오전·오후 가능 여부</b>를 받습니다. 정확한 시간과 면접순서는 응답 취합 후 피플팀에서 확정합니다.
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">공통 후보 날짜와 시간대 (최대 3일)</div>
@@ -1421,24 +1421,23 @@
           <label style="font-size:12px"><input id="csl-date3-pm" type="checkbox" checked style="width:auto"> 오후</label>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <button class="btn btn-sm" data-action="call" data-call="sendPanelAvailabilityRequest()">면접관 확인 메일 발송</button>
+      <div id="csl-panel-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:var(--rsm)">
         <span id="csl-panel-status" style="font-size:11px;color:var(--t3)">면접관 확인 전</span>
+        <button id="csl-panel-resend" class="btn btn-xs" style="display:none;margin-left:auto" data-action="call" data-call="sendPanelAvailabilityRequest()">확인 메일 재발송</button>
       </div>
-      <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:var(--rsm);font-size:12px;font-weight:700">
-        <input id="csl-panel-confirmed" type="checkbox" style="width:auto" data-onchange="setPanelAvailabilityConfirmed()"> 면접관 회신을 확인했으며 위 일정으로 지원자에게 확인합니다
-      </label>
-      <div class="fg" style="margin-bottom:12px"><label>응답 마감일</label><input id="csl-deadline" type="date" style="font-size:12px"/></div>
-      <div class="fg" style="margin-bottom:12px">
-        <label>면접 장소 (선택)</label>
-        <input id="csl-loc" placeholder="예: 본사 3층 회의실 A" style="font-size:12px"/>
+      <div id="csl-candidate-fields">
+        <div class="fg" style="margin-bottom:12px"><label>응답 마감일</label><input id="csl-deadline" type="date" style="font-size:12px"/></div>
+        <div class="fg" style="margin-bottom:12px">
+          <label>면접 장소 (선택)</label>
+          <input id="csl-loc" placeholder="예: 본사 3층 회의실 A" style="font-size:12px"/>
+        </div>
       </div>
-      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px">안내 대상</div>
+      <div id="csl-target-label" style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">안내 대상</div>
       <div id="csl-targets" style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--rsm);padding:8px;font-size:12px"></div>
     </div>
     <div class="modal-ft">
       <button class="btn" data-action="close-modal" data-id="modal-collect-slots">취소</button>
-      <button class="btn btn-primary" data-action="call" data-call="sendCollectSlots()">지원자 가능일 확인 발송</button>
+      <button id="csl-primary-action" class="btn btn-primary" data-action="call" data-call="sendCollectSlots()">지원자 가능일 확인 발송</button>
     </div>
   </div>
 </div>
