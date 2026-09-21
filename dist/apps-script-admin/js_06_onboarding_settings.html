@@ -1,3 +1,126 @@
+// ══════════════════════════════════════════════════════════════
+// 입사 안내
+// ══════════════════════════════════════════════════════════════
+function fillOnboardingDefaults(candId) {
+  const select = document.getElementById('ob-cand');
+  const id = Number(candId || select?.value);
+  const c = candidates.find(x=>Number(x.id)===id);
+  if(!c) { renderOnboardingPositionFinalists(); updateObPreview(); return; }
+  if(select) select.value = String(c.id);
+  const pos = positions.find(p=>Number(p.id)===Number(c.posId));
+  const existing = onboardings.find(o=>Number(o.candId)===Number(c.id)) || {};
+  const dept = (pos&&pos.dept) || c.dept || existing.dept || '';
+  const loc = (pos&&pos.loc) || c.loc || existing.loc || '';
+  const etype = (pos&&pos.etype) || c.etype || existing.etype || '정규직';
+  const leads = getDeptLeadRecipients(dept);
+  const leadEmails = groupMailRecipients([existing.deptLead, ...leads.map(x=>x.email)]);
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };
+  set('ob-position',(pos&&pos.title) || c.pos || '');
+  set('ob-dept',dept);
+  set('ob-dept-lead',leadEmails);
+  set('ob-loc',loc);
+  set('ob-etype',etype);
+  set('ob-date',existing.joinDate || c.joinDate || '');
+  set('ob-rank',existing.rank || '');
+  set('ob-jointime',existing.joinTime || '09:00');
+  set('ob-reportloc',existing.reportLocation || '본사 3층 피플팀');
+  set('ob-notes',existing.notes || '');
+  renderOnboardingPositionFinalists(c.posId, c.id);
+  renderOnboarding();
+  updateObPreview();
+}
+
+function refreshOnboardingDeptRecipients() {
+  const dept = document.getElementById('ob-dept')?.value || '';
+  const leads = getDeptLeadRecipients(dept);
+  const leadInput = document.getElementById('ob-dept-lead');
+  if(leadInput) leadInput.value = groupMailRecipients(leads.map(x=>x.email));
+  updateObPreview();
+  toast(leads.length ? `${dept} 팀장/소장 ${leads.length}명 자동 선택` : `${dept || '배치부서'}의 팀장/소장 이메일을 찾지 못했습니다.`, leads.length ? 'tok' : 'terr');
+}
+
+function renderOnboardingPositionFinalists(positionId, selectedId) {
+  const wrap = document.getElementById('ob-position-finalists');
+  if(!wrap) return;
+  const finals = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===5);
+  if(!finals.length) { wrap.innerHTML=''; return; }
+  wrap.innerHTML=`<div class="ob-finalists"><span class="ob-finalists-label">동일 포지션 합격자 ${finals.length}명</span>${finals.map(c=>{
+    const registered=onboardings.some(o=>Number(o.candId)===Number(c.id));
+    return `<button type="button" class="ob-finalist ${registered?'registered':''} ${Number(c.id)===Number(selectedId)?'active':''}" data-action="call" data-call="fillOnboardingDefaults(${c.id})">${esc(c.name)}${registered?' · 등록':''}</button>`;
+  }).join('')}</div>`;
+}
+
+function getOnboardingDraft() {
+  const cid=Number(document.getElementById('ob-cand')?.value);
+  const c=candidates.find(x=>Number(x.id)===cid);
+  if(!c) return { cand:null, ob:{} };
+  return { cand:c, ob:{
+    candId:c.id,candName:c.name,pos:document.getElementById('ob-position')?.value||c.pos||'',
+    joinDate:document.getElementById('ob-date')?.value||'',dept:document.getElementById('ob-dept')?.value||'',
+    deptLead:document.getElementById('ob-dept-lead')?.value||'',rank:document.getElementById('ob-rank')?.value||'',
+    loc:document.getElementById('ob-loc')?.value||'',etype:document.getElementById('ob-etype')?.value||'',
+    joinTime:document.getElementById('ob-jointime')?.value||'',reportLocation:document.getElementById('ob-reportloc')?.value||'',
+    notes:document.getElementById('ob-notes')?.value||''
+  }};
+}
+
+function openOnboardingFromPosition(positionId) {
+  const pos = positions.find(p=>Number(p.id)===Number(positionId));
+  if(!pos) return;
+  const finals = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===5);
+  if(!finals.length) { toast('입사안내를 진행할 최종합격자가 없습니다.', 'terr'); return; }
+  const candidate = finals.find(c=>!onboardings.some(o=>Number(o.candId)===Number(c.id))) || finals[0];
+  closeModal('modal-pos-detail');
+  nav('onboarding');
+  populateSel('ob-cand');
+  fillOnboardingDefaults(candidate.id);
+  document.getElementById('sect-onboarding')?.scrollIntoView({behavior:'smooth',block:'start'});
+  toast(`${candidate.name}님을 선택하고 포지션 기본정보를 불러왔습니다.`, 'tok');
+}
+
+function updateObPreview(){
+  const {cand,ob}=getOnboardingDraft();
+  const applicant=document.getElementById('ob-preview-outlook');
+  const internal=document.getElementById('ob-preview-internal');
+  const internalTo=document.getElementById('ob-preview-internal-to');
+  if(applicant) applicant.textContent=cand?buildOfferEmail(ob,cand):'최종 합격자를 선택하면 지원자용 미리보기가 표시됩니다.';
+  if(internal) internal.textContent=cand?buildInternalOnboardEmail(ob,cand):'최종 합격자를 선택하면 내부 공유용 미리보기가 표시됩니다.';
+  if(internalTo) {
+    const recipients=cand?getOnboardInternalRecipients(cand,ob):null;
+    internalTo.textContent=recipients?.recipientNames?.length?recipients.recipientNames.join(', '):'부서장/소장 + 고정 수신팀 + 피플팀';
+    const summary=document.getElementById('ob-recipient-summary');
+    if(summary) summary.innerHTML=recipients
+      ? `<strong>해당부서 팀장/소장</strong> ${recipients.leads.length?esc(recipients.leads.map(x=>x.name).join(', ')):'미매핑'}<br><strong>관련부서 고정 수신자</strong> ${recipients.teams.length?esc(recipients.teams.map(x=>x.name||x.email).join(', ')):'미설정'}<br><strong>피플팀 담당자</strong> ${esc(recipients.hrEmail||'미설정')}`
+      : '합격자를 선택하면 내부 공유 수신자를 확인할 수 있습니다.';
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// 입사 안내 발송
+// ══════════════════════════════════════════════════════════════
+
+// 유관 팀 이메일 파싱 (설정 탭의 cfg-notify-teams)
+function parseNotifyTeams() {
+  const raw = document.getElementById('cfg-notify-teams')?.value || '';
+  return raw.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean).map(s => {
+    const parts = s.split(' ').filter(Boolean);
+    const email = parts.find(p => p.includes('@')) || '';
+    const name  = parts.filter(p => !p.includes('@')).join(' ');
+    return { name, email };
+  }).filter(t => t.email);
+}
+
+// 입사 안내 메일 + Teams 발송
+async function sendJoinNotice(obId) {
+  const ob = onboardings.find(o => o.id === obId);
+  if(!ob) return;
+  const cand = candidates.find(c => c.id === ob.candId);
+  if(!cand) return;
+
+  const internal = getOnboardInternalRecipients(cand, ob);
+  const { dept, leads, teams, recipients:toEmails } = internal;
+  if(!toEmails) {
     alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: '${dept||'부서 미정'}'의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.`);
     return;
   }
@@ -302,3 +425,138 @@ async function loadSettingsWithGS() {
       set('cfg-ref-auto-url',    gsCfg.refAutoUrl);
       set('cfg-notify-teams',    gsCfg.notifyTeams);
       set('cfg-mask-pii',        gsCfg.maskPii);
+      set('cfg-retention-months',gsCfg.retentionMonths);
+      set('cfg-idle-minutes',    gsCfg.idleMinutes);
+      set('tpl-int1',            gsCfg.tplInt1);
+      set('tpl-int2',            gsCfg.tplInt2);
+      set('tpl-panel',           gsCfg.tplPanel);
+      set('tpl-onboard',         gsCfg.tplOnboard);
+      set('tpl-onboard-internal',gsCfg.tplOnboardInternal);
+      set('tpl-ref',             gsCfg.tplRef);
+      set('tpl-ref-remind',      gsCfg.tplRefRemind);
+      set('tpl-reject',          gsCfg.tplReject);
+      set('tpl-collect',         gsCfg.tplCollect);
+      if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
+      if(gsCfg.referralDataUrl) GS_CONFIG.referralDataUrl = gsCfg.referralDataUrl;
+      if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
+      if(gsCfg.refAutoUrl)     GS_CONFIG.refAutoUrl = gsCfg.refAutoUrl;
+      setPrivacyMask(gsCfg.maskPii === 'true');
+      resetIdleLock();
+      renderHeadhunterDbPreview();
+      populateHeadhunterSelect();
+      showSyncStatus('설정 로드 완료 (GS)', 'ok');
+    }
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// 설정 저장
+// ══════════════════════════════════════════════════════════════
+function saveSettings() {
+  const cfg = {
+    sign:    document.getElementById('cfg-sign')?.value    || '',
+    formUrl: document.getElementById('cfg-form-url')?.value || '',
+    refUrl:  document.getElementById('cfg-ref-url')?.value  || '',
+    flowUrl: document.getElementById('cfg-flow-url')?.value || '',
+    channel: document.getElementById('cfg-default-channel')?.value || 'outlook',
+    refDays: document.getElementById('cfg-ref-days')?.value || '7',
+    remindDays: document.getElementById('cfg-remind-days')?.value || '3',
+    hrEmail: document.getElementById('cfg-hr-email')?.value || '',
+    headhunterDb: document.getElementById('cfg-headhunter-db')?.value || '',
+    gsUrl:        document.getElementById('cfg-gs-url')?.value        || '',
+    referralDataUrl: document.getElementById('cfg-referral-data-url')?.value || '',
+    interviewerUrl: document.getElementById('cfg-interviewer-url')?.value || '',
+    refAutoUrl: document.getElementById('cfg-ref-auto-url')?.value || '',
+    notifyTeams:  document.getElementById('cfg-notify-teams')?.value || '',
+    maskPii:      document.getElementById('cfg-mask-pii')?.value || 'false',
+    retentionMonths: document.getElementById('cfg-retention-months')?.value || '6',
+    idleMinutes:  document.getElementById('cfg-idle-minutes')?.value || '10',
+    tplInt1: document.getElementById('tpl-int1')?.value || '',
+    tplInt2: document.getElementById('tpl-int2')?.value || '',
+    tplPanel: document.getElementById('tpl-panel')?.value || '',
+    tplOnboard:document.getElementById('tpl-onboard')?.value || '',
+    tplOnboardInternal:document.getElementById('tpl-onboard-internal')?.value || '',
+    tplRef: document.getElementById('tpl-ref')?.value || '',
+    tplRefRemind: document.getElementById('tpl-ref-remind')?.value || '',
+    tplReject: document.getElementById('tpl-reject')?.value || '',
+    tplCollect: document.getElementById('tpl-collect')?.value || '',
+  };
+  try {
+    localStorage.setItem('woomic_settings', JSON.stringify(cfg));
+    setPrivacyMask(cfg.maskPii === 'true');
+    resetIdleLock();
+    // GS Settings 시트에도 저장
+    if(hasGsBridge_()) {
+      saveSettingsToGS(cfg).then(()=>{
+        toast('설정이 저장되었습니다 (GS 동기화 완료).','tok');
+      }).catch(()=>{
+        toast('설정이 저장되었습니다 (localStorage만).','tok');
+      });
+    } else {
+      toast('설정이 저장되었습니다. 새로고침 후에도 유지됩니다.','tok');
+    }
+  } catch(e) {
+    toast('설정 저장 실패: 브라우저 저장공간 부족','terr');
+  }
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('woomic_settings');
+    if(!raw) return;
+    const cfg = JSON.parse(raw);
+    const set = (id, val) => { const el=document.getElementById(id); if(el&&val) el.value=val; };
+    set('cfg-sign',             cfg.sign);
+    set('cfg-form-url',         cfg.formUrl);
+    set('cfg-ref-url',          cfg.refUrl);
+    set('cfg-flow-url',         cfg.flowUrl);
+    set('cfg-default-channel',  cfg.channel);
+    set('cfg-ref-days',         cfg.refDays);
+    set('cfg-remind-days',      cfg.remindDays);
+    set('cfg-hr-email',         cfg.hrEmail);
+    set('cfg-headhunter-db',    cfg.headhunterDb);
+    set('cfg-gs-url', cfg.gsUrl);
+    if(cfg.gsUrl) GS_CONFIG.scriptUrl = cfg.gsUrl; // GS 연동 복원
+    set('cfg-referral-data-url', cfg.referralDataUrl);
+    if(cfg.referralDataUrl) GS_CONFIG.referralDataUrl = cfg.referralDataUrl;
+    set('cfg-interviewer-url', cfg.interviewerUrl);
+    if(cfg.interviewerUrl) {
+      GS_CONFIG.interviewerUrl = cfg.interviewerUrl;
+      loadInterviewers();
+    }
+    set('cfg-ref-auto-url', cfg.refAutoUrl);
+    if(cfg.refAutoUrl) GS_CONFIG.refAutoUrl = cfg.refAutoUrl;
+    set('cfg-notify-teams',     cfg.notifyTeams);
+    set('cfg-mask-pii',         cfg.maskPii);
+    set('cfg-retention-months', cfg.retentionMonths);
+    set('cfg-idle-minutes',     cfg.idleMinutes);
+    set('tpl-int1',             cfg.tplInt1);
+    set('tpl-int2',             cfg.tplInt2);
+    set('tpl-panel',            cfg.tplPanel);
+    set('tpl-onboard',          cfg.tplOnboard);
+    set('tpl-onboard-internal', cfg.tplOnboardInternal);
+    set('tpl-ref',              cfg.tplRef);
+    set('tpl-ref-remind',       cfg.tplRefRemind);
+    set('tpl-reject',           cfg.tplReject);
+    set('tpl-collect',          cfg.tplCollect);
+    renderHeadhunterDbPreview();
+    populateHeadhunterSelect();
+    privacyMode = cfg.maskPii === 'true' || localStorage.getItem('woomic_privacy_mask') === 'true';
+  } catch(e) { console.warn('설정 로드 실패', e); }
+}
+
+function scrubLegacyBrowserSecrets() {
+  try {
+    const raw = localStorage.getItem('woomic_settings');
+    if(!raw) return;
+    const cfg = JSON.parse(raw);
+    if(!cfg || !Object.prototype.hasOwnProperty.call(cfg, 'openaiKey')) return;
+    delete cfg.openaiKey;
+    localStorage.setItem('woomic_settings', JSON.stringify(cfg));
+    console.info('브라우저에 남아 있던 OpenAI API 키 설정을 제거했습니다.');
+  } catch(e) {
+    console.warn('브라우저 비밀값 정리 실패', e);
+  }
+}
+

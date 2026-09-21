@@ -1603,7 +1603,16 @@
 <!-- ── 추천서 인쇄용 시트 (면접 참고용, 평소엔 숨김) ─────────── -->
 <div id="print-referral-sheet"></div>
 
-<?!= include('app_script'); ?>
+<script>
+<?!= include('js_00_core'); ?>
+<?!= include('js_01_sheets_sync'); ?>
+<?!= include('js_02_positions_interviews'); ?>
+<?!= include('js_03_ui_dashboard'); ?>
+<?!= include('js_04_referral'); ?>
+<?!= include('js_05_candidates_reference'); ?>
+<?!= include('js_06_onboarding_settings'); ?>
+<?!= include('js_99_app'); ?>
+</script>
 </body>
 </html>
 

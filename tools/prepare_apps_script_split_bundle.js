@@ -3,6 +3,7 @@ import path from 'path';
 import {
   adminDistDir,
   adminIntermediateDir,
+  adminJsFiles,
   configDir,
   mailTemplateFiles,
   mailTemplatePath,
@@ -26,7 +27,7 @@ const files = [
     'admin_99_admin_api.gs',
     'Dashboard.html',
     'app_css.html',
-    'app_script.html',
+    ...adminJsFiles,
   ].map(name => [path.join(adminIntermediateDir, name), name]),
   ...mailTemplateFiles.map(([group, name]) => [mailTemplatePath(group, name), name]),
 ];
@@ -58,7 +59,7 @@ const readme = `# Apps Script Split Upload Set
 
 원본 \`src/admin/backend/Code.gs\`, \`src/admin/frontend/Dashboard.html\`과 이전에 생성된 \`js_*.html\`은 이 세트와 동시에 두지 않습니다.
 
-화면 JavaScript는 \`app_script.html\` 하나에 포함됩니다. \`js_*.html\`은 소스 구간 검증용 생성물이며 런타임 include 대상이 아닙니다.
+화면 JavaScript는 기능별 \`js_*.html\` 8개로 나뉘며 \`Dashboard.html\`이 정해진 순서로 include합니다.
 
 ## 진입 파일
 

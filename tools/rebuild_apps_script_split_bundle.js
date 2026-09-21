@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
 
 const steps = [
-  ['Split dashboard HTML', 'tools/split_dashboard_gmail.js'],
+  ['Prepare admin frontend', 'tools/prepare_admin_frontend.js'],
   ['Split server GS', 'tools/split_code_admin_gmail.js'],
   ['Prepare admin upload bundle', 'tools/prepare_apps_script_split_bundle.js'],
   ['Prepare public upload bundle', 'tools/prepare_apps_script_public_bundle.js'],

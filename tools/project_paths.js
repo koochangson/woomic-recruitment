@@ -5,7 +5,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const root = path.resolve(__dirname, '..');
-export const adminHtmlSource = path.join(root, 'src', 'admin', 'frontend', 'Dashboard.html');
+export const adminFrontendDir = path.join(root, 'src', 'admin', 'frontend');
+export const adminHtmlSource = path.join(adminFrontendDir, 'Dashboard.html');
+export const adminCssSource = path.join(adminFrontendDir, 'app_css.html');
+export const adminJsDir = path.join(adminFrontendDir, 'js');
+export const adminJsFiles = [
+  'js_00_core.html',
+  'js_01_sheets_sync.html',
+  'js_02_positions_interviews.html',
+  'js_03_ui_dashboard.html',
+  'js_04_referral.html',
+  'js_05_candidates_reference.html',
+  'js_06_onboarding_settings.html',
+  'js_99_app.html',
+];
 export const adminGsSource = path.join(root, 'src', 'admin', 'backend', 'Code.gs');
 export const publicGsSource = path.join(root, 'src', 'public', 'backend', 'Code.gs');
 export const publicPagesDir = path.join(root, 'src', 'public', 'pages');

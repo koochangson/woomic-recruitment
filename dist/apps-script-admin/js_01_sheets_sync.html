@@ -1,16 +1,3 @@
-    .filter(i => i.status==='confirmed' || i.status==='done')
-    .map(i => Number(i.candId)));
-  const noInt = pool.filter(c => (c.stage===1||c.stage===3) &&
-     !scheduledIds.has(Number(c.id)));
-  const noRef = pool.filter(c => c.ref==='진행중' && Number(c.refD||0)===0);
-  const activeIds = new Set(pool.map(c=>Number(c.id)));
-  const noNoti = interviews.filter(i => (!i.notified || i.mailPending) && activeIds.has(Number(i.candId)));
-  const unlinked = getUnlinkedCandidates();
-  const mailPending = getMailPendingItems();
-  return { noInt, noRef, noNoti, unlinked, mailPending, total: noInt.length + noRef.length + noNoti.length + unlinked.length + mailPending.length };
-}
-
-
 // ══════════════════════════════════════════════════════════════
 // Google Sheets 연동
 // ══════════════════════════════════════════════════════════════
@@ -1520,3 +1507,48 @@ async function loadFromGS(options={}) {
     lastCompletedStage: row.lastCompletedStage !== '' && row.lastCompletedStage != null ? Number(row.lastCompletedStage) : null,
     lastStageChangedAt: row.lastStageChangedAt || '',
     updatedAt:  row.updatedAt || '',
+  }));
+  candidates = result.isDelta
+    ? mergeGsDeltaRecords('Candidates', remote, candidates)
+    : mergeGsRecords('Candidates', remote, candidates);
+  setGsSyncCursor('Candidates', result.serverTime);
+  saveState();
+  showSyncStatus(result.isDelta ? `GS 변경 ${remote.length}건 반영` : `GS 전체 로드 완료 (${candidates.length}명)`, 'ok');
+  return true;
+}
+
+async function testGSConnection() {
+  const urlEl    = document.getElementById('cfg-gs-url');
+  const statusEl = document.getElementById('gs-conn-status');
+  if(!urlEl || !statusEl) return;
+  const url = urlEl.value.trim();
+  if(!url) { statusEl.textContent='⚠ URL을 먼저 입력하세요.'; statusEl.style.color='var(--amber)'; return; }
+  statusEl.textContent='🔄 연결 중...'; statusEl.style.color='var(--t3)';
+  GS_CONFIG.scriptUrl = url;
+  const result = await gsFetch('getAll','Candidates');
+  if(result && !result.error) {
+    statusEl.textContent='✅ 연결 성공 — ' + (result.data?.length||0) + '건';
+    statusEl.style.color='var(--green)';
+    saveSettings();
+    toast('Google Sheets 연결 성공!', 'tok');
+    // 기존 데이터 업로드 여부 확인
+    if(candidates.length > 0 && result.data?.length === 0) {
+      if(confirm('현재 대시보드의 지원자 ' + candidates.length + '명을 Google Sheets에 업로드할까요?')) {
+        for(const cand of candidates) await syncCandToGS(cand);
+        toast('업로드 완료!', 'tok');
+      }
+    } else if(result.data?.length > 0) {
+      if(confirm('Google Sheets에 ' + result.data.length + '명의 데이터가 있습니다. 불러올까요?')) {
+        clearGsSyncCursors();
+        clearGsChangeCursor();
+        await syncCoreFromGS({forceFull:true});
+        renderDashboard(); renderTracker(); renderPositions();
+      }
+    }
+  } else {
+    statusEl.textContent='❌ 연결 실패 — URL 확인';
+    statusEl.style.color='var(--red)';
+    GS_CONFIG.scriptUrl='';
+  }
+}
+

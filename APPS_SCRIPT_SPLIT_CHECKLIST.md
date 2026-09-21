@@ -16,11 +16,18 @@ node tools/rebuild_apps_script_split_bundle.js
 
 Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 
-- `Dashboard.html` (`Dashboard_gmail_split.html`이 업로드 폴더에서 이 이름으로 복사됨)
+- `Dashboard.html`
 - `app_css.html`
-- `app_script.html`
+- `js_00_core.html`
+- `js_01_sheets_sync.html`
+- `js_02_positions_interviews.html`
+- `js_03_ui_dashboard.html`
+- `js_04_referral.html`
+- `js_05_candidates_reference.html`
+- `js_06_onboarding_settings.html`
+- `js_99_app.html`
 
-`Dashboard.html`이 진입 파일이며 `app_css.html`과 `app_script.html`을 `include()`로 합칩니다. `js_*.html`은 구간 재결합 검증용 생성물이므로 Apps Script에 추가하지 않습니다.
+`Dashboard.html`이 진입 파일이며 `app_css.html`과 위 JavaScript 모듈 8개를 `include()`로 합칩니다. 파일명은 Apps Script 편집기에서 자동으로 붙는 `.html` 확장자를 제외한 이름으로 표시될 수 있습니다.
 
 ## 2. 메일 템플릿 HTML
 
@@ -64,8 +71,7 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 
 로컬 분리 검증 결과:
 
-- `src/admin/frontend/Dashboard.html`의 CSS는 `app_css.html`과 동일합니다.
-- `app_script.html`은 관리자 화면 원본의 전체 인라인 JavaScript와 동일합니다.
-- `dist/.intermediate/admin/js_*.html`을 순서대로 합치면 원본 JS와 동일합니다.
+- `src/admin/frontend/Dashboard.html`, `app_css.html`, `js/*.html`은 각각 같은 이름의 업로드 파일과 동일합니다.
+- 기능별 JavaScript 모듈 8개를 include 순서대로 합친 결과가 구문 검사를 통과했습니다.
 - 분리된 `admin_*.gs`를 순서대로 합치면 `src/admin/backend/Code.gs`와 동일합니다.
 - 분리된 JS와 GS 모두 구문 검사를 통과했습니다.

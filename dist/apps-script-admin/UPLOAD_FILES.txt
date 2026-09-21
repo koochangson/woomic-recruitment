@@ -12,7 +12,14 @@ admin_09_auth.gs
 admin_99_admin_api.gs
 Dashboard.html
 app_css.html
-app_script.html
+js_00_core.html
+js_01_sheets_sync.html
+js_02_positions_interviews.html
+js_03_ui_dashboard.html
+js_04_referral.html
+js_05_candidates_reference.html
+js_06_onboarding_settings.html
+js_99_app.html
 mail_01_reference_candidate_request.html
 mail_02_reference_candidate_reminder.html
 mail_03_reference_referee_request.html

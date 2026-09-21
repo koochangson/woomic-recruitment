@@ -4,7 +4,9 @@
 
 ## 1. 직접 수정하는 원본
 
-- 관리자 화면: `src/admin/frontend/Dashboard.html`
+- 관리자 화면 마크업: `src/admin/frontend/Dashboard.html`
+- 관리자 화면 스타일: `src/admin/frontend/app_css.html`
+- 관리자 화면 기능: `src/admin/frontend/js/js_*.html`
 - 관리자 Apps Script: `src/admin/backend/Code.gs`
 - 공개 Apps Script: `src/public/backend/Code.gs`
 - 공개 화면: `src/public/pages/**`
@@ -31,7 +33,7 @@ node scripts/syntax-check.mjs
 node scripts/deployment-readiness.mjs
 ```
 
-관리자 화면은 `Dashboard.html`에서 `app_css.html`과 `app_script.html`만 include합니다. `dist/.intermediate/admin/js_*.html`은 원본 JS 구간 재결합 검증용이며 Apps Script 업로드 대상이 아닙니다.
+관리자 화면은 `Dashboard.html`에서 `app_css.html`과 기능별 JavaScript 모듈 8개를 순서대로 include합니다. 파일 순서는 `tools/project_paths.js`의 `adminJsFiles`를 단일 기준으로 사용하며, 빌드 결과인 `dist/**`는 직접 수정하지 않습니다.
 
 ## 4. 배포 원칙
 

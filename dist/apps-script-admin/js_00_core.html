@@ -1435,3 +1435,16 @@ function getActionItems(){
     (c.posId == null || c.posId === '' || activePositionIds.has(Number(c.posId)))
   );
   const scheduledIds = new Set(interviews
+    .filter(i => i.status==='confirmed' || i.status==='done')
+    .map(i => Number(i.candId)));
+  const noInt = pool.filter(c => (c.stage===1||c.stage===3) &&
+     !scheduledIds.has(Number(c.id)));
+  const noRef = pool.filter(c => c.ref==='진행중' && Number(c.refD||0)===0);
+  const activeIds = new Set(pool.map(c=>Number(c.id)));
+  const noNoti = interviews.filter(i => (!i.notified || i.mailPending) && activeIds.has(Number(i.candId)));
+  const unlinked = getUnlinkedCandidates();
+  const mailPending = getMailPendingItems();
+  return { noInt, noRef, noNoti, unlinked, mailPending, total: noInt.length + noRef.length + noNoti.length + unlinked.length + mailPending.length };
+}
+
+

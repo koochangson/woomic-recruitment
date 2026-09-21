@@ -4,9 +4,9 @@
 
 ### 관리자 화면
 
-`src/admin/frontend/Dashboard.html` -> `tools/split_dashboard_gmail.js` -> `dist/.intermediate/admin/*` -> `dist/apps-script-admin/Dashboard.html`
+`src/admin/frontend/{Dashboard.html, app_css.html, js/*.html}` -> `tools/prepare_admin_frontend.js` -> `dist/.intermediate/admin/*` -> `dist/apps-script-admin/*`
 
-Apps Script의 `doGet()`은 `Dashboard` 템플릿을 평가합니다. 이 템플릿은 `app_css`와 `app_script`만 include합니다. `js_*.html`은 원본 JavaScript를 기능 구간으로 재결합하는 검증용 생성물이며 런타임 파일이 아닙니다.
+Apps Script의 `doGet()`은 `Dashboard` 템플릿을 평가합니다. 이 템플릿은 `app_css`와 기능별 JavaScript 모듈 8개를 include합니다. 모듈은 실제 런타임 파일이며 `tools/project_paths.js`의 `adminJsFiles` 순서대로 합쳐져 구문 검사를 통과해야 합니다.
 
 ### 관리자 서버
 
@@ -22,6 +22,7 @@ Apps Script의 `doGet()`은 `Dashboard` 템플릿을 평가합니다. 이 템플
 
 ```text
 src/admin/frontend/
+src/admin/frontend/js/
 src/admin/backend/
 src/public/backend/
 src/public/pages/

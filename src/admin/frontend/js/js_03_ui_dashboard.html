@@ -1,0 +1,1010 @@
+// ══════════════════════════════════════════════════════════════
+// 상태 (localStorage 연동)
+// ══════════════════════════════════════════════════════════════
+const LS_KEY = 'woomic_recruit_v4';
+
+
+
+function showSyncStatus(msg, type='') {
+  const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
+  const el = document.getElementById('gs-conn-status');
+  if(el) { el.textContent = msg; el.style.color = colors[type]||colors['']; }
+  const dot = document.getElementById('sb-sync-dot');
+  const label = document.getElementById('sb-sync-label');
+  const banner = document.getElementById('sync-fail-banner');
+  const failed = type === 'warn' && /실패|응답 없음|연결 실패/.test(String(msg));
+  const syncing = type === '' && /중|로드|확인/.test(String(msg));
+  if(dot) dot.className = `sb-sync-dot${failed?' fail':type==='ok'?' ok':syncing?' ing':''}`;
+  if(label) label.textContent = failed ? '동기화 실패 · 수동 확인 필요' : type === 'ok' ? `마지막 동기화 · ${now()}` : String(msg || '동기화 대기').replace(/^⚠\s*/,'');
+  if(banner) banner.style.display = failed ? 'flex' : type === 'ok' ? 'none' : banner.style.display;
+}
+
+function updateSidebarUrgency() {
+  const posUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high'));
+  const interviewUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high' && /^(first|second)_/.test(item.type)));
+  const mailUrgent = getMailPendingItems().length > 0;
+  document.getElementById('nb-pos')?.classList.toggle('urgent', posUrgent);
+  document.getElementById('nb-int')?.classList.toggle('urgent', interviewUrgent);
+  document.getElementById('nb-notify')?.classList.toggle('urgent', mailUrgent);
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { lastLocalStateJson = raw; return JSON.parse(raw); }
+  } catch(e) {}
+  return null;
+}
+
+function getAuxStateSnapshot() {
+  return {
+    updatedAt: auxUpdatedAt || new Date().toISOString(),
+    onboardings,
+    notifyLog: notifyLog.slice(0,200),
+    refDetails,
+    refReports,
+    activityLog: activityLog.slice(0,300),
+  };
+}
+
+function getAuxFingerprint() {
+  return JSON.stringify({
+    onboardings,
+    notifyLog: notifyLog.slice(0,200),
+    refDetails,
+    refReports,
+    activityLog: activityLog.slice(0,300),
+  });
+}
+
+function chunkText(text, size=1400) {
+  return String(text || '').match(new RegExp(`[\\s\\S]{1,${size}}`, 'g')) || [''];
+}
+
+async function syncAuxStateToGS() {
+  if(!GS_CONFIG.scriptUrl || auxSyncSuspended) return;
+  const json = JSON.stringify(getAuxStateSnapshot());
+  const chunks = chunkText(json);
+  const tasks = [
+    gsUpsert('Settings', {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})}),
+    ...chunks.map((value,i)=>gsUpsert('Settings',{id:`auxState:${i}`,value})),
+  ];
+  await settleSync(tasks, '보조 데이터 동기화');
+}
+
+function scheduleAuxStateSync() {
+  if(auxSyncSuspended || !GS_CONFIG.scriptUrl) return;
+  clearTimeout(auxSyncTimer);
+  auxSyncTimer = setTimeout(syncAuxStateToGS, 1800);
+}
+
+async function loadAuxStateFromGS() {
+  if(!hasGsBridge_()) return false;
+  const rows = await gsGetAll('Settings');
+  const coreDeleted = applyRemoteGsTombstones(rows);
+  if(coreDeleted) {
+    renderDashboard();
+    renderTracker();
+    renderPositions();
+  }
+  const map = new Map(rows.map(r=>[String(r.id),String(r.value??'')]));
+  let meta;
+  try { meta = JSON.parse(map.get('auxState:meta') || ''); } catch(e) { return false; }
+  if(!meta?.count) return false;
+  let json = '';
+  for(let i=0;i<meta.count;i++) json += map.get(`auxState:${i}`) || '';
+  try {
+    const remote = JSON.parse(json);
+    if(auxUpdatedAt && remote.updatedAt && String(auxUpdatedAt) >= String(remote.updatedAt)) return false;
+    onboardings = remote.onboardings || onboardings;
+    notifyLog = remote.notifyLog || notifyLog;
+    refDetails = remote.refDetails || refDetails;
+    refReports = remote.refReports || refReports;
+    activityLog = remote.activityLog || activityLog;
+    auxUpdatedAt = remote.updatedAt || meta.updatedAt || '';
+    saveState();
+    return true;
+  } catch(e) {
+    console.warn('보조 데이터 GS 로드 실패:', e);
+    return false;
+  }
+}
+
+function saveState() {
+  let auxChanged = false;
+  try {
+    const auxFingerprint = getAuxFingerprint();
+    auxChanged = auxFingerprint !== lastAuxFingerprint;
+    if(auxChanged) {
+      lastAuxFingerprint = auxFingerprint;
+      if(!auxSyncSuspended) auxUpdatedAt = new Date().toISOString();
+    }
+    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog: activityLog.slice(0,300), auxUpdatedAt });
+    if(data !== lastLocalStateJson) {
+      localStorage.setItem(LS_KEY, data);
+      lastLocalStateJson = data;
+    }
+    if(auxChanged) scheduleAuxStateSync();
+  } catch(e) {
+    if(e.name === 'QuotaExceededError' || e.code === 22) {
+      notifyLog = notifyLog.slice(0, 50);
+      activityLog = activityLog.slice(0, 100);
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog, auxUpdatedAt })); if(auxChanged) scheduleAuxStateSync(); }
+      catch(e2) { console.warn('localStorage 저장 실패:', e2); }
+    }
+  }
+}
+
+
+function nav(id, btn) {
+  document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
+  const section = document.getElementById('sect-'+id);
+  if(!section) return;
+  section.classList.add('on');
+  if(id !== 'posdetail') currentPosDetailId = null;
+  // btn 미전달(프로그램적 호출) 시 해당 섹션의 사이드바 버튼을 자동 활성화
+  if(btn) btn.classList.add('on');
+  else {
+    const navTarget = id === 'posdetail' ? 'position' : id;
+    const auto = document.querySelector(`.nb[data-action="nav"][data-target="${navTarget}"]`);
+    if(auto) auto.classList.add('on');
+  }
+  document.getElementById('tb-title').textContent = TITLES[id]||id;
+  if(id==='dash') renderDashboard();
+  if(id==='recruit-status') renderRecruitStatus();
+  if(id==='tracker') { populateSel('int-cand'); populateSel('ob-cand'); renderTracker(); }
+  if(id==='interview') { populateSel('int-cand'); renderIntTable(); }
+  if(id==='reference') { renderReference(); }
+  if(id==='referral') { renderReferralSection(); }
+  if(id==='onboarding') { populateSel('ob-cand'); renderOnboarding(); }
+  if(id==='notifylog') { renderNotifyLog(); renderActivityLog(); }
+  if(id==='notifylog') renderPeriodReport();
+  if(id==='position') renderPositions();
+  if(id==='settings') renderTeamMaster();
+}
+function navBtn(id) {
+  const btn = document.querySelector(`.nb[data-action="nav"][data-target="${id}"]`);
+  if(btn) nav(id, btn);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 모달
+// ══════════════════════════════════════════════════════════════
+// 시간 입력을 10분 단위로 보정 (정시 00분 기준)
+function snapTo10(el) {
+  if(!el || !el.value) return;
+  const v = el.value;
+  // datetime-local: "2026-06-05T14:23" / time: "14:23"
+  const isDT = v.indexOf('T') !== -1;
+  const timePart = isDT ? v.split('T')[1] : v;
+  if(!timePart) return;
+  let [h, m] = timePart.split(':').map(Number);
+  if(isNaN(h) || isNaN(m)) return;
+  // 가장 가까운 10분으로 반올림
+  let snapped = Math.round(m / 10) * 10;
+  if(snapped === 60) { snapped = 0; h = (h + 1) % 24; }
+  const hh = String(h).padStart(2,'0');
+  const mm = String(snapped).padStart(2,'0');
+  el.value = isDT ? `${v.split('T')[0]}T${hh}:${mm}` : `${hh}:${mm}`;
+}
+
+function openModal(id) {
+  const el = document.getElementById(id);
+  if(!el) { console.error('[openModal] element not found:', id); return; }
+  el.style.display = 'flex';
+  el.style.position = 'fixed';
+  el.style.top = '0';
+  el.style.left = '0';
+  el.style.width = '100vw';
+  el.style.height = '100vh';
+  el.style.background = 'rgba(0,0,0,.45)';
+  el.style.zIndex = '9999';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.style.padding = '20px';
+  el.style.boxSizing = 'border-box';
+  el.classList.add('open');
+  // 접근성: 다이얼로그 역할 + 포커스 이동(이전 포커스 저장)
+  el.setAttribute('role','dialog');
+  el.setAttribute('aria-modal','true');
+  const title = el.querySelector('.modal-title');
+  if(title) {
+    if(!title.id) title.id = `${id}-title`;
+    el.setAttribute('aria-labelledby', title.id);
+  }
+  document.querySelectorAll('.sb,.main').forEach(x => { x.inert = true; });
+  el._prevFocus = document.activeElement;
+  setTimeout(() => {
+    const f = el.querySelector('input,select,textarea,button,[tabindex]:not([tabindex="-1"])');
+    if(f) { try{ f.focus(); }catch(e){} }
+    else { el.setAttribute('tabindex','-1'); el.focus(); }
+  }, 30);
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = 'none';
+  el.classList.remove('open');
+  if(!document.querySelector('.overlay.open')) document.querySelectorAll('.sb,.main').forEach(x => { x.inert = false; });
+  if(el._prevFocus && el._prevFocus.focus){ try{ el._prevFocus.focus(); }catch(e){} el._prevFocus=null; } // 포커스 복귀
+}
+
+// 신규 지원자 등록 모달 열기 (포지션 드롭다운 자동 채움)
+// 포지션 상세에서 신규 지원자 바로 추가 (포지션 정보 자동 채움)
+function addCandToPos(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const modal = document.getElementById('modal-add');
+  if(!modal) return;
+  delete modal.dataset.editId;
+  modal.dataset.returnPosId = posId;   // 저장 후 복귀용
+  document.querySelector('#modal-add .modal-title').textContent = `신규 지원자 등록 — ${esc(pos.title)}`;
+  // 입력 초기화 후 포지션 정보 자동 채움
+  const setv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  setv('nc-name','');  setv('nc-email',''); setv('nc-memo',''); setv('nc-date', today());
+  setv('nc-source','direct'); setv('nc-headhunter-id','');
+  setv('nc-pos', pos.title);
+  setv('nc-dept', pos.dept || '');
+  // 직군/채용형태 select가 있으면 포지션 값으로
+  const roleEl = document.getElementById('nc-role'); if(roleEl) roleEl.value = pos.role || roleEl.value;
+  const etypeEl = document.getElementById('nc-etype'); if(etypeEl) etypeEl.value = pos.etype || etypeEl.value;
+  populatePosSelect(posId);            // 이 포지션 선택 고정
+  populateHeadhunterSelect();
+  toggleHeadhunterFields();
+  updateAddCandSeatHint();
+  closeModal('modal-pos-detail');
+  openModal('modal-add');
+}
+
+function openAddCand() {
+  const modal = document.getElementById('modal-add');
+  if(!modal) return;
+  delete modal.dataset.editId;
+  delete modal.dataset.returnPosId;
+  document.querySelector('#modal-add .modal-title').textContent = '서류합격자 등록';
+  ['nc-name','nc-pos','nc-email','nc-dept','nc-memo'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  const sourceEl = document.getElementById('nc-source'); if(sourceEl) sourceEl.value = 'direct';
+  const hhEl = document.getElementById('nc-headhunter-id'); if(hhEl) hhEl.value = '';
+  const dateEl = document.getElementById('nc-date');
+  if(dateEl) dateEl.value = today();
+  populatePosSelect();
+  populateHeadhunterSelect();
+  toggleHeadhunterFields();
+  updateAddCandSeatHint();
+  openModal('modal-add');
+}
+
+function populateHeadhunterSelect(selectedId) {
+  const sel = document.getElementById('nc-headhunter-id');
+  if(!sel) return;
+  const firms = getHeadhunterDb();
+  sel.innerHTML = '<option value="">— 업체를 선택하세요 —</option>' +
+    firms.map(f => `<option value="${esc(f.id)}">${esc(f.name)}${f.manager ? ' · ' + esc(f.manager) : ''}</option>`).join('');
+  if(selectedId) sel.value = selectedId;
+  updateHeadhunterHint();
+}
+
+function toggleHeadhunterFields() {
+  const isHH = document.getElementById('nc-source')?.value === 'headhunting';
+  const wrap = document.getElementById('nc-headhunter-wrap');
+  const req = document.getElementById('nc-email-required');
+  if(wrap) wrap.style.display = isHH ? '' : 'none';
+  if(req) req.style.display = isHH ? 'none' : '';
+  updateHeadhunterHint();
+}
+
+function updateHeadhunterHint() {
+  const hint = document.getElementById('nc-headhunter-hint');
+  if(!hint) return;
+  const id = document.getElementById('nc-headhunter-id')?.value || '';
+  const firm = getHeadhunterDb().find(x => x.id === id);
+  hint.textContent = firm ? `${firm.manager || '담당자 미입력'} · ${firm.email || '이메일 미입력'}${firm.phone ? ' · ' + firm.phone : ''}` : '설정 탭의 헤드헌팅 업체 DB에서 업체를 관리합니다.';
+}
+
+function renderHeadhunterDbPreview() {
+  const el = document.getElementById('headhunter-db-preview');
+  if(!el) return;
+  const firms = getHeadhunterDb();
+  el.innerHTML = firms.length
+    ? firms.map(f => `<span class="b bamber" style="margin:0 4px 4px 0">${esc(f.name)}${f.manager ? ' · ' + esc(f.manager) : ''}</span>`).join('')
+    : '등록된 헤드헌팅 업체가 없습니다.';
+}
+
+// nc-pos-id 드롭다운에 포지션 목록 채우기
+function populatePosSelect(selectedId) {
+  const sel = document.getElementById('nc-pos-id');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— 포지션을 선택하세요 —</option>' +
+    positions.filter(p => posStatus(p) === 'active').map(p => `<option value="${p.id}">${esc(p.title)} (${esc(p.etype)})</option>`).join('');
+  if(selectedId !== undefined && selectedId !== null) sel.value = selectedId;
+  sel.onchange = () => {
+    const p = positions.find(x => Number(x.id) === Number(sel.value));
+    if(p) {
+      const posEl = document.getElementById('nc-pos'); if(posEl) posEl.value = p.title;
+      const deptEl = document.getElementById('nc-dept'); if(deptEl && p.dept) deptEl.value = p.dept;
+      const roleEl = document.getElementById('nc-role'); if(roleEl && p.role) roleEl.value = normalizeRole(p.role);
+      const etypeEl = document.getElementById('nc-etype'); if(etypeEl && p.etype) etypeEl.value = p.etype;
+    }
+    updateAddCandSeatHint();
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// 토스트
+// ══════════════════════════════════════════════════════════════
+function toast(msg, type='') {
+  const w = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const s = document.createElement('span');
+  s.textContent = msg;
+  t.appendChild(s);
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 유틸
+// ══════════════════════════════════════════════════════════════
+function populateSel(id) {
+  const s = document.getElementById(id); if(!s) return;
+  const v = s.value;
+  s.innerHTML = '<option value="">-- 선택 --</option>';
+  const list = id === 'ob-cand' ? candidates.filter(c=>c.stage===5) : candidates;
+  list.forEach(c => s.add(new Option(`${esc(c.name)} (${esc(c.pos)})`, c.id)));
+  if(v) s.value = v;
+}
+function badge(stage) { return `<span class="b ${SBG[stage]||'bgray'}">${STAGES[stage]||''}</span>`; }
+function rolePill(r) { return `<span class="role ${ROLE_CLS[r]||''}">${r}</span>`; }
+function etypePill(e) { return `<span class="etype ${ETYPE_CLS[e]||''}">${e}</span>`; }
+function empty(msg, sub='', actionHtml='') { return `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-3-3v6m7 4H5a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v12a2 2 0 01-2 2z"/></svg><div style="font-size:13px;font-weight:700;color:var(--t2)">${msg}</div>${sub?`<div style="font-size:11.5px;color:var(--t3);margin-top:3px">${sub}</div>`:''}${actionHtml?`<div style="margin-top:8px">${actionHtml}</div>`:''}</div>`; }
+function now() { return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }
+
+// ── 날짜 형식 정규화 ─────────────────────────────────────────
+function formatDate(val) {
+  if(!val) return '';
+  // ISO 형식 (2026-05-18T15:00:00.000Z) → YYYY-MM-DD
+  if(typeof val === 'string' && val.includes('T')) {
+    return val.split('T')[0];
+  }
+  // Excel 날짜 숫자 (46160 등) → YYYY-MM-DD
+  if(typeof val === 'number' || (typeof val === 'string' && /^\d{5}$/.test(val))) {
+    const num = parseInt(val);
+    const date = new Date((num - 25569) * 86400 * 1000);
+    return date.toISOString().split('T')[0];
+  }
+  // 이미 YYYY-MM-DD 형식
+  return String(val).split('T')[0];
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function logNotify(ch, type, target, to) {
+  notifyLog.unshift({ ch, type, target, to, time:now(), date:today() });
+  const nb = document.getElementById('nb-notify');
+  nb.style.display = ''; nb.textContent = notifyLog.length;
+  updateSidebarUrgency();
+  saveState();
+}
+
+// 내부 직원 단체메일 수신자: 유효한 이메일만 중복 없이 한 메일에 묶는다.
+function groupMailRecipients(emails) {
+  return [...new Set((emails||[]).flatMap(e=>String(e||'').split(/[;,]/)).map(e=>e.trim()).filter(e=>e.includes('@')))].join(';');
+}
+
+// ── Gmail 이메일 발송 헬퍼 ───────────────────────
+async function sendMailViaGmail(to, subject, body) {
+  try {
+    const result = await gsFetch('sendMail', '', { to, subject, body }, { allowQueue:false });
+    if(!result || !result.ok) {
+      toast(`메일 발송 실패 (${to}): ${result?.error || 'Apps Script/Gmail 권한을 확인하세요.'}`, 'terr');
+      return false;
+    }
+    toast(`메일 발송 완료 (${to})`, 'tok');
+    return true;
+  } catch(err) {
+    console.error(err);
+    toast(`메일 발송 중 오류가 발생했습니다 (${to})`, 'terr');
+    return false;
+  }
+}
+
+function openMailto(toEmail, subject, body, sequential) {
+  if(!toEmail || !toEmail.includes('@')) {
+    alert('이메일 주소가 등록되지 않았습니다.\n지원자/대상 정보를 수정해 이메일을 입력해주세요.');
+    return false;
+  }
+  const to = toEmail.replace(/;/g, ',');
+  sendMailViaGmail(to, subject, body);
+  return true;
+}
+
+function buildIntEmail(itv, cand) {
+  const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
+  const tplId = itv.type === '1차' ? 'tpl-int1' : 'tpl-int2';
+  const tpl = document.getElementById(tplId)?.value || '';
+  if(tpl) {
+    return tpl
+      .replace(/\{지원자명\}/g, cand?.name || '')
+      .replace(/\{포지션\}/g, cand?.pos || '')
+      .replace(/\{면접유형\}/g, type)
+      .replace(/\{면접일시\}/g, itv.date || '별도 안내 예정')
+      .replace(/\{장소\}/g,    itv.loc  || '별도 안내 예정')
+      .replace(/\{면접관\}/g,  itv.panel || '')
+      .replace(/\{메모\}/g,    itv.memo ? '\n안내사항: ' + itv.memo : '');
+  }
+  return `안녕하세요 ${cand?.name || ''}님,\n\n${type} 일정을 안내드립니다.\n\n일시: ${itv.date || '별도 안내 예정'}\n장소: ${itv.loc || '별도 안내 예정'}${itv.memo ? '\n안내: ' + itv.memo : ''}`;
+}
+
+function selectTemplateEditor(templateId, trigger) {
+  document.querySelectorAll('.template-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.templatePanel === templateId);
+  });
+  document.querySelectorAll('.template-list button').forEach(button => button.classList.remove('active'));
+  if(trigger) trigger.classList.add('active');
+  document.getElementById(templateId)?.focus();
+}
+
+function getActiveTemplateTextarea() {
+  return document.querySelector('.template-panel.active textarea');
+}
+
+function insertTemplateSnippet(type) {
+  const textarea = getActiveTemplateTextarea();
+  if(!textarea) return;
+  const snippets = {
+    infoTable: `\n[안내 정보]\n구분        내용\n----------  --------------------------------\n전형        {면접유형}\n일시        {면접일시}\n장소        {장소}\n담당        우미건설 피플팀\n`,
+    checklist: `\n[확인 사항]\n- 면접 시작 10분 전까지 도착해 주세요.\n- 신분증을 지참해 주세요.\n- 일정 변경이 필요한 경우 본 메일로 회신 부탁드립니다.\n`,
+    divider: `\n------------------------------------------------------------\n`,
+    cta: `\n[바로가기]\n{결과설문링크}\n`
+  };
+  const text = snippets[type] || snippets.infoTable;
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const end = textarea.selectionEnd ?? start;
+  textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+  const cursor = start + text.length;
+  textarea.focus();
+  textarea.setSelectionRange(cursor, cursor);
+  toast('템플릿에 서식 블록을 삽입했습니다.', 'tok');
+}
+
+function buildOfferEmail(ob, cand) {
+  const tpl = document.getElementById('tpl-onboard')?.value || '';
+  if(tpl) {
+    return tpl
+      .replace(/\{지원자명\}/g, ob.candName || cand?.name || '')
+      .replace(/\{포지션\}/g,   ob.pos || cand?.pos || '')
+      .replace(/\{입사일\}/g,   ob.joinDate || '')
+      .replace(/\{부서\}/g,     ob.dept || '')
+      .replace(/\{직책\}/g,     ob.rank || '')
+      .replace(/\{채용형태\}/g, ob.etype || '')
+      .replace(/\{근무지\}/g,   ob.loc  || '')
+      .replace(/\{출근시간\}/g, ob.joinTime || '09:00')
+      .replace(/\{집결장소\}/g, ob.reportLocation || '본사 3층 피플팀')
+      .replace(/\{준비사항\}/g, ob.notes ? '\n준비사항:\n' + ob.notes : '');
+  }
+  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '본사 3층 피플팀'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
+}
+
+function buildInternalOnboardEmail(ob, cand) {
+  const tpl = document.getElementById('tpl-onboard-internal')?.value || '';
+  if(tpl) {
+    const joinDate = ob.joinDate || '미정';
+    const notes = (ob.notes || '').trim();
+    return tpl
+      .replace(/\{지원자명\}/g, ob.candName || cand?.name || '')
+      .replace(/\{포지션\}/g,   ob.pos || cand?.pos || '')
+      .replace(/\{입사일\}/g,   joinDate)
+      .replace(/\{부서\}/g,     ob.dept || '미정')
+      .replace(/\{직책\}/g,     ob.rank || '미정')
+      .replace(/\{채용형태\}/g, ob.etype || cand?.etype || '정규직')
+      .replace(/\{근무지\}/g,   ob.loc || '미정')
+      .replace(/\{연락처\}/g,   cand?.phone || cand?.mobile || '별도 확인')
+      .replace(/\{회신기한\}/g, joinDate === '미정' ? '입사일 전일' : '입사일 전일')
+      .replace(/\{입사당일일정\}/g, notes || '입사 당일 본사 출근 예정')
+      .replace(/\{부서협조사항\}/g, '정보전략팀 전산 비품 준비 / 경영지원팀 전화기 설치 및 사원증 발급')
+      .replace(/\{준비사항\}/g, ob.notes || '');
+  }
+  return `[입사안내] ${ob.joinDate || '미정'} ${ob.dept || '미정'} ${ob.candName || cand?.name || ''} ${ob.rank || ''}\n\n안녕하세요.\n${ob.joinDate || '미정'} 입사 예정인 신규입사자를 안내드립니다.\n\n[입사자 정보]\n성명        ${ob.candName || cand?.name || ''}\n포지션      ${ob.pos || cand?.pos || ''}\n배치 부서   ${ob.dept || '미정'}\n입사일      ${ob.joinDate || '미정'}\n직책/직급   ${ob.rank || '미정'}\n채용형태    ${ob.etype || cand?.etype || '정규직'}\n근무지      ${ob.loc || '미정'}\n연락처      ${cand?.phone || cand?.mobile || '별도 확인'}\n\n[현장 담당자 확인 요청]\n입사자와 사전 연락하여 숙소 필요 여부 및 제복 사이즈를 확인해 주시기 바랍니다.\n확인 결과는 입사일 전일까지 피플팀으로 회신 부탁드립니다.\n\n[입사 당일 일정 및 부서별 협조사항]\n입사 당일 일정: ${(ob.notes || '').trim() || '입사 당일 본사 출근 예정'}\n부서별 협조사항: 정보전략팀 전산 비품 준비 / 경영지원팀 전화기 설치 및 사원증 발급\n\n원활한 입사 준비를 위해 관련 부서에서는 입사일 전일까지 준비 사항을 완료해 주시기 바랍니다.\n\n우미건설 피플팀 드림\n\n※ 본 메일에는 입사 예정자의 개인정보가 포함되어 있습니다. 입사 준비 목적 외 이용 및 외부 전달을 금합니다.`;
+}
+
+function buildRejectEmail(cand) {
+  const tpl = document.getElementById('tpl-reject')?.value;
+  if(tpl) return tpl.replace(/\{지원자명\}/g, cand.name||'').replace(/\{포지션\}/g, cand.pos||'');
+  return `안녕하세요 ${cand.name}님,\n\n${cand.pos} 포지션에 지원해 주셔서 진심으로 감사드립니다.\n\n아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.\n소중한 시간 내어 주셔서 감사드립니다.\n\n앞날에 좋은 일들이 가득하시길 바랍니다.`;
+}
+
+function buildOnboardEmail(cand) {
+  const tpl = document.getElementById('tpl-onboard')?.value;
+  if(tpl) return tpl.replace(/\{지원자명\}/g, cand.name).replace(/\{포지션\}/g, cand.pos||'');
+  return `🎉 [입사 안내 - 우미건설]\n${cand.name}님, 최종 합격을 진심으로 축하드립니다!\n\n${cand.pos} 포지션으로 입사하시게 되어 환영합니다.\n입사 절차와 준비 서류를 아래와 같이 안내드립니다.\n\n■ 입사 예정일: 별도 협의\n■ 준비 서류: 신분증 사본, 통장 사본, 자격증 사본 등\n■ 문의: 우미건설 피플팀\n\n입사 관련 궁금하신 점은 언제든 회신 주세요.\n\n우미건설 피플팀 드림`;
+}
+
+function buildRefRequestEmail(cand, link) {
+  const formUrl = link || document.getElementById('cfg-form-url')?.value || '[추천인 등록 링크 발급 실패 — 다시 시도해 주세요]';
+  const tpl = document.getElementById('tpl-ref')?.value;
+  if(tpl) return tpl
+    .replace(/\{지원자명\}/g, cand.name||'')
+    .replace(/\{포지션\}/g, cand.pos||'')
+    .replace(/\{추천인폼링크\}/g, formUrl);
+  return `안녕하세요, ${cand.name}님.\n\n우미건설 ${cand.pos} 포지션 채용 절차와 관련하여 레퍼런스 체크를 진행하고자 합니다.\n\n아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.\n\n추천인 등록 링크\n${formUrl}\n\n등록 정보\n- 성함\n- 이메일\n- 휴대폰 번호\n- 지원자와의 관계\n\n등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.\n추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+}
+
+function requiresReferenceCheck(c) {
+  return getFlowForCandidate(c).includes(2);
+}
+
+
+// ── 메트릭 상세 모달 ─────────────────────────────────────────
+// ── 레퍼런스 메트릭 필터 ─────────────────────────────────────
+function setRefFilter(filterType) {
+  refMetricFilter = refMetricFilter === filterType ? '' : filterType;
+  renderRefFilterPanel();
+  renderReference();
+  // 필터 패널으로 스크롤
+  if(refMetricFilter) {
+    const panel = document.getElementById('ref-filter-panel');
+    if(panel) panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+}
+
+function renderRefFilterPanel() {
+  const panel = document.getElementById('ref-filter-panel');
+  const title = document.getElementById('ref-filter-panel-title');
+  const body  = document.getElementById('ref-filter-panel-body');
+  if(!panel || !title || !body) return;
+
+  if(!refMetricFilter) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  // 필터별 대상 결정
+  const configs = {
+    ready: { label:'발송 대기 — 레퍼런스 대상 미시작', color:'var(--blue)',
+             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=2&&c.ref==='미시작') },
+    ing:   { label:'진행 중 — 레퍼런스 응답 수집 중', color:'var(--amber)',
+             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중') },
+    zero:  { label:'전무응답 — 추천인 0명 응답 (즉시 리마인드 필요)', color:'var(--red)',
+             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중'&&c.refD===0) },
+    done:  { label:'완료 — 전원 응답 완료', color:'var(--green)',
+             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='완료') },
+    pend:  { label:'총 미응답 추천인 보유 — 리마인드 필요', color:'var(--amber)',
+             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중'&&c.refD<c.refT) },
+  };
+
+  const cfg = configs[refMetricFilter];
+  if(!cfg) { panel.style.display='none'; return; }
+
+  panel.style.display = '';
+  title.textContent   = `${cfg.label} (${cfg.list.length}명)`;
+  title.style.color   = cfg.color;
+
+  if(!cfg.list.length) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:12.5px">해당 대상자가 없습니다.</div>';
+    return;
+  }
+
+  body.innerHTML = cfg.list.map(c => {
+    const pct      = c.refT > 0 ? Math.round(c.refD/c.refT*100) : 0;
+    const urgColor = c.refD===0?'var(--red)':c.refD<c.refT?'var(--amber)':'var(--green)';
+    const refInfo  = c.ref==='미시작'
+      ? '<span style="font-size:11px;color:var(--t3)">레퍼런스 미시작</span>'
+      : `<div style="margin-top:5px">
+          <div style="font-size:11px;font-weight:700;color:${urgColor};margin-bottom:3px">${c.refD}/${c.refT}명 응답 (${pct}%)</div>
+          <div class="prog" style="height:4px"><div class="pf-bar" style="width:${pct}%;background:${urgColor}"></div></div>
+         </div>`;
+
+    const actionBtns = c.ref==='미시작'
+      ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">체크 시작</button>`
+      : c.ref==='진행중'
+        ? `<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button>
+           <button class="btn btn-xs" data-action="call" data-call="selectRefCand(${c.id})">추적</button>`
+        : '<span class="b bgreen" style="font-size:10px">✓ 완료</span>';
+
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--acc-light);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0">${c.name.charAt(0)}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${esc(c.name)} ${etypePill(c.etype)}</div>
+        <div style="font-size:11px;color:var(--t3)">${esc(c.pos)}${c.dept?' · '+c.dept:''} ${badge(c.stage)}</div>
+        ${refInfo}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">${actionBtns}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── 대시보드 파이프라인 필터 ─────────────────────────────────
+function setDashPipeFilter(stageIdx) {
+  // 같은 단계 다시 클릭하면 전체 해제
+  dashPipeFilter = dashPipeFilter === stageIdx ? -1 : stageIdx;
+  renderDashboard();
+}
+
+// ── 칸반 뷰 토글 (포지션별 ↔ 단계별 지원자) ────────────────
+let kanbanView = 'pos'; // 'pos'(기본) | 'stage'
+function switchKanban(view){
+  kanbanView = view;
+  const stageOn = view === 'stage';
+  const stageEl = document.getElementById('dash-stage-kanban');
+  const posEl   = document.getElementById('dash-kanban');
+  if(stageEl) stageEl.style.display = stageOn ? '' : 'none';
+  if(posEl)   posEl.style.display   = stageOn ? 'none' : '';
+  const ts = document.getElementById('kb-tab-stage'); if(ts) ts.classList.toggle('on', stageOn);
+  const tp = document.getElementById('kb-tab-pos');   if(tp) tp.classList.toggle('on', !stageOn);
+  stageOn ? renderStageKanban() : renderKanban();
+}
+
+// ── 대시보드 채용단계별 지원자 칸반 ──────────────────────────
+function dashDropStage(e, stageIdx) {
+  e.preventDefault();
+  const col = e.currentTarget;
+  if(col) col.classList.remove('drag-over');
+  const candId = Number(e.dataTransfer.getData('text/plain'));
+  const c = candidates.find(x => Number(x.id) === candId);
+  if(!c) return;
+  if(c.stage === stageIdx) return;
+  requestStageChange(c.id, stageIdx);
+}
+
+function renderStageKanban() {
+  const el = document.getElementById('dash-stage-kanban');
+  if(!el) return;
+
+  const cols = KANBAN_FLOW.map(idx => ({ idx, name: STAGES[idx] }));
+  const activeCandidates = candidates.filter(isActivePipelineCand);
+
+  if(!activeCandidates.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">진행 중인 지원자가 없습니다.</div>';
+    return;
+  }
+
+  // 1패스 그룹화: stage → 지원자[] (단계별 전체 배열 반복 검색 제거)
+  const byStage = {};
+  activeCandidates.forEach(c => { (byStage[c.stage] = byStage[c.stage] || []).push(c); });
+  // 알림 미발송 면접 보유 지원자 집합 (매 카드마다 interviews 순회하지 않도록 사전 계산)
+  const intWarnSet = new Set(interviews.filter(i => !i.notified).map(i => Number(i.candId)));
+
+  el.innerHTML = `<div class="stage-kanban">${cols.map(col => {
+    const list = (byStage[col.idx] || [])
+      .slice()
+      .sort((a,b) => (a.name||'').localeCompare(b.name||'', 'ko'));
+    const color = STAGE_COLORS[col.idx] || 'var(--t3)';
+
+    return `<div class="stage-col"
+                 data-ondragover="event.preventDefault();this.classList.add('drag-over')"
+                 data-ondragleave="this.classList.remove('drag-over')"
+                 data-ondrop="dashDropStage(event,${col.idx})">
+      <div class="stage-col-h">
+        <div class="stage-col-title" style="color:${color}">
+          <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span>
+          ${col.name}
+        </div>
+        <div class="stage-col-count">${list.length}명</div>
+      </div>
+      <div class="stage-drop">
+        ${list.length ? list.map(c => {
+          const nextStage = nextFlowStage(c.stage, c.posId);
+          const hasNext = nextStage !== c.stage;
+          const refWarn = c.ref === '진행중' && Number(c.refD || 0) === 0;
+          const intWarn = intWarnSet.has(Number(c.id));
+          const joinInfo = Number(c.stage) === 5 ? `<span class="b ${getCandidateJoinDate(c)?'bgreen':'bamber'}" style="font-size:10px">${esc(getCandidateJoinDateLabel(c))}</span>` : '';
+          return `<div class="stage-card"
+                       draggable="true"
+                       role="button" tabindex="0" data-onkeydown="kbActivate(event)"
+                       data-ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"
+                       data-action="open-candidate" data-id="${c.id}">
+            <div class="stage-card-name">${esc(c.name)} ${etypePill(c.etype)}</div>
+            <div class="stage-card-meta">${esc(c.pos || '')}</div>
+            <div class="stage-card-tags">
+              ${c.role ? `<span class="role ${ROLE_CLS[c.role] || ''}">${esc(c.role)}</span>` : ''}
+              ${joinInfo}
+              ${refWarn ? '<span class="b bred" style="font-size:10px">레퍼런스 확인</span>' : ''}
+              ${intWarn ? '<span class="b bamber" style="font-size:10px">면접안내 미발송</span>' : ''}
+            </div>
+            <div class="stage-card-actions">
+              <button class="btn btn-xs btn-ghost" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
+              ${hasNext ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${nextStage})">${STAGES[nextStage]} →</button>` : '<span style="font-size:10px;color:var(--t3)">최종 단계</span>'}
+            </div>
+          </div>`;
+        }).join('') : '<div class="stage-empty">해당 단계 지원자 없음</div>'}
+      </div>
+    </div>`;
+  }).join('')}</div>
+  <div style="font-size:11px;color:var(--t3);margin-top:6px">카드를 클릭하면 상세정보를 확인할 수 있으며, 드래그하여 단계 변경도 가능합니다. 단계 변경 시 기존 확인 팝업이 표시됩니다.</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 메트릭 업데이트
+// ══════════════════════════════════════════════════════════════
+function updateMetrics() {
+  const set = (id, v) => { const el=document.getElementById(id); if(el) el.innerHTML=v; };
+  const active = candidates.filter(isActivePipelineCand);
+  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p)));
+  const activePositionIds = new Set(activePos.map(p => Number(p.id)));
+  const pipeline = candidates.filter(c =>
+    c.posId != null && c.posId !== '' &&
+    activePositionIds.has(Number(c.posId)) &&
+    Number(c.stage) >= 0 && Number(c.stage) < 5 &&
+    isActivePipelineCand(c)
+  );
+  const needed = activePos.reduce((sum, pos) => {
+    const target = parseInt(pos.headcount) || 1;
+    const filled = candidates.filter(c =>
+      Number(c.posId) === Number(pos.id) && Number(c.stage) === 5
+    ).length;
+    return sum + Math.max(0, target - filled);
+  }, 0);
+  const weekInt = getThisWeekInterviews().filter(i => i.status !== 'done').length;
+  const unlinkedN = getUnlinkedCandidates().length;
+  const mailPendingN = getMailPendingItems().length;
+  const unit = (n,u) => `${n}<span class="mc-u">${u}</span>`;
+  set('kpi-active-pos', unit(activePos.length,'개'));
+  set('kpi-needed',     unit(needed,'명'));
+  set('kpi-pipeline',   unit(pipeline.length,'명'));
+  set('kpi-weekint',    unit(weekInt,'건'));
+  set('m-unlinked',     unit(unlinkedN,'명'));
+  set('m-pipeline',     unit(active.length,'명'));
+  set('m-mail-pending', unit(mailPendingN,'건'));
+  const neededEl = document.getElementById('kpi-needed');
+  if(neededEl) {
+    neededEl.classList.toggle('mc-val-risk', needed > 0);
+    neededEl.classList.toggle('mc-val-ok', needed === 0);
+  }
+
+  set('kb-progress', `진행 ${pipeline.length}명`);
+  set('nb-total', candidates.length);
+  const pi = interviews.filter(i => !i.notified || i.mailPending).length;
+  const ni = document.getElementById('nb-int');
+  if(ni){ if(pi>0){ni.style.display='';ni.textContent=pi;}else ni.style.display='none'; }
+  if(typeof updateReferralKpis === 'function') updateReferralKpis();
+  updateSidebarUrgency();
+
+  if(typeof renderFunnel==='function') renderFunnel();
+  if(typeof renderUrgent==='function') renderUrgent();
+}
+
+function getThisWeekInterviews() {
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setHours(0,0,0,0);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23,59,59,999);
+  return interviews.filter(i => {
+    const date = new Date(String(i.date || '').replace(' ','T'));
+    return !Number.isNaN(date.getTime()) && date >= monday && date <= sunday;
+  });
+}
+
+function generateDashboardBrief() {
+  if(typeof renderUrgent === 'function') renderUrgent();
+}
+
+function getDashboardActionCall(positionId, actionCall) {
+  const call = String(actionCall || '');
+  return call.startsWith('scrollPositionDetail(') ? `openPosDetail(${positionId});${call}` : call;
+}
+
+function compactDashboardActionDesc(action, pos) {
+  const title = String(action?.title || '');
+  const desc = String(action?.desc || '');
+  if(/충원완료 처리 필요/.test(title)) return '최종합격자 있음 · 충원완료 처리 필요';
+  if(/지원자 등록 필요|지원자 미배정/.test(title)) return '등록된 지원자 없음 · 지원자 등록 필요';
+  if(/후보일정 안내 필요/.test(title)) return '면접전형 대기 · 후보일정 안내 필요';
+  if(/공동일정 확정 필요|면접일정 확정 필요/.test(title)) return '회신 또는 일정 미확정 · 일정 확정 필요';
+  if(/면접관 안내 미발송/.test(title)) return '확정 일정 있음 · 면접관 안내 필요';
+  if(/지원자 안내 미발송/.test(title)) return '확정 일정 있음 · 지원자 안내 필요';
+  if(/면접 실시 후 완료 처리 필요/.test(title)) return '면접 실시 후 완료 처리 필요';
+  if(/면접 결과 입력 필요/.test(title)) return '면접 완료 · 결과 입력 필요';
+  if(/레퍼런스/.test(title)) return `${desc.replace(/·.*/, '').trim() || '레퍼런스 확인 필요'} · ${compactPositionActionTitle(title)}`;
+  if(/처우협의/.test(title)) return '처우협의 대상 있음 · 결과 입력 필요';
+  return desc || '확인 필요';
+}
+
+function dashboardActionCategory(item) {
+  const type = String(item?.type || '');
+  const title = String(item?.title || '');
+  const label = String(item?.label || '');
+  if(/referral|reward/.test(type) || /사내추천|포상금/.test(title)) return '사내추천';
+  if(/reference|ref_/.test(type) || /레퍼런스/.test(title) || /레퍼런스/.test(label)) return '레퍼런스';
+  if(/mail|notice/.test(type) || /메일|발송|안내 확인|면접안내/.test(title) || label === '완료') return '메일 확인';
+  if(/interview|schedule|slots|first_|second_/.test(type) || /면접|일정|후보일정/.test(title)) return '면접 운영';
+  if(/candidate|fill|offer|residual|unlinked/.test(type) || /충원|지원자 등록|지원자 미배정|미연결|처우협의|잔여/.test(title)) return '포지션 관리';
+  return '기타';
+}
+
+function renderDashboardActionList(items) {
+  const order = ['포지션 관리','면접 운영','레퍼런스','사내추천','메일 확인','기타'];
+  return order.map(category => {
+    const group = items.filter(item => item.category === category);
+    if(!group.length) return '';
+    return `<div class="dash-ac-group">${esc(category)}<span class="dash-ac-group-count">${group.length}건</span></div>${group.map(item => `<div class="dash-ac-item">
+      <span class="dash-ac-dot ${item.danger?'is-danger':''}"></span>
+      <div class="dash-ac-main">
+        <div class="dash-ac-top">
+          <div class="dash-ac-name">${esc(item.title)}</div>
+          <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
+        </div>
+        <div class="dash-ac-lines">${formatDashboardActionLines(item.desc)}</div>
+      </div>
+    </div>`).join('')}`;
+  }).join('');
+}
+
+function formatDashboardActionLines(desc) {
+  const parts = String(desc || '확인 필요')
+    .split('·')
+    .map(v => v.trim())
+    .filter(Boolean);
+  if(parts.length <= 1) return `<div class="dash-ac-line">${esc(parts[0] || '확인 필요')}</div>`;
+  return parts.slice(0, 2).map(part => `<div class="dash-ac-line">${esc(part)}</div>`).join('');
+}
+
+function getDashboardActionItems() {
+  const { noInt, noRef, noNoti, unlinked, mailPending } = getActionItems();
+  lastMailPendingItems = mailPending;
+  const items = [];
+  const positionTypes = new Set();
+  positions.filter(p => ['active','partial'].includes(posStatus(p))).forEach(pos => {
+    getPositionActionItems(pos.id).filter(a => a.priority === 'high' || a.type === 'candidate_register').forEach(a => {
+      positionTypes.add(a.type);
+      items.push({
+        type:a.type, positionId:pos.id,
+        title:pos.title || '포지션 미지정', desc:compactDashboardActionDesc(a,pos), label:compactPositionActionLabel(a.actionLabel),
+        call:getDashboardActionCall(pos.id,a.actionCall), danger:false
+      });
+    });
+  });
+  const hasScheduleAction = ['first_schedule_reply','first_schedule','second_schedule'].some(type => positionTypes.has(type));
+  if(noInt.length && !hasScheduleAction) items.push({type:'interview_schedule',title:`면접 대상 ${noInt.length}명`,desc:'공동일정 미확정 · 일정 확정 필요',label:'면접',call:"navBtn('interview')",danger:false});
+  if(noRef.length && !positionTypes.has('reference_remind')) items.push({type:'reference_remind',title:`레퍼런스 대상 ${noRef.length}명`,desc:'미응답 있음 · 리마인드 또는 완료 확인 필요',label:'레퍼런스',call:"navBtn('reference')",danger:false});
+  if(noNoti.length) items.push({type:'interview_notice',title:`면접안내 대상 ${noNoti.length}건`,desc:'안내 미발송 · 지원자/면접관 안내 확인',label:'면접',call:"navBtn('interview')",danger:true});
+  if(unlinked.length) items.push({type:'unlinked',title:`합격자 ${unlinked.length}명`,desc:'포지션 미연결 · 포지션 연결 필요',label:'확인',call:'showUnlinkedList()',danger:true});
+  if(typeof getReferralActionItems === 'function') {
+    const rf = getReferralActionItems();
+    const rfSubmitted = rf.filter(i => i.type === 'referral').length;
+    const rfReward = rf.filter(i => i.type === 'reward').length;
+    if(rfSubmitted) items.push({type:'referral',title:`사내추천 ${rfSubmitted}건`,desc:'접수 후 미처리 · 검토 필요',label:'사내추천',call:"navBtn('referral')",danger:true});
+    if(rfReward) items.push({type:'reward',title:`포상금 ${rfReward}건`,desc:'마감 임박 · 재직확인/지급요청 필요',label:'포상금',call:"navBtn('referral');setReferralView('rewards')",danger:true});
+  }
+  mailPending.forEach((m,index) => items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'기존 수동 발송 대기 · 발송 완료 확인',label:'완료',call:`confirmMailPendingAt(${index})`,danger:false}));
+  return items.map(item => ({...item, category:dashboardActionCategory(item)}));
+}
+
+// ── 처리 필요 업무: 포지션 우선 업무 + 전역 누락/메일 확인 항목 ──
+function renderUrgent() {
+  const el = document.getElementById('dash-urgent');
+  if(!el) return;
+  const items = getDashboardActionItems();
+  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p))).length;
+  const weekInt = getThisWeekInterviews().length;
+  const briefText = `진행중 포지션 ${activePos}개, 이번 주 면접 ${weekInt}건입니다. 우선 확인할 업무는 ${items.length}건입니다.`;
+
+  el.innerHTML = `<div class="dash-ac-header">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <div style="width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:var(--surface);color:var(--acc);font-weight:700;box-shadow:var(--shadow);flex-shrink:0">i</div>
+        <div style="min-width:0;flex:1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="dash-ac-title">처리 필요 업무</div>
+            <span class="dash-ac-count">${items.length}건</span>
+          </div>
+          <div class="dash-ac-sub" id="dash-brief-text">${esc(briefText)}</div>
+        </div>
+      </div>
+      <button class="btn btn-xs" data-action="call" data-call="generateDashboardBrief()" style="flex-shrink:0">새로고침</button>
+    </div>
+    ${items.length ? `<div class="dash-ac-list">${renderDashboardActionList(items)}</div>` : '<div class="dash-ac-empty">현재 처리 필요한 업무가 없습니다.</div>'}`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 대시보드
+// ══════════════════════════════════════════════════════════════
+// 포지션별 단계 칸반보드
+function getPositionKanbanStatus(pos, cands, cur) {
+  const current = cands.filter(c=>c.stage===cur);
+  if(cur===0) {
+    const scheduled=current.filter(c=>interviews.some(i=>Number(i.candId)===Number(c.id)&&i.type==='1차')).length;
+    return scheduled ? `일정수립 ${scheduled}/${current.length}` : `일정수립대기 ${current.length}명`;
+  }
+  if(cur===1 || cur===3) {
+    const round=cur===1?'1차':'2차';
+    const ids=new Set(current.map(c=>Number(c.id)));
+    const list=interviews.filter(i=>ids.has(Number(i.candId))&&String(i.type||'').startsWith(round));
+    const done=list.filter(i=>i.status==='done').length;
+    const confirmed=list.filter(i=>i.status==='confirmed').length;
+    const pending=list.filter(i=>(i.status||'pending')==='pending').length;
+    const decided=current.filter(c=>c.decision).length;
+    if(done && decided<current.length) return `결과대기 ${current.length-decided}명`;
+    if(decided) return `판정완료 ${decided}/${current.length}`;
+    if(confirmed) {
+      const dates=[...new Set(list.filter(i=>i.status==='confirmed'&&i.date).map(i=>i.date))].sort();
+      return dates.length ? `면접예정 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}` : `일정확정 ${confirmed}명`;
+    }
+    if(pending) return `회신대기 ${pending}명`;
+    return `일정미등록 ${current.length}명`;
+  }
+  if(cur===2) {
+    const total=current.reduce((n,c)=>n+(Number(c.refT)||3),0);
+    const answered=current.reduce((n,c)=>n+(Number(c.refD)||0),0);
+    const notStarted=current.filter(c=>c.ref==='미시작').length;
+    if(notStarted===current.length) return `요청대기 ${notStarted}명`;
+    if(answered<total) return `응답 ${answered}/${total}`;
+    return `응답완료 ${answered}/${total}`;
+  }
+  if(cur===4) {
+    const decided=current.filter(c=>c.decision).length;
+    return decided ? `결과입력 ${decided}/${current.length}` : `협의중 ${current.length}명`;
+  }
+  if(cur===5) {
+    const sent=current.filter(c=>c.notified||onboardings.some(o=>Number(o.candId)===Number(c.id)&&o.notified)).length;
+    const joinText = getPositionFinalJoinInline(current);
+    const suffix = joinText ? ` (${joinText})` : '';
+    return sent<current.length ? `안내대기 ${current.length-sent}명${suffix}` : `안내완료 ${sent}명${suffix}`;
+  }
+  return `${current.length}명 진행중`;
+}
+
+function renderKanban() {
+  const el = document.getElementById('dash-kanban');
+  if(!el) return;
+  if(!positions.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--t3)">등록된 포지션이 없습니다. 포지션 관리에서 추가하세요.</div>';
+    return;
+  }
+  // 칸반 열: FLOW 단계 (서류합격~최종합격, 입사는 제외 — 입사 탭·지원자 관리에서 확인)
+  const cols = KANBAN_FLOW.map(idx => ({ idx, name: STAGES[idx] }));
+  const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
+
+  // 진행중 + 부분충원 포지션 (추가 채용 진행중인 partial 포함)
+  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p)));
+
+  // posId → 비탈락 지원자 배열
+  const byPos = {};
+  candidates.forEach(x => { if(x.stage===6) return; (byPos[Number(x.posId)] = byPos[Number(x.posId)] || []).push(x); });
+
+  // 각 진행중 포지션을 현재 단계(최고 단계) 컬럼에 1장씩 배치
+  const colCards = {};            // stageIdx → [html]
+  const emptyPos = [];            // 지원자 없는 진행중 포지션
+  activePos.forEach(pos => {
+    const cands = byPos[Number(pos.id)] || [];
+    if(!cands.length) { emptyPos.push(pos); return; }
+    const cur = Math.max(...cands.map(c=>c.stage));   // 현재 단계
+    const col = stageColor(cur);
+    const title = pos.title || '미지정 포지션';
+    const titleSizeClass = title.length > 20 ? ' is-xlong' : (title.length > 14 ? ' is-long' : '');
+    const progressStatus = getPositionKanbanStatus(pos,cands,cur);
+    const card = `<div class="position-kanban-card" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" style="border-left-color:${col}">
+      <div class="position-kanban-title${titleSizeClass}" title="${esc(title)}">${esc(title)}</div>
+      <div class="pk-status" style="color:${col}" title="${esc(progressStatus)}">${esc(progressStatus)}</div>
+    </div>`;
+    (colCards[cur] = colCards[cur] || []).push(card);
+  });
+
+  let html = '<div class="position-kanban">';
+  cols.forEach(c => {
+    const col = stageColor(c.idx);
+    const cards = (colCards[c.idx] || []);
+    html += `<div class="position-kanban-col ${cards.length ? '' : 'is-empty'}">
+      <div class="position-kanban-col-h" style="color:${col}"><span class="position-kanban-col-title">${esc(c.name)}</span><span class="position-kanban-col-count" title="${cards.length}개 포지션" style="${cards.length ? `border-color:${col};color:${col};background:var(--surface)` : ''}">${cards.length}</span></div>
+      <div class="position-kanban-list">${cards.join('') || '<div style="font-size:11px;color:var(--t3);text-align:center;padding:14px 0;opacity:.75">비어 있음</div>'}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+function renderDashboard() {
+  updateMetrics(); // 처리 필요 카드(renderUrgent) 포함
+  generateDashboardBrief();
+  if(kanbanView === 'stage') renderStageKanban(); else renderKanban();
+  renderInterviewInbox();
+  renderInterviewPositionCards();
+}
+

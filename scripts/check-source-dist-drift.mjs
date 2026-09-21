@@ -2,9 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import {
   adminDistDir,
+  adminCssSource,
   adminGsSource,
   adminHtmlSource,
   adminIntermediateDir,
+  adminJsDir,
+  adminJsFiles,
   configDir,
   mailTemplateFiles,
   mailTemplatePath,
@@ -38,43 +41,14 @@ if (adminParts.map(name => read(path.join(adminIntermediateDir, name))).join('')
   errors.push('intermediate admin_*.gs files are stale relative to the admin backend source');
 }
 
-const dashboard = read(adminHtmlSource);
-const styleMatch = dashboard.match(/<style[^>]*>[\s\S]*?<\/style>/);
-const scriptMatch = dashboard.match(/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/);
-const styleInner = styleMatch
-  ? styleMatch[0].replace(/^<style[^>]*>\r?\n?/, '').replace(/\r?\n?<\/style>$/, '')
-  : null;
-const scriptInner = scriptMatch
-  ? scriptMatch[0].replace(/^<script[^>]*>\r?\n?/, '').replace(/\r?\n?<\/script>$/, '')
-  : null;
-
-if (styleInner === null || styleInner !== read(path.join(adminIntermediateDir, 'app_css.html'))) {
-  errors.push('intermediate app_css.html is stale relative to the admin frontend source');
+expectSame(adminHtmlSource, path.join(adminIntermediateDir, 'Dashboard.html'));
+expectSame(adminCssSource, path.join(adminIntermediateDir, 'app_css.html'));
+for (const name of adminJsFiles) {
+  expectSame(path.join(adminJsDir, name), path.join(adminIntermediateDir, name));
 }
-if (!scriptMatch || scriptMatch[0] !== read(path.join(adminIntermediateDir, 'app_script.html'))) {
-  errors.push('intermediate app_script.html is stale relative to the admin frontend source');
-}
+new Function(adminJsFiles.map(name => read(path.join(adminJsDir, name))).join(''));
 
-const jsParts = [
-  'js_00_state.html',
-  'js_02_sheets_sync.html',
-  'js_03_positions.html',
-  'js_05_interviews.html',
-  'js_04_candidates.html',
-  'js_08_dashboard.html',
-  'js_07_referral.html',
-  'js_04_candidates_flow.html',
-  'js_05_interviews_manage.html',
-  'js_06_reference.html',
-  'js_08_onboarding_bulk.html',
-  'js_09_settings.html',
-  'js_99_app.html',
-];
-if (scriptInner === null || jsParts.map(name => read(path.join(adminIntermediateDir, name))).join('') !== scriptInner) {
-  errors.push('intermediate js_*.html files are stale relative to the admin frontend source');
-}
-
-for (const name of ['Dashboard.html', 'app_css.html', 'app_script.html', ...adminParts]) {
+for (const name of ['Dashboard.html', 'app_css.html', ...adminJsFiles, ...adminParts]) {
   expectSame(path.join(adminIntermediateDir, name), path.join(adminDistDir, name));
 }
 expectSame(path.join(configDir, 'appsscript.admin.json'), path.join(adminDistDir, 'appsscript.json'));

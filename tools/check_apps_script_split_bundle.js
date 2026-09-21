@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { adminDistDir } from './project_paths.js';
+import { adminDistDir, adminJsFiles } from './project_paths.js';
 
 const bundleDir = adminDistDir;
 
@@ -46,8 +46,9 @@ const gs = files
   .join('\n');
 new Function(gs);
 
-const appScript = fs.readFileSync(path.join(bundleDir, 'app_script.html'), 'utf8');
-const js = appScript.replace(/^<script[^>]*>\r?\n?/, '').replace(/\r?\n?<\/script>$/, '');
+const js = adminJsFiles
+  .map(name => fs.readFileSync(path.join(bundleDir, name), 'utf8'))
+  .join('');
 new Function(js);
 
 if (forbiddenFound.length || missing.size) {
