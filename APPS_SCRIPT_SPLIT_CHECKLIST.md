@@ -19,15 +19,20 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 - `Dashboard.html`
 - `app_css.html`
 - `js_00_core.html`
+- `js_07_state.html`
 - `js_01_sheets_sync.html`
-- `js_02_positions_interviews.html`
+- `js_20_positions.html`
+- `js_21_position_process.html`
+- `js_30_interviews.html`
+- `js_31_interview_schedule.html`
+- `js_32_interview_mail.html`
 - `js_03_ui_dashboard.html`
 - `js_04_referral.html`
 - `js_05_candidates_reference.html`
 - `js_06_onboarding_settings.html`
 - `js_99_app.html`
 
-`Dashboard.html`이 진입 파일이며 `app_css.html`과 위 JavaScript 모듈 8개를 `include()`로 합칩니다. 업로드용 `app_css.html`은 `<style>` 태그를, 각 `js_*.html`은 `<script>` 태그를 자체 포함합니다. 파일명은 Apps Script 편집기에서 자동으로 붙는 `.html` 확장자를 제외한 이름으로 표시될 수 있습니다.
+`Dashboard.html`이 진입 파일이며 `app_css.html`과 위 JavaScript 모듈 13개를 `include()`로 합칩니다. 업로드용 `app_css.html`은 `<style>` 태그를, 각 `js_*.html`은 `<script>` 태그를 자체 포함합니다. 파일명은 Apps Script 편집기에서 자동으로 붙는 `.html` 확장자를 제외한 이름으로 표시될 수 있습니다.
 
 ## 2. 메일 템플릿 HTML
 
@@ -72,6 +77,6 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 로컬 분리 검증 결과:
 
 - `src/admin/frontend/Dashboard.html`, `app_css.html`, `js/*.html`은 각각 같은 이름의 업로드 파일과 동일합니다.
-- 기능별 JavaScript 모듈 8개를 include 순서대로 합친 결과가 구문 검사를 통과했습니다.
+- 기능별 JavaScript 모듈 13개를 include 순서대로 합친 결과가 구문 검사를 통과했습니다.
 - 분리된 `admin_*.gs`를 순서대로 합치면 `src/admin/backend/Code.gs`와 동일합니다.
 - 분리된 JS와 GS 모두 구문 검사를 통과했습니다.

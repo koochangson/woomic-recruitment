@@ -17,8 +17,13 @@ const scriptFiles = [
 
 const adminModuleFiles = [
   'src/admin/frontend/js/js_00_core.html',
+  'src/admin/frontend/js/js_07_state.html',
   'src/admin/frontend/js/js_01_sheets_sync.html',
-  'src/admin/frontend/js/js_02_positions_interviews.html',
+  'src/admin/frontend/js/js_20_positions.html',
+  'src/admin/frontend/js/js_21_position_process.html',
+  'src/admin/frontend/js/js_30_interviews.html',
+  'src/admin/frontend/js/js_31_interview_schedule.html',
+  'src/admin/frontend/js/js_32_interview_mail.html',
   'src/admin/frontend/js/js_03_ui_dashboard.html',
   'src/admin/frontend/js/js_04_referral.html',
   'src/admin/frontend/js/js_05_candidates_reference.html',

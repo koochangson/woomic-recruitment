@@ -1,0 +1,347 @@
+// ══════════════════════════════════════════════════════════════
+// 포지션 목록·CRUD·상태 전환
+// js_02_positions_interviews.html에서 분리 (Phase 2).
+// ══════════════════════════════════════════════════════════════
+// positions, editingPosId: 전역 선언됨
+
+// ── 포지션 렌더링 ───────────────────────────────────────────
+function renderPositions() {
+  const list = document.getElementById('pos-list');
+  const countLabel = document.getElementById('pos-count-label');
+  const nbPos = document.getElementById('nb-pos');
+  if(!list) return;
+  const candidatesByPos = {};
+  candidates.forEach(c => {
+    const key = Number(c.posId);
+    (candidatesByPos[key] = candidatesByPos[key] || []).push(c);
+  });
+
+  // 부분충원은 추가 채용이 진행 중이므로 진행중 그룹에 유지한다.
+  const isDone = (pos) => !['active','partial'].includes(posStatus(pos));
+
+  // 탭별 카운트
+  const activeCount = positions.filter(p => !isDone(p)).length;
+  const doneCount   = positions.filter(p =>  isDone(p)).length;
+  const setCnt = (id,v) => { const el=document.getElementById(id); if(el) el.textContent = `(${v})`; };
+  setCnt('pos-cnt-active', activeCount);
+  setCnt('pos-cnt-done',   doneCount);
+  setCnt('pos-cnt-all',    positions.length);
+
+  if(countLabel) countLabel.textContent = `진행중 ${activeCount}개 · 완료 ${doneCount}개 · 전체 ${positions.length}개`;
+  if(nbPos) nbPos.textContent = activeCount;  // 사이드바 배지는 진행중 기준
+  updateSidebarUrgency();
+
+  const orgBar=document.getElementById('pos-org-filter');
+  const orgLabel=document.getElementById('pos-org-filter-label');
+  if(orgBar) orgBar.style.display=positionOrgFilter?'flex':'none';
+  if(orgLabel&&positionOrgFilter) orgLabel.textContent=`채용현황 필터: ${positionOrgFilter.location} · ${positionOrgFilter.empType} · ${positionOrgFilter.team||positionOrgFilter.jobType}`;
+
+  // 필터 적용
+  const filtered = positions.filter(p => {
+    if(positionOrgFilter && !(p.location===positionOrgFilter.location&&(p.etype||'정규직')===positionOrgFilter.empType&&(!positionOrgFilter.team||p.team===positionOrgFilter.team)&&(!positionOrgFilter.jobType||p.jobType===positionOrgFilter.jobType))) return false;
+    if(posFilter === 'active') return !isDone(p);
+    if(posFilter === 'done')   return  isDone(p);
+    return true;
+  });
+
+  if(!positions.length) {
+    list.innerHTML = empty('등록된 포지션이 없습니다','포지션을 등록하면 채용 진행 현황과 다음 업무를 확인할 수 있습니다.','<button class="btn btn-sm btn-primary" data-action="call" data-call="openAddPosition()">+ 포지션 추가</button>');
+    return;
+  }
+  if(!filtered.length) {
+    list.innerHTML = empty(posFilter==='done' ? '완료된 포지션이 없습니다.' : '진행중인 포지션이 없습니다.');
+    return;
+  }
+
+  const renderPositionCard = (pos) => {
+    const posCandidates = candidatesByPos[Number(pos.id)] || [];
+    const active = posCandidates.filter(c => Number(c.stage) < 5 && isActivePipelineCand(c));
+    const passed = posCandidates.filter(c => Number(c.stage) === 5);
+    const done = isDone(pos);
+    const progress = getPositionCardProgress(pos, posCandidates);
+    const actions = getPositionActionItems(pos.id);
+    const nextAction = actions.find(a => a.priority === 'high') || actions.find(a => a.priority === 'medium');
+    const risk = !!actions.find(a => a.priority === 'high');
+    let actionCall = nextAction ? nextAction.actionCall : '';
+    if(actionCall && actionCall.startsWith('scrollPositionDetail(')) actionCall = `openPosDetail(${pos.id});${actionCall}`;
+    const actionTitle = nextAction ? compactPositionActionTitle(nextAction.title) : '처리 없음';
+    const actionLabel = nextAction ? compactPositionActionLabel(nextAction.actionLabel) : '';
+    const finalJoinSummary = passed.length ? getPositionFinalJoinSummary(posCandidates) : '';
+
+    return `<div class="card pos-manage-card ${risk?'is-risk':''}" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" aria-label="${esc(pos.title)} 상세보기" style="${done?'opacity:.75':''}">
+      <div class="pos-card-main">
+        <div class="pos-card-head">
+          <div class="pos-card-title" title="${esc(pos.title)}">${esc(pos.title)}</div>
+          <div class="pos-card-title-meta">${esc(pos.hireReason || '충원')} · 채용${passed.length} · 지원${active.length}${finalJoinSummary?' · '+esc(finalJoinSummary):''}</div>
+          <span class="pos-card-stage ${progress.className}">${esc(progress.label)}</span>
+        </div>
+        <div class="pos-card-action ${nextAction?'':'pos-card-action-ok'}">
+          <div class="pos-card-action-label"><span class="pos-card-action-dot"></span><strong title="${esc(nextAction ? nextAction.title : '처리할 업무 없음')}">${esc(actionTitle)}</strong></div>
+          ${nextAction ? `<button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(actionCall)}">${esc(actionLabel)}</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  if(posFilter === 'done') {
+    const byYear = {};
+    filtered.forEach(pos => {
+      const yr = pos.closedAt ? String(pos.closedAt).slice(0,4) : '날짜미상';
+      (byYear[yr] = byYear[yr] || []).push(pos);
+    });
+    const years = Object.keys(byYear).sort((a,b) => b.localeCompare(a));
+    list.innerHTML = years.map(yr => {
+      const group = byYear[yr];
+      const header = `<div style="grid-column:1/-1;font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.4px;padding:4px 2px;border-bottom:1px solid var(--border);margin-bottom:2px">${yr === '날짜미상' ? '날짜 미상' : yr + '년'} <span style="font-weight:500">(${group.length}건)</span></div>`;
+      return header + group.map(renderPositionCard).join('');
+    }).join('');
+  } else {
+    list.innerHTML = filtered.map(renderPositionCard).join('');
+  }
+}
+
+// 포지션 상세에서 입사 안내 - 지원자 본인
+function getDeptLeadRecipients(dept) {
+  const normalized = String(dept || '').trim();
+  if(!normalized || !Array.isArray(interviewers)) return [];
+  const seen = new Set();
+  return interviewers.filter(iv =>
+    String(iv.dept || '').trim() === normalized &&
+    /팀장|소장/.test(iv.rank || '') &&
+    iv.email
+  ).filter(iv => {
+    const email = String(iv.email).trim().toLowerCase();
+    if(seen.has(email)) return false;
+    seen.add(email);
+    return true;
+  }).map(iv => ({ name:`${iv.name || ''} ${iv.rank || ''}`.trim(), email:iv.email }));
+}
+
+function getOnboardInternalRecipients(cand, onboarding) {
+  const ob = onboarding || {};
+  const teams = parseNotifyTeams();
+  const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
+  const pos = positions.find(p => Number(p.id) === Number(cand.posId));
+  const dept = ob.dept || (pos && pos.dept) || cand.dept || '';
+  const leads = getDeptLeadRecipients(dept);
+  const knownLeadEmails = new Set(leads.map(x=>String(x.email).trim().toLowerCase()));
+  String(ob.deptLead || '').split(/[;,\n]+/).map(x=>x.trim()).filter(x=>x.includes('@')).forEach(email => {
+    if(!knownLeadEmails.has(email.toLowerCase())) leads.push({ name:'배치 부서장/소장 추가 수신자', email });
+  });
+  const recipients = groupMailRecipients([...leads.map(x=>x.email), ...teams.map(t=>t.email), hrEmail]);
+  const recipientNames = [...leads.map(x=>`${x.name}(배치 부서)`), ...teams.map(t=>t.name), ...(hrEmail?['피플팀 담당자']:[])].filter(Boolean);
+  return { dept, leads, teams, hrEmail, recipients, recipientNames };
+}
+
+// 지원자를 포지션에 연결
+function linkCandToPos(candId, posId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!c) { toast('지원자를 찾을 수 없습니다 (id: '+candId+')', 'terr'); return; }
+  if(!pos) { toast('포지션을 찾을 수 없습니다 (id: '+posId+')', 'terr'); return; }
+  c.posId = Number(posId);
+  saveState();
+  if(GS_CONFIG.scriptUrl) {
+    syncCandToGS(c).then(() => {
+      renderPositions();
+      openPosDetail(Number(posId));
+    });
+  } else {
+    renderPositions();
+    openPosDetail(Number(posId));
+  }
+  toast(`${esc(c.name)}님을 '${esc(pos.title)}'에 연결했습니다.`, 'tok');
+}
+
+// ── 포지션 상태 필터 ──
+let posFilter = 'active';
+function setPosFilter(f, btn) {
+  posFilter = f;
+  document.querySelectorAll('.pos-tab').forEach(b => b.classList.remove('pos-tab-on'));
+  if(btn) btn.classList.add('pos-tab-on');
+  renderPositions();
+}
+
+function holdResidualCandidates(posId, label) {
+  const residual = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held);
+  if(!residual.length) return 0;
+  if(!confirm(`진행중 지원자 ${residual.length}명을 보류 처리할까요?\n취소를 선택하면 현재 상태를 유지합니다.`)) return 0;
+  residual.forEach(c => { c.held = true; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
+  logActivity('지원자 보류', `${label} 잔여 지원자 ${residual.length}명`, 'position', posId);
+  return residual.length;
+}
+
+// 채용 완료 처리
+function closePosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const hc = parseInt(pos.headcount) || 1;
+  const passed = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === 5).length;
+  const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held).length;
+  let msg = `'${pos.title}' 모집을 완료 처리하시겠습니까?`;
+  if(active > 0) msg += `\n\n⚠ 아직 진행중인 지원자가 ${active}명 있습니다.`;
+  if(passed < hc) msg += `\n⚠ 최종합격 ${passed}명 / 목표 ${hc}명 (부분 충원)`;
+  if(!confirm(msg)) return;
+  holdResidualCandidates(posId, pos.title);
+  pos.status = (passed > 0 && passed < hc) ? 'partial' : 'filled';
+  pos.closedAt = new Date().toISOString().slice(0,10);
+  logActivity(pos.status === 'partial' ? '부분충원 완료' : '충원완료', `${pos.title} ${passed}/${hc}명`, 'position', posId);
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
+  renderPositions(); renderDashboard();
+  toast(`'${esc(pos.title)}' ${pos.status === 'partial' ? '부분충원' : '충원완료'} 처리`, 'tok');
+}
+
+// 미채용 — 마법사로 위임 (P0)
+function nohirePosition(posId) { openNohireWizard(posId); }
+
+// 채용 중단 (재모집 없이 종료)
+function stopPosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  if(!confirm(`'${pos.title}' 포지션을 채용 중단 처리하시겠습니까?`)) return;
+  holdResidualCandidates(posId, pos.title);
+  pos.status = 'stopped';
+  pos.closedAt = today();
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
+  renderPositions(); renderDashboard();
+  toast(`'${esc(pos.title)}' 채용 중단 처리`, 'tok');
+}
+
+// 진행중으로 복원
+function reopenPosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  pos.status = 'active';
+  delete pos.closedAt;
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
+  renderPositions(); renderDashboard();
+  toast(`'${esc(pos.title)}' 진행중으로 복원`, 'tok');
+}
+
+// ── 포지션 추가/편집 모달 열기 ─────────────────────────────
+function openAddPosition() {
+  try {
+    editingPosId = null;
+    document.getElementById('pos-modal-title').textContent = '포지션 추가';
+    ['pos-title','pos-panel1','pos-panel2','pos-loc','pos-owner','pos-target-date','pos-memo'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.value = '';
+    });
+    document.getElementById('pos-etype').value = '정규직';
+    document.getElementById('pos-headcount').value = '1';
+    document.getElementById('pos-hire-reason').value = '충원';
+    document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked=false; });
+    const team = document.getElementById('pos-team'); if(team) team.value = '';
+    const jobType = document.getElementById('pos-jobtype'); if(jobType) jobType.value = '';
+    onPosLocationChange();
+    // 면접관 태그 초기화
+    const t1 = document.getElementById('pos-panel1-tags'); if(t1) t1.innerHTML = '';
+    const t2 = document.getElementById('pos-panel2-tags'); if(t2) t2.innerHTML = '';
+    const h1 = document.getElementById('pos-panel1'); if(h1) h1.value = '';
+    const h2 = document.getElementById('pos-panel2'); if(h2) h2.value = '';
+    const s1 = document.getElementById('pos-panel1-search'); if(s1) s1.value = '';
+    const s2 = document.getElementById('pos-panel2-search'); if(s2) s2.value = '';
+    loadInterviewerOptions();
+    openModal('modal-position');
+  } catch(err) {
+    console.error('[openAddPosition] error:', err);
+    alert('오류: ' + err.message);
+  }
+}
+
+function editPosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  editingPosId = posId;
+  document.getElementById('pos-modal-title').textContent = '포지션 수정';
+  document.getElementById('pos-title').value  = pos.title || '';
+  document.getElementById('pos-etype').value  = pos.etype || '정규직';
+  document.getElementById('pos-headcount').value = pos.headcount || 1;
+  document.getElementById('pos-hire-reason').value = pos.hireReason || '충원';
+  document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked = r.value === (pos.location||''); });
+  onPosLocationChange(pos.team || pos.dept || '', pos.jobType || '');
+  restorePanelistTags(1, pos.panel1 || '');
+  restorePanelistTags(2, pos.panel2 || '');
+  loadInterviewerOptions();
+  document.getElementById('pos-loc').value    = pos.loc    || '';
+  document.getElementById('pos-owner').value  = pos.owner  || '';
+  document.getElementById('pos-target-date').value = pos.targetDate || '';
+  document.getElementById('pos-memo').value   = pos.memo   || '';
+  openModal('modal-position');
+}
+
+function savePosition() {
+  const title = document.getElementById('pos-title')?.value.trim();
+  if(!title) { toast('포지션명을 입력하세요.', 'terr'); return; }
+  const location = document.querySelector('input[name="pos-location"]:checked')?.value || '';
+  const team = document.getElementById('pos-team')?.value || '';
+  const jobType = document.getElementById('pos-jobtype')?.value || '';
+  if(!location) { toast('소속을 선택하세요.', 'terr'); return; }
+  if(location==='본사' && !team) { toast('본사 팀을 선택하세요.', 'terr'); return; }
+  if(location==='현장' && !jobType) { toast('현장 직종을 선택하세요.', 'terr'); return; }
+  const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
+
+  const posData = {
+    id:        editingPosId || nextId(),
+    title,
+    etype:     document.getElementById('pos-etype')?.value   || '정규직',
+    role:      existingPos.role || '',
+    headcount: parseInt(document.getElementById('pos-headcount')?.value) || 1,
+    hireReason: document.getElementById('pos-hire-reason')?.value || '충원',
+    dept:      location==='본사' ? team : (existingPos.dept || jobType || ''),
+    location,
+    team:      location==='본사' ? team : null,
+    jobType:   location==='현장' ? jobType : null,
+    panel1:    document.getElementById('pos-panel1')?.value  || '',
+    panel2:    document.getElementById('pos-panel2')?.value  || '',
+    loc:       document.getElementById('pos-loc')?.value     || '',
+    owner:     document.getElementById('pos-owner')?.value   || '',
+    targetDate: document.getElementById('pos-target-date')?.value || '',
+    memo:      document.getElementById('pos-memo')?.value    || '',
+    createdAt: existingPos.createdAt || today(),
+    status: existingPos.status || 'active',
+    closedAt: existingPos.closedAt || '',
+    parentPosId: existingPos.parentPosId != null ? existingPos.parentPosId : null,
+    closeReason: existingPos.closeReason || '',
+    closeMemo: existingPos.closeMemo || '',
+  };
+
+  if(editingPosId) {
+    const idx = positions.findIndex(p => p.id === editingPosId);
+    if(idx >= 0) positions[idx] = posData;
+    toast(`${title} 수정 완료`, 'tok');
+  } else {
+    positions.push(posData);
+    logActivity('포지션 등록', title, 'position', posData.id);
+    toast(`${title} 등록 완료`, 'tok');
+  }
+
+  closeModal('modal-position');
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(posData);
+  renderPositions();
+  renderDashboard(); // 대시보드 칸반(미배정 스트립 포함) 즉시 반영
+  if(currentPosDetailId && Number(currentPosDetailId) === Number(posData.id) && document.getElementById('sect-posdetail')?.classList.contains('on')) {
+    renderPosDetailSection(posData.id);
+  }
+}
+
+async function deletePosition(posId) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const linked = candidates.filter(c => Number(c.posId) === Number(posId)).length;
+  if(linked > 0) {
+    if(!confirm(`이 포지션에 연결된 지원자 ${linked}명이 있습니다. 삭제하면 연결이 해제됩니다. 계속할까요?`)) return;
+    const unlinked = candidates.filter(c => Number(c.posId) === Number(posId));
+    unlinked.forEach(c => { c.posId = null; });
+    if(GS_CONFIG.scriptUrl && typeof syncCandToGS === 'function') await settleSync(unlinked.map(c => syncCandToGS(c)), '지원자 연결 해제 동기화');
+  }
+  positions = positions.filter(p => p.id !== posId);
+  saveState();
+  if(GS_CONFIG.scriptUrl && typeof deletePosFromGS === 'function') await deletePosFromGS(posId);
+  renderPositions(); renderDashboard();
+  toast(`${esc(pos.title)} 삭제 완료`, 'tok');
+}

@@ -1,10 +1,3 @@
-// ══════════════════════════════════════════════════════════════
-// 상태 (localStorage 연동)
-// ══════════════════════════════════════════════════════════════
-const LS_KEY = 'woomic_recruit_v4';
-
-
-
 function showSyncStatus(msg, type='') {
   const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
   const el = document.getElementById('gs-conn-status');
@@ -27,114 +20,6 @@ function updateSidebarUrgency() {
   document.getElementById('nb-int')?.classList.toggle('urgent', interviewUrgent);
   document.getElementById('nb-notify')?.classList.toggle('urgent', mailUrgent);
 }
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) { lastLocalStateJson = raw; return JSON.parse(raw); }
-  } catch(e) {}
-  return null;
-}
-
-function getAuxStateSnapshot() {
-  return {
-    updatedAt: auxUpdatedAt || new Date().toISOString(),
-    onboardings,
-    notifyLog: notifyLog.slice(0,200),
-    refDetails,
-    refReports,
-    activityLog: activityLog.slice(0,300),
-  };
-}
-
-function getAuxFingerprint() {
-  return JSON.stringify({
-    onboardings,
-    notifyLog: notifyLog.slice(0,200),
-    refDetails,
-    refReports,
-    activityLog: activityLog.slice(0,300),
-  });
-}
-
-function chunkText(text, size=1400) {
-  return String(text || '').match(new RegExp(`[\\s\\S]{1,${size}}`, 'g')) || [''];
-}
-
-async function syncAuxStateToGS() {
-  if(!GS_CONFIG.scriptUrl || auxSyncSuspended) return;
-  const json = JSON.stringify(getAuxStateSnapshot());
-  const chunks = chunkText(json);
-  const tasks = [
-    gsUpsert('Settings', {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})}),
-    ...chunks.map((value,i)=>gsUpsert('Settings',{id:`auxState:${i}`,value})),
-  ];
-  await settleSync(tasks, '보조 데이터 동기화');
-}
-
-function scheduleAuxStateSync() {
-  if(auxSyncSuspended || !GS_CONFIG.scriptUrl) return;
-  clearTimeout(auxSyncTimer);
-  auxSyncTimer = setTimeout(syncAuxStateToGS, 1800);
-}
-
-async function loadAuxStateFromGS() {
-  if(!hasGsBridge_()) return false;
-  const rows = await gsGetAll('Settings');
-  const coreDeleted = applyRemoteGsTombstones(rows);
-  if(coreDeleted) {
-    renderDashboard();
-    renderTracker();
-    renderPositions();
-  }
-  const map = new Map(rows.map(r=>[String(r.id),String(r.value??'')]));
-  let meta;
-  try { meta = JSON.parse(map.get('auxState:meta') || ''); } catch(e) { return false; }
-  if(!meta?.count) return false;
-  let json = '';
-  for(let i=0;i<meta.count;i++) json += map.get(`auxState:${i}`) || '';
-  try {
-    const remote = JSON.parse(json);
-    if(auxUpdatedAt && remote.updatedAt && String(auxUpdatedAt) >= String(remote.updatedAt)) return false;
-    onboardings = remote.onboardings || onboardings;
-    notifyLog = remote.notifyLog || notifyLog;
-    refDetails = remote.refDetails || refDetails;
-    refReports = remote.refReports || refReports;
-    activityLog = remote.activityLog || activityLog;
-    auxUpdatedAt = remote.updatedAt || meta.updatedAt || '';
-    saveState();
-    return true;
-  } catch(e) {
-    console.warn('보조 데이터 GS 로드 실패:', e);
-    return false;
-  }
-}
-
-function saveState() {
-  let auxChanged = false;
-  try {
-    const auxFingerprint = getAuxFingerprint();
-    auxChanged = auxFingerprint !== lastAuxFingerprint;
-    if(auxChanged) {
-      lastAuxFingerprint = auxFingerprint;
-      if(!auxSyncSuspended) auxUpdatedAt = new Date().toISOString();
-    }
-    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog: activityLog.slice(0,300), auxUpdatedAt });
-    if(data !== lastLocalStateJson) {
-      localStorage.setItem(LS_KEY, data);
-      lastLocalStateJson = data;
-    }
-    if(auxChanged) scheduleAuxStateSync();
-  } catch(e) {
-    if(e.name === 'QuotaExceededError' || e.code === 22) {
-      notifyLog = notifyLog.slice(0, 50);
-      activityLog = activityLog.slice(0, 100);
-      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog, auxUpdatedAt })); if(auxChanged) scheduleAuxStateSync(); }
-      catch(e2) { console.warn('localStorage 저장 실패:', e2); }
-    }
-  }
-}
-
 
 function nav(id, btn) {
   document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
@@ -253,7 +138,6 @@ function addCandToPos(posId) {
   populateHeadhunterSelect();
   toggleHeadhunterFields();
   updateAddCandSeatHint();
-  closeModal('modal-pos-detail');
   openModal('modal-add');
 }
 
