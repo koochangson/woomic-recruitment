@@ -152,7 +152,20 @@ function getAll_(sheetName, query) {
   return json_({ data, cursor: getChangeCursor_(), serverTime: nowIso_() });
 }
 
+// 쓰기 계열 함수(upsert_/batchUpsert_/replaceAll_/deleteRow_)는 모두 같은 스크립트 락을 사용한다.
+// batchUpsert_는 각 행마다 다시 락을 거는 대신, 하나의 락 범위 안에서 upsertUnlocked_를 반복 호출한다
+// (Apps Script의 LockService는 같은 실행 안에서 재진입을 지원하지 않으므로 중첩 획득을 피해야 한다).
 function upsert_(sheetName, row, isAdmin) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    return upsertUnlocked_(sheetName, row, isAdmin);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function upsertUnlocked_(sheetName, row, isAdmin) {
   let source = Object.assign({}, row || {});
 
   const sheet = ensureSheet_(sheetName);
@@ -179,51 +192,65 @@ function upsert_(sheetName, row, isAdmin) {
 
 function batchUpsert_(sheetName, rows, isAdmin) {
   const source = Array.isArray(rows) ? rows : [];
-  let count = 0;
-  source.forEach(row => {
-    const result = JSON.parse(upsertRaw_(sheetName, row, isAdmin).getContent());
-    if (!result.error) count++;
-  });
-  return json_({ status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() });
-}
-
-function upsertRaw_(sheetName, row, isAdmin) {
-  return upsert_(sheetName, row, isAdmin);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    let count = 0;
+    source.forEach(row => {
+      const result = JSON.parse(upsertUnlocked_(sheetName, row, isAdmin).getContent());
+      if (!result.error) count++;
+    });
+    return json_({ status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function replaceAll_(sheetName, rows, isAdmin) {
   if (!isAdmin) throw new Error('admin_auth_required');
-  const source = Array.isArray(rows) ? rows : [];
-  const sheet = ensureSheet_(sheetName);
-  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
-  const lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, Math.max(headers.length, sheet.getLastColumn())).clearContent();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const source = Array.isArray(rows) ? rows : [];
+    const sheet = ensureSheet_(sheetName);
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, Math.max(headers.length, sheet.getLastColumn())).clearContent();
+    }
+    const normalizedRows = source.map(row => {
+      const next = Object.assign({}, row || {});
+      next.updatedAt = next.updatedAt || nowIso_();
+      return schemaRow_(sheetName, next);
+    });
+    if (normalizedRows.length) {
+      const values = normalizedRows.map(row => headers.map(header => row[header] == null ? '' : row[header]));
+      sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+    }
+    appendChange_(sheetName, 'replaceAll', 'all', { count: normalizedRows.length });
+    return json_({ status: 'ok', count: normalizedRows.length, cursor: getChangeCursor_(), serverTime: nowIso_() });
+  } finally {
+    lock.releaseLock();
   }
-  const normalizedRows = source.map(row => {
-    const next = Object.assign({}, row || {});
-    next.updatedAt = next.updatedAt || nowIso_();
-    return schemaRow_(sheetName, next);
-  });
-  if (normalizedRows.length) {
-    const values = normalizedRows.map(row => headers.map(header => row[header] == null ? '' : row[header]));
-    sheet.getRange(2, 1, values.length, headers.length).setValues(values);
-  }
-  appendChange_(sheetName, 'replaceAll', 'all', { count: normalizedRows.length });
-  return json_({ status: 'ok', count: normalizedRows.length, cursor: getChangeCursor_(), serverTime: nowIso_() });
 }
 
 function deleteRow_(sheetName, id) {
-  const sheet = ensureSheet_(sheetName);
-  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
-  const key = primaryKey_(sheetName);
-  const cleanId = String(id || '').trim();
-  if (!cleanId) return json_({ error: 'missing_id' });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = ensureSheet_(sheetName);
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+    const key = primaryKey_(sheetName);
+    const cleanId = String(id || '').trim();
+    if (!cleanId) return json_({ error: 'missing_id' });
 
-  const rowIndex = findRowIndex_(sheet, key, cleanId, headers);
-  if (rowIndex > 0) sheet.deleteRow(rowIndex);
-  appendChange_(sheetName, 'delete', cleanId, {});
-  return json_({ status: 'deleted', id: cleanId, cursor: getChangeCursor_(), serverTime: nowIso_() });
+    const rowIndex = findRowIndex_(sheet, key, cleanId, headers);
+    if (rowIndex > 0) sheet.deleteRow(rowIndex);
+    appendChange_(sheetName, 'delete', cleanId, {});
+    return json_({ status: 'deleted', id: cleanId, cursor: getChangeCursor_(), serverTime: nowIso_() });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function getChanges_(query) {
