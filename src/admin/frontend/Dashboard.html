@@ -1302,15 +1302,21 @@
   </div>
 </div>
 
-<!-- ── 포지션 상세 모달 ─────────────────────────────────── -->
-<div class="overlay" id="modal-pos-detail">
-  <div class="modal" style="width:min(940px,92vw);max-height:95vh">
+<!-- ── 단계 이동 차단(Gate) 모달 ────────────────────────── -->
+<div class="overlay" id="modal-stage-gate">
+  <div class="modal" style="width:520px">
     <div class="modal-hd">
-      <div class="modal-title" id="pos-detail-title">포지션 상세</div>
-      <button class="mclose" data-action="close-modal" data-id="modal-pos-detail"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      <div class="modal-title">단계 이동 불가</div>
+      <button class="mclose" data-action="close-modal" data-id="modal-stage-gate"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
-    <div class="modal-body" id="pos-detail-body"></div>
-    <div class="modal-ft" id="pos-detail-ft"></div>
+    <div class="modal-body">
+      <div id="sg-summary" style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:14px"></div>
+      <div id="sg-blockers" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-stage-gate">닫기</button>
+      <button class="btn btn-primary" data-action="call" data-call="focusStageGateBlockers()">미완료 업무 확인</button>
+    </div>
   </div>
 </div>
 

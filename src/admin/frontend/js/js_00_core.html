@@ -1098,7 +1098,7 @@ async function executeNohireWizard() {
   if(GS_CONFIG.scriptUrl) { syncPosToGS(pos); syncPosToGS(np); }
   logActivity('미채용 완료', `${pos.title} → ${newTitle} (${reason})`, 'position', posId);
   closeModal('modal-nohire-wizard');
-  closeModal('modal-pos-detail');
+  if(Number(currentPosDetailId) === Number(posId)) nav('position');
   pendingNohirePosId = null;
   renderPositions(); renderDashboard();
   toast(`'${esc(pos.title)}' 미채용 종료 · '${esc(newTitle)}' 생성`, 'tok');
