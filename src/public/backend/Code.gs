@@ -1236,14 +1236,17 @@ function findRowIndex_(sheet, key, id, headers) {
   return -1;
 }
 
+// 변경로그는 데이터 시트가 어느 스프레드시트에 있든 항상 하나의 대표 스프레드시트(getMainSpreadsheet_)에 씁니다.
+// (예전에는 appendChange_만 시트별로 다른 스프레드시트로 라우팅되고, 커서 조회는 항상 활성 스프레드시트만
+// 봐서 기록 위치와 조회 위치가 어긋날 수 있었습니다. admin 백엔드의 이미 고쳐진 구현과 동일하게 맞춥니다.)
 function appendChange_(sheetName, action, id, data) {
-  const sheet = ensureChangeLogSheet_(sheetName);
+  const sheet = ensureChangeLogSheet_();
   const cursor = sheet.getLastRow();
   sheet.appendRow([cursor, nowIso_(), sheetName, action, id, getActiveUserEmail_(), 'ok', JSON.stringify(data || {})]);
 }
 
-function ensureChangeLogSheet_(dataSheetName) {
-  const ss = dataSheetName ? getSpreadsheetForSheet_(dataSheetName) : SpreadsheetApp.getActiveSpreadsheet();
+function ensureChangeLogSheet_() {
+  const ss = getMainSpreadsheet_();
   let sheet = ss.getSheetByName(CHANGE_LOG_SHEET);
   if (!sheet) sheet = ss.insertSheet(CHANGE_LOG_SHEET);
   if (sheet.getLastRow() < 1) {
@@ -1263,6 +1266,23 @@ function ensureChangeLogSheet_(dataSheetName) {
   return sheet;
 }
 
+function getMainSpreadsheet_() {
+  const url = getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY);
+  if (url) return SpreadsheetApp.openByUrl(url);
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function parseJsonObject_(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
 function getChangeCursor_() {
   return Math.max(0, ensureChangeLogSheet_().getLastRow() - 1);
 }
@@ -1273,14 +1293,16 @@ function readChangesAfter_(cursor, limit) {
   const startDataRow = Math.max(2, Number(cursor) + 2);
   if (lastRow < startDataRow) return [];
   const count = Math.min(Number(limit) || 500, lastRow - startDataRow + 1);
-  const values = sheet.getRange(startDataRow, 1, count, 6).getValues();
+  const values = sheet.getRange(startDataRow, 1, count, 8).getValues();
   return values.map(row => ({
     cursor: Number(row[0]),
     timestamp: normalizeCell_(row[1]),
     sheet: String(row[2] || ''),
     action: String(row[3] || ''),
     id: String(row[4] || ''),
-    data: row[5] ? JSON.parse(String(row[5])) : {}
+    actorEmail: String(row[5] || ''),
+    result: String(row[6] || ''),
+    data: parseJsonObject_(row[7])
   }));
 }
 
