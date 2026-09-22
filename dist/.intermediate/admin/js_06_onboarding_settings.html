@@ -71,7 +71,6 @@ function openOnboardingFromPosition(positionId) {
   const finals = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===5);
   if(!finals.length) { toast('입사안내를 진행할 최종합격자가 없습니다.', 'terr'); return; }
   const candidate = finals.find(c=>!onboardings.some(o=>Number(o.candId)===Number(c.id))) || finals[0];
-  closeModal('modal-pos-detail');
   nav('onboarding');
   populateSel('ob-cand');
   fillOnboardingDefaults(candidate.id);

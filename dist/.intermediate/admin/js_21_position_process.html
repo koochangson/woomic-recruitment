@@ -1,0 +1,792 @@
+<script>
+// ══════════════════════════════════════════════════════════════
+// 포지션 상세: 진행현황·체크리스트·Gate·단계 전환
+// js_02_positions_interviews.html에서 분리 (Phase 2).
+// ══════════════════════════════════════════════════════════════
+
+function getPositionProjectData(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return null;
+  const list = candidates.filter(c => Number(c.posId) === Number(positionId));
+  const target = parseInt(pos.headcount) || 1;
+  const final = list.filter(c => c.stage === 5);
+  const rejected = list.filter(c => c.stage === 6);
+  const active = list.filter(c => c.stage < 5 && !c.held);
+  const filled = Math.min(target, final.length);
+  const remain = Math.max(0, target - filled);
+  const rate = target ? Math.min(100, Math.round(filled / target * 100)) : 0;
+  const rawStatus = posStatus(pos);
+  const projectStatus = rawStatus === 'active' && filled > 0 && remain > 0 ? 'partial' : rawStatus;
+  const statusLabels = { active:'진행중', partial:'부분충원', filled:'충원완료', nohire:'미채용', stopped:'중단' };
+  return { pos, list, target, final, rejected, active, filled, remain, rate, projectStatus, statusLabel:statusLabels[projectStatus] || posStatusLabel(pos) };
+}
+
+function positionRoundData(positionId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const candidateStages = stageIdx === 1 ? [0,1] : [2,3];
+  const positionCands = candidates.filter(c => Number(c.posId) === Number(positionId));
+  const roundCands = positionCands.filter(c => candidateStages.includes(c.stage));
+  const positionIds = new Set(positionCands
+    .filter(c => c.stage !== 0 && (c.stage >= stageIdx || Number(c.lastCompletedStage) >= stageIdx))
+    .map(c => Number(c.id)));
+  const roundInterviews = interviews.filter(i => positionIds.has(Number(i.candId)) && i.type === round);
+  return {
+    round, candidates:roundCands, interviews:roundInterviews,
+    pending:roundInterviews.filter(i => (i.status||'pending') === 'pending'),
+    confirmed:roundInterviews.filter(i => i.status === 'confirmed' || i.status === 'done'),
+    done:roundInterviews.filter(i => i.status === 'done'),
+    candidateNotified:roundInterviews.filter(i => i.candidateNotified || i.candNotified),
+    panelNotified:roundInterviews.filter(i => i.panelNotified || i.notified),
+  };
+}
+
+function getPositionActionItems(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return [];
+  const { pos, list, target, final, remain, projectStatus } = d;
+  const short = isShortProcessEtype(pos.etype);
+  const r1 = positionRoundData(positionId, 1);
+  const r2 = positionRoundData(positionId, 3);
+  const hasHeadhunting = list.some(isHeadhuntingCandidate);
+  const routeNoticeText = hasHeadhunting ? '업체 경유 안내' : '지원자 안내';
+  const items = [];
+  const add = (type, priority, title, desc, actionLabel, action, actionCall) =>
+    items.push({ type, priority, title, desc, actionLabel, action, actionCall });
+
+  if(!list.length) add('candidate_register','high','지원자 미배정','등록된 지원자 없음 · 지원자 등록 필요','지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
+
+  const stage0 = list.filter(c => c.stage === 0);
+  if(stage0.length && !pos.panel1AvailabilityConfirmedAt) add('first_panel_availability','high',pos.panel1AvailabilityRequestedAt?'1차 면접관 가능 일정 회신 확인 필요':'1차 면접관 가능 일정 확인 필요',pos.panel1AvailabilityRequestedAt?'면접관 회신을 확인한 뒤 지원자 가능일 확인을 진행하세요.':'면접관에게 공통 후보 날짜의 참석 가능 여부를 먼저 확인하세요.','면접관 일정 확인','openCollectSlots',`openCollectSlots(${positionId},1)`);
+  if(stage0.length && pos.panel1AvailabilityConfirmedAt && !r1.interviews.length) add('first_slots','high',`1차 지원자 가능일 ${routeNoticeText} 필요`,`${stage0.length}명 · 면접관 확인이 완료된 후보일정을 ${hasHeadhunting?'업체 경유로 ':''}지원자에게 안내하세요.`,'지원자 가능일 확인','openCollectSlots',`openCollectSlots(${positionId},1)`);
+
+  const firstResponded = r1.interviews.filter(i => ['RESPONDED','UNAVAILABLE'].includes(i.availabilityStatus));
+  const firstWaiting = r1.interviews.filter(i => i.availabilityStatus === 'SENT');
+  if(firstResponded.length && !firstWaiting.length) add('first_schedule_reply','high','1차 면접시간·순서 확정 필요',`가능 시간대 응답 ${firstResponded.length}건 취합 완료 · 세부 시간과 순서를 확정하세요.`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},1)`);
+  else if(firstWaiting.length) add('first_schedule_wait','medium','1차 가능 시간대 응답 대기',`응답완료 ${firstResponded.length}명 · 대기 ${firstWaiting.length}명`,'응답 현황','openCollectSlots',`openCollectSlots(${positionId},1)`);
+  else if(r1.pending.length) add('first_schedule','high','1차 공동일정 확정 필요',`미확정 일정 ${r1.pending.length}건이 있습니다.`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},1)`);
+
+  if(r1.confirmed.length && r1.panelNotified.length < r1.confirmed.length) add('first_panel_notice','medium','1차 면접관 안내 미발송',`확정 ${r1.confirmed.length}건 중 면접관 안내 미완료`,'면접관 안내','sendPanelNotice',`sendPanelNotice(${positionId},1)`);
+  if(r1.confirmed.length && r1.candidateNotified.length < r1.confirmed.length) add('first_candidate_notice','medium',`1차 면접 ${routeNoticeText} 미발송`,`확정 ${r1.confirmed.length}건 중 ${routeNoticeText} 미완료`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},1)`);
+
+  if(r1.confirmed.length > r1.done.length) add('first_interview_done','medium','1차 면접 실시 후 완료 처리 필요',`일정 확정 ${r1.confirmed.length}건 · 완료 ${r1.done.length}건`,'면접 완료 처리','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+
+  const firstResult = list.filter(c => c.stage === 1 && !c.decision);
+  if(r1.done.length && firstResult.length) add('first_result','high','1차 면접 결과 입력 필요',`결과 미입력 ${firstResult.length}명 · 합격/불합격 판정 후 일괄 확정`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},1)`);
+
+  if(!short) {
+    const refReady = list.filter(c => c.stage === 2 && c.ref === '미시작');
+    if(refReady.length) add('reference_request','medium',hasHeadhunting?'레퍼런스 체크 업체 요청 필요':'레퍼런스 체크 요청 필요',`요청 대기 ${refReady.length}명${hasHeadhunting?' · 업체 경유 대상 포함':''}`,'레퍼런스 요청','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+    const refResend = list.filter(c => c.stage === 2 && c.ref === '진행중' && Number(c.refD||0) === 0 && ensureRefDetails(c).length === 0);
+    if(refResend.length) add('reference_resend','medium','레퍼런스 재요청 필요',`추천인 미접수 ${refResend.length}명 · ${hasHeadhunting?'업체 경유로':'지원자에게'} 등록 안내를 다시 발송하세요.`,'레퍼런스 재요청','requestPositionReferences',`requestPositionReferences(${positionId})`);
+    const refLate = list.filter(c => c.ref === '진행중' && Number(c.refD||0) === 0 && ensureRefDetails(c).length > 0);
+    if(refLate.length) add('reference_remind','high','레퍼런스 미응답 독촉 필요',`응답 없음 ${refLate.length}명`,'리마인드','remindRef',`remindRef(${refLate[0].id})`);
+    const refIncomplete = list.filter(c => c.stage === 2 && c.ref !== '완료');
+    if(refIncomplete.length && !refReady.length && !refResend.length && !refLate.length) add('reference_complete','medium','레퍼런스 완료 확인 필요',`진행중 ${refIncomplete.length}명 · 응답 수집 후 완료 처리`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+
+    const secondReady = list.some(c => c.stage === 2 && c.ref === '완료');
+    if(secondReady && !pos.panel2AvailabilityConfirmedAt) add('second_panel_availability','high',pos.panel2AvailabilityRequestedAt?'2차 면접관 가능 일정 회신 확인 필요':'2차 면접관 가능 일정 확인 필요',pos.panel2AvailabilityRequestedAt?'면접관 회신을 확인한 뒤 지원자 가능일 확인을 진행하세요.':'면접관에게 공통 후보 날짜의 참석 가능 여부를 먼저 확인하세요.','면접관 일정 확인','openCollectSlots',`openCollectSlots(${positionId},3)`);
+    if(secondReady && pos.panel2AvailabilityConfirmedAt && !r2.interviews.length) add('second_slots','medium',`2차 지원자 가능일 ${routeNoticeText} 필요`,`레퍼런스 완료 후보자에게 면접관 확인이 완료된 일정을 ${hasHeadhunting?'업체 경유로 ':''}안내하세요.`,'지원자 가능일 확인','openCollectSlots',`openCollectSlots(${positionId},3)`);
+    const secondResponded = r2.interviews.filter(i => ['RESPONDED','UNAVAILABLE'].includes(i.availabilityStatus));
+    const secondWaiting = r2.interviews.filter(i => i.availabilityStatus === 'SENT');
+    if(secondResponded.length && !secondWaiting.length) add('second_schedule','high','2차 면접시간·순서 확정 필요',`가능 시간대 응답 ${secondResponded.length}건 취합 완료`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
+    else if(secondWaiting.length) add('second_schedule_wait','medium','2차 가능 시간대 응답 대기',`응답완료 ${secondResponded.length}명 · 대기 ${secondWaiting.length}명`,'응답 현황','openCollectSlots',`openCollectSlots(${positionId},3)`);
+    else if(r2.pending.length) add('second_schedule','high','2차 공동일정 확정 필요',`미확정 ${r2.pending.length}건`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
+    if(r2.confirmed.length && r2.panelNotified.length < r2.confirmed.length) add('second_panel_notice','medium','2차 면접관 안내 미발송','확정된 2차 공동일정을 면접관에게 안내','면접관 안내','sendPanelNotice',`sendPanelNotice(${positionId},2)`);
+    if(r2.confirmed.length && r2.candidateNotified.length < r2.confirmed.length) add('second_candidate_notice','medium',`2차 면접 ${routeNoticeText} 미발송`,`확정된 2차 면접일정을 ${hasHeadhunting?'업체 경유로':'지원자에게'} 안내`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
+    const secondResult = list.filter(c => c.stage === 3 && !c.decision);
+    if(r2.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
+  }
+
+  const offerStage = list.filter(c => c.stage === 4);
+  if(offerStage.length) add('offer_negotiation','medium',hasHeadhunting?'처우협의 업체 확인 필요':'처우협의 결과 입력 필요',`${offerStage.length}명 · ${hasHeadhunting?'업체를 통한 협의 결과를 ':'협의 결과를 '}최종합격/불합격/협의중으로 입력하세요.`,'결과 입력','openPositionResultModal',`openPositionResultModal(${positionId},4)`);
+
+  if(projectStatus === 'active' || projectStatus === 'partial') {
+    if(final.length >= target) add('fill_complete','high','최종합격자 있음 → 충원완료 처리 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 포지션을 충원완료로 마감하세요.`,'충원완료 처리','closePosition',`closePosition(${positionId})`);
+    else if(final.length && remain > 0) add('partial_fill','low','부분충원 상태',`최종합격 ${final.length}명 · 잔여 seat ${remain}명`,'지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
+  }
+  if((projectStatus === 'nohire' || projectStatus === 'stopped') && list.some(c => Number(c.stage) < 5 && !c.held)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+
+  const pri = { high:0, medium:1, low:2 };
+  return items.sort((a,b) => pri[a.priority] - pri[b.priority]);
+}
+
+function getPositionProcessStatus(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return [];
+  const { pos, list, final } = d;
+  const short = isShortProcessEtype(pos.etype);
+  const r1 = positionRoundData(positionId, 1);
+  const r2 = positionRoundData(positionId, 3);
+  const refCands = list.filter(c => c.stage >= 2 && c.stage !== 6);
+  const flow = getPositionFlow(pos);
+  const activeOrPassed = list.filter(c => c.stage !== 6);
+  const allPast = stage => activeOrPassed.length > 0 && activeOrPassed.every(c =>
+    flowIndex(c.stage, flow) > flowIndex(stage, flow) || (c.stage !== 0 && Number(c.lastCompletedStage) >= Number(stage))
+  );
+  const pastInt1 = allPast(1);
+  const pastInt2 = !short && allPast(3);
+  const checks = [
+    { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
+    { key:'int1_panel', title:'1차 면접관 일정 확인', done:!!pos.panel1AvailabilityConfirmedAt || pastInt1, skip:false },
+    { key:'int1_slots', title:'1차 지원자 가능일 확인', done:r1.interviews.length > 0 || pastInt1, skip:false },
+    { key:'int1_notice', title:'1차 면접안내', done:r1.confirmed.length > 0 || pastInt1, skip:false },
+    { key:'int1_result', title:'1차 면접결과', done:pastInt1, skip:false },
+    { key:'ref_req', title:'레퍼런스 체크 요청', done:refCands.some(c => c.ref !== '미시작'), skip:short },
+    { key:'ref_done', title:'레퍼런스 완료', done:refCands.some(c => c.ref === '완료') || list.some(c => c.stage >= 3 && c.stage !== 6), skip:short },
+    { key:'int2_panel', title:'2차 면접관 일정 확인', done:!!pos.panel2AvailabilityConfirmedAt || pastInt2, skip:short },
+    { key:'int2_slots', title:'2차 지원자 가능일 확인', done:r2.interviews.length > 0 || pastInt2, skip:short },
+    { key:'int2_notice', title:'2차 면접안내', done:r2.confirmed.length > 0 || pastInt2, skip:short },
+    { key:'int2_result', title:'2차 면접결과', done:pastInt2, skip:short },
+    { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
+    { key:'final', title:'최종합격', done:final.length > 0 && !list.some(c => c.stage === 4), skip:false },
+    { key:'onboard', title:'입사안내', done:final.some(c => c.notified) || final.some(c => onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
+  ];
+  const actions = getPositionActionItems(positionId);
+  const actionKeys = new Set(actions.map(a => a.type));
+  const keyMap = {
+    candidate_register:'register',
+    first_panel_availability:'int1_panel', first_slots:'int1_slots', first_schedule:'int1_notice', first_schedule_reply:'int1_notice',
+    first_panel_notice:'int1_notice', first_candidate_notice:'int1_notice',
+    first_interview_done:'int1_result', first_result:'int1_result',
+    reference_request:'ref_req', reference_resend:'ref_req', reference_remind:'ref_done', reference_complete:'ref_done',
+    second_panel_availability:'int2_panel', second_slots:'int2_slots', second_schedule:'int2_notice',
+    second_panel_notice:'int2_notice', second_candidate_notice:'int2_notice',
+    second_result:'int2_result', offer_negotiation:'offer', fill_complete:'final'
+  };
+  let firstOpen = -1;
+  checks.forEach((x, i) => {
+    if(x.skip) return;
+    if(!x.done && firstOpen < 0) firstOpen = i;
+  });
+  return checks.map((x, i) => {
+    if(x.skip) return { number:i + 1, title:x.title, status:'skipped', label:'생략', key:x.key };
+    let status = x.done ? 'complete' : (i === firstOpen ? 'current' : 'upcoming');
+    const mapped = Object.entries(keyMap).find(([t,k]) => k === x.key && actionKeys.has(t));
+    if(status === 'current' && mapped && actions.find(a => a.type === mapped[0] && a.priority === 'high')) status = 'delayed';
+    else if(!x.done && actions.some(a => keyMap[a.type] === x.key && a.priority === 'high')) status = 'delayed';
+    const action = actions.find(a => keyMap[a.type] === x.key);
+    return {
+      number:i + 1, title:x.title, status,
+      label:status === 'complete' ? '완료' : status === 'current' ? '현재 단계' : status === 'delayed' ? '처리 필요' : '예정',
+      key:x.key,
+      actionLabel:action ? action.actionLabel : '',
+      actionCall:action ? action.actionCall : ''
+    };
+  });
+}
+
+function renderPositionSummary(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const { pos, target, final, remain, rate, projectStatus, statusLabel, list, active, rejected } = d;
+  const owner = pos.owner || pos.manager || '미지정';
+  const requested = pos.requestDate || pos.createdAt || '';
+  const targetDate = pos.targetDate || pos.dueDate || '미지정';
+  const short = isShortProcessEtype(pos.etype);
+  return `<section class="pp-section">
+    <div class="pp-summary-top">
+      <div class="pp-meta" style="margin-top:0"><span>${esc(pos.dept||'부서 미지정')}</span><span>${esc(pos.loc||'근무지 미지정')}</span><span class="etype ${ETYPE_CLS[pos.etype]||''}">${esc(pos.etype||'-')}</span><span>채용사유 ${esc(pos.hireReason||'충원')}</span><span>${esc(pos.role||'-')}</span><span>담당자 ${esc(owner)}</span><span>요청/생성일 ${fmtDate(requested)||'-'}</span><span>목표 충원일 ${fmtDate(targetDate)||esc(targetDate)}</span>${short?'<span style="color:var(--acc);font-weight:650">1차면접 프로세스</span>':''}</div>
+      <div style="text-align:right"><span class="pp-status ${projectStatus}">${statusLabel}</span></div>
+    </div>
+    <div class="pp-kpis">
+      <div class="pp-kpi"><div class="pp-kpi-val">${target}<small>명</small></div><div class="pp-kpi-lbl">채용목표</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val" style="color:var(--green)">${final.length}<small>명</small></div><div class="pp-kpi-lbl">최종합격 (충원 seat)</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val" style="color:${remain?'var(--amber)':'var(--green)'}">${remain}<small>명</small></div><div class="pp-kpi-lbl">미충원 seat</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val">${rate}<small>%</small></div><div class="pp-kpi-lbl">충원율</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val">${active.length}<small>명</small></div><div class="pp-kpi-lbl">진행중 지원자</div></div>
+      <div class="pp-kpi"><div class="pp-kpi-val">${rejected.length}<small>명</small></div><div class="pp-kpi-lbl">불합격/종료</div></div>
+    </div>
+    <div class="pp-fillbar"><span style="width:${rate}%"></span></div>
+  </section>`;
+}
+
+function renderPositionProcessChecklist(positionId) {
+  const d = getPositionProjectData(positionId);
+  const steps = getPositionProcessStatus(positionId);
+  const byKey = key => steps.find(s => s.key === key);
+  const mergeTask = (title, keys, actionKey) => {
+    const items = keys.map(byKey).filter(Boolean);
+    const status = items.every(x=>x.status==='skipped') ? 'skipped'
+      : items.every(x=>x.status==='complete'||x.status==='skipped') ? 'complete'
+      : items.some(x=>x.status==='delayed') ? 'delayed'
+      : items.some(x=>x.status==='current') ? 'current' : 'upcoming';
+    return { title, actionKey, status, label:status==='complete'?'완료':status==='current'?'진행중':status==='delayed'?'지연':status==='skipped'?'생략':'예정' };
+  };
+  const refResendNeeded = d && d.list.some(c => c.stage===2 && c.ref==='진행중' && Number(c.refD||0)===0 && ensureRefDetails(c).length===0);
+  const refRequestTitle = refResendNeeded ? '레퍼런스 재요청' : '레퍼런스 요청';
+  const groups = [
+    { title:'준비', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
+    { title:'1차 면접', stage:1, tasks:[mergeTask('면접관 일정 확인',['int1_panel'],'int1_panel'),mergeTask('지원자 가능일 확인',['int1_slots'],'int1_slots'),mergeTask('면접안내',['int1_notice'],'int1_notice'),mergeTask('면접결과',['int1_result'],'int1_result')] },
+    { title:'레퍼런스', stage:2, tasks:[mergeTask(refRequestTitle,['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
+    { title:'2차 면접', stage:3, tasks:[mergeTask('면접관 일정 확인',['int2_panel'],'int2_panel'),mergeTask('지원자 가능일 확인',['int2_slots'],'int2_slots'),mergeTask('면접안내',['int2_notice'],'int2_notice'),mergeTask('면접결과',['int2_result'],'int2_result')] },
+    { title:'처우협의', stage:4, tasks:[mergeTask('처우협의 및 결과 판단',['offer','final'],'offer_decision'),mergeTask('입사안내',['onboard'],'onboard')] },
+  ];
+  const flow = d ? getPositionFlow(d.pos) : FLOW;
+  const candidateFlowIndexes = d ? d.list
+    .filter(c => Number(c.stage) !== 6 && !c.held)
+    .map(c => flowIndex(Number(c.stage), flow))
+    .filter(idx => idx >= 0) : [];
+  const alignGroupStatusWithCandidates = (groupStatus, groupStage) => {
+    const targetIndex = flow.indexOf(groupStage);
+    if(targetIndex < 0 || !candidateFlowIndexes.length) return groupStatus;
+    if(candidateFlowIndexes.every(idx => idx > targetIndex)) return 'complete';
+    if(candidateFlowIndexes.some(idx => idx === targetIndex)) return groupStatus === 'delayed' ? 'delayed' : 'current';
+    if(candidateFlowIndexes.some(idx => idx > targetIndex)) return groupStatus === 'delayed' ? 'delayed' : 'active';
+    return groupStatus;
+  };
+  const shortNote = d && isShortProcessEtype(d.pos.etype)
+    ? `<div class="pp-process-note">${esc(d.pos.etype)} 채용은 1차 면접까지만 진행합니다. 레퍼런스·2차 면접 항목은 생략됩니다.</div>`
+    : '';
+  return `<section class="pp-section" id="pp-position-process"><div class="pp-section-h"><div><div class="pp-section-title">프로세스 진행현황</div></div></div>
+    ${shortNote}
+    <div class="pp-process-groups">${groups.map(g=>{
+      const tasks = g.tasks;
+      const activeTasks = tasks.filter(s=>s.status!=='skipped');
+      const taskGroupStatus = !activeTasks.length ? 'skipped'
+        : activeTasks.every(s=>s.status==='complete') ? 'complete'
+        : activeTasks.some(s=>s.status==='delayed') ? 'delayed'
+        : activeTasks.some(s=>s.status==='current') ? 'current'
+        : activeTasks.some(s=>s.status==='complete') ? 'active' : 'upcoming';
+      const groupStatus = alignGroupStatusWithCandidates(taskGroupStatus, g.stage);
+      const groupStatusLabel = groupStatus==='complete'?'완료':groupStatus==='current'?'현재 진행':groupStatus==='delayed'?'처리 필요':groupStatus==='active'?'진행 보유':groupStatus==='skipped'?'생략':'예정';
+      const targetIndex = flow.indexOf(g.stage);
+      const fromStage = targetIndex > 0 ? flow[targetIndex-1] : -1;
+      const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
+      const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" data-action="call" data-call="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
+      return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" data-action="call" data-call="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel}</span>${moveButton}</div>
+        <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}${s.status!=='skipped'?' actionable':''}" ${s.status!=='skipped'?`data-action="call" data-call="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
+      </div>`;
+    }).join('')}</div>
+  </section>`;
+}
+
+function togglePositionProcessGroup(button) {
+  const group = button && button.closest('.pp-process-group');
+  if(group) group.classList.toggle('open');
+}
+
+function getPositionStageMoveBlockers(positionId, fromStage, toStage) {
+  const targets = candidates.filter(c =>
+    Number(c.posId) === Number(positionId) &&
+    Number(c.stage) === Number(fromStage) &&
+    !c.held
+  );
+  const blockers = [];
+  const add = (label, list) => {
+    if(!list.length) return;
+    blockers.push({
+      label,
+      count:list.length,
+      names:list.map(c=>c.name || `지원자 ${c.id}`)
+    });
+  };
+
+  if(fromStage === 1 || fromStage === 3) {
+    const round = fromStage === 1 ? '1차' : '2차';
+    const interviewFor = c => interviews.find(i =>
+      Number(i.candId) === Number(c.id) && i.type === round
+    );
+    add('일정 미확정', targets.filter(c => !hasConfirmedRoundSchedule(c.id, fromStage)));
+    add('지원자 안내 미완료', targets.filter(c => !interviewFor(c)?.candidateNotified));
+    add('면접관 안내 미완료', targets.filter(c => !interviewFor(c)?.panelNotified));
+    add('결과 미입력', targets.filter(c => {
+      const itv = interviewFor(c);
+      return !c.decision && !itv?.result;
+    }));
+    add('불합격 판정 포함', targets.filter(c => {
+      const result = c.decision || interviewFor(c)?.result || '';
+      return result === 'fail' || result === '불합격';
+    }));
+  }
+
+  if(fromStage === 2) {
+    add('레퍼런스 미완료', targets.filter(c => {
+      const required = Number(c.refT) || 0;
+      const responded = Number(c.refD) || 0;
+      return c.ref !== '완료' || required <= 0 || responded < required;
+    }));
+  }
+
+  if(fromStage === 4 && toStage === 5) {
+    add('처우협의 결과 미입력', targets.filter(c => c.decision !== 'pass'));
+  }
+
+  return { ok:blockers.length === 0, targets, blockers };
+}
+
+// 단계 이동이 차단됐을 때 사유를 모달로 보여준다 (예전엔 alert() 텍스트였다).
+let stageGateCtx = { positionId:null };
+
+function openStageGateModal(positionId, fromStage, toStage, check) {
+  stageGateCtx = { positionId };
+  const total = check.targets.length;
+  const summary = document.getElementById('sg-summary');
+  if(summary) summary.innerHTML = `<b>${esc(stageLabel(fromStage))}</b> 단계의 필수 업무가 모두 완료되지 않아 <b>${esc(stageLabel(toStage))}</b> 단계로 이동할 수 없습니다. 아래 미완료 업무를 처리한 후 다시 시도하세요.`;
+  const wrap = document.getElementById('sg-blockers');
+  if(wrap) wrap.innerHTML = check.blockers.map(item => {
+    const completed = Math.max(0, total - item.count);
+    const names = item.names.slice(0, 5).join(', ');
+    const more = item.names.length > 5 ? ` 외 ${item.names.length - 5}명` : '';
+    return `<div style="padding:10px 12px;border:1px solid var(--rbd);border-radius:var(--rsm);background:var(--rbg)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:700;font-size:13px;color:var(--red)">
+        <span>! ${esc(item.label)}</span><span style="flex-shrink:0">${completed}/${total}</span>
+      </div>
+      <div style="font-size:12px;color:var(--t2);margin-top:4px">${esc(names)}${esc(more)}</div>
+    </div>`;
+  }).join('');
+  openModal('modal-stage-gate');
+}
+
+function focusStageGateBlockers() {
+  const positionId = stageGateCtx.positionId;
+  closeModal('modal-stage-gate');
+  if(positionId == null) return;
+  openPosDetail(Number(positionId));
+  setTimeout(() => scrollPositionDetail('pp-position-candidates'), 300);
+}
+
+async function changePositionProcessStage(positionId, toStage) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return;
+  const flow = getPositionFlow(pos);
+  const targetIndex = flow.indexOf(Number(toStage));
+  if(targetIndex <= 0) return;
+  const fromStage = flow[targetIndex - 1];
+  const targets = candidates.filter(c => Number(c.posId) === Number(positionId) && c.stage === fromStage);
+  if(!targets.length) {
+    toast(`${stageLabel(fromStage)} 단계에 이동할 지원자가 없습니다.`, 'terr');
+    return;
+  }
+  const completionCheck = getPositionStageMoveBlockers(positionId, fromStage, Number(toStage));
+  if(!completionCheck.ok) {
+    openStageGateModal(positionId, fromStage, Number(toStage), completionCheck);
+    return;
+  }
+  await batchStageChange(positionId, fromStage, Number(toStage));
+  refreshOpenPositionDetail(positionId);
+}
+
+async function executePositionProcessTask(positionId, actionKey) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return;
+  const round = actionKey.startsWith('int1') ? 1 : actionKey.startsWith('int2') ? 2 : 0;
+  const stageIdx = round === 1 ? 1 : round === 2 ? 3 : -1;
+  if(actionKey === 'candidate_register') return addCandToPos(positionId);
+  if(actionKey === 'int1_panel' || actionKey === 'int2_panel' || actionKey === 'int1_slots' || actionKey === 'int2_slots') return openCollectSlots(positionId, stageIdx);
+  if(actionKey === 'int1_confirm' || actionKey === 'int2_confirm') return openPositionRoundSchedule(positionId, stageIdx);
+  if(actionKey === 'int1_notice' || actionKey === 'int2_notice') {
+    const roundData = positionRoundData(positionId, stageIdx);
+    if(!roundData.confirmed.length) return openPositionRoundSchedule(positionId, stageIdx);
+    return openInterviewNoticeFlow(positionId, stageIdx, round);
+  }
+  if(actionKey === 'int1_done' || actionKey === 'int2_done') return completePositionInterviews(positionId, stageIdx);
+  if(actionKey === 'int1_result' || actionKey === 'int2_result') return openPositionResultModal(positionId, stageIdx);
+  if(actionKey === 'ref_request') return requestPositionReferences(positionId);
+  if(actionKey === 'ref_complete') return completePositionReferences(positionId);
+  if(actionKey === 'offer') return changePositionProcessStage(positionId, 4);
+  if(actionKey === 'offer_decision') {
+    if(d.list.some(c=>c.stage===4)) return openPositionResultModal(positionId,4);
+    const flow=getPositionFlow(d.pos);
+    const offerIndex=flow.indexOf(4);
+    const previousStage=offerIndex>0?flow[offerIndex-1]:-1;
+    if(previousStage>=0 && d.list.some(c=>c.stage===previousStage)) return changePositionProcessStage(positionId,4);
+    return toast('처우협의 결과가 이미 확정되었거나 이동할 대상자가 없습니다.','tok');
+  }
+  if(actionKey === 'final') return openPositionResultModal(positionId, 4);
+  if(actionKey === 'onboard') return openOnboardingFromPosition(positionId);
+}
+
+let positionResultCtx = { positionId:null, stageIdx:null };
+
+function openPositionResultModal(positionId, stageIdx) {
+  const pos = positions.find(p=>Number(p.id)===Number(positionId));
+  const list = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===Number(stageIdx));
+  if(!pos || !list.length) { toast(stageIdx===4?'결과를 입력할 처우협의 대상자가 없습니다.':'결과를 입력할 면접 대상자가 없습니다.', 'terr'); return; }
+  positionResultCtx = { positionId:Number(positionId), stageIdx:Number(stageIdx) };
+  const isFinal = Number(stageIdx) === 4;
+  document.getElementById('pr-title').textContent = `${isFinal?'처우협의 결과 입력':stageLabel(stageIdx)+' 결과 입력'} — ${pos.title} (${list.length}명)`;
+  const help=document.getElementById('pr-help');
+  if(help) help.textContent=isFinal
+    ? '지원자별 처우협의 결과를 선택하세요. 최종합격자는 충원 seat에 반영된 후 입사 안내 화면으로 이어지고, 불합격자는 전형 종료되며, 협의중인 지원자는 처우협의 단계에 남습니다.'
+    : '지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 이동할 수 있습니다.';
+  const saveBtn=document.getElementById('pr-save-btn');
+  const confirmBtn=document.getElementById('pr-confirm-btn');
+  if(saveBtn) saveBtn.textContent=isFinal?'협의 결과 임시 저장':'판정 저장';
+  if(confirmBtn) confirmBtn.textContent=isFinal?'처우협의 결과 확정':'판정 확정 및 단계 이동';
+  document.getElementById('pr-list').innerHTML = list.map(c=>`
+    <div style="display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:12.5px;font-weight:700">${esc(c.name)}${headhunterSearchPill(c)}</div>
+        <div style="font-size:10.5px;color:var(--t3)">${esc(c.email||'-')}</div>
+        ${isFinal?`<label style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--t2);font-weight:700">입사예정일 <input class="pr-join-date" data-cand-id="${c.id}" type="date" value="${esc(getCandidateJoinDate(c))}" style="height:28px;width:132px;border:1px solid var(--border2);border-radius:6px;padding:0 7px;font-size:11px"></label>`:''}
+      </div>
+      <div style="display:flex;gap:5px">
+        <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
+        <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">불합격</label>
+        <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'협의중':'미정'}</label>
+      </div>
+    </div>`).join('');
+  openModal('modal-position-result');
+}
+
+function selectPositionResult(input) {
+  document.querySelectorAll(`input[name="${input.name}"]`).forEach(r=>{
+    const label = r.closest('label');
+    if(!label) return;
+    label.classList.remove('btn-green','btn-red','btn-primary');
+    if(r.checked) label.classList.add(r.value==='pass'?'btn-green':r.value==='fail'?'btn-red':'btn-primary');
+  });
+}
+
+async function savePositionResults(confirmAndMove) {
+  const { positionId, stageIdx } = positionResultCtx;
+  const list = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===Number(stageIdx));
+  list.forEach(c=>{
+    const selected = document.querySelector(`input[name="pr-${c.id}"]:checked`);
+    c.decision = selected ? selected.value : '';
+    if(Number(stageIdx) === 4 && c.decision === 'pass') {
+      const joinInput = document.querySelector(`.pr-join-date[data-cand-id="${c.id}"]`);
+      c.joinDate = joinInput ? joinInput.value || '' : c.joinDate || '';
+    }
+  });
+  if(confirmAndMove) {
+    closeModal('modal-position-result');
+    return confirmStageDecisions(positionId, stageIdx, {skipConfirm:true});
+  }
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>syncCandToGS(c)), stageIdx===4?'처우협의 결과 저장 동기화':'면접 결과 저장 동기화');
+  closeModal('modal-position-result');
+  refreshOpenPositionDetail(positionId);
+  toast(`${stageIdx===4?'처우협의 결과':stageLabel(stageIdx)+' 판정'} 저장 완료`, 'tok');
+}
+
+async function completePositionInterviews(positionId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const ids = new Set(candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===stageIdx).map(c=>Number(c.id)));
+  const targets = interviews.filter(i=>ids.has(Number(i.candId))&&i.type===round&&i.status==='confirmed');
+  if(!targets.length) { toast('완료 처리할 확정 면접이 없습니다.', 'terr'); return; }
+  if(!confirm(`${round} 면접 ${targets.length}건을 완료 처리하시겠습니까?`)) return;
+  targets.forEach(i=>{ i.status='done'; });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
+  refreshOpenPositionDetail(positionId); renderDashboard();
+  toast(`${round} 면접 ${targets.length}건 완료 처리`, 'tok');
+}
+
+function requestPositionReferences(positionId) {
+  const targets = candidates.filter(c =>
+    Number(c.posId) === Number(positionId) &&
+    c.stage === 2 &&
+    (c.ref === '미시작' || (c.ref === '진행중' && Number(c.refD || 0) === 0))
+  );
+  if(!targets.length) { toast('레퍼런스 요청 대상자가 없습니다.', 'terr'); return; }
+  const resendCount = targets.filter(c => c.ref === '진행중').length;
+  if(!confirm(`${targets.length}명에게 레퍼런스 체크 안내를 ${resendCount ? `발송합니다.\n이 중 재요청 ${resendCount}명은 기존 진행 상태를 유지합니다.` : '진행하시겠습니까?'}`)) return;
+  targets.forEach((c,i)=>setTimeout(()=>startRef(c.id, c.ref === '진행중'),i*600));
+  setTimeout(()=>refreshOpenPositionDetail(positionId),targets.length*600+200);
+}
+
+async function completePositionReferences(positionId) {
+  const targets = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===2&&c.ref==='진행중');
+  if(!targets.length) { toast('완료 처리할 레퍼런스 진행 건이 없습니다.', 'terr'); return; }
+  const eligible = targets.filter(c => ensureRefDetails(c).length > 0);
+  if(!eligible.length) { toast('실제 접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.', 'terr'); return; }
+  if(!confirm(`${eligible.length}명의 레퍼런스를 완료 처리하시겠습니까?`)) return;
+  eligible.forEach(c=>{ c.ref='완료'; c.refD=c.refT; refDetails[c.id].forEach(r=>r.status='응답'); });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync(eligible.map(c=>syncCandToGS(c)), '레퍼런스 완료 동기화');
+  refreshOpenPositionDetail(positionId); updateMetrics();
+  toast(`${eligible.length}명 레퍼런스 완료 처리`, 'tok');
+}
+
+function renderPositionCandidates(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const short = isShortProcessEtype(d.pos.etype);
+  const sorted = d.list.slice().sort((a,b)=>a.stage-b.stage||(a.name||'').localeCompare(b.name||'','ko'));
+  const row = c => {
+    const round = c.stage===1?'1차':c.stage===3?'2차':'';
+    const itv = round ? interviews.find(i=>Number(i.candId)===Number(c.id)&&i.type===round) : null;
+    const intState = !round ? '-' : !itv ? '미등록' : itv.status==='done'?'면접완료':itv.status==='confirmed'?'일정확정':'회신대기';
+    const notice = itv ? (itv.candNotified?'지원자 발송완료':'미발송') : (c.notified?'발송':'-');
+    const refCell = short ? '<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>해당없음</div>' : `<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>${esc(c.ref||'미시작')}${c.refT?` ${c.refD||0}/${c.refT}`:''}</div>`;
+    const dec = c.decision ? (c.decision==='pass'?' · 합격표시':' · 불합격표시') : '';
+    return `<div class="pp-cand">
+      <div><div class="pp-cand-name">${esc(c.name)}${headhunterSearchPill(c)}</div><div class="pp-cand-email">${esc(c.email||'-')}</div></div>
+      <div class="pp-cand-cell"><strong>현재 단계</strong>${stageLabel(c.stage)}${dec}${Number(c.stage)===5?` · ${esc(getCandidateJoinDateLabel(c))}`:''}</div>
+      <div class="pp-cand-cell"><strong>면접일정</strong>${intState}${itv&&itv.date?` · ${fmtItv(itv.date)}`:''}</div>
+      ${refCell}
+      <div class="pp-cand-cell pp-secondary"><strong>안내 발송</strong>${notice}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}">개별 처리</button><button class="btn btn-xs" data-action="edit-candidate" data-id="${c.id}">수정</button></div>
+    </div>`;
+  };
+  return `<section class="pp-section" id="pp-position-candidates"><div class="pp-section-h"><div><div class="pp-section-title">지원자 현황</div><div class="pp-section-sub">개별 지원자 상태 확인 및 예외 처리</div></div><button class="btn btn-sm btn-primary" data-action="call" data-call="addCandToPos(${positionId})">+ 지원자 추가</button></div>
+    <div class="pp-cand-list">${sorted.length?sorted.map(row).join(''):'<div class="empty">이 포지션에 연결된 지원자가 없습니다. 지원자를 추가해 채용 프로세스를 시작하세요.</div>'}</div>
+  </section>`;
+}
+
+function scrollPositionDetail(id) {
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+let currentPosDetailId = null;
+
+function openPosDetail(positionId) {
+  currentPosDetailId = Number(positionId);
+  nav('posdetail');
+  renderPosDetailSection(currentPosDetailId);
+  window.scrollTo(0, 0);
+}
+
+function posdetailClosePos(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return;
+  const prevStatus = pos.status;
+  const prevClosedAt = pos.closedAt;
+  closePosition(positionId);
+  if(pos.status !== prevStatus || pos.closedAt !== prevClosedAt) nav('position');
+}
+
+function posdetailStopPos(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return;
+  const prevStatus = pos.status;
+  const prevClosedAt = pos.closedAt;
+  stopPosition(positionId);
+  if(pos.status !== prevStatus || pos.closedAt !== prevClosedAt) nav('position');
+}
+
+async function posdetailDeletePos(positionId) {
+  const beforeCount = positions.length;
+  await deletePosition(positionId);
+  if(positions.length < beforeCount) nav('position');
+}
+
+function renderPosDetailSection(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) {
+    const body = document.getElementById('posdetail-body');
+    if(body) body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--t3)">포지션 정보를 불러올 수 없습니다.</div>';
+    return;
+  }
+  const title = document.getElementById('posdetail-title');
+  if(title) title.textContent = (d.pos.dept ? d.pos.dept + ' · ' : '') + d.pos.title;
+  const body = document.getElementById('posdetail-body');
+  if(body) body.innerHTML = `<div class="pos-project">
+    ${renderPositionSummary(positionId)}
+    ${renderPositionProcessChecklist(positionId)}
+    ${renderPositionCandidates(positionId)}
+  </div>`;
+  const footer = document.getElementById('posdetail-ft');
+  if(footer) footer.innerHTML = renderPosDetailOperations(positionId);
+}
+
+function renderPosDetailOperations(positionId) {
+  const d = getPositionProjectData(positionId);
+  if(!d) return '';
+  const active = d.projectStatus === 'active' || d.projectStatus === 'partial';
+  return `<div class="pp-footer-group"><span class="pp-footer-label">보조</span><button class="btn btn-sm" data-action="call" data-call="nav('position')">← 목록으로</button></div>
+    <div class="pp-footer-group"><span class="pp-footer-label">관리</span><button class="btn btn-sm" data-action="call" data-call="editPosition(${positionId})">수정</button><button class="btn btn-sm btn-red" data-action="call" data-call="posdetailDeletePos(${positionId})">삭제</button></div>
+    <div class="pp-footer-group" style="margin-left:auto"><span class="pp-footer-label">주요 처리</span>${active
+      ? `<button class="btn btn-sm btn-green" data-action="call" data-call="posdetailClosePos(${positionId})">충원완료</button><button class="btn btn-sm" style="color:var(--amber)" data-action="call" data-call="nohirePosition(${positionId})">미채용 완료</button><button class="btn btn-sm" data-action="call" data-call="posdetailStopPos(${positionId})">채용 중단</button>`
+      : `<button class="btn btn-sm" data-action="call" data-call="reopenPosition(${positionId});nav('position')">진행중으로 복원</button>`}</div>`;
+}
+
+// 포지션 상세 section이 지금 이 포지션을 보여주고 있을 때만 다시 그린다.
+// 다른 화면을 보고 있거나 다른 포지션 상세를 보는 중이면 아무 것도 하지 않는다.
+function refreshOpenPositionDetail(positionId) {
+  if(Number(currentPosDetailId) !== Number(positionId)) return;
+  const posdetailSect = document.getElementById('sect-posdetail');
+  if(posdetailSect && posdetailSect.classList.contains('on')) {
+    renderPosDetailSection(Number(positionId));
+  }
+}
+
+// ── 지원자 판정 확정/일괄 단계 변경 ──────────────────────────
+// 포지션 단계 전체 판정 일괄 확정 (합격자→다음, 불합격자→탈락)
+async function confirmStageDecisions(posId, stageIdx, options={}) {
+  const skipConfirm = !!options.skipConfirm;
+  const isFinalDecision = Number(stageIdx) === 4;
+  const round = isFinalDecision ? '처우협의 결과' : STAGES[stageIdx];
+  const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  if(!posCands.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+
+  if(stageIdx === 1 || stageIdx === 3) {
+    const missing = posCands.filter(c => !hasConfirmedRoundSchedule(c.id, stageIdx));
+    if(missing.length) {
+      if(!confirm(`면접 일정이 확정되지 않은 지원자가 ${missing.length}명 있습니다.\n\n일정 확정·안내 없이 판정을 확정하고 다음 단계로 이동할까요?\n단계를 지나간 뒤에는 일정 미확정 건이 '처리 필요'에서 자동 추적되지 않을 수 있습니다.`)) return;
+    }
+  }
+
+  const undecided = posCands.filter(c => !c.decision);
+  const passers = posCands.filter(c => c.decision === 'pass');
+  const failers = posCands.filter(c => c.decision === 'fail');
+
+  if(undecided.length && !skipConfirm) {
+    if(!confirm(isFinalDecision
+      ? `처우협의 중인 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n결과가 선택된 인원만 확정하고, 협의중인 지원자는 처우협의 단계에 남깁니다.\n계속할까요?`
+      : `아직 판정하지 않은 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n판정된 인원만 이동시키고, 미판정자는 현재 단계에 남깁니다.\n계속할까요?`)) return;
+  } else if(!skipConfirm) {
+    if(!confirm(isFinalDecision
+      ? `처우협의 결과를 확정합니다.\n\n· 최종합격 ${passers.length}명 → 충원 seat 반영 후 입사 안내로 이동\n· 불합격 ${failers.length}명 → 전형 종료\n· 협의중 ${undecided.length}명 → 처우협의 유지\n\n진행할까요?`
+      : `'${round}' 단계 판정을 확정합니다.\n\n· 합격 ${passers.length}명 → 다음 단계 이동\n· 불합격 ${failers.length}명 → 전형 종료\n\n진행할까요?`)) return;
+  }
+
+  const nx = nextFlowStage(stageIdx, posId);
+  if(nx === 5 && passers.length) {
+    const posId = passers[0].posId;
+    if(posId != null) {
+      const info = getPosSeatInfo(posId);
+      if(info && info.passed + passers.length > info.headcount) {
+        if(!confirm(`⚠ Seat 초과 경고\n최종합격 ${info.passed}명 + 이번 합격 ${passers.length}명 = ${info.passed + passers.length}명\n목표 ${info.headcount}명\n\n계속할까요?`)) return;
+      }
+    }
+  }
+  let passCnt = 0, failCnt = 0;
+  const rejectionInfo = failers.length ? await askRejectReason(failers.length) : null;
+  if(failers.length && !rejectionInfo) return;
+  const decidedInterviews = [];
+  [...passers, ...failers].forEach(c => {
+    const itv = preserveCompletedStage(c, stageIdx, c.decision);
+    if(itv) decidedInterviews.push(itv);
+  });
+  passers.forEach(c => {
+    c.stage = nx;
+    if(nx === 5 && !c.joinDate) c.joinDate = '';
+    c.decision = '';  // 판정 초기화 (다음 단계에서 새로 판정)
+    passCnt++;
+  });
+  // 불합격자 → 탈락(6)
+  failers.forEach(c => {
+    c.stage = 6;
+    recordRejection(c, rejectionInfo.reason, rejectionInfo.memo);
+    c.decision = '';
+    // 진행중 면접·레퍼런스 정리
+    interviews = interviews.filter(i => !(Number(i.candId)===Number(c.id) && (i.status||'pending')==='pending'));
+    if(c.ref === '진행중') { c.ref = '미시작'; c.refD = 0; c.refT = 0; delete refDetails[c.id]; }
+    failCnt++;
+  });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync([
+    ...[...passers, ...failers].map(c => syncCandToGS(c)),
+    ...decidedInterviews.map(i => syncIntToGS(i)),
+  ], '판정 결과 동기화');
+  renderPositions(); renderDashboard();
+  if(isFinalDecision && passCnt > 0) {
+    openOnboardingFromPosition(Number(posId));
+    toast(`처우협의 결과 확정: 최종합격 ${passCnt}명 · 입사 안내로 이동`, 'tok');
+  } else {
+    openPosDetail(Number(posId));
+    toast(isFinalDecision
+      ? `처우협의 결과 확정: 최종합격 ${passCnt}명, 불합격 ${failCnt}명 종료`
+      : `판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
+  }
+}
+
+function hasConfirmedRoundSchedule(candId, stageIdx) {
+  const round = stageIdx === 1 ? '1차' : stageIdx === 3 ? '2차' : '';
+  if(!round) return true;
+  return interviews.some(i => Number(i.candId) === Number(candId) && i.type === round &&
+    (i.status === 'confirmed' || i.status === 'done') && i.date);
+}
+
+function preserveCompletedStage(c, fromStage, decision='') {
+  if(!c) return null;
+  c.lastCompletedStage = Number(fromStage);
+  c.lastStageChangedAt = new Date().toISOString();
+  if(fromStage !== 1 && fromStage !== 3) return null;
+  const round = fromStage === 1 ? '1차' : '2차';
+  const itv = interviews.find(i => Number(i.candId)===Number(c.id) && i.type===round);
+  if(!itv) return null;
+  itv.status = 'done';
+  if(decision) itv.result = decision;
+  itv.evaluatedAt = new Date().toISOString();
+  return itv;
+}
+
+function resetCandidateProgressForRollback(c, newStage) {
+  const removedInterviewIds = [];
+  if(!c) return removedInterviewIds;
+
+  interviews = interviews.filter(i => {
+    if(Number(i.candId) !== Number(c.id)) return true;
+    const interviewStage = i.type === '1차' ? 1 : i.type === '2차' ? 3 : 99;
+    const remove = newStage === 0 || interviewStage > newStage;
+    if(remove) removedInterviewIds.push(i.id);
+    return !remove;
+  });
+
+  if(newStage < 2) {
+    c.ref = '미시작';
+    c.refD = 0;
+    c.refT = 0;
+    delete refDetails[c.id];
+    delete refReports[c.id];
+  }
+
+  c.lastCompletedStage = newStage > 0 ? newStage - 1 : null;
+  c.lastStageChangedAt = new Date().toISOString();
+  c.decision = '';
+  c.finalAt = '';
+  c.rejectedAt = '';
+  c.rejectReason = '';
+  c.rejectMemo = '';
+  c.held = false;
+
+  const remainingSchedule = interviews.find(i => Number(i.candId) === Number(c.id) && i.date);
+  c.intDate = remainingSchedule ? remainingSchedule.date : '';
+  if(newStage === 0) {
+    c.notified = false;
+    c.mailPending = false;
+    c.mailPendingLabel = '';
+  }
+  return removedInterviewIds;
+}
+
+async function batchStageChange(posId, fromStage, toStage) {
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === fromStage);
+  if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+
+  // 면접 단계 진입은 포지션 공통일정을 먼저 확정한 뒤 일괄 이동한다.
+  if(toStage === 1 || toStage === 3) {
+    const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, toStage));
+    if(missing.length) {
+      if(!confirm(`${STAGES[toStage]} 공통일정이 확정되지 않았습니다.\n\n일정 요청·이메일 안내 없이 ${targets.length}명을 바로 이동할까요?\n미완료 항목은 대시보드 '처리 필요'에 표시됩니다.`)) return;
+    }
+  }
+
+  // 면접 단계에서 다음 단계로 일괄 이동할 때도 전원 일정 확정을 필수로 한다.
+  if(fromStage === 1 || fromStage === 3) {
+    const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, fromStage));
+    if(missing.length) {
+      if(!confirm(`면접 일정이 확정되지 않은 지원자가 ${missing.length}명 있습니다.\n\n일정 확정·안내 없이 다음 단계로 이동할까요?\n단계를 지나간 뒤에는 일정 미확정 건이 '처리 필요'에서 자동 추적되지 않을 수 있습니다.`)) return;
+    }
+  }
+
+  if(!confirm(`${targets.length}명을 ${STAGES[toStage]} 단계로 이동하시겠습니까?`)) return;
+  const completedInterviews = [];
+  const removedInterviewIds = [];
+  const flow = positions.find(p => Number(p.id) === Number(posId)) ? getPositionFlow(positions.find(p => Number(p.id) === Number(posId))) : FLOW;
+  const movingBackward = flowIndex(toStage, flow) < flowIndex(fromStage, flow);
+  targets.forEach(c => {
+    if(movingBackward) {
+      removedInterviewIds.push(...resetCandidateProgressForRollback(c, toStage));
+    } else {
+      const itv = preserveCompletedStage(c, fromStage);
+      if(itv) completedInterviews.push(itv);
+    }
+    c.stage = toStage;
+    syncReferralFromCandidate(c);
+  });
+  saveState();
+  if(GS_CONFIG.scriptUrl) await settleSync([
+    ...targets.map(c => syncCandToGS(c)),
+    ...completedInterviews.map(i => syncIntToGS(i)),
+    ...removedInterviewIds.map(id => deleteIntFromGS(id)),
+  ], movingBackward ? '단계 일괄 되돌리기 동기화' : '단계 일괄 이동 동기화');
+  renderDashboard(); renderTracker(); renderPositions();
+  toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
+}
+
+</script>

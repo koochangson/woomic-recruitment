@@ -1,0 +1,444 @@
+<script>
+// ══════════════════════════════════════════════════════════════
+// 면접 일정 안내 메일 (지원자/면접관) + 면접관 디렉토리
+// js_02_positions_interviews.html에서 분리 (Phase 2).
+// ══════════════════════════════════════════════════════════════
+
+function sendAllCandSchedule(posId, stageIdx, skipConfirm) {
+  const confirmedItvs = getConfirmedPositionInterviews(posId, stageIdx);
+  if(!confirmedItvs.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  if(!skipConfirm && !confirm(`확정된 ${confirmedItvs.length}명에게 각각 면접 일정 안내 메일을 작성합니다.\n${confirmedItvs.length}개의 메일 작성창이 순서대로 열립니다. 진행할까요?`)) return 0;
+
+  // 페이지를 유지하는 순차 발송 방식으로 열어 이후 면접관 안내가 중단되지 않게 한다.
+  confirmedItvs.forEach((itv, idx) => {
+    setTimeout(() => sendCandSchedule(itv.id, true), idx * 650);
+  });
+  toast(`${confirmedItvs.length}명 안내 메일 작성창을 엽니다. 각 창에서 전송하세요.`, 'toutlook');
+  return confirmedItvs.length;
+}
+
+function sendCandidateThenPanelNotices(posId, stageIdx, round, skipConfirm=false) {
+  const pos = positions.find(p=>Number(p.id)===Number(posId));
+  const confirmedItvs = getConfirmedPositionInterviews(posId, stageIdx);
+  if(!confirmedItvs.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  const panelists = parsePanelists(stageIdx===1 ? pos?.panel1 : pos?.panel2);
+  const panelText = panelists.length ? `이후 면접관 ${panelists.length}명 단체 안내 메일이 열립니다.` : '등록된 면접관이 없어 지원자 안내만 진행됩니다.';
+  if(!skipConfirm && !confirm(`지원자 ${confirmedItvs.length}명에게 개인별 면접 일정 안내 메일을 엽니다.\n${panelText}\n\n계속할까요?`)) return;
+  const sentCount = sendAllCandSchedule(posId, stageIdx, true) || 0;
+  if(sentCount && panelists.length) {
+    setTimeout(()=>sendPanelNotice(posId, round), sentCount * 650 + 350);
+  }
+}
+
+let interviewNoticeFlowCtx = { posId:null, stageIdx:null, round:null };
+
+function openInterviewNoticeFlow(posId, stageIdx, round) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const confirmed = getConfirmedPositionInterviews(posId, stageIdx);
+  if(!confirmed.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  interviewNoticeFlowCtx = { posId:Number(posId), stageIdx:Number(stageIdx), round:Number(round) };
+  document.getElementById('inf-title').textContent = `${round}차 면접 안내 — ${pos.title}`;
+  renderInterviewNoticeFlow();
+  openModal('modal-interview-notice-flow');
+}
+
+function renderInterviewNoticeFlow() {
+  const { posId, stageIdx, round } = interviewNoticeFlowCtx;
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  const schedule = getConfirmedPositionInterviews(posId, stageIdx);
+  const panelists = parsePanelists(stageIdx === 1 ? pos?.panel1 : pos?.panel2).filter(p => p.email && p.email.includes('@'));
+  const candDone = schedule.length > 0 && schedule.every(i => i.candidateNotified || i.candNotified);
+  const panelDone = schedule.length > 0 && schedule.every(i => i.panelNotified || i.notified);
+  const el = document.getElementById('inf-status');
+  if(!el) return;
+  const card = (title, desc, done, action, label, disabled) => `<div style="border:1px solid ${done?'var(--gbd)':'var(--border)'};border-radius:var(--r);padding:13px;background:${done?'var(--gbg)':'var(--surface)'}">
+    <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">${title}</div>
+    <div style="font-size:11px;color:var(--t3);min-height:34px;margin-bottom:10px">${desc}</div>
+    <button class="btn btn-sm ${done?'btn-green':'btn-primary'}" data-action="call" data-call="${action}" ${disabled?'disabled':''}>${done?'발송 완료':label}</button>
+  </div>`;
+  el.innerHTML =
+    card('지원자 개인 안내', `확정 일정 지원자 ${schedule.length}명에게 개인별 메일 발송`, candDone, `sendInterviewNoticeCandidates()`, '지원자 메일 열기', !schedule.length) +
+    card('면접관 단체 안내', panelists.length ? `면접관 ${panelists.length}명에게 일정 전체를 한 메일로 발송` : '포지션에 면접관 이메일이 등록되지 않았습니다.', panelDone, `sendInterviewNoticePanel()`, '면접관 메일 열기', !panelists.length || !schedule.length);
+}
+
+function sendInterviewNoticeCandidates() {
+  const { posId, stageIdx } = interviewNoticeFlowCtx;
+  sendAllCandSchedule(posId, stageIdx);
+  setTimeout(renderInterviewNoticeFlow, 300);
+}
+
+function sendInterviewNoticePanel() {
+  const { posId, round } = interviewNoticeFlowCtx;
+  sendPanelNotice(posId, round, false);
+  setTimeout(renderInterviewNoticeFlow, 300);
+}
+
+// 지원자에게 확정 면접 일정 개인 안내 (면접 30분 전 도착 안내 포함)
+async function sendCandSchedule(intId, sequential) {
+  const itv = interviews.find(i => i.id === intId);
+  if(!itv) { toast('면접 정보를 찾을 수 없습니다.', 'terr'); return; }
+  const c = candidates.find(x => Number(x.id) === Number(itv.candId));
+  if(!c) { toast('지원자를 찾을 수 없습니다.', 'terr'); return; }
+  if(!itv.date || itv.date.indexOf('미정') !== -1) { toast('확정된 일정이 없습니다.', 'terr'); return; }
+
+  const roundLabel = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
+
+  const target = getCandidateMailTarget(c);
+  const subject = `[우미건설] ${esc(c.name)}님 ${roundLabel} 일정 안내`;
+
+  const sent = await dispatchCandidateMail_(c, {
+    subject, purpose: `${roundLabel} 일정`, directBody: buildIntEmail(itv, c), logType: `${itv.type}면접업체경유안내`,
+    sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, c), `${itv.type}면접지원자안내`, c.name, {
+      templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
+      candidateName: c.name, positionText: c.pos,
+      interviewDateTime: itv.date || '', location: itv.loc || '', panelNames: itv.panel || '', memo: itv.memo || ''
+    })
+  });
+  if(sent === false) return;
+
+  itv.candidateNotified = true;
+  itv.candNotified = true; // 기존 로컬 데이터 호환
+  c.notified = true;
+  logNotify('Gmail', `${itv.type}면접${isHeadhuntingCandidate(c)?'업체경유':'지원자'}안내`, c.name, target.to);
+  saveState();
+  if(GS_CONFIG.scriptUrl) { syncIntToGS(itv); syncCandToGS(c); }
+  toast(`${esc(c.name)}님에게 ${roundLabel} 일정 안내 메일 발송 완료`, 'tok');
+}
+
+async function sendPanelSchedule(posId, stageIdx, returnToPosition=true) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const registeredPanelists = stageIdx === 1 ? parsePanelists(pos.panel1) : parsePanelists(pos.panel2);
+  const panelists = registeredPanelists.filter(p => p.email && p.email.includes('@'));
+  if(!panelists.length) { toast('이메일이 등록된 면접관이 없습니다. 포지션의 면접관 정보를 확인하세요.', 'terr'); return; }
+
+  // 확정된 면접만 시간순 정렬
+  const stageCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  const schedule = stageCands
+    .map(c => interviews.find(i => i.candId === c.id && i.type === round && (i.status==='confirmed'||i.status==='done')))
+    .filter(Boolean)
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if(!schedule.length) { toast('확정된 면접 일정이 없습니다.', 'terr'); return; }
+
+  const loc = schedule[0].loc;
+  // 날짜 포맷: 2026-06-05 → 2026. 6. 5(금)
+  const d = new Date(schedule[0].date.replace(' ', 'T'));
+  const wk = ['일','월','화','수','목','금','토'][d.getDay()];
+  const dateLabel = `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}(${wk})`;
+
+  // 시간 범위
+  const times = schedule.map(i => i.date.split(' ')[1]).filter(Boolean);
+  const startT = times[0];
+  // 마지막 면접 + 30분을 종료시각으로 추정
+  const lastD = new Date(schedule[schedule.length-1].date.replace(' ','T'));
+  lastD.setMinutes(lastD.getMinutes() + 30);
+  const endT = `${String(lastD.getHours()).padStart(2,'0')}:${String(lastD.getMinutes()).padStart(2,'0')}`;
+
+  // 면접일정 = 날짜 + 시간범위
+  const scheduleLabel = `${dateLabel} ${startT}~${endT}`;
+
+  // 면접위원 명단 (이름 + 직급)
+  const panelNames = panelists.map(p => {
+    const iv = interviewers.find(x => x.email === p.email);
+    return iv ? `${iv.name} ${iv.rank}` : p.name;
+  }).join(', ');
+
+  const roundLabel = round === '1차' ? '1차 실무면접' : '2차 임원면접';
+
+  // 면접 대상 (순서 + 시간 + 이름)
+  const targetText = schedule.map((i, idx) =>
+    `   ${idx+1}. ${i.date.split(' ')[1]}  ${esc(i.candName)} (${esc(pos.title)})`).join('\n');
+
+  const subject = `[우미건설] ${esc(pos.title)} ${roundLabel} 면접 안내 (${scheduleLabel})`;
+  const panelTemplate = document.getElementById('tpl-panel')?.value || '';
+  const body = panelTemplate
+    ? panelTemplate
+      .replace(/\{포지션\}/g, pos.title || '')
+      .replace(/\{부서\}/g, pos.dept || pos.title || '')
+      .replace(/\{채용형태\}/g, pos.etype || '')
+      .replace(/\{면접유형\}/g, roundLabel)
+      .replace(/\{면접일정\}/g, scheduleLabel)
+      .replace(/\{장소\}/g, loc || '')
+      .replace(/\{면접대상\}/g, targetText)
+      .replace(/\{대상인원\}/g, String(schedule.length))
+      .replace(/\{면접관\}/g, panelNames)
+    : `면접위원님께,\n\n${pos.dept || pos.title} ${roundLabel} 일정입니다.\n\n${scheduleLabel}\n${loc}\n\n${targetText}`;
+
+  const emails = groupMailRecipients(panelists.map(p => p.email));
+  const targetList = schedule.map(i => `${i.candName} (${pos.title})`).join('\n');
+  const sent = await sendGeneralEmailViaGmail(emails, subject, body, `${round}면접관일정안내`, pos.title, {
+    templateType: 'panel_schedule',
+    dept: pos.dept || pos.title || '',
+    etype: pos.etype || '',
+    interviewType: roundLabel,
+    scheduleText: scheduleLabel,
+    location: loc || '',
+    targetCount: schedule.length,
+    panelNames,
+    targetList
+  });
+  if(sent === false) return;
+
+  schedule.forEach(i => { i.notified = true; i.panelNotified = true; });
+  panelists.forEach(p => logNotify('Gmail', `${round}면접관일정안내`, p.name, p.email));
+  saveState();
+  if(GS_CONFIG.scriptUrl) schedule.forEach(i => syncIntToGS(i));
+  toast(`면접위원 ${panelists.length}명에게 ${roundLabel} 안내 메일 발송 완료`, 'tok');
+  if(returnToPosition) setTimeout(() => openPosDetail(posId), 300);
+}
+
+// ── (이하 기존 면접관 DB 연동) ──
+
+// 면접관 목록 로드 (API → 전역 캐시 → 드롭다운 반영)
+async function loadInterviewers() {
+  const url = GS_CONFIG.interviewerUrl;
+  if (GS_CONFIG.scriptUrl) {
+    try {
+      const rows = await gsGetAll('Interviewers', {force:true});
+      if (Array.isArray(rows) && rows.length) {
+        interviewers = rows.map(normalizeInterviewerForUi).filter(iv => iv.email);
+        syncTeamMasterFromInterviewers(false);
+        loadInterviewerOptions();
+        return;
+      }
+    } catch(e) {
+      console.warn('[loadInterviewers] GS Interviewers 로드 실패:', e.message);
+    }
+  }
+  if (isAppsScriptDashboard_()) {
+    try {
+      const data = await adminApiRun_({ action:'getInterviewersFromDirectory', data:{ url } });
+      if (data?.success) {
+        interviewers = (data.interviewers || []).map(normalizeInterviewerForUi).filter(iv => iv.email);
+        syncTeamMasterFromInterviewers(false);
+        loadInterviewerOptions();
+        return;
+      }
+      if (data?.error) console.warn('[loadInterviewers] 직원DB 서버 조회 실패:', data.error);
+    } catch(e) {
+      console.warn('[loadInterviewers] 직원DB 서버 조회 오류:', e.message);
+    }
+  }
+  if (!url) return;
+  try {
+    const res  = await fetch(url + '?action=getInterviewers');
+    const data = await res.json();
+    if (data.success) {
+      interviewers = (data.interviewers || []).map(normalizeInterviewerForUi).filter(iv => iv.email);
+      syncTeamMasterFromInterviewers(false);
+      loadInterviewerOptions();
+    }
+  } catch(e) {
+    console.warn('[loadInterviewers] 실패:', e.message);
+  }
+}
+
+function normalizeInterviewerForUi(row) {
+  row = row || {};
+  return {
+    id: row.id || row.email || row.empNo || '',
+    empNo: row.empNo || row.employeeNo || '',
+    name: row.name || '',
+    email: String(row.email || '').trim().toLowerCase(),
+    rank: row.rank || '',
+    dept: row.dept || '',
+    type: row.type || '',
+    active: row.active !== false && row.active !== 'false',
+    status: row.status || '',
+    updatedAt: row.updatedAt || '',
+    label: `${row.name || ''} ${row.rank || ''} · ${row.dept || ''}`.trim()
+  };
+}
+
+// 드롭다운 옵션 (검색 콤보박스 방식에서는 캐시만 갱신)
+function loadInterviewerOptions() {
+  // 검색 방식에서는 별도 옵션 채우기 불필요 — filterInterviewers가 처리
+  if (interviewers.length === 0 && GS_CONFIG.interviewerUrl) {
+    loadInterviewers();
+  }
+}
+
+// 검색어로 면접관 필터링 → 목록 표시
+function filterInterviewers(round) {
+  const input  = document.getElementById('pos-panel' + round + '-search');
+  const listEl = document.getElementById('pos-panel' + round + '-list');
+  if (!input || !listEl) return;
+
+  const q = input.value.trim().toLowerCase();
+  // 이미 추가된 면접관 제외
+  const added = getPanelistsFromHidden(round).map(p => p.email);
+
+  const matched = interviewers.filter(iv => {
+    if (added.includes(iv.email)) return false;
+    if (!q) return true;
+    const hay = (iv.name + ' ' + iv.rank + ' ' + iv.dept + ' ' + iv.email).toLowerCase();
+    return hay.includes(q);
+  });
+
+  if (interviewers.length === 0) {
+    listEl.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">면접관 목록이 비어있습니다. 설정 탭에서 면접관 DB를 연결하세요.</div>';
+    listEl.style.display = 'block';
+    return;
+  }
+
+  if (matched.length === 0) {
+    listEl.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">검색 결과가 없습니다.</div>';
+    listEl.style.display = 'block';
+    return;
+  }
+
+  listEl.innerHTML = matched.map(iv => {
+    const payload = encodeURIComponent(JSON.stringify({ id: iv.id, name: iv.name, email: iv.email, rank: iv.rank }));
+    return `<div data-action="select-interviewer" data-round="${round}" data-payload="${payload}"
+      style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+     >
+      👤 ${esc(iv.name)} <span style="color:var(--t3);font-size:11px">${esc(iv.rank)} · ${esc(iv.dept)}</span><br>
+      <span style="color:var(--t3);font-size:11px">${esc(iv.email)}</span>
+    </div>`;
+  }).join('');
+  listEl.style.display = 'block';
+}
+
+function hideInterviewerList(round) {
+  const listEl = document.getElementById('pos-panel' + round + '-list');
+  if (listEl) listEl.style.display = 'none';
+}
+
+// 검색 목록에서 면접관 선택 → 태그 추가
+function selectInterviewer(round, payloadStr) {
+  let iv;
+  try {
+    const decoded = payloadStr.startsWith('%7B') ? decodeURIComponent(payloadStr) : payloadStr.replace(/&quot;/g, '"');
+    iv = JSON.parse(decoded);
+  } catch(e) { return; }
+
+  const existing = getPanelistsFromHidden(round);
+  if (existing.some(p => p.email === iv.email)) {
+    toast(iv.name + '은(는) 이미 추가됐습니다.', 'tw');
+    return;
+  }
+
+  const tagsEl = document.getElementById('pos-panel' + round + '-tags');
+  const tag = document.createElement('span');
+  tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
+  tag.innerHTML = `👤 ${esc(iv.name)} <span style="color:var(--t3);font-size:11px">${esc(iv.rank)}</span> <button data-action="call" data-call="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+  tag.dataset.email = iv.email;
+  tag.dataset.name  = iv.name;
+  tagsEl.appendChild(tag);
+
+  syncPanelistHidden(round);
+
+  // 검색창 초기화 및 목록 닫기
+  const input = document.getElementById('pos-panel' + round + '-search');
+  if (input) input.value = '';
+  hideInterviewerList(round);
+}
+
+// (구) select 기반 addPanelist — 호환용 유지
+function addPanelist(round) {
+  const sel = document.getElementById('pos-panel' + round + '-sel');
+  if (!sel || !sel.value) return;
+  selectInterviewer(round, sel.value.replace(/"/g, '&quot;'));
+  sel.value = '';
+}
+
+// 태그 제거
+function removePanelist(btn, round) {
+  btn.closest('span').remove();
+  syncPanelistHidden(round);
+}
+
+// 태그 → hidden input (기존 parsePanelists 호환 형식: "이름 이메일, 이름 이메일")
+function syncPanelistHidden(round) {
+  const tagsEl   = document.getElementById('pos-panel' + round + '-tags');
+  const hiddenEl = document.getElementById('pos-panel' + round);
+  if (!tagsEl || !hiddenEl) return;
+  const parts = Array.from(tagsEl.querySelectorAll('span[data-email]'))
+    .map(t => t.dataset.name + ' ' + t.dataset.email);
+  hiddenEl.value = parts.join(', ');
+}
+
+// hidden input → 태그 복원 (editPosition 시 기존 데이터 복원)
+function restorePanelistTags(round, panelStr) {
+  const tagsEl   = document.getElementById('pos-panel' + round + '-tags');
+  const hiddenEl = document.getElementById('pos-panel' + round);
+  if (!tagsEl) return;
+  tagsEl.innerHTML = '';
+  if (!panelStr) return;
+  parsePanelists(panelStr).forEach(p => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:12px;cursor:default';
+    tag.innerHTML = `👤 ${esc(p.name)} <span style="color:var(--t3);font-size:11px"></span> <button data-action="call" data-call="removePanelist(this,${round})" style="background:none;border:none;cursor:pointer;color:var(--t3);padding:0;font-size:13px;line-height:1;margin-left:2px">×</button>`;
+    tag.dataset.email = p.email;
+    tag.dataset.name  = p.name;
+    tagsEl.appendChild(tag);
+  });
+  if (hiddenEl) hiddenEl.value = panelStr;
+}
+
+// hidden input 현재값 파싱
+function getPanelistsFromHidden(round) {
+  const el = document.getElementById('pos-panel' + round);
+  return el ? parsePanelists(el.value) : [];
+}
+
+// 면접관 API 연결 테스트
+async function testInterviewerConnection() {
+  const url    = document.getElementById('cfg-interviewer-url')?.value?.trim();
+  const status = document.getElementById('interviewer-conn-status');
+  if (!url) { if(status) status.textContent = 'URL을 입력하세요.'; return; }
+  if(status) status.textContent = '테스트 중...';
+  try {
+    GS_CONFIG.interviewerUrl = url;
+    await loadInterviewers();
+    if (interviewers.length) {
+      if(status) status.textContent = `✅ 연결 성공 — 면접관 ${interviewers.length}명 로드`;
+      saveSettings();
+      toast(`면접관 ${interviewers.length}명 로드 완료`, 'tok');
+    } else {
+      if(status) status.textContent = '❌ 면접관 데이터를 불러오지 못했습니다. 관리자 Apps Script 배포/권한을 확인하세요.';
+    }
+  } catch(e) {
+    if(status) status.textContent = '❌ 연결 실패: ' + e.message;
+  }
+}
+
+// ── (기존 함수 계속)
+function parsePanelists(str) {
+  if(!str) return [];
+  return String(str).split(/[;,\n]+/).map(s => s.trim()).filter(Boolean).map(s => {
+    const email = (s.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [''])[0];
+    const name = s.replace(email, '').replace(/[<>()\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+    return { name:name || (email ? '면접관' : ''), email };
+  }).filter(p => p.name || p.email);
+}
+
+// ── 면접관 안내 발송 (이메일 + Teams) ───────────────────────
+// 면접관 참석 안내 — sendPanelSchedule로 통합 (round 1/2 → stageIdx 1/3 변환)
+function sendPanelNotice(posId, round, returnToPosition=true) {
+  const stageIdx = round === 1 ? 1 : 3;
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const roundLabel = round === 1 ? '1차' : '2차';
+
+  // 확정된 면접 일정이 있는지 확인
+  const stageCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
+  const confirmed = stageCands.filter(c =>
+    interviews.some(i => i.candId === c.id && i.type === roundLabel && (i.status==='confirmed'||i.status==='done'))
+  );
+
+  if(stageCands.length === 0) { toast(`${roundLabel} 면접 대상 지원자가 없습니다.`, 'terr'); return; }
+  if(confirmed.length === 0) {
+    toast(`확정된 면접 일정이 없습니다. 먼저 지원자 일정을 확정하세요.`, 'terr');
+    return;
+  }
+  if(confirmed.length < stageCands.length) {
+    if(!confirm(`${stageCands.length}명 중 ${confirmed.length}명만 일정이 확정됐습니다.\n확정된 ${confirmed.length}명 기준으로 면접관에게 안내하시겠습니까?`)) return;
+  }
+  // 통합 함수 호출 (공문 양식 + 첨부 안내)
+  sendPanelSchedule(posId, stageIdx, returnToPosition);
+}
+
+</script>

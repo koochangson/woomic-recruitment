@@ -136,6 +136,7 @@ function routeRequest_(payload) {
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
   if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
   if (action === 'getChanges') return getChanges_(query);
+  if (action === 'purgeCandidatePii') return purgeCandidatePii_(payload);
 
   assertKnownSheet_(sheetName);
   ensureSheet_(sheetName);

@@ -211,11 +211,16 @@ textarea{resize:vertical;min-height:64px;}
 
 /* ── 지원자 리스트 행 ───────────────────────────────────── */
 .cl-wrap{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
-.cl-header{display:grid;grid-template-columns:14px minmax(120px,220px) 110px 80px 80px 100px 70px 100px;gap:8px;padding:6px 14px;background:var(--s2);border-bottom:1px solid var(--border);}
+.cl-header{display:grid;grid-template-columns:14px minmax(120px,220px) 110px 80px 80px 100px 70px minmax(130px,160px) 100px;gap:8px;padding:6px 14px;background:var(--s2);border-bottom:1px solid var(--border);}
 .cl-header span{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.3px;text-transform:uppercase;}
-.cl-row{display:grid;grid-template-columns:14px minmax(120px,220px) 110px 80px 80px 100px 70px 100px;gap:8px;padding:7px 14px;border-bottom:1px solid var(--border);cursor:pointer;align-items:center;transition:background .1s;}
+.cl-row{display:grid;grid-template-columns:14px minmax(120px,220px) 110px 80px 80px 100px 70px minmax(130px,160px) 100px;gap:8px;padding:7px 14px;border-bottom:1px solid var(--border);cursor:pointer;align-items:center;transition:background .1s;}
 .cl-row:hover{background:var(--bg);}
 .cl-row:last-child{border-bottom:none;}
+.cl-next-action{display:block;font-size:11px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cl-next-action.pri-high{color:var(--red);font-weight:600;}
+.cl-next-action.pri-medium{color:var(--amber);font-weight:600;}
+.cl-next-action.pri-low{color:var(--t2);}
+.cl-next-action.pri-none{color:var(--t3);}
 .tracker-int-date{display:flex;flex-direction:column;gap:2px;font-family:'DM Mono',monospace;line-height:1.15;white-space:nowrap;}
 .tracker-int-date .date{font-size:10.5px;font-weight:650;color:var(--text);}
 .tracker-int-date .time{font-size:10px;font-weight:700;color:var(--acc);letter-spacing:.2px;}
@@ -528,7 +533,7 @@ html,body{line-height:1.55;}
 .advanced-filter[open] summary{border-color:var(--acc);color:var(--acc);}
 .advanced-filter-panel{position:absolute;z-index:20;right:0;top:34px;width:430px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shm);display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
 .cl-wrap{overflow-x:auto;background:var(--surface);}
-.cl-header,.cl-row{min-width:780px;}
+.cl-header,.cl-row{min-width:930px;}
 /* 고용형태·직군은 중립 태그, 상태 색상에 집중 */
 /* 안내문은 접이식 도움말 */
 .help-details{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);}
@@ -729,7 +734,7 @@ html,body{line-height:1.55;}
 .dash-ac-top .btn{flex-shrink:0;white-space:nowrap;}
 .dash-ac-lines{font-size:10.3px;color:var(--t3);line-height:1.32;margin-top:3px;}
 .dash-ac-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dash-ac-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex:0 0 auto;margin-top:5px;grid-row:1/span 2;}
+.dash-ac-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);flex:0 0 auto;margin-top:5px;grid-row:1/span 2;}
 .dash-ac-dot.is-danger{background:var(--red);}
 .dash-ac-empty{padding:14px;color:var(--t3);font-size:11.5px;}
 @media (max-width:980px){
@@ -900,11 +905,6 @@ html,body{line-height:1.55;}
 }
 
 /* ── 포지션 상세: 채용 프로젝트 관리 화면 ───────────────── */
-#modal-pos-detail .modal{width:min(860px,92vw)!important;max-height:93vh!important;}
-#modal-pos-detail .modal-hd{padding:10px 16px;}
-#modal-pos-detail .modal-hd .modal-title{font-size:14px;}
-#modal-pos-detail .modal-body{padding:8px 9px;background:#F7F9FC;}
-#modal-pos-detail .modal-ft{padding:6px 9px;align-items:center;}
 .pos-project{display:flex;flex-direction:column;gap:6px;}
 .pp-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;box-shadow:var(--sh);}
 .pp-section-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;}
@@ -1039,4 +1039,16 @@ html,body{line-height:1.55;}
   .pp-cand{grid-template-columns:1fr auto;}
   .pp-cand-cell{display:none;}
 }
+
+/* ── 반복 UI 패턴 컴포넌트화 (Phase 2 정리) ─────────────────────
+   Dashboard.html에 흩어져 있던 inline style 중 반복 빈도가 높은 패턴만
+   우선 클래스로 뺐다. 나머지는 이번 범위에서 다루지 않는다.
+   신규 코드는 가능하면 inline style 대신 여기 클래스를 재사용한다. */
+.field-hint{font-size:11px;color:var(--t3);margin-top:4px;}
+.select-mini{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);}
+.slot-option-list{display:flex;flex-direction:column;gap:6px;}
+.slot-option-row{display:flex;align-items:center;gap:6px;}
+.slot-option-label{font-size:11px;color:var(--t3);width:20px;flex-shrink:0;}
+.slot-option-input{flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--rsm);}
+.slot-option-input.is-solid{background:var(--s2);}
 </style>

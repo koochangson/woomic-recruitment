@@ -548,6 +548,32 @@ function updateStageBar() {
   counts.forEach((count,i) => set('sf-'+i, count));
 }
 
+// 지원자 목록의 "다음 Action" 열. 포지션 단위 판정 함수 getPositionActionItems()를 그대로
+// 재사용해, 포지션 상세·대시보드에서 보여주는 처리 필요 업무와 결과가 어긋나지 않게 한다.
+// 지원자의 현재 단계에 해당하는 항목만 골라 우선순위가 가장 높은 것을 보여준다.
+const CANDIDATE_STAGE_ACTION_TYPES = {
+  0: ['first_panel_availability', 'first_slots'],
+  1: ['first_schedule_reply', 'first_schedule_wait', 'first_schedule', 'first_panel_notice', 'first_candidate_notice', 'first_interview_done', 'first_result'],
+  2: ['reference_request', 'reference_resend', 'reference_remind', 'reference_complete', 'second_panel_availability', 'second_slots'],
+  3: ['second_schedule_wait', 'second_schedule', 'second_panel_notice', 'second_candidate_notice', 'second_result'],
+  4: ['offer_negotiation'],
+};
+
+function getCandidateNextAction(cand) {
+  if(!cand) return null;
+  if(cand.stage === 6 || cand.stage === 7) return null; // 불합격·입사 완료 — 다음 액션 없음
+  if(cand.stage === 5) {
+    const onboarded = cand.notified || onboardings.some(o => Number(o.candId) === Number(cand.id) && o.notified);
+    if(onboarded) return null;
+    return { text:'입사 안내 발송 필요', priority:'high', call: cand.posId != null ? `openOnboardingFromPosition(${cand.posId})` : null };
+  }
+  const types = CANDIDATE_STAGE_ACTION_TYPES[cand.stage];
+  if(!types || cand.posId == null || cand.posId === '') return null;
+  const top = getPositionActionItems(cand.posId).find(item => types.includes(item.type));
+  if(!top) return null;
+  return { text: top.title, priority: top.priority, call: top.actionCall };
+}
+
 function renderTracker() {
   updateStageBar();
   const q = (document.getElementById('cand-search')?.value||'').toLowerCase();
@@ -591,6 +617,10 @@ function renderTracker() {
     const refBadge = c.ref==='완료'?'<span class="b bgreen">완료</span>':c.ref==='진행중'?`<span class="b bamber">${c.refD}/${c.refT}</span>`:'<span class="b bgray">-</span>';
     const intInfo  = renderTrackerInterviewDate(c.intDate);
     const notified = c.notified ? '<span class="b bteams" style="font-size:10px">발송</span>' : '<span style="font-size:11px;color:var(--t3)">-</span>';
+    const nextAction = getCandidateNextAction(c);
+    const nextActionHtml = nextAction
+      ? `<span class="cl-next-action pri-${nextAction.priority}" title="${esc(nextAction.text)}">${esc(nextAction.text)}</span>`
+      : '<span class="cl-next-action pri-none">-</span>';
     const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardedIds.has(Number(c.id)) ? 'urg-red' : 'urg-none';
     return `<div class="cl-row" data-action="open-candidate" data-id="${c.id}">
       <div class="urg ${urg}"></div>
@@ -600,6 +630,7 @@ function renderTracker() {
       <div>${refBadge}</div>
       <div>${intInfo}</div>
       <div>${notified}</div>
+      <div>${nextActionHtml}</div>
       <div style="display:flex;gap:4px">
         <button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
         ${hasNextStage?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${nextStage})">→ 다음</button>`:''}
@@ -1538,6 +1569,108 @@ ${refs.map((r,i)=>`[추천인 ${i+1} · ${esc(r.name)} · ${esc(r.relation)}]\n$
     clearInterval(timer);if(prog)prog.style.display='none';if(out)out.style.display='none';
     if(text)text.textContent=`AI 요약 생성 실패: ${e.message}\n\n관리자 Apps Script의 OPENAI_API_KEY 설정과 배포 권한을 확인하세요.`;
     toast('AI 요약 생성에 실패했습니다. 관리자 Apps Script 설정을 확인하세요.', 'terr');
+  }
+}
+
+// ── 레퍼런스 자동화 (구글폼 + Apps Script) 연동 ──────────────
+async function testRefAutoConnection() {
+  const url    = document.getElementById('cfg-ref-auto-url')?.value?.trim();
+  const status = document.getElementById('ref-auto-conn-status');
+  if (!url) { if(status) status.textContent = 'URL을 입력하세요.'; return; }
+  if(status) status.textContent = '테스트 중...';
+  try {
+    const res  = await fetch(url + '?action=getRefStatus');
+    const data = await res.json();
+    if (data && Array.isArray(data.data)) {
+      GS_CONFIG.refAutoUrl = url;
+      if(status) status.textContent = `✅ 연결 성공 — 레퍼런스 ${data.data.length}건 확인`;
+      saveSettings();
+      toast(`레퍼런스 자동화 연결 성공 (${data.data.length}건)`, 'tok');
+    } else {
+      if(status) status.textContent = '❌ 오류: ' + (data.error || '응답 형식 확인 필요');
+    }
+  } catch(e) {
+    if(status) status.textContent = '❌ 연결 실패: ' + e.message;
+  }
+}
+
+// 구글시트(레퍼런스상태)에서 접수/응답 현황을 가져와 candidates에 반영
+async function syncRefFromGS() {
+  const url = GS_CONFIG.refAutoUrl || document.getElementById('cfg-ref-auto-url')?.value?.trim();
+  const status = document.getElementById('ref-auto-conn-status');
+  if(!url) { toast('레퍼런스 자동화 URL을 먼저 입력하세요.', 'terr'); return; }
+  if(status) status.textContent = '가져오는 중...';
+  try {
+    const res = await fetch(url + '?action=getRefStatus');
+    const data = await res.json();
+    if(!data || !Array.isArray(data.data)) { if(status) status.textContent='❌ 응답 오류'; return; }
+
+    // surveySent 플래그 보존용으로 기존 refDetails 백업 후 전체 초기화
+    const prevRefDetails = {};
+    Object.keys(refDetails).forEach(id => { prevRefDetails[id] = refDetails[id]; delete refDetails[id]; });
+    // 구글시트에 없는 지원자의 ref 상태도 초기화
+    candidates.forEach(c => {
+      if(c.ref === '진행중' || c.ref === '완료') {
+        c.refT = 3; c.refD = 0; c.ref = '대기';
+      }
+    });
+
+    let matched = 0, unmatched = 0;
+    data.data.forEach(rs => {
+      // 이름 + 이메일로 지원자 매칭
+      const c = candidates.find(x =>
+        String(x.name||'').trim() === String(rs.candName||'').trim() &&
+        String(x.email||'').trim().toLowerCase() === String(rs.candEmail||'').trim().toLowerCase());
+      if(!c) { unmatched++; return; }
+      matched++;
+      // 접수/응답 수 반영
+      c.refT = rs.total || 3;
+      c.refD = rs.responded || 0;
+      c.ref  = rs.responded >= (rs.total||3) ? '완료' : (rs.registered>0 ? '진행중' : c.ref);
+      // 추천인 상세 동기화 (surveySent 플래그 보존: 재동기화 시 중복 발송 방지)
+      const prevRefs = prevRefDetails[c.id] || [];
+      refDetails[c.id] = (rs.refs||[]).map(r => {
+        const existing = prevRefs.find(x => String(x.email||'').toLowerCase() === String(r.refEmail||'').toLowerCase());
+        return {
+          name: r.refName, email: r.refEmail, relation: r.rel,
+          status: r.status === '응답' ? '응답' : (r.status === '등록' ? '등록' : '대기'),
+          remindCnt: r.remindCnt || 0,
+          responseText: r.responseText || r.summary || r.comment || r.answer || r.response || r.notes || '',
+          surveySent: existing?.surveySent || false,
+        };
+      }).filter(r => (r.name || r.email) && !isLegacyPlaceholderRef(r));
+      const actualRefs = refDetails[c.id];
+      c.refT = Number(rs.total) || actualRefs.length || 3;
+      c.refD = actualRefs.filter(r => r.status === '응답').length;
+      c.ref = c.refD >= c.refT && c.refT > 0 ? '완료' : (actualRefs.length ? '진행중' : c.ref);
+    });
+    // 응답 원문 동기화 (AI 요약 원본 데이터)
+    const matchedCands = data.data
+      .map(rs => candidates.find(x =>
+        String(x.name||'').trim() === String(rs.candName||'').trim() &&
+        String(x.email||'').trim().toLowerCase() === String(rs.candEmail||'').trim().toLowerCase()))
+      .filter(Boolean);
+    for (const c of matchedCands) {
+      try {
+        const rRes = await fetch(url + '?action=getRefResponses&candName=' + encodeURIComponent(c.name));
+        const rData = await rRes.json();
+        if (rData && Array.isArray(rData.data)) {
+          rData.data.forEach(r => {
+            const ref = (refDetails[c.id] || []).find(x =>
+              String(x.email||'').toLowerCase() === String(r.refEmail||'').toLowerCase());
+            if (ref) ref.responseText = r.responseText || '';
+          });
+        }
+      } catch(_) {}
+    }
+
+    saveState();
+    renderReference();
+    updateMetrics();
+    if(status) status.textContent = `✅ ${matched}명 동기화${unmatched ? ` · 미매칭 ${unmatched}건` : ''}`;
+    toast(`레퍼런스 ${matched}명 동기화 완료${unmatched ? ` · 지원자 미매칭 ${unmatched}건` : ''}`, unmatched ? 'tw' : 'tok');
+  } catch(e) {
+    if(status) status.textContent = '❌ 실패: ' + e.message;
   }
 }
 

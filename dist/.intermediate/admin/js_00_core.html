@@ -1099,7 +1099,7 @@ async function executeNohireWizard() {
   if(GS_CONFIG.scriptUrl) { syncPosToGS(pos); syncPosToGS(np); }
   logActivity('미채용 완료', `${pos.title} → ${newTitle} (${reason})`, 'position', posId);
   closeModal('modal-nohire-wizard');
-  closeModal('modal-pos-detail');
+  if(Number(currentPosDetailId) === Number(posId)) nav('position');
   pendingNohirePosId = null;
   renderPositions(); renderDashboard();
   toast(`'${esc(pos.title)}' 미채용 종료 · '${esc(newTitle)}' 생성`, 'tok');
@@ -1265,9 +1265,9 @@ function renderExpiredPii() {
 async function purgeExpiredPii() {
   const expired = expiredPII();
   if(!expired.length) return toast('파기 대상이 없습니다.','tok');
-  if(!confirm(`보존기한이 경과한 지원자 ${expired.length}명의 개인정보와 연결된 면접·레퍼런스 정보를 파기할까요?\\n이 작업은 되돌릴 수 없습니다.`)) return;
+  if(!confirm(`보존기한이 경과한 지원자 ${expired.length}명의 개인정보와 연결된 면접·레퍼런스·메일 기록을 파기할까요?\\n이 작업은 되돌릴 수 없습니다.`)) return;
   const ids = new Set(expired.map(c => Number(c.id)));
-  const removedInterviews = interviews.filter(i => ids.has(Number(i.candId)));
+  const emails = [...new Set(expired.map(c => c.email).filter(Boolean))];
   candidates = candidates.filter(c => !ids.has(Number(c.id)));
   interviews = interviews.filter(i => !ids.has(Number(i.candId)));
   onboardings = onboardings.filter(o => !ids.has(Number(o.candId)));
@@ -1275,10 +1275,10 @@ async function purgeExpiredPii() {
   logActivity('개인정보 파기', `보존기한 경과 지원자 ${ids.size}명`, 'privacy', 'retention');
   saveState(); renderExpiredPii(); renderDashboard(); renderTracker(); renderPositions(); renderReference(); renderOnboarding();
   if(GS_CONFIG.scriptUrl) {
-    await settleSync([
-      ...expired.map(c => gsDelete('Candidates', c.id)),
-      ...removedInterviews.map(i => gsDelete('Interviews', i.id)),
-    ], '개인정보 파기 동기화');
+    // Candidates/Interviews뿐 아니라 연결된 ReferenceCandidates/ReferenceResponses/MailLog까지
+    // 서버에서 한 번에 지운다 (purgeCandidatePii_, Code.gs).
+    const result = await gsFetch('purgeCandidatePii', '', { candidateIds: [...ids], candidateEmails: emails }, { allowQueue:false });
+    if(!result?.ok) { toast('개인정보 파기 동기화에 실패했습니다. Apps Script 연결을 확인하세요.', 'terr'); return; }
   }
   toast(`지원자 ${ids.size}명의 개인정보를 파기했습니다.`,'tok');
 }
