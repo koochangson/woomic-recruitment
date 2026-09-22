@@ -6,6 +6,7 @@ const defaultTarget = path.resolve(root, '..', 'recruiting-hub-gas', 'recruiting
 const targetArg = process.argv.find(arg => arg.startsWith('--target='));
 const targetDir = path.resolve(targetArg ? targetArg.slice('--target='.length) : defaultTarget);
 const dryRun = process.argv.includes('--dry-run');
+const syncManifest = process.argv.includes('--sync-manifest');
 
 function fail(message) {
   console.error(message);
@@ -32,6 +33,7 @@ const sourceNames = fs.readFileSync(uploadListPath, 'utf8')
 
 const desired = new Map();
 for (const sourceName of sourceNames) {
+  if (sourceName === 'appsscript.json' && !syncManifest) continue;
   const sourcePath = path.join(adminDistDir, sourceName);
   if (!fs.existsSync(sourcePath)) fail(`Upload source is missing: ${sourcePath}`);
   const outputName = targetName(sourceName);
@@ -40,10 +42,11 @@ for (const sourceName of sourceNames) {
 }
 
 const isPushable = name => name === 'appsscript.json' || /\.(?:js|gs|html)$/i.test(name);
+const preserved = new Set(syncManifest ? [] : ['appsscript.json']);
 const existing = fs.readdirSync(targetDir, { withFileTypes: true })
   .filter(entry => entry.isFile() && isPushable(entry.name))
   .map(entry => entry.name);
-const removals = existing.filter(name => !desired.has(name)).sort();
+const removals = existing.filter(name => !desired.has(name) && !preserved.has(name)).sort();
 const writes = [];
 
 for (const [outputName, sourcePath] of desired) {
@@ -55,6 +58,7 @@ for (const [outputName, sourcePath] of desired) {
 
 console.log(`Admin clasp target: ${targetDir}`);
 console.log(`Connected scriptId: ${claspConfig.scriptId}`);
+console.log(`Manifest policy: ${syncManifest ? 'synchronize from source' : 'preserve connected project'}`);
 console.log(`Files to write: ${writes.length}`);
 console.log(`Obsolete files to remove: ${removals.length}`);
 removals.forEach(name => console.log(`  remove ${name}`));

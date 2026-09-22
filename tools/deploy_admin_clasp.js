@@ -10,6 +10,7 @@ const defaultTarget = path.resolve(root, '..', 'recruiting-hub-gas', 'recruiting
 const targetArg = process.argv.find(arg => arg.startsWith('--target='));
 const targetDir = path.resolve(targetArg ? targetArg.slice('--target='.length) : defaultTarget);
 const dryRun = process.argv.includes('--dry-run');
+const syncManifest = process.argv.includes('--sync-manifest');
 
 function run(label, command, args, options = {}) {
   console.log(`\n== ${label} ==`);
@@ -29,6 +30,7 @@ run('Deployment readiness', process.execPath, ['scripts/deployment-readiness.mjs
 
 const syncArgs = ['tools/sync_admin_clasp.js', `--target=${targetDir}`];
 if (dryRun) syncArgs.push('--dry-run');
+if (syncManifest) syncArgs.push('--sync-manifest');
 run('Synchronize clasp mirror', process.execPath, syncArgs);
 
 if (dryRun) {

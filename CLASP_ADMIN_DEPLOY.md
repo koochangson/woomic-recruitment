@@ -16,6 +16,12 @@ Build, validate, synchronize, and upload the admin project:
 node tools/deploy_admin_clasp.js
 ```
 
-The synchronization step converts generated `.gs` files to clasp `.js` files, copies all HTML templates and `appsscript.json`, and removes obsolete pushable files such as `app_script.html` and `js_02_positions_interviews.html`. It preserves `.clasp.json` and `.git`.
+The synchronization step converts generated `.gs` files to clasp `.js` files, copies all HTML templates, and removes obsolete pushable files such as `app_script.html` and `js_02_positions_interviews.html`. It preserves `.clasp.json`, `.git`, and the connected project's existing `appsscript.json` so a routine source upload cannot silently change web-app access or execution permissions.
+
+Only when the manifest policy itself must change, opt in explicitly:
+
+```powershell
+node tools/deploy_admin_clasp.js --sync-manifest
+```
 
 `clasp push` updates the Apps Script project source. It does not change the production web-app deployment version. After testing, edit the existing deployment and select a new version to preserve the `/exec` URL.
