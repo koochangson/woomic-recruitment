@@ -547,6 +547,32 @@ function updateStageBar() {
   counts.forEach((count,i) => set('sf-'+i, count));
 }
 
+// 지원자 목록의 "다음 Action" 열. 포지션 단위 판정 함수 getPositionActionItems()를 그대로
+// 재사용해, 포지션 상세·대시보드에서 보여주는 처리 필요 업무와 결과가 어긋나지 않게 한다.
+// 지원자의 현재 단계에 해당하는 항목만 골라 우선순위가 가장 높은 것을 보여준다.
+const CANDIDATE_STAGE_ACTION_TYPES = {
+  0: ['first_panel_availability', 'first_slots'],
+  1: ['first_schedule_reply', 'first_schedule_wait', 'first_schedule', 'first_panel_notice', 'first_candidate_notice', 'first_interview_done', 'first_result'],
+  2: ['reference_request', 'reference_resend', 'reference_remind', 'reference_complete', 'second_panel_availability', 'second_slots'],
+  3: ['second_schedule_wait', 'second_schedule', 'second_panel_notice', 'second_candidate_notice', 'second_result'],
+  4: ['offer_negotiation'],
+};
+
+function getCandidateNextAction(cand) {
+  if(!cand) return null;
+  if(cand.stage === 6 || cand.stage === 7) return null; // 불합격·입사 완료 — 다음 액션 없음
+  if(cand.stage === 5) {
+    const onboarded = cand.notified || onboardings.some(o => Number(o.candId) === Number(cand.id) && o.notified);
+    if(onboarded) return null;
+    return { text:'입사 안내 발송 필요', priority:'high', call: cand.posId != null ? `openOnboardingFromPosition(${cand.posId})` : null };
+  }
+  const types = CANDIDATE_STAGE_ACTION_TYPES[cand.stage];
+  if(!types || cand.posId == null || cand.posId === '') return null;
+  const top = getPositionActionItems(cand.posId).find(item => types.includes(item.type));
+  if(!top) return null;
+  return { text: top.title, priority: top.priority, call: top.actionCall };
+}
+
 function renderTracker() {
   updateStageBar();
   const q = (document.getElementById('cand-search')?.value||'').toLowerCase();
@@ -590,6 +616,10 @@ function renderTracker() {
     const refBadge = c.ref==='완료'?'<span class="b bgreen">완료</span>':c.ref==='진행중'?`<span class="b bamber">${c.refD}/${c.refT}</span>`:'<span class="b bgray">-</span>';
     const intInfo  = renderTrackerInterviewDate(c.intDate);
     const notified = c.notified ? '<span class="b bteams" style="font-size:10px">발송</span>' : '<span style="font-size:11px;color:var(--t3)">-</span>';
+    const nextAction = getCandidateNextAction(c);
+    const nextActionHtml = nextAction
+      ? `<span class="cl-next-action pri-${nextAction.priority}" title="${esc(nextAction.text)}">${esc(nextAction.text)}</span>`
+      : '<span class="cl-next-action pri-none">-</span>';
     const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardedIds.has(Number(c.id)) ? 'urg-red' : 'urg-none';
     return `<div class="cl-row" data-action="open-candidate" data-id="${c.id}">
       <div class="urg ${urg}"></div>
@@ -599,6 +629,7 @@ function renderTracker() {
       <div>${refBadge}</div>
       <div>${intInfo}</div>
       <div>${notified}</div>
+      <div>${nextActionHtml}</div>
       <div style="display:flex;gap:4px">
         <button class="btn btn-xs" data-action="open-candidate" data-id="${c.id}" data-stop="true">상세</button>
         ${hasNextStage?`<button class="btn btn-xs btn-primary" data-action="call" data-call="event.stopPropagation();requestStageChange(${c.id},${nextStage})">→ 다음</button>`:''}
