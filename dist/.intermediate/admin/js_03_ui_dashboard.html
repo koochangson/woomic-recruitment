@@ -889,7 +889,6 @@ function renderDashboard() {
   updateMetrics(); // 처리 필요 카드(renderUrgent) 포함
   generateDashboardBrief();
   if(kanbanView === 'stage') renderStageKanban(); else renderKanban();
-  renderInterviewInbox();
   renderInterviewPositionCards();
 }
 

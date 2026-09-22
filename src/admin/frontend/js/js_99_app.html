@@ -16,14 +16,14 @@ const RecruitmentUI = Object.freeze({
 });
 
 const DELEGATED_CALLS = Object.freeze({
-  addCandToPos, addCandidate, addInterview, addOnboarding, applyBatchSchedule, applyInterviewConfirm,
+  addCandToPos, addCandidate, addCandidateDateRow, addInterview, addOnboarding, applyBatchSchedule, applyInterviewConfirm,
   cancelInterviewConfirm, cancelStageChange, changePositionProcessStage, closeCollectSend, closeModal, closePosition, completeRef, confirmInterview,
   confirmMailPendingAt, confirmPendingMail, confirmStageChange, confirmStageDecisions, delInt, dismissPendingMail,
   deletePosition, doCollectSendCurrent, editCandidate, editPosition, executeBulkAdd, executeNohireWizard, executePositionProcessTask,
   addRecruitPlanTarget, applyAIToRefReport, clearPositionOrgFilter, dashDropStage, exportRecruitStatus, fillOnboardingDefaults, filterInterviewers, filterPosToTeam, focusStageGateBlockers, generateAI, generateDashboardBrief, kbActivate, linkCandFromUnlinked, loadInterviewers, lockPrivacyScreen, markInterviewDone, markOneResponse,
   markRefRegistered, markRefResponse, moveBatchCandidate, moveRecruitPlanDraft, nav, navBtn, nextCollectSend, nohirePosition, onPosLocationChange, openAddCand, openAddPosition, openAddTeam, openBulkAddCand, openRecruitPlanModal,
   openCollectSlots, openIntResult, openInterviewNoticeFlow, openPosDetail, openPositionResultModal, openPositionRoundSchedule, openReferralDraft, quickNotify, rejectCandidate,
-  remindOneRef, remindRef, removePanelist, removeRecruitPlanDraft, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
+  remindOneRef, remindRef, removeCandidateDateRow, removePanelist, removeRecruitPlanDraft, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
   posdetailClosePos, posdetailDeletePos, posdetailStopPos, printReferralInterviewSheet, purgeExpiredPii, renderExpiredPii, renderReferralSection, renderTeamMaster, requestStageChange, resetIdleLock, saveNewTeam, savePosition, savePositionResults, saveRecruitPlanModal, saveRefReport, saveReferralDraft, saveReferralEmployee, saveReferralStatus, selectPositionResult, selectReferral, setInterviewPositionFilter, setPrivacyMaskFromControl, setReferralView, setRpLocation, setRpYear, setRsYear, setTrackerPage, snapTo10,
   exportReferralRewardsCsv, finishRejectReason, runCoreDiagnosticsUI,
   refreshOnboardingDeptRecipients, saveSettings, searchRecruitPlanTargets, selectRefCand, selectRefPosition, selectTemplateEditor, insertTemplateSnippet, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,

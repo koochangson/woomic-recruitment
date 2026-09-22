@@ -575,12 +575,6 @@ html,body{line-height:1.55;}
 #sect-onboarding .onboarding-preview-details .help-details-body{padding-top:2px;}
 #sect-onboarding .onboarding-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 #sect-onboarding .onboarding-preview-grid .card{margin:0;}
-.int-inbox{margin-bottom:12px;border-left:3px solid var(--amber);}
-.int-inbox-list{display:grid;gap:7px;}
-.int-inbox-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s1);}
-.int-inbox-main{min-width:0;flex:1;}
-.int-inbox-title{font-size:11.5px;font-weight:700;color:var(--text);}
-.int-inbox-desc{margin-top:2px;font-size:10.5px;color:var(--t3);}
 .int-task-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px;}
 .int-task-card{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);box-shadow:var(--sh);}
 .int-task-card.is-high{border-top:2px solid var(--amber);}
@@ -594,7 +588,7 @@ html,body{line-height:1.55;}
 .int-task-stats{display:flex;gap:12px;font-size:10.5px;color:var(--t2);}
 .int-task-next{min-height:30px;padding:7px 8px;border-radius:6px;background:#FAFBFC;font-size:10.5px;color:var(--t2);}
 .int-task-next strong{color:var(--text);}
-.int-task-card-actions{margin-top:auto;align-items:center;}
+.int-task-card-actions{align-items:center;}
 .int-action-high{background:var(--amber);border-color:var(--amber);color:#fff;}
 .int-action-high:hover{filter:brightness(.94);}
 .int-exception-details{margin-top:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);}
@@ -652,7 +646,6 @@ html,body{line-height:1.55;}
 }
 @media(max-width:720px){
   .int-task-board{grid-template-columns:1fr;}
-  .int-inbox-item{align-items:flex-start;flex-wrap:wrap;}
 }
 .mc.kpi-unlinked{border-left-color:var(--red);}
 .mc.kpi-unlinked .mc-val{color:var(--red);}
@@ -684,8 +677,8 @@ html,body{line-height:1.55;}
 .pos-manage-card:hover{transform:none;border-color:var(--border2);box-shadow:0 2px 8px rgba(15,34,56,.07);}
 .pos-manage-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}
 .pos-card-main{padding:9px 11px 8px;display:flex;flex-direction:column;flex:1;align-items:stretch;justify-content:space-between;}
-.pos-card-title{grid-column:1/-1;grid-row:1;min-width:0;font-size:13px;font-weight:700;line-height:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
-.pos-card-title-meta{grid-column:1;grid-row:2;min-width:0;font-size:10.5px;color:var(--t3);font-weight:650;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pos-card-title{grid-column:1;grid-row:1;min-width:0;font-size:13px;font-weight:700;line-height:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
+.pos-card-title-meta{grid-column:1/-1;grid-row:2;min-width:0;font-size:10.5px;color:var(--t3);font-weight:650;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pos-card-progress{display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:7px;background:#FAFBFC;font-size:11.5px;font-weight:700;margin-bottom:9px;}
 .pos-card-progress-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--border2);}
 .pos-card-progress.is-current{color:var(--acc);background:var(--acc-light);}
@@ -697,7 +690,7 @@ html,body{line-height:1.55;}
 .pos-card-summary{display:none;}
 .pos-manage-card.is-risk{border-left:3px solid var(--red);}
 .pos-card-head{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:18px 18px;align-items:center;column-gap:8px;row-gap:2px;margin-bottom:5px;text-align:left;}
-.pos-card-stage{grid-column:2;grid-row:2;font-size:10px;font-weight:700;color:var(--acc);background:var(--acc-light);padding:2px 6px;border-radius:6px;white-space:nowrap;}
+.pos-card-stage{grid-column:2;grid-row:1;font-size:10px;font-weight:700;color:var(--acc);background:var(--acc-light);padding:2px 6px;border-radius:6px;white-space:nowrap;}
 .pos-card-stage.is-complete{color:var(--green);background:#EDFAF3;}
 .pos-card-stage.is-stopped{color:var(--t2);background:var(--s2);}
 .pos-card-action{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;margin-top:5px;padding-top:0;border-top:0;text-align:left;}

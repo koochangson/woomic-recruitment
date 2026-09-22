@@ -50,18 +50,17 @@ function openCollectSlots(posId, stageIdx) {
     ? `지원자에게 안내하기 전에 <b>면접관의 참석 가능 날짜와 오전·오후</b>를 먼저 확인합니다. 면접관 회신을 확인한 뒤 다음 단계에서 지원자에게 같은 후보일정을 안내합니다.`
     : `면접관 확인이 완료된 후보일정입니다. 지원자에게 <b>날짜별 오전·오후 가능 여부</b>를 받고, 응답 취합 후 피플팀에서 정확한 시간과 면접순서를 확정합니다.`;
   const savedOptions = Array.isArray(pos[optionKey]) ? pos[optionKey] : [];
-  // 지원자에게 보낼 후보일정은 면접관 공통 일정 중 최대 3일만 사용한다. 기본값은 주말을 제외한 평일 3일.
-  const defaultWeekdays = nextWeekdaysFrom(2, 3);
-  [1,2,3].forEach(n => {
-    const saved = savedOptions[n - 1];
-    const d = defaultWeekdays[n - 1];
-    const dateEl = document.getElementById(`csl-date${n}`);
-    if(dateEl) dateEl.value = saved?.date || localDateInputValue(d);
-    const am = document.getElementById(`csl-date${n}-am`);
-    const pm = document.getElementById(`csl-date${n}-pm`);
-    if(am) am.checked = saved ? saved.periods?.includes('AM') : true;
-    if(pm) pm.checked = saved ? saved.periods?.includes('PM') : true;
-  });
+  // 지원자 후보일정 개수에 제한을 두지 않는다. 저장된 값이 있으면 그대로, 없으면
+  // 주말을 제외한 평일 3일을 기본 제안값으로 채우고 이후 자유롭게 추가·삭제할 수 있다.
+  const dateList = document.getElementById('csl-date-list');
+  if(dateList) {
+    dateList.innerHTML = '';
+    if(savedOptions.length) {
+      savedOptions.forEach(saved => addCandidateDateRow(saved.date, saved.periods?.includes('AM') ?? true, saved.periods?.includes('PM') ?? true));
+    } else {
+      nextWeekdaysFrom(2, 3).forEach(d => addCandidateDateRow(localDateInputValue(d), true, true));
+    }
+  }
   const panelStart = document.getElementById('csl-panel-start');
   const panelWeeks = document.getElementById('csl-panel-weeks');
   if(panelStart) {
@@ -170,13 +169,37 @@ function updatePanelRangeSummary() {
   summaryEl.textContent = `${fmt(dates[0].date)} ~ ${fmt(dates[dates.length-1].date)} · 평일 ${dates.length}일 · 오전·오후 안내`;
 }
 
+// 지원자 후보일정 행 추가 (개수 제한 없음)
+function addCandidateDateRow(dateValue, amChecked=true, pmChecked=true) {
+  const list = document.getElementById('csl-date-list');
+  if(!list) return;
+  const row = document.createElement('div');
+  row.className = 'slot-option-row';
+  row.dataset.dateRow = '1';
+  row.innerHTML = `
+    <input type="date" class="slot-option-input" data-role="date" value="${dateValue||''}"/>
+    <label style="font-size:12px"><input type="checkbox" data-role="am" ${amChecked?'checked':''} style="width:auto"> 오전</label>
+    <label style="font-size:12px"><input type="checkbox" data-role="pm" ${pmChecked?'checked':''} style="width:auto"> 오후</label>
+    <button type="button" class="btn btn-xs" data-action="call" data-call="removeCandidateDateRow(this)" title="이 날짜 삭제">×</button>
+  `;
+  list.appendChild(row);
+}
+
+function removeCandidateDateRow(btn) {
+  const list = document.getElementById('csl-date-list');
+  const rows = list ? list.querySelectorAll('[data-date-row]') : [];
+  if(rows.length <= 1) { toast('최소 1개의 날짜는 있어야 합니다.', 'terr'); return; }
+  btn.closest('[data-date-row]')?.remove();
+}
+
 function collectAvailabilityOptions() {
   if(collectSlotsCtx?.mode === 'panel') return panelRangeDates();
-  return [1,2,3].map(n => {
-    const date = document.getElementById(`csl-date${n}`)?.value || '';
+  const rows = document.querySelectorAll('#csl-date-list [data-date-row]');
+  return [...rows].map(row => {
+    const date = row.querySelector('[data-role="date"]')?.value || '';
     const periods = [];
-    if(document.getElementById(`csl-date${n}-am`)?.checked) periods.push('AM');
-    if(document.getElementById(`csl-date${n}-pm`)?.checked) periods.push('PM');
+    if(row.querySelector('[data-role="am"]')?.checked) periods.push('AM');
+    if(row.querySelector('[data-role="pm"]')?.checked) periods.push('PM');
     return { date, periods };
   }).filter(item => item.date && item.periods.length);
 }
@@ -242,7 +265,7 @@ function renderPanelAvailabilityTargets(pos, stageIdx) {
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="font-weight:600">${esc(panelist.name || '면접관')}</span>
       <span style="color:var(--t3);flex:1">${esc(panelist.email)}</span>
-      <span class="b ${badge}" style="max-width:260px;white-space:normal;text-align:right">${esc(status)}</span>
+      <span class="b ${badge}" style="white-space:nowrap;text-align:right" title="${esc(status)}">${esc(status)}</span>
     </div>`;
   }).join('');
 }
@@ -305,14 +328,6 @@ function selectedPanelCommonOptions() {
   }));
 }
 
-function enforcePanelCommonLimit(input) {
-  if(!input.checked) return;
-  const selectedDates = new Set(selectedPanelCommonOptions().map(option => option.date));
-  if(selectedDates.size <= 3) return;
-  input.checked = false;
-  toast('지원자에게 안내할 후보 날짜는 최대 3일까지 선택할 수 있습니다.', 'tw');
-}
-
 function renderPanelCommonAvailability(pos, stageIdx, responses) {
   const container = document.getElementById('csl-panel-common');
   if(!container) return;
@@ -341,10 +356,9 @@ function renderPanelCommonAvailability(pos, stageIdx, responses) {
   const previous = new Set([...container.querySelectorAll('input[data-common-slot]:checked')].map(input => input.value));
   const allowed = new Set(commonOptions.flatMap(option => option.periods.map(period => `${option.date}|${period}`)));
   const preserved = new Set([...previous].filter(value => allowed.has(value)));
-  const defaultDates = new Set(commonOptions.slice(0,3).map(option => option.date));
   const usePreserved = preserved.size > 0;
   container.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px">면접관 공통 가능 일정</div>
-    <div style="font-size:11px;color:var(--t3);margin-bottom:9px">지원자에게 안내할 날짜와 시간대를 선택하세요. 날짜는 최대 3일까지 선택할 수 있습니다.</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:9px">지원자에게 안내할 날짜와 시간대를 선택하세요.</div>
     <div style="display:flex;flex-direction:column;gap:6px">${commonOptions.map(option => {
       const date = new Date(`${option.date}T00:00:00`);
       const label = `${date.getMonth()+1}월 ${date.getDate()}일(${['일','월','화','수','목','금','토'][date.getDay()]})`;
@@ -352,26 +366,18 @@ function renderPanelCommonAvailability(pos, stageIdx, responses) {
         <span style="font-size:12px;font-weight:700;min-width:105px">${esc(label)}</span>
         ${option.periods.map(period => {
           const value = `${option.date}|${period}`;
-          const checked = usePreserved ? preserved.has(value) : defaultDates.has(option.date);
+          const checked = usePreserved ? preserved.has(value) : true;
           return `<label style="font-size:12px"><input type="checkbox" data-common-slot data-date="${esc(option.date)}" data-period="${period}" value="${esc(value)}" ${checked?'checked':''} style="width:auto"> ${period==='AM'?'오전':'오후'}</label>`;
         }).join('')}
       </div>`;
     }).join('')}</div>`;
-  container.querySelectorAll('input[data-common-slot]').forEach(input => {
-    input.addEventListener('change', () => enforcePanelCommonLimit(input));
-  });
 }
 
 function applyAvailabilityOptionsToInputs(options) {
-  [1,2,3].forEach(index => {
-    const option = options[index - 1];
-    const date = document.getElementById(`csl-date${index}`);
-    const am = document.getElementById(`csl-date${index}-am`);
-    const pm = document.getElementById(`csl-date${index}-pm`);
-    if(date) date.value = option?.date || '';
-    if(am) am.checked = !!option?.periods?.includes('AM');
-    if(pm) pm.checked = !!option?.periods?.includes('PM');
-  });
+  const list = document.getElementById('csl-date-list');
+  if(!list) return;
+  list.innerHTML = '';
+  (options || []).forEach(option => addCandidateDateRow(option.date, !!option.periods?.includes('AM'), !!option.periods?.includes('PM')));
 }
 
 async function sendPanelAvailabilityRequest() {
@@ -465,10 +471,6 @@ async function confirmPanelAvailabilityAndContinue() {
   const selectedOptions = selectedPanelCommonOptions();
   if(!selectedOptions.length) {
     toast('지원자에게 안내할 공통 가능 일정을 하나 이상 선택하세요.', 'terr');
-    return;
-  }
-  if(new Set(selectedOptions.map(option => option.date)).size > 3) {
-    toast('지원자에게 안내할 후보 날짜는 최대 3일까지 선택할 수 있습니다.', 'terr');
     return;
   }
   const allowed = new Set(commonOptions.flatMap(option => option.periods.map(period => `${option.date}|${period}`)));

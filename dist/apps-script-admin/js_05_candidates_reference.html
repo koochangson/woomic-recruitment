@@ -797,9 +797,9 @@ async function addInterview() {
 }
 
 const INTERVIEW_ACTION_TYPES = new Set([
-  'first_slots','first_schedule_reply','first_schedule',
-  'first_panel_notice','first_candidate_notice','first_result',
-  'second_slots','second_schedule',
+  'first_panel_availability','first_slots','first_schedule_reply','first_schedule_wait','first_schedule',
+  'first_panel_notice','first_candidate_notice','first_interview_done','first_result',
+  'second_panel_availability','second_slots','second_schedule_wait','second_schedule',
   'second_panel_notice','second_candidate_notice','second_result'
 ]);
 let interviewPositionFilter = 'active';
@@ -809,33 +809,6 @@ function getInterviewActionItems(positionId) {
 function setInterviewPositionFilter(filter) {
   interviewPositionFilter = ['needs','active','filled','closed','all'].includes(filter) ? filter : 'active';
   renderInterviewPositionCards();
-}
-
-function renderInterviewInbox() {
-  const wrap = document.getElementById('int-inbox-wrap');
-  if(!wrap) return;
-  const items = positions.flatMap(pos =>
-    getInterviewActionItems(pos.id)
-      .map(item => ({
-        ...item,
-        pos,
-        call: item.actionCall.startsWith('scrollPositionDetail(') ? `openPosDetail(${pos.id});${item.actionCall}` : item.actionCall
-      }))
-  );
-  wrap.innerHTML = `<section class="card int-inbox">
-    <div class="ch">
-      <div><div class="ch-l">오늘 처리 필요한 면접 업무</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">면접 실행 업무를 우선순위 순서로 바로 처리할 수 있습니다.</div></div>
-      ${items.length ? `<span class="b bamber">${items.length}건</span>` : ''}
-    </div>
-    ${items.length ? `<div class="int-inbox-list">${items.map(item => `<div class="int-inbox-item">
-      <span aria-hidden="true" style="color:var(--red)">●</span>
-      <div class="int-inbox-main">
-        <div class="int-inbox-title">${esc(item.title)}</div>
-        <div class="int-inbox-desc">${esc(item.pos.dept||'부서 미지정')} · ${esc(item.pos.title)} · ${esc(item.desc||'')}</div>
-      </div>
-      <button class="btn btn-xs ${item.priority==='high'?'int-action-high':'btn-primary'}" data-action="call" data-call="${esc(item.call)}">${esc(item.actionLabel||'처리')}</button>
-    </div>`).join('')}</div>` : `<div style="padding:9px 10px;border-radius:var(--rsm);background:var(--gbg);color:var(--green);font-size:11.5px;font-weight:700">현재 처리 필요한 면접 업무가 없습니다.</div>`}
-  </section>`;
 }
 
 function renderInterviewPositionCards() {
@@ -917,7 +890,6 @@ async function sendIntNotify(ch) {
 }
 
 function renderIntTable() {
-  renderInterviewInbox();
   renderInterviewPositionCards();
   const f    = document.getElementById('int-filter')?.value||'';
   const list = interviews.filter(i=>!f||i.type===f);

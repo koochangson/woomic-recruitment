@@ -273,12 +273,7 @@
 
     <!-- ③ 면접 관리 ──────────────────────────────────────── -->
     <div id="sect-interview" class="sect">
-      <div id="int-inbox-wrap"></div>
       <div id="int-pos-cards"></div>
-      <details class="help-details">
-        <summary>면접 안내 운영 방식 보기</summary>
-        <div class="help-details-body">면접은 <strong>채용 포지션 기준</strong>으로 운영합니다. 포지션별로 후보일정 안내, 공동일정 확정, 지원자·면접관 안내, 결과 입력을 진행하고 특별한 사유가 있는 지원자만 개별 예외 처리합니다.</div>
-      </details>
       <details class="int-exception-details">
         <summary>개별 지원자 예외 일정 등록·수정</summary>
         <div class="int-exception-body">
@@ -325,8 +320,8 @@
       </details>
       <div class="card" style="margin-top:12px">
         <div class="ch">
-          <div><div class="ch-l">개별 일정 현황</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px">포지션 공동일정 적용 결과와 개별 예외 일정을 확인합니다.</div></div>
-          <select id="int-filter" data-onchange="renderIntTable()" style="font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--border2)">
+          <div style="flex:1;min-width:0"><div class="ch-l">개별 일정 현황</div><div style="font-size:10.5px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="포지션 공동일정 적용 결과와 개별 예외 일정을 확인합니다.">포지션 공동일정 적용 결과와 개별 예외 일정을 확인합니다.</div></div>
+          <select id="int-filter" data-onchange="renderIntTable()" class="select-mini" style="flex-shrink:0;width:84px">
             <option value="">전체 면접</option><option value="1차">1차 면접</option><option value="2차">2차 면접</option>
           </select>
         </div>
@@ -1420,27 +1415,9 @@
         </div>
       </div>
       <div id="csl-candidate-options">
-        <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">지원자 후보 날짜와 시간대 (최대 3일)</div>
-        <div class="slot-option-list" style="margin-bottom:14px">
-        <div class="slot-option-row">
-          <span class="slot-option-label">1안</span>
-          <input id="csl-date1" type="date" class="slot-option-input"/>
-          <label style="font-size:12px"><input id="csl-date1-am" type="checkbox" checked style="width:auto"> 오전</label>
-          <label style="font-size:12px"><input id="csl-date1-pm" type="checkbox" checked style="width:auto"> 오후</label>
-        </div>
-        <div class="slot-option-row">
-          <span class="slot-option-label">2안</span>
-          <input id="csl-date2" type="date" class="slot-option-input"/>
-          <label style="font-size:12px"><input id="csl-date2-am" type="checkbox" checked style="width:auto"> 오전</label>
-          <label style="font-size:12px"><input id="csl-date2-pm" type="checkbox" checked style="width:auto"> 오후</label>
-        </div>
-        <div class="slot-option-row">
-          <span class="slot-option-label">3안</span>
-          <input id="csl-date3" type="date" class="slot-option-input"/>
-          <label style="font-size:12px"><input id="csl-date3-am" type="checkbox" checked style="width:auto"> 오전</label>
-          <label style="font-size:12px"><input id="csl-date3-pm" type="checkbox" checked style="width:auto"> 오후</label>
-        </div>
-      </div>
+        <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">지원자 후보 날짜와 시간대</div>
+        <div id="csl-date-list" class="slot-option-list" style="margin-bottom:8px"></div>
+        <button type="button" class="btn btn-xs" data-action="call" data-call="addCandidateDateRow()" style="margin-bottom:14px">+ 날짜 추가</button>
       </div>
       <div id="csl-panel-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:var(--rsm)">
         <span id="csl-panel-status" style="font-size:11px;color:var(--t3)">면접관 확인 전</span>
