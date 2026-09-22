@@ -5,6 +5,13 @@
 let collectSlotsCtx = { posId: null, stageIdx: null, mode: 'panel' };
 const panelAvailabilityCache = {};
 
+function localDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // 오늘부터 startOffsetDays일 뒤를 시작점으로, 주말(토·일)을 제외한 평일 count개를 순서대로 반환한다.
 function nextWeekdaysFrom(startOffsetDays, count) {
   const dates = [];
@@ -48,7 +55,7 @@ function openCollectSlots(posId, stageIdx) {
     const saved = savedOptions[n - 1];
     const d = defaultWeekdays[n - 1];
     const dateEl = document.getElementById(`csl-date${n}`);
-    if(dateEl) dateEl.value = saved?.date || d.toISOString().slice(0,10);
+    if(dateEl) dateEl.value = saved?.date || localDateInputValue(d);
     const am = document.getElementById(`csl-date${n}-am`);
     const pm = document.getElementById(`csl-date${n}-pm`);
     if(am) am.checked = saved ? saved.periods?.includes('AM') : true;
@@ -75,9 +82,9 @@ function openCollectSlots(posId, stageIdx) {
   updatePanelRangeSummary();
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);
   const deadlineEl = document.getElementById('csl-deadline');
-  if(deadlineEl) deadlineEl.value = deadline.toISOString().slice(0,10);
+  if(deadlineEl) deadlineEl.value = localDateInputValue(deadline);
   const panelDeadlineEl = document.getElementById('csl-panel-deadline');
-  if(panelDeadlineEl) panelDeadlineEl.value = deadline.toISOString().slice(0,10);
+  if(panelDeadlineEl) panelDeadlineEl.value = localDateInputValue(deadline);
   const panelControls = document.getElementById('csl-panel-controls');
   if(panelControls) panelControls.style.display = panelMode ? 'flex' : 'none';
   const panelStatus = document.getElementById('csl-panel-status');
@@ -128,7 +135,7 @@ function nextPanelRangeStart() {
   const d = new Date();
   d.setDate(d.getDate() + 2);
   while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0,10);
+  return localDateInputValue(d);
 }
 
 // 면접관 확인 범위(시작일 + 1·2주) → 주말을 제외한 평일 오전·오후 후보일정 목록
@@ -144,7 +151,7 @@ function panelRangeDates() {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
     if(d.getDay() === 0 || d.getDay() === 6) continue;
-    dates.push({ date: d.toISOString().slice(0,10), periods: ['AM','PM'] });
+    dates.push({ date: localDateInputValue(d), periods: ['AM','PM'] });
   }
   return dates;
 }
@@ -251,9 +258,13 @@ async function refreshPanelAvailabilityResponses(posId, stageIdx, showToast=fals
   if(pos && collectSlotsCtx.mode === 'panel' && Number(collectSlotsCtx.posId) === Number(posId) && Number(collectSlotsCtx.stageIdx) === Number(stageIdx)) {
     renderPanelAvailabilityTargets(pos, stageIdx);
     const expected = parsePanelists(pos[panelAvailabilityKeys(stageIdx).panel]).filter(panelist => panelist.email);
-    const responded = (result.responses || []).filter(response => ['RESPONDED','UNAVAILABLE'].includes(response.status)).length;
+    const byEmail = new Map((result.responses || []).map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
+    const responded = expected.filter(panelist => ['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(panelist.email).toLowerCase())?.status)).length;
     const status = document.getElementById('csl-panel-status');
     if(status) status.textContent = `면접관 응답 ${responded}/${expected.length}`;
+    renderPanelCommonAvailability(pos, stageIdx, result.responses || []);
+    const primary = document.getElementById('csl-primary-action');
+    if(primary && expected.length && responded === expected.length) primary.textContent = '지원자 후보일정 확정';
   }
   if(showToast) toast('면접관 응답 현황을 새로고침했습니다.', 'tok');
   return result.responses || [];
@@ -275,6 +286,79 @@ function commonPanelAvailability(options, responses) {
     date: option.date,
     periods: (option.periods || []).filter(period => common.has(`${option.date}|${period}`))
   })).filter(option => option.periods.length);
+}
+
+function selectedPanelCommonOptions() {
+  const selected = [...document.querySelectorAll('#csl-panel-common input[data-common-slot]:checked')];
+  const grouped = new Map();
+  selected.forEach(input => {
+    const date = input.dataset.date || '';
+    const period = input.dataset.period || '';
+    if(!date || !['AM','PM'].includes(period)) return;
+    if(!grouped.has(date)) grouped.set(date, []);
+    grouped.get(date).push(period);
+  });
+  return [...grouped.entries()].map(([date, periods]) => ({
+    date,
+    periods:['AM','PM'].filter(period => periods.includes(period))
+  }));
+}
+
+function enforcePanelCommonLimit(input) {
+  if(!input.checked) return;
+  const selectedDates = new Set(selectedPanelCommonOptions().map(option => option.date));
+  if(selectedDates.size <= 3) return;
+  input.checked = false;
+  toast('지원자에게 안내할 후보 날짜는 최대 3일까지 선택할 수 있습니다.', 'tw');
+}
+
+function renderPanelCommonAvailability(pos, stageIdx, responses) {
+  const container = document.getElementById('csl-panel-common');
+  if(!container) return;
+  const keys = panelAvailabilityKeys(stageIdx);
+  const panelists = parsePanelists(pos[keys.panel]).filter(panelist => panelist.email);
+  const byEmail = new Map((responses || []).map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
+  const selectedResponses = panelists.map(panelist => byEmail.get(String(panelist.email).toLowerCase()));
+  const allResponded = panelists.length > 0 && selectedResponses.every(response => ['RESPONDED','UNAVAILABLE'].includes(response?.status));
+  if(!allResponded) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  const options = Array.isArray(pos[keys.options]) ? pos[keys.options] : [];
+  const commonOptions = commonPanelAvailability(options, selectedResponses);
+  container.style.display = '';
+  if(!commonOptions.length) {
+    const unavailable = selectedResponses.filter(response => response?.status === 'UNAVAILABLE');
+    const notes = unavailable.map(response => `${response.panelistName || '면접관'}: ${response.note || '제시 일정 모두 어려움'}`);
+    container.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:5px">공통 가능한 일정이 없습니다.</div>
+      <div style="font-size:11px;color:var(--t3);line-height:1.55">${notes.length ? notes.map(esc).join('<br>') : '면접관별 선택 일정을 확인하고 후보 범위를 다시 조정하세요.'}</div>`;
+    return;
+  }
+
+  const previous = new Set([...container.querySelectorAll('input[data-common-slot]:checked')].map(input => input.value));
+  const allowed = new Set(commonOptions.flatMap(option => option.periods.map(period => `${option.date}|${period}`)));
+  const preserved = new Set([...previous].filter(value => allowed.has(value)));
+  const defaultDates = new Set(commonOptions.slice(0,3).map(option => option.date));
+  const usePreserved = preserved.size > 0;
+  container.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px">면접관 공통 가능 일정</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:9px">지원자에게 안내할 날짜와 시간대를 선택하세요. 날짜는 최대 3일까지 선택할 수 있습니다.</div>
+    <div style="display:flex;flex-direction:column;gap:6px">${commonOptions.map(option => {
+      const date = new Date(`${option.date}T00:00:00`);
+      const label = `${date.getMonth()+1}월 ${date.getDate()}일(${['일','월','화','수','목','금','토'][date.getDay()]})`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 9px;background:var(--s2);border-radius:var(--rsm)">
+        <span style="font-size:12px;font-weight:700;min-width:105px">${esc(label)}</span>
+        ${option.periods.map(period => {
+          const value = `${option.date}|${period}`;
+          const checked = usePreserved ? preserved.has(value) : defaultDates.has(option.date);
+          return `<label style="font-size:12px"><input type="checkbox" data-common-slot data-date="${esc(option.date)}" data-period="${period}" value="${esc(value)}" ${checked?'checked':''} style="width:auto"> ${period==='AM'?'오전':'오후'}</label>`;
+        }).join('')}
+      </div>`;
+    }).join('')}</div>`;
+  container.querySelectorAll('input[data-common-slot]').forEach(input => {
+    input.addEventListener('change', () => enforcePanelCommonLimit(input));
+  });
 }
 
 function applyAvailabilityOptionsToInputs(options) {
@@ -360,7 +444,7 @@ async function confirmPanelAvailabilityAndContinue() {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const keys = panelAvailabilityKeys(stageIdx);
-  const options = collectAvailabilityOptions();
+  const options = Array.isArray(pos[keys.options]) && pos[keys.options].length ? pos[keys.options] : collectAvailabilityOptions();
   if(!options.length) { toast('확인 완료로 처리할 면접 후보일정을 먼저 입력하세요.', 'terr'); return; }
   if(!pos[keys.requested]) { toast('면접관 확인 메일을 먼저 발송하세요.', 'terr'); return; }
   const panelists = parsePanelists(pos[keys.panel]).filter(panelist => panelist.email);
@@ -377,9 +461,24 @@ async function confirmPanelAvailabilityAndContinue() {
     toast('모든 면접관이 공통으로 가능한 시간대가 없습니다. 후보일정을 다시 조정해 주세요.', 'terr');
     return;
   }
-  applyAvailabilityOptionsToInputs(commonOptions);
-  if(!confirm(`면접관 공통 가능 일정을 지원자에게 안내할 후보로 확정할까요?\n\n${formatAvailabilityOptions(commonOptions)}`)) return;
-  pos[keys.options] = commonOptions;
+  const selectedOptions = selectedPanelCommonOptions();
+  if(!selectedOptions.length) {
+    toast('지원자에게 안내할 공통 가능 일정을 하나 이상 선택하세요.', 'terr');
+    return;
+  }
+  if(new Set(selectedOptions.map(option => option.date)).size > 3) {
+    toast('지원자에게 안내할 후보 날짜는 최대 3일까지 선택할 수 있습니다.', 'terr');
+    return;
+  }
+  const allowed = new Set(commonOptions.flatMap(option => option.periods.map(period => `${option.date}|${period}`)));
+  const invalid = selectedOptions.some(option => option.periods.some(period => !allowed.has(`${option.date}|${period}`)));
+  if(invalid) {
+    toast('면접관 공통 가능 일정에 포함되지 않은 항목이 있습니다. 응답을 새로고침해 주세요.', 'terr');
+    return;
+  }
+  applyAvailabilityOptionsToInputs(selectedOptions);
+  if(!confirm(`선택한 공통 일정을 지원자에게 안내할 후보로 확정할까요?\n\n${formatAvailabilityOptions(selectedOptions)}`)) return;
+  pos[keys.options] = selectedOptions;
   pos[keys.confirmed] = new Date().toISOString();
   saveState();
   if(GS_CONFIG.scriptUrl) {
@@ -622,7 +721,7 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
   const dateEl = document.getElementById('bs-date');
   if(dateEl && !dateEl.value) {
     const d = new Date(); d.setDate(d.getDate() + 3); // 기본 3일 후
-    dateEl.value = d.toISOString().slice(0,10);
+    dateEl.value = localDateInputValue(d);
   }
   document.getElementById('bs-start').value = '10:00';
   document.getElementById('bs-interval').value = '30';
