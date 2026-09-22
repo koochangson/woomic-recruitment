@@ -10,6 +10,9 @@
     "security:scan": "node scripts/security-scan.mjs",
     "syntax:check": "node scripts/syntax-check.mjs",
     "deployment:ready": "node scripts/deployment-readiness.mjs",
+    "clasp:sync-admin": "node tools/sync_admin_clasp.js",
+    "clasp:push-admin": "node tools/deploy_admin_clasp.js",
+    "clasp:dry-run-admin": "node tools/deploy_admin_clasp.js --dry-run",
     "check": "npm run security:scan && npm run syntax:check && npm run deployment:ready"
   }
 }
