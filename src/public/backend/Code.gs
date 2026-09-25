@@ -71,6 +71,7 @@ const SHEET_SCHEMAS = {
   Interviewers: ['email','name','empNo','dept','rank','status','updatedAt'],
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
+  MailLog: ['id','to','subject','status','error','sentAt'],
   ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
   ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','link','verifiedAt','submittedAt','status',
     'q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
@@ -303,6 +304,40 @@ function handleReferralSecurityAction_(payload) {
   return null;
 }
 
+function sendLoggedMail_(options) {
+  const mail = Object.assign({}, options || {});
+  const to = String(mail.to || '');
+  const subject = String(mail.subject || '');
+  try {
+    MailApp.sendEmail(mail);
+    logMailSend_(to, subject, 'sent', '');
+  } catch (err) {
+    const errorText = String(err && err.message || err);
+    logMailSend_(to, subject, 'failed', errorText);
+    throw err;
+  }
+}
+
+function logMailSend_(to, subject, status, error) {
+  try {
+    const sheet = ensureSheet_('MailLog');
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.MailLog);
+    const row = {
+      id: 'ML-' + Utilities.getUuid(),
+      to: String(to || ''),
+      subject: String(subject || ''),
+      status: String(status || ''),
+      error: String(error || '').slice(0, 5000),
+      sentAt: nowIso_()
+    };
+    sheet.appendRow(headers.map(function(header) {
+      return row[header] == null ? '' : row[header];
+    }));
+  } catch (err) {
+    console.warn('logMailSend_ failed: ' + String(err && err.message || err));
+  }
+}
+
 function sendReferralVerificationCode_(payload) {
   const empNo = normalizeEmpNo_(payload.empNo);
   if (isReferralCodeLocked_(empNo)) return json_({ ok: true });
@@ -322,7 +357,7 @@ function sendReferralVerificationCode_(payload) {
   }), REFERRAL_CODE_TTL_SECONDS);
 
   try {
-    MailApp.sendEmail({
+    sendLoggedMail_({
       to: employee.email,
       subject: '[우미건설] 사내추천 인증번호',
       body: [
@@ -722,7 +757,7 @@ function issueReferenceCandidateLink_(payload) {
       '감사합니다.',
       '우미건설 피플팀 드림'
     ].join('\n');
-    MailApp.sendEmail({
+    sendLoggedMail_({
       to: candEmail,
       subject: '[우미건설] 레퍼런스 체크 - 추천인 등록 안내',
       name: '우미건설 피플팀',
@@ -832,7 +867,7 @@ function submitReferenceCandidateReferees_(payload) {
         '감사합니다.',
         '우미건설 피플팀 드림'
       ].join('\n');
-      MailApp.sendEmail({
+      sendLoggedMail_({
         to: refereeEmail,
         subject: '[우미건설] ' + candRow.candName + '님 레퍼런스 체크 요청',
         name: '우미건설 피플팀',
@@ -1627,7 +1662,7 @@ function referenceMailHtml_(message) {
 function sendReferralReceipt_(row) {
   try {
     if (!row || !row.refEmail) return;
-    MailApp.sendEmail({
+    sendLoggedMail_({
       to: row.refEmail,
       subject: '[우미건설] 사내추천 접수 완료',
       body: [

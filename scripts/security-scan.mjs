@@ -85,6 +85,12 @@ const requiredPatterns = [
     message: 'Public Apps Script must read the referral upload folder from Script Properties.',
   },
   {
+    id: 'public-mail-send-logging',
+    file: 'src/public/backend/Code.gs',
+    pattern: /function sendLoggedMail_\([\s\S]{0,500}logMailSend_\(to, subject, 'sent'/,
+    message: 'Public Apps Script must log successful and failed mail sends.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
