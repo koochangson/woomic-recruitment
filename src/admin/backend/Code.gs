@@ -1181,6 +1181,8 @@ function sendReferenceEmail_(payload) {
   const subject = String(body.subject || '').trim();
   const message = String(body.body || body.message || '').trim();
   if (!to || !subject || !message) return json_({ error: 'missing_mail_fields' });
+  const templateType = String(body.templateType || body.templateKey || body.mailType || '').trim();
+  if (!REFERENCE_MAIL_TEMPLATE_FILES[templateType]) return json_({ error: 'reference_template_type_required' });
   try {
     const result = sendMailViaGmail_(to, subject, message, referenceMailHtml_(message, body));
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
@@ -1225,11 +1227,7 @@ function referenceMailHtml_(message, context) {
 function resolveReferenceMailTemplateKey_(raw, data) {
   const explicit = String(data.templateType || data.templateKey || data.mailType || '').trim();
   if (REFERENCE_MAIL_TEMPLATE_FILES[explicit]) return explicit;
-  if (raw.indexOf('정상적으로 접수') >= 0 || raw.indexOf('응답 접수') >= 0) return 'referee_complete';
-  if (raw.indexOf('아직 완료되지 않아') >= 0 && raw.indexOf('추천인 3인') >= 0) return 'candidate_reminder';
-  if (raw.indexOf('다시') >= 0 && raw.indexOf('설문') >= 0) return 'referee_reminder';
-  if (raw.indexOf('추천인 등록 링크') >= 0 || raw.indexOf('추천인 3인') >= 0 || raw.indexOf('추천인 3분') >= 0) return 'candidate_request';
-  return 'referee_request';
+  throw new Error('reference_template_type_required');
 }
 
 function renderReferenceMailTemplate_(html, raw, data) {
@@ -1242,7 +1240,7 @@ function renderReferenceMailTemplate_(html, raw, data) {
   const shortDeadlineText = shortReferenceDeadline_(data.deadline || data.tokenExpiresAt || addReferenceDays_(new Date(), REFERENCE_LINK_TTL_DAYS));
 
   let rendered = String(html || '');
-  if (link) rendered = rendered.replace(/href="#"/, 'href="' + escapeMailHtml_(link) + '"');
+  if (link) rendered = rendered.replace(/href="#"/g, 'href="' + escapeMailHtml_(link) + '"');
   rendered = rendered
     .replace(/이예슬/g, escapeMailHtml_(candidateName))
     .replace(/김재영/g, escapeMailHtml_(refereeName))

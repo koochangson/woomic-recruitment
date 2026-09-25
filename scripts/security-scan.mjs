@@ -133,6 +133,18 @@ const requiredPatterns = [
     message: 'Referral rendering must not persist derived flags or timestamps.',
   },
   {
+    id: 'reference-mail-template-type-required',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /REFERENCE_MAIL_TEMPLATE_FILES\[templateType\][\s\S]{0,100}reference_template_type_required/,
+    message: 'Reference mail sends must require an explicit template type.',
+  },
+  {
+    id: 'reference-mail-links-replaced-globally',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /replace\(\/href=\"#\"\/g,/,
+    message: 'Reference mail rendering must replace every placeholder CTA link.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
