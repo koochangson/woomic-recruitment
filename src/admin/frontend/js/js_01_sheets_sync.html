@@ -56,7 +56,11 @@ const GS_TOMBSTONE_KEY = 'woomic_gs_tombstones_v1';
 const GS_SYNC_CURSOR_KEY = 'woomic_gs_sync_cursors_v1';
 const GS_CHANGE_CURSOR_KEY = 'woomic_gs_change_cursors_v1';
 const GS_CURSOR_OVERLAP_MS = 5 * 60 * 1000;
+const GS_CHANGE_POLL_INTERVAL_MS = 60 * 1000;
 let gsRetryRunning = false;
+let gsChangePollTimer = null;
+let gsChangePollRunning = false;
+let gsChangePollVisibilityBound = false;
 const gsReadCache = new Map();
 const gsReadInflight = new Map();
 
@@ -301,6 +305,7 @@ function clearAdminSession_() {
 }
 
 function showAdminLogin_(message='') {
+  stopGsChangePolling_();
   const box = document.getElementById('admin-login');
   const msg = document.getElementById('admin-login-msg');
   if(msg) msg.textContent = message;
@@ -380,6 +385,7 @@ async function reloadAdminDataAfterLogin_() {
   renderPositions();
   renderIntTable();
   renderReferralSection();
+  startGsChangePolling_();
 }
 
 function adminApiRun_(payload, options={}) {
@@ -1087,6 +1093,83 @@ async function syncReferralCoreFromGS(options={}) {
     }
   }
   return true;
+}
+
+function renderGsPolledChanges_() {
+  renderDashboard();
+  renderRecruitStatus();
+  renderTracker();
+  renderPositions();
+  renderIntTable();
+  renderReferralSection();
+  updateMetrics();
+}
+
+async function pollGsChanges_() {
+  if(gsChangePollRunning || document.hidden || !hasGsBridge_()) return false;
+  if(isAppsScriptDashboard_() && !getAdminSessionToken_()) return false;
+  gsChangePollRunning = true;
+  let applied = 0;
+  try {
+    const coreCursor = getGsChangeCursor();
+    if(coreCursor !== null) {
+      const delta = await gsGetChanges(coreCursor);
+      if(delta?.resyncRequired) {
+        clearGsChangeCursor();
+        await syncCoreFromGS({forceFull:true});
+        renderGsPolledChanges_();
+        return true;
+      }
+      if(delta && Number.isFinite(delta.cursor)) {
+        applied += applyGsChanges(delta.changes);
+        setGsChangeCursor(delta.cursor);
+      }
+    }
+
+    const referralBaseUrl = GS_CONFIG.referralScriptUrl;
+    const referralCursor = referralBaseUrl ? getGsChangeCursor(referralBaseUrl) : null;
+    if(referralBaseUrl && referralCursor !== null) {
+      const delta = await gsGetChanges(referralCursor, 500, 20, 'Referrals');
+      if(delta?.resyncRequired) {
+        clearGsChangeCursor(referralBaseUrl);
+        await syncReferralCoreFromGS({forceFull:true});
+        renderGsPolledChanges_();
+        return true;
+      }
+      if(delta && Number.isFinite(delta.cursor)) {
+        applied += applyGsChanges(delta.changes);
+        setGsChangeCursor(delta.cursor, referralBaseUrl);
+      }
+    }
+
+    if(applied) {
+      renderGsPolledChanges_();
+      showSyncStatus('GS 변경 ' + applied + '건 자동 반영', 'ok');
+    }
+    return true;
+  } catch(error) {
+    console.warn('[GS] periodic change sync failed:', error);
+    return false;
+  } finally {
+    gsChangePollRunning = false;
+  }
+}
+
+function stopGsChangePolling_() {
+  if(gsChangePollTimer) clearInterval(gsChangePollTimer);
+  gsChangePollTimer = null;
+}
+
+function startGsChangePolling_() {
+  stopGsChangePolling_();
+  if(!hasGsBridge_()) return;
+  gsChangePollTimer = setInterval(pollGsChanges_, GS_CHANGE_POLL_INTERVAL_MS);
+  if(!gsChangePollVisibilityBound) {
+    document.addEventListener('visibilitychange', () => {
+      if(!document.hidden) pollGsChanges_();
+    });
+    gsChangePollVisibilityBound = true;
+  }
 }
 
 async function loadPositionsFromGS(options={}) {

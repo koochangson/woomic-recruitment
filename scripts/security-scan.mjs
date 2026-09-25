@@ -157,6 +157,18 @@ const requiredPatterns = [
     message: 'Dashboard writes must surface revision conflicts without retrying stale data.',
   },
   {
+    id: 'dashboard-polls-change-log',
+    file: 'src/admin/frontend/js/js_01_sheets_sync.html',
+    pattern: /GS_CHANGE_POLL_INTERVAL_MS = 60 \* 1000[\s\S]*document\.hidden[\s\S]*setInterval\(pollGsChanges_, GS_CHANGE_POLL_INTERVAL_MS\)[\s\S]*visibilitychange/,
+    message: 'Dashboard must poll incremental changes only while the page is visible.',
+  },
+  {
+    id: 'dashboard-starts-change-polling',
+    file: 'src/admin/frontend/js/js_99_app.html',
+    pattern: /setTimeout\(flushGsRetryQueue, 1500\);[\s\S]{0,120}startGsChangePolling_\(\)/,
+    message: 'Dashboard initialization must start periodic change polling.',
+  },
+  {
     id: 'referral-render-does-not-persist-derived-state',
     file: 'src/admin/frontend/js/js_04_referral.html',
     pattern: /function renderReferralSection\(\)\s*\{\s*recalculateReferralFlags\(\{transient:true\}\);/,

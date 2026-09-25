@@ -272,7 +272,10 @@ try {
     // 레퍼런스 상태 자동 동기화
     if(GS_CONFIG.refAutoUrl && typeof syncRefFromGS === 'function') syncRefFromGS();
     // 이전 세션에서 실패한 GS 저장 요청 재시도
-    if(hasGsBridge_()) setTimeout(flushGsRetryQueue, 1500);
+    if(hasGsBridge_()) {
+      setTimeout(flushGsRetryQueue, 1500);
+      startGsChangePolling_();
+    }
   });
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   renderDashboard();
