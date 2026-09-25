@@ -120,12 +120,12 @@ function recalculateReferralFlags(options={}) {
     const next = getReferralDupFlag(ref);
     if(ref.dupFlag !== next) {
       ref.dupFlag = next;
-      ref.updatedAt = new Date().toISOString();
+      if(!options.transient) ref.updatedAt = new Date().toISOString();
       changed++;
-      if(options.sync && GS_CONFIG.scriptUrl) syncReferralToGS(ref);
+      if(!options.transient && options.sync && GS_CONFIG.scriptUrl) syncReferralToGS(ref);
     }
   });
-  if(changed) saveState();
+  if(changed && !options.transient) saveState();
   return changed;
 }
 function formatReferralDate(value) {
@@ -213,8 +213,7 @@ function setReferralView(view) {
   renderReferralSection();
 }
 function renderReferralSection() {
-  recalculateReferralFlags();
-  expireReferralStatuses();
+  recalculateReferralFlags({transient:true});
   updateReferralKpis();
   if(referralView==='rewards') return renderReferralRewardsView();
   if(referralView==='history') return renderReferralHistoryView();

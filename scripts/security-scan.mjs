@@ -127,6 +127,12 @@ const requiredPatterns = [
     message: 'Public batch upsert must use one indexed sheet read and batched change logging.',
   },
   {
+    id: 'referral-render-does-not-persist-derived-state',
+    file: 'src/admin/frontend/js/js_04_referral.html',
+    pattern: /function renderReferralSection\(\)\s*\{\s*recalculateReferralFlags\(\{transient:true\}\);/,
+    message: 'Referral rendering must not persist derived flags or timestamps.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
