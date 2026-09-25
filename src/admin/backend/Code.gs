@@ -2038,7 +2038,7 @@ function normalizePhone_(value) {
 }
 
 function normalizeCell_(value) {
-  if (value instanceof Date) return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  if (value instanceof Date) return Utilities.formatDate(value, 'UTC', "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
   return value == null ? '' : value;
 }
 

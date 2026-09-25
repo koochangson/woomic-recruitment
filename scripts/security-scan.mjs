@@ -66,6 +66,18 @@ const requiredPatterns = [
     pattern: /isPublicDeployment_\(\)\s*&&\s*PUBLIC_BLOCKED_ADMIN_ACTIONS\[action\]/,
     message: 'Public Apps Script must reject privileged actions before dispatch.',
   },
+  {
+    id: 'admin-date-normalization-utc',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
+    message: 'Admin Apps Script Date values must be normalized as real UTC timestamps.',
+  },
+  {
+    id: 'public-date-normalization-utc',
+    file: 'src/public/backend/Code.gs',
+    pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
+    message: 'Public Apps Script Date values must be normalized as real UTC timestamps.',
+  },
 ];
 
 function walk(dir) {
