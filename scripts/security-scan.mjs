@@ -288,6 +288,24 @@ const requiredPatterns = [
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
     message: 'Public Apps Script Date values must be normalized as real UTC timestamps.',
   },
+  {
+    id: 'public-clasp-target-required',
+    file: 'tools/sync_public_clasp.js',
+    pattern: /if \(!targetArg \|\| !targetArg\.slice\('--target='\.length\)\.trim\(\)\)[\s\S]{0,180}process\.exit\(1\)/,
+    message: 'Public clasp synchronization must require an explicit target folder.',
+  },
+  {
+    id: 'public-clasp-rejects-admin-project',
+    file: 'tools/sync_public_clasp.js',
+    pattern: /publicScriptId === adminScriptId[\s\S]{0,180}Refusing public synchronization/,
+    message: 'Public clasp synchronization must reject the connected admin Apps Script project.',
+  },
+  {
+    id: 'public-clasp-validates-webapp-policy',
+    file: 'tools/sync_public_clasp.js',
+    pattern: /webapp\?\.executeAs !== 'USER_DEPLOYING'[\s\S]{0,160}webapp\?\.access !== 'ANYONE_ANONYMOUS'/,
+    message: 'Public clasp synchronization must validate anonymous web-app manifest settings.',
+  },
 ];
 
 function walk(dir) {
