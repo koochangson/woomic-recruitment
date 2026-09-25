@@ -91,6 +91,18 @@ const requiredPatterns = [
     message: 'Public Apps Script must log successful and failed mail sends.',
   },
   {
+    id: 'admin-reference-link-reissue-invalidates-old-token',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /invalidatePriorReferenceCandidateLinks_\(sheet, headers, pipelineCandId, candEmail\)/,
+    message: 'Admin Apps Script must invalidate prior candidate reference links before reissue.',
+  },
+  {
+    id: 'public-reference-link-reissue-invalidates-old-token',
+    file: 'src/public/backend/Code.gs',
+    pattern: /invalidatePriorReferenceCandidateLinks_\(sheet, headers, pipelineCandId, candEmail\)/,
+    message: 'Public Apps Script must invalidate prior candidate reference links before reissue.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,

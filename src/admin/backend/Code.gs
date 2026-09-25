@@ -698,6 +698,44 @@ function referenceLinkExpired_(row) {
   return !!(row.tokenExpiresAt && new Date(row.tokenExpiresAt).getTime() < Date.now());
 }
 
+function invalidatePriorReferenceCandidateLinks_(sheet, headers, pipelineCandId, candEmail) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const idIndex = headers.indexOf('pipelineCandId');
+  const emailIndex = headers.indexOf('candEmail');
+  const tokenIndex = headers.indexOf('token');
+  const expiresIndex = headers.indexOf('tokenExpiresAt');
+  const linkIndex = headers.indexOf('link');
+  const submittedIndex = headers.indexOf('refereesSubmittedAt');
+  const statusIndex = headers.indexOf('status');
+  const updatedIndex = headers.indexOf('updatedAt');
+  const rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const invalidated = [];
+  const updatedAt = nowIso_();
+
+  rows.forEach(function(values) {
+    const matches = pipelineCandId
+      ? String(values[idIndex] || '') === pipelineCandId
+      : normalizeEmail_(values[emailIndex]) === candEmail;
+    if (!matches || !String(values[tokenIndex] || '').trim()) return;
+    values[tokenIndex] = '';
+    values[expiresIndex] = '';
+    values[linkIndex] = '';
+    if (!values[submittedIndex]) values[statusIndex] = 'REPLACED';
+    values[updatedIndex] = updatedAt;
+    invalidated.push(values);
+  });
+
+  if (!invalidated.length) return 0;
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  invalidated.forEach(function(values) {
+    const row = {};
+    headers.forEach(function(header, index) { row[header] = values[index]; });
+    appendChange_('ReferenceCandidates', 'upsert', row.id, row);
+  });
+  return invalidated.length;
+}
+
 // 대시보드에서 후보자가 "레퍼런스" 단계로 이동할 때(또는 관리자가 재발급할 때) 관리자 권한으로 호출.
 // 후보자용 추천인 등록 링크를 발급만 하고 반환한다 — 메일은 서버가 자동 발송하지 않는다.
 // 후보자에게 추천인 등록 링크를 발급한다. 실제 안내 메일은 대시보드에서
@@ -727,8 +765,15 @@ function issueReferenceCandidateLink_(payload) {
   };
   const sheet = ensureSheet_('ReferenceCandidates');
   const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.ReferenceCandidates);
-  sheet.appendRow(headers.map(h => row[h] == null ? '' : row[h]));
-  appendChange_('ReferenceCandidates', 'upsert', row.id, row);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    invalidatePriorReferenceCandidateLinks_(sheet, headers, pipelineCandId, candEmail);
+    sheet.appendRow(headers.map(h => row[h] == null ? '' : row[h]));
+    appendChange_('ReferenceCandidates', 'upsert', row.id, row);
+  } finally {
+    lock.releaseLock();
+  }
 
   return json_({ ok: true, id: row.id, link, candName, candEmail, tokenExpiresAt: row.tokenExpiresAt });
 }
