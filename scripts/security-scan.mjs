@@ -139,10 +139,40 @@ const requiredPatterns = [
     message: 'Reference mail sends must require an explicit template type.',
   },
   {
-    id: 'reference-mail-links-replaced-globally',
+    id: 'reference-mail-unresolved-placeholders-rejected',
     file: 'src/admin/backend/Code.gs',
-    pattern: /replace\(\/href=\"#\"\/g,/,
-    message: 'Reference mail rendering must replace every placeholder CTA link.',
+    pattern: /unresolved_reference_mail_placeholder/,
+    message: 'Reference mail rendering must reject unresolved placeholders.',
+  },
+  {
+    id: 'reference-candidate-request-placeholders',
+    file: 'templates/mail/reference/mail_01_reference_candidate_request.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{deadlineText\}\}[\s\S]*\{\{actionUrl\}\}/,
+    message: 'Candidate request mail must use explicit name, position, deadline, and action URL placeholders.',
+  },
+  {
+    id: 'reference-candidate-reminder-placeholders',
+    file: 'templates/mail/reference/mail_02_reference_candidate_reminder.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{deadlineText\}\}[\s\S]*\{\{actionUrl\}\}/,
+    message: 'Candidate reminder mail must use explicit name, deadline, and action URL placeholders.',
+  },
+  {
+    id: 'reference-referee-request-placeholders',
+    file: 'templates/mail/reference/mail_03_reference_referee_request.html',
+    pattern: /\{\{refereeName\}\}[\s\S]*\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{deadlineText\}\}[\s\S]*\{\{actionUrl\}\}/,
+    message: 'Referee request mail must use explicit recipient, candidate, position, deadline, and action URL placeholders.',
+  },
+  {
+    id: 'reference-referee-reminder-placeholders',
+    file: 'templates/mail/reference/mail_04_reference_referee_reminder.html',
+    pattern: /\{\{refereeName\}\}[\s\S]*\{\{candidateName\}\}[\s\S]*\{\{deadlineText\}\}[\s\S]*\{\{actionUrl\}\}/,
+    message: 'Referee reminder mail must use explicit recipient, candidate, deadline, and action URL placeholders.',
+  },
+  {
+    id: 'reference-referee-complete-placeholders',
+    file: 'templates/mail/reference/mail_05_reference_referee_complete.html',
+    pattern: /\{\{refereeName\}\}[\s\S]*\{\{candidateName\}\}[\s\S]*\{\{submittedText\}\}/,
+    message: 'Referee completion mail must use explicit recipient, candidate, and submitted time placeholders.',
   },
   {
     id: 'admin-date-normalization-utc',

@@ -640,17 +640,22 @@ function renderReferenceMailTemplate_(html, raw, data) {
   const submittedText = formatReferenceDateTime_(data.submittedAt || new Date(), false);
   const shortDeadlineText = shortReferenceDeadline_(data.deadline || data.tokenExpiresAt || addReferenceDays_(new Date(), REFERENCE_LINK_TTL_DAYS));
 
+  const replacements = {
+    '{{candidateName}}': escapeMailHtml_(candidateName),
+    '{{refereeName}}': escapeMailHtml_(refereeName),
+    '{{positionText}}': escapeMailHtml_(positionText),
+    '{{deadlineText}}': escapeMailHtml_(deadlineText),
+    '{{shortDeadlineText}}': escapeMailHtml_(shortDeadlineText),
+    '{{submittedText}}': escapeMailHtml_(submittedText),
+    '{{actionUrl}}': escapeMailHtml_(link)
+  };
   let rendered = String(html || '');
-  if (link) rendered = rendered.replace(/href="#"/g, 'href="' + escapeMailHtml_(link) + '"');
-  rendered = rendered
-    .replace(/이예슬/g, escapeMailHtml_(candidateName))
-    .replace(/김재영/g, escapeMailHtml_(refereeName))
-    .replace(/OOO/g, escapeMailHtml_(refereeName))
-    .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-    .replace(/2026년 9월 14일 월요일 18:00까지/g, escapeMailHtml_(deadlineText))
-    .replace(/2026년 9월 18일 금요일 18:00까지/g, escapeMailHtml_(deadlineText))
-    .replace(/2026년 9월 16일 수요일 14:32/g, escapeMailHtml_(submittedText))
-    .replace(/9월 18일\(금\) 18:00까지/g, escapeMailHtml_(shortDeadlineText));
+  Object.keys(replacements).forEach(function(marker) {
+    rendered = rendered.split(marker).join(replacements[marker]);
+  });
+  if (/\{\{[^}]+\}\}/.test(rendered)) {
+    throw new Error('unresolved_reference_mail_placeholder');
+  }
   return rendered;
 }
 
