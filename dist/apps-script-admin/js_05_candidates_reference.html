@@ -260,8 +260,8 @@ async function confirmStageChange() {
         return `${['①','②','③'][i]} ${d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})} ${d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
       }).join('\n') || '면접 일정은 별도로 안내드릴 예정입니다.';
       generalParams = {
-        templateType: 'interview_slot_request', candidateName: c.name, positionText: c.pos,
-        interviewType: newStage===1?'1차 실무면접':'2차 임원면접', slotOptions, location: c.loc || ''
+        templateType: 'general_notice', candidateName: c.name, positionText: c.pos,
+        noticeBody: body
       };
     } else if(newStage === 7) {
       generalParams = {

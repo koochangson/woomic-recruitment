@@ -1594,6 +1594,23 @@ function nlToBr_(value) {
   return escapeMailHtml_(value).replace(/\n/g, '<br>');
 }
 
+function replaceMailPlaceholders_(html, replacements) {
+  let rendered = String(html || '');
+  Object.keys(replacements || {}).forEach(function(marker) {
+    rendered = rendered.split('{{' + marker + '}}').join(String(replacements[marker] == null ? '' : replacements[marker]));
+  });
+  return rendered;
+}
+
+function assertGeneralMailFields_(templateKey, data, fields) {
+  const missing = (fields || []).filter(function(field) {
+    return !String((data || {})[field] || '').trim();
+  });
+  if (missing.length) {
+    throw new Error('missing_general_mail_fields:' + templateKey + ':' + missing.join(','));
+  }
+}
+
 function renderGeneralMailHeader_(templateKey, data) {
   const ctx = data || {};
   const title = escapeMailHtml_(ctx.headerTitle || GENERAL_MAIL_HEADER_TITLES[templateKey] || ctx.subject || '채용 진행 안내');
@@ -1667,17 +1684,21 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
   }
 
   if (templateKey === 'interview_first') {
-    rendered = rendered
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-      .replace(/2026년 9월 22일 화요일 14:00/g, escapeMailHtml_(data.interviewDateTime || ''))
-      .replace(/본사 3층 대회의실/g, escapeMailHtml_(data.location || ''));
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','interviewDateTime']);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      interviewDateTime: escapeMailHtml_(data.interviewDateTime || ''),
+      location: escapeMailHtml_(data.location || '')
+    });
   } else if (templateKey === 'interview_second') {
-    rendered = rendered
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-      .replace(/2026년 9월 29일 화요일 10:00/g, escapeMailHtml_(data.interviewDateTime || ''))
-      .replace(/본사 5층 임원회의실/g, escapeMailHtml_(data.location || ''));
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','interviewDateTime']);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      interviewDateTime: escapeMailHtml_(data.interviewDateTime || ''),
+      location: escapeMailHtml_(data.location || '')
+    });
   } else if (templateKey === 'panel_schedule') {
     rendered = rendered
       .replace(/홍보팀/g, escapeMailHtml_(data.dept || ''))
@@ -1718,18 +1739,24 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       rendered = rendered.replace(/<tr id="siteOnboardingRequestRow">[\s\S]*?<\/tr>/, '');
     }
   } else if (templateKey === 'rejection') {
-    rendered = rendered
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText));
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText']);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText)
+    });
   } else if (templateKey === 'interview_slot_request') {
-    rendered = rendered
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-      .replace(/1차 실무면접/g, escapeMailHtml_(data.interviewType || ''))
-      .replace(/1\. 9월 22일\(화\) 오전·오후<br>2\. 9월 23일\(수\) 오전<br>3\. 9월 24일\(목\) 오후/, nlToBr_(data.slotOptions || ''))
-      .replace(/본사 3층 대회의실/g, escapeMailHtml_(data.location || ''))
-      .replace(/2026년 9월 20일/g, escapeMailHtml_(data.responseDeadline || ''))
-      .replace(/INTERVIEW_AVAILABILITY_URL/g, escapeMailHtml_(data.availabilityLink || '#'));
+    assertGeneralMailFields_(templateKey, data, [
+      'candidateName','positionText','interviewType','slotOptions','responseDeadline','availabilityLink'
+    ]);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      interviewType: escapeMailHtml_(data.interviewType || ''),
+      slotOptions: nlToBr_(data.slotOptions || ''),
+      location: escapeMailHtml_(data.location || ''),
+      responseDeadline: escapeMailHtml_(data.responseDeadline || ''),
+      availabilityLink: escapeMailHtml_(data.availabilityLink || '#')
+    });
   } else if (templateKey === 'headhunter_forward') {
     rendered = rendered
       .replace(/헤드헌팅 담당자/g, escapeMailHtml_(data.recipientName || '헤드헌팅 담당자'))
@@ -1749,6 +1776,10 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       .replace(/채용 진행 안내 내용이 표시됩니다\./, noticeHtml);
   }
 
+  if (['interview_first', 'interview_second', 'interview_slot_request', 'rejection'].includes(templateKey) &&
+      /\{\{[^}]+\}\}/.test(rendered)) {
+    throw new Error('unresolved_general_mail_placeholder');
+  }
   return rendered;
 }
 
@@ -1761,6 +1792,7 @@ function handleSendGeneralMail_(payload) {
   if (!to || !subject || !message) return json_({ error: 'missing_mail_fields' });
   try {
     const html = generalMailHtml_(body.templateType, body);
+    if (!html) throw new Error('mail_template_render_failed');
     const result = sendMailViaGmail_(to, subject, message, html);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
     return json_({ ok: true, to: to });

@@ -217,6 +217,36 @@ const requiredPatterns = [
     message: 'Referee completion mail must use explicit recipient, candidate, and submitted time placeholders.',
   },
   {
+    id: 'general-mail-unresolved-placeholders-rejected',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /unresolved_general_mail_placeholder/,
+    message: 'Converted general mail templates must reject unresolved placeholders.',
+  },
+  {
+    id: 'first-interview-mail-placeholders',
+    file: 'templates/mail/body/mail_body_interview_first.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{interviewDateTime\}\}[\s\S]*\{\{location\}\}/,
+    message: 'First interview mail must use explicit candidate, position, date, and location placeholders.',
+  },
+  {
+    id: 'second-interview-mail-placeholders',
+    file: 'templates/mail/body/mail_body_interview_second.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{interviewDateTime\}\}[\s\S]*\{\{location\}\}/,
+    message: 'Second interview mail must use explicit candidate, position, date, and location placeholders.',
+  },
+  {
+    id: 'interview-slot-mail-placeholders',
+    file: 'templates/mail/body/mail_body_interview_slot_request.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{interviewType\}\}[\s\S]*\{\{slotOptions\}\}[\s\S]*\{\{responseDeadline\}\}[\s\S]*\{\{availabilityLink\}\}/,
+    message: 'Interview slot mail must use explicit schedule, deadline, and response link placeholders.',
+  },
+  {
+    id: 'rejection-mail-placeholders',
+    file: 'templates/mail/body/mail_body_rejection.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}/,
+    message: 'Rejection mail must use explicit candidate and position placeholders.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
