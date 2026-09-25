@@ -73,6 +73,18 @@ const requiredPatterns = [
     message: 'Public Apps Script must rate-limit referee identity verification.',
   },
   {
+    id: 'admin-referral-upload-folder-property',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /getScriptProperty_\(REFERRAL_UPLOAD_FOLDER_ID_PROPERTY\)/,
+    message: 'Admin Apps Script must read the referral upload folder from Script Properties.',
+  },
+  {
+    id: 'public-referral-upload-folder-property',
+    file: 'src/public/backend/Code.gs',
+    pattern: /getScriptProperty_\(REFERRAL_UPLOAD_FOLDER_ID_PROPERTY\)/,
+    message: 'Public Apps Script must read the referral upload folder from Script Properties.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,

@@ -17,7 +17,7 @@
  * email | name | empNo | dept | status | updatedAt
  */
 
-const REFERRAL_UPLOAD_FOLDER_ID = 'PUT_GOOGLE_DRIVE_FOLDER_ID_HERE';
+const REFERRAL_UPLOAD_FOLDER_ID_PROPERTY = 'REFERRAL_UPLOAD_FOLDER_ID';
 const ADMIN_TOKEN_PROPERTY = 'RECRUITMENT_ADMIN_TOKEN';
 const ADMIN_ALLOWLIST_PROPERTY = 'RECRUITMENT_ADMIN_ALLOWLIST';
 const LOCAL_ADMIN_USERS_PROPERTY = 'RECRUITMENT_LOCAL_ADMIN_USERS';
@@ -487,11 +487,12 @@ function uploadReferralFile_(payload) {
   if (!REFERRAL_ALLOWED_EXTENSIONS.includes(ext)) return json_({ error: 'unsupported_file_type' });
   const estimatedBytes = Math.floor(String(payload.data || '').length * 3 / 4);
   if (estimatedBytes > REFERRAL_MAX_UPLOAD_BYTES) return json_({ error: 'file_too_large' });
-  if (REFERRAL_UPLOAD_FOLDER_ID === 'PUT_GOOGLE_DRIVE_FOLDER_ID_HERE') {
+  const uploadFolderId = getScriptProperty_(REFERRAL_UPLOAD_FOLDER_ID_PROPERTY);
+  if (!uploadFolderId) {
     return json_({ error: 'missing_upload_folder_id' });
   }
 
-  const folder = DriveApp.getFolderById(REFERRAL_UPLOAD_FOLDER_ID);
+  const folder = DriveApp.getFolderById(uploadFolderId);
   const bytes = Utilities.base64Decode(payload.data);
   if (bytes.length > REFERRAL_MAX_UPLOAD_BYTES) return json_({ error: 'file_too_large' });
   const prefix = [payload.referralId, employee.empNo || employee.email, payload.candName || 'candidate']
