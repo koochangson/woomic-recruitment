@@ -103,6 +103,18 @@ const requiredPatterns = [
     message: 'Public Apps Script must invalidate prior candidate reference links before reissue.',
   },
   {
+    id: 'admin-reference-public-writes-locked',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function submitReferenceCandidateReferees_\([\s\S]{0,260}submitReferenceCandidateRefereesUnlocked_[\s\S]*function submitReferenceResponse_\([\s\S]{0,260}submitReferenceResponseUnlocked_/,
+    message: 'Admin Apps Script must serialize public reference submissions.',
+  },
+  {
+    id: 'public-reference-public-writes-locked',
+    file: 'src/public/backend/Code.gs',
+    pattern: /function submitReferenceCandidateReferees_\([\s\S]{0,260}submitReferenceCandidateRefereesUnlocked_[\s\S]*function submitReferenceResponse_\([\s\S]{0,260}submitReferenceResponseUnlocked_/,
+    message: 'Public Apps Script must serialize public reference submissions.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,

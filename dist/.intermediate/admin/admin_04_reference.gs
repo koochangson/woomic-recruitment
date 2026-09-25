@@ -242,6 +242,16 @@ function verifyReferenceCandidateToken_(payload) {
 // 후보자가 추천인 목록(이름/이메일/관계/소속)을 제출하면, 추천인별로 별도 토큰을 발급해
 // ReferenceResponses에 한 줄씩 만들고 각 추천인에게 응답 링크를 메일로 보낸다.
 function submitReferenceCandidateReferees_(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return submitReferenceCandidateRefereesUnlocked_(payload);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function submitReferenceCandidateRefereesUnlocked_(payload) {
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const token = String(body.token || '').trim();
   const referees = Array.isArray(body.referees) ? body.referees : [];
@@ -436,6 +446,16 @@ function verifyRefereeIdentity_(payload) {
 
 // 추천인의 12문항 응답을 저장한다. 토큰 1개당 1회만 제출 가능.
 function submitReferenceResponse_(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return submitReferenceResponseUnlocked_(payload);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function submitReferenceResponseUnlocked_(payload) {
   const token = String(payload.token || '').trim();
   const answers = payload.answers || {};
   if (!token) return json_({ error: 'token_required' });
