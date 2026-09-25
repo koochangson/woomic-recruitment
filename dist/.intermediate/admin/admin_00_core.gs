@@ -34,6 +34,7 @@ const REFERRAL_CODE_LOCK_SECONDS = 10 * 60;
 const REFERRAL_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const REFERRAL_ALLOWED_EXTENSIONS = ['pdf','doc','docx','ppt','pptx','hwp','hwpx','zip'];
 const CHANGE_LOG_SHEET = '_Changes';
+const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
 const REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS = ['referralEmployeeDirectoryUrl', 'interviewerUrl'];
 const REFERRAL_DATA_SHEETS = ['Referrals', 'Rewards', 'RefRules'];

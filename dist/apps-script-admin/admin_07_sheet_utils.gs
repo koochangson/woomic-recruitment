@@ -87,7 +87,7 @@ function appendChanges_(changes) {
   const source = Array.isArray(changes) ? changes : [];
   if (!source.length) return;
   const sheet = ensureChangeLogSheet_();
-  const firstCursor = sheet.getLastRow();
+  const firstCursor = reserveChangeCursors_(sheet, source.length);
   const actorEmail = getActiveUserEmail_();
   const values = source.map(function(change, index) {
     return [
@@ -126,14 +126,42 @@ function ensureChangeLogSheet_() {
 }
 
 function getChangeCursor_() {
-  return Math.max(0, ensureChangeLogSheet_().getLastRow() - 1);
+  return getStoredChangeCursor_(ensureChangeLogSheet_());
+}
+
+function reserveChangeCursors_(sheet, count) {
+  const size = Math.max(0, Number(count) || 0);
+  const current = getStoredChangeCursor_(sheet);
+  if (!size) return current + 1;
+  PropertiesService.getScriptProperties().setProperty(CHANGE_CURSOR_PROPERTY, String(current + size));
+  return current + 1;
+}
+
+function getStoredChangeCursor_(sheet) {
+  const properties = PropertiesService.getScriptProperties();
+  const stored = Number(properties.getProperty(CHANGE_CURSOR_PROPERTY));
+  if (Number.isFinite(stored) && stored >= 0) return stored;
+  const lastRow = sheet.getLastRow();
+  const existing = lastRow < 2
+    ? 0
+    : Math.max.apply(null, sheet.getRange(2, 1, lastRow - 1, 1).getValues().map(function(row) {
+        return Number(row[0]) || 0;
+      }));
+  properties.setProperty(CHANGE_CURSOR_PROPERTY, String(existing));
+  return existing;
 }
 
 function readChangesAfter_(cursor, limit) {
   const sheet = ensureChangeLogSheet_();
   const lastRow = sheet.getLastRow();
-  const startDataRow = Math.max(2, Number(cursor) + 2);
-  if (lastRow < startDataRow) return [];
+  if (lastRow < 2) return [];
+  const requestedCursor = Number(cursor) || 0;
+  const cursorValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const startOffset = cursorValues.findIndex(function(row) {
+    return Number(row[0]) > requestedCursor;
+  });
+  if (startOffset < 0) return [];
+  const startDataRow = startOffset + 2;
   const count = Math.min(Number(limit) || 500, lastRow - startDataRow + 1);
   const values = sheet.getRange(startDataRow, 1, count, 8).getValues();
   return values.map(row => ({

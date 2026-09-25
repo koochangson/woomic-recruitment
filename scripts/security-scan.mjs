@@ -127,6 +127,18 @@ const requiredPatterns = [
     message: 'Public batch upsert must use one indexed sheet read and batched change logging.',
   },
   {
+    id: 'admin-change-cursor-is-monotonic',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,
+    message: 'Admin change cursors must be property-backed and read by cursor value rather than row position.',
+  },
+  {
+    id: 'public-change-cursor-is-monotonic',
+    file: 'src/public/backend/Code.gs',
+    pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,
+    message: 'Public change cursors must be property-backed and read by cursor value rather than row position.',
+  },
+  {
     id: 'referral-render-does-not-persist-derived-state',
     file: 'src/admin/frontend/js/js_04_referral.html',
     pattern: /function renderReferralSection\(\)\s*\{\s*recalculateReferralFlags\(\{transient:true\}\);/,
