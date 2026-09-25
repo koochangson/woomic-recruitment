@@ -760,7 +760,8 @@ function submitReferenceCandidateReferees_(payload) {
   const candHeaders = ensureHeaders_(candSheet, SHEET_SCHEMAS.ReferenceCandidates);
   const rowIndex = findRowIndex_(candSheet, 'token', token, candHeaders);
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
-  const candRow = readRows_('ReferenceCandidates')[rowIndex - 2];
+  const candRow = readRows_('ReferenceCandidates').find(row => String(row.token || '') === token);
+  if (!candRow) return json_({ error: 'invalid_token' });
   if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
   if (candRow.refereesSubmittedAt) return json_({ error: 'already_submitted' });
 
@@ -923,7 +924,8 @@ function verifyRefereeIdentity_(payload) {
   const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.ReferenceResponses);
   const rowIndex = findRowIndex_(sheet, 'token', token, headers);
   if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
-  const row = readRows_('ReferenceResponses')[rowIndex - 2];
+  const row = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
+  if (!row) return json_({ ok: false, error: 'invalid_token' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
 
@@ -950,7 +952,8 @@ function submitReferenceResponse_(payload) {
   const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.ReferenceResponses);
   const rowIndex = findRowIndex_(sheet, 'token', token, headers);
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
-  const existing = readRows_('ReferenceResponses')[rowIndex - 2];
+  const existing = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
+  if (!existing) return json_({ error: 'invalid_token' });
   if (existing.submittedAt) return json_({ error: 'already_submitted' });
   if (referenceLinkExpired_(existing)) return json_({ error: 'token_expired' });
   if (!existing.verifiedAt) return json_({ error: 'identity_not_verified' });

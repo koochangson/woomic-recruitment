@@ -60,6 +60,12 @@ const requiredPatterns = [
     pattern: /isPublicDeployment_\(\)\s*&&\s*isAdminRequest_|!\s*isPublicDeployment_\(\)\s*&&\s*isAdminRequest_/,
     message: 'Apps Script must gate admin actions by deployment role.',
   },
+  {
+    id: 'public-admin-action-hard-gate',
+    file: 'src/public/backend/Code.gs',
+    pattern: /isPublicDeployment_\(\)\s*&&\s*PUBLIC_BLOCKED_ADMIN_ACTIONS\[action\]/,
+    message: 'Public Apps Script must reject privileged actions before dispatch.',
+  },
 ];
 
 function walk(dir) {

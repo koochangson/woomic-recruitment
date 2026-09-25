@@ -50,6 +50,12 @@ const REFERENCE_CANDIDATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-c
 const REFERENCE_RESPONSE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_check_intake.html';
 const INTERVIEW_AVAILABILITY_LINK_TTL_DAYS = 10;
 const INTERVIEW_AVAILABILITY_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/interview_availability.html';
+const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
+  issueReferenceCandidateLink: true,
+  issueInterviewAvailabilityLink: true,
+  issuePanelAvailabilityLink: true,
+  getPanelAvailabilityResponses: true
+});
 
 const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
@@ -107,10 +113,14 @@ function doPost(e) {
 }
 
 function routeRequest_(payload) {
+  const action = payload.action || '';
+  if (isPublicDeployment_() && PUBLIC_BLOCKED_ADMIN_ACTIONS[action]) {
+    throw new Error('not_available');
+  }
+
   const securityResult = handleReferralSecurityAction_(payload);
   if (securityResult) return securityResult;
 
-  const action = payload.action || '';
   const sheetName = payload.sheet || '';
   const data = payload.data || {};
   const query = payload.query || payload || {};
@@ -752,7 +762,8 @@ function submitReferenceCandidateReferees_(payload) {
   const candHeaders = ensureHeaders_(candSheet, SHEET_SCHEMAS.ReferenceCandidates);
   const rowIndex = findRowIndex_(candSheet, 'token', token, candHeaders);
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
-  const candRow = readRows_('ReferenceCandidates')[rowIndex - 2];
+  const candRow = readRows_('ReferenceCandidates').find(row => String(row.token || '') === token);
+  if (!candRow) return json_({ error: 'invalid_token' });
   if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
 
   const normalizedReferees = referees.map(ref => ({
@@ -866,7 +877,8 @@ function verifyRefereeIdentity_(payload) {
   const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.ReferenceResponses);
   const rowIndex = findRowIndex_(sheet, 'token', token, headers);
   if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
-  const row = readRows_('ReferenceResponses')[rowIndex - 2];
+  const row = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
+  if (!row) return json_({ ok: false, error: 'invalid_token' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
   if (normalizeEmail_(row.refereeEmail) !== email && normalizePhone_(row.refereePhone) !== phone) {
@@ -889,7 +901,8 @@ function submitReferenceResponse_(payload) {
   const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.ReferenceResponses);
   const rowIndex = findRowIndex_(sheet, 'token', token, headers);
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
-  const existing = readRows_('ReferenceResponses')[rowIndex - 2];
+  const existing = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
+  if (!existing) return json_({ error: 'invalid_token' });
   if (existing.submittedAt) return json_({ error: 'already_submitted' });
   if (referenceLinkExpired_(existing)) return json_({ error: 'token_expired' });
   if (!existing.verifiedAt) return json_({ error: 'identity_not_verified' });
@@ -1438,6 +1451,7 @@ function nowIso_() {
 }
 
 function isAdminRequest_(payload) {
+  if (isPublicDeployment_()) return false;
   const token = String(payload.adminToken || payload.query && payload.query.adminToken || payload.data && payload.data.adminToken || '').trim();
   const configuredToken = getScriptProperty_(ADMIN_TOKEN_PROPERTY);
   if (configuredToken && token === configuredToken) return true;
