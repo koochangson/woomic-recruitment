@@ -826,6 +826,10 @@ function runCoreRegressionTests() {
       [{id:1,name:'원격',updatedAt:'2026-01-01T00:00:00.000Z'}],
       [{id:1,name:'로컬',updatedAt:'2026-01-02T00:00:00.000Z'}]);
     assert(newerLocal[0].name==='로컬', '최신 수정 데이터 우선 병합');
+    const higherServerRevision = mergeGsRecords('Candidates',
+      [{id:1,name:'원격',rev:2,updatedAt:'2026-01-01T00:00:00.000Z'}],
+      [{id:1,name:'로컬',rev:1,updatedAt:'2026-01-02T00:00:00.000Z'}]);
+    assert(higherServerRevision[0].name==='원격', '서버 revision 우선 병합');
   } finally {
     if(oldTombstones == null) localStorage.removeItem(GS_TOMBSTONE_KEY);
     else localStorage.setItem(GS_TOMBSTONE_KEY, oldTombstones);
@@ -882,10 +886,10 @@ function runCoreDiagnosticsUI() {
   try {
     runCoreRegressionTests();
     if(resultEl) {
-      resultEl.textContent = '자가진단 통과 · 핵심 회귀 테스트 24개 정상';
+      resultEl.textContent = '자가진단 통과 · 핵심 회귀 테스트 25개 정상';
       resultEl.style.color = 'var(--green)';
     }
-    toast('자가진단 통과: 핵심 회귀 테스트 24개 정상', 'tok');
+    toast('자가진단 통과: 핵심 회귀 테스트 25개 정상', 'tok');
     return true;
   } catch(err) {
     if(resultEl) {
@@ -1309,7 +1313,7 @@ function applyPrivacyRetention() {
 async function settleSync(tasks, label='GS 동기화'){
   if(!tasks.length) return { ok:0, failed:0 };
   const results = await Promise.allSettled(tasks);
-  const failed = results.filter(r => r.status === 'rejected' || r.value == null).length;
+  const failed = results.filter(r => r.status === 'rejected' || r.value == null || r.value?.error).length;
   if(failed) {
     showSyncStatus(`${label} 일부 실패 (${failed}/${results.length})`, 'warn');
     toast(`${label} 일부 실패: ${failed}건`, 'terr');

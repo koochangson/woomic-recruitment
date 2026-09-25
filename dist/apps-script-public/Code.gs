@@ -34,6 +34,7 @@ const REFERRAL_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const REFERRAL_ALLOWED_EXTENSIONS = ['pdf','doc','docx','ppt','pptx','hwp','hwpx','zip'];
 const CHANGE_LOG_SHEET = '_Changes';
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
+const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
 const REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS = ['referralEmployeeDirectoryUrl', 'interviewerUrl'];
 const REFERRAL_DATA_SHEETS = ['Referrals', 'Rewards', 'RefRules'];
@@ -61,10 +62,10 @@ const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
 });
 
 const SHEET_SCHEMAS = {
-  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
-  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','updatedAt'],
+  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
   PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
-  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
   Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
@@ -189,11 +190,29 @@ function upsertUnlocked_(sheetName, row, isAdmin) {
   if (!id) return json_({ error: 'missing_id' });
 
   const rowIndex = findRowIndex_(sheet, key, id, headers);
+  const existingValues = rowIndex > 0
+    ? sheet.getRange(rowIndex, 1, 1, headers.length).getValues()[0]
+    : null;
+  const revision = revisionState_(sheetName, headers, existingValues, source);
+  if (revision.conflict) {
+    return json_({
+      error: 'revision_conflict',
+      id,
+      expectedRev: revision.expected,
+      currentRev: revision.current,
+      data: rowObjectFromValues_(headers, existingValues)
+    });
+  }
   if (sheetName === 'Referrals') {
     source = secureReferralRowForUpsert_(source, rowIndex > 0, isAdmin);
   }
 
-  source.updatedAt = source.updatedAt || nowIso_();
+  if (revision.enabled) {
+    source.rev = revision.current + 1;
+    source.updatedAt = nowIso_();
+  } else {
+    source.updatedAt = source.updatedAt || nowIso_();
+  }
   const normalized = schemaRow_(sheetName, source);
   const values = headers.map(header => normalized[header] == null ? '' : normalized[header]);
   if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]);
@@ -226,6 +245,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
     });
 
     const changes = [];
+    const conflicts = [];
     let count = 0;
     source.forEach(function(row) {
       let next = Object.assign({}, row || {});
@@ -234,10 +254,26 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       const existingIndex = Object.prototype.hasOwnProperty.call(rowIndexById, id)
         ? rowIndexById[id]
         : -1;
+      const existingValues = existingIndex >= 0 ? values[existingIndex] : null;
+      const revision = revisionState_(sheetName, headers, existingValues, next);
+      if (revision.conflict) {
+        conflicts.push({
+          id,
+          expectedRev: revision.expected,
+          currentRev: revision.current,
+          data: rowObjectFromValues_(headers, existingValues)
+        });
+        return;
+      }
       if (sheetName === 'Referrals') {
         next = secureReferralRowForUpsert_(next, existingIndex >= 0, isAdmin);
       }
-      next.updatedAt = next.updatedAt || nowIso_();
+      if (revision.enabled) {
+        next.rev = revision.current + 1;
+        next.updatedAt = nowIso_();
+      } else {
+        next.updatedAt = next.updatedAt || nowIso_();
+      }
       const normalized = schemaRow_(sheetName, next);
       const rowValues = headers.map(function(header) {
         return normalized[header] == null ? '' : normalized[header];
@@ -253,15 +289,25 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       count++;
     });
 
-    if (count) {
+    if (conflicts.length) {
+      result = {
+        error: 'revision_conflict',
+        count: 0,
+        conflicts,
+        cursor: getChangeCursor_(),
+        serverTime: nowIso_()
+      };
+    } else if (count) {
       sheet.getRange(2, 1, values.length, headers.length).setValues(values);
       appendChanges_(changes);
+      result = { status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() };
+    } else {
+      result = { status: 'ok', count: 0, cursor: getChangeCursor_(), serverTime: nowIso_() };
     }
-    result = { status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() };
   } finally {
     lock.releaseLock();
   }
-  receipts.forEach(sendReferralReceipt_);
+  if (!result.error) receipts.forEach(sendReferralReceipt_);
   return json_(result);
 }
 
@@ -274,12 +320,28 @@ function replaceAll_(sheetName, rows, isAdmin) {
     const sheet = ensureSheet_(sheetName);
     const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
     const lastRow = sheet.getLastRow();
+    const revisioned = REVISIONED_SHEETS.includes(sheetName);
+    const priorRevisions = {};
+    if (revisioned && lastRow > 1) {
+      const keyIndex = headers.indexOf(primaryKey_(sheetName));
+      const revIndex = headers.indexOf('rev');
+      sheet.getRange(2, 1, lastRow - 1, headers.length).getValues().forEach(function(values) {
+        const id = String(values[keyIndex] || '').trim();
+        if (id) priorRevisions[id] = Number(values[revIndex]) || 0;
+      });
+    }
     if (lastRow > 1) {
       sheet.getRange(2, 1, lastRow - 1, Math.max(headers.length, sheet.getLastColumn())).clearContent();
     }
     const normalizedRows = source.map(row => {
       const next = Object.assign({}, row || {});
-      next.updatedAt = next.updatedAt || nowIso_();
+      if (revisioned) {
+        const id = String(next[primaryKey_(sheetName)] || '').trim();
+        next.rev = (priorRevisions[id] || 0) + 1;
+        next.updatedAt = nowIso_();
+      } else {
+        next.updatedAt = next.updatedAt || nowIso_();
+      }
       return schemaRow_(sheetName, next);
     });
     if (normalizedRows.length) {
@@ -1443,6 +1505,28 @@ function schemaRow_(sheetName, row) {
   const result = {};
   schema.forEach(key => {
     result[key] = row[key] == null ? '' : row[key];
+  });
+  return result;
+}
+
+function revisionState_(sheetName, headers, existingValues, source) {
+  const enabled = REVISIONED_SHEETS.includes(sheetName);
+  if (!enabled) return { enabled: false, conflict: false, expected: 0, current: 0 };
+  const revIndex = headers.indexOf('rev');
+  const current = existingValues && revIndex >= 0 ? Number(existingValues[revIndex]) || 0 : 0;
+  const expected = Number(source && source.rev) || 0;
+  return {
+    enabled: true,
+    conflict: !!existingValues && expected !== current,
+    expected,
+    current
+  };
+}
+
+function rowObjectFromValues_(headers, values) {
+  const result = {};
+  (headers || []).forEach(function(header, index) {
+    result[header] = normalizeCell_((values || [])[index]);
   });
   return result;
 }

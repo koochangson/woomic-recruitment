@@ -38,11 +38,29 @@ function upsertUnlocked_(sheetName, row, isAdmin) {
   if (!id) return json_({ error: 'missing_id' });
 
   const rowIndex = findRowIndex_(sheet, key, id, headers);
+  const existingValues = rowIndex > 0
+    ? sheet.getRange(rowIndex, 1, 1, headers.length).getValues()[0]
+    : null;
+  const revision = revisionState_(sheetName, headers, existingValues, source);
+  if (revision.conflict) {
+    return json_({
+      error: 'revision_conflict',
+      id,
+      expectedRev: revision.expected,
+      currentRev: revision.current,
+      data: rowObjectFromValues_(headers, existingValues)
+    });
+  }
   if (sheetName === 'Referrals') {
     source = secureReferralRowForUpsert_(source, rowIndex > 0, isAdmin);
   }
 
-  source.updatedAt = source.updatedAt || nowIso_();
+  if (revision.enabled) {
+    source.rev = revision.current + 1;
+    source.updatedAt = nowIso_();
+  } else {
+    source.updatedAt = source.updatedAt || nowIso_();
+  }
   const normalized = schemaRow_(sheetName, source);
   const values = headers.map(header => normalized[header] == null ? '' : normalized[header]);
   if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]);
@@ -75,6 +93,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
     });
 
     const changes = [];
+    const conflicts = [];
     let count = 0;
     source.forEach(function(row) {
       let next = Object.assign({}, row || {});
@@ -83,10 +102,26 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       const existingIndex = Object.prototype.hasOwnProperty.call(rowIndexById, id)
         ? rowIndexById[id]
         : -1;
+      const existingValues = existingIndex >= 0 ? values[existingIndex] : null;
+      const revision = revisionState_(sheetName, headers, existingValues, next);
+      if (revision.conflict) {
+        conflicts.push({
+          id,
+          expectedRev: revision.expected,
+          currentRev: revision.current,
+          data: rowObjectFromValues_(headers, existingValues)
+        });
+        return;
+      }
       if (sheetName === 'Referrals') {
         next = secureReferralRowForUpsert_(next, existingIndex >= 0, isAdmin);
       }
-      next.updatedAt = next.updatedAt || nowIso_();
+      if (revision.enabled) {
+        next.rev = revision.current + 1;
+        next.updatedAt = nowIso_();
+      } else {
+        next.updatedAt = next.updatedAt || nowIso_();
+      }
       const normalized = schemaRow_(sheetName, next);
       const rowValues = headers.map(function(header) {
         return normalized[header] == null ? '' : normalized[header];
@@ -102,15 +137,25 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       count++;
     });
 
-    if (count) {
+    if (conflicts.length) {
+      result = {
+        error: 'revision_conflict',
+        count: 0,
+        conflicts,
+        cursor: getChangeCursor_(),
+        serverTime: nowIso_()
+      };
+    } else if (count) {
       sheet.getRange(2, 1, values.length, headers.length).setValues(values);
       appendChanges_(changes);
+      result = { status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() };
+    } else {
+      result = { status: 'ok', count: 0, cursor: getChangeCursor_(), serverTime: nowIso_() };
     }
-    result = { status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() };
   } finally {
     lock.releaseLock();
   }
-  receipts.forEach(sendReferralReceipt_);
+  if (!result.error) receipts.forEach(sendReferralReceipt_);
   return json_(result);
 }
 
@@ -123,12 +168,28 @@ function replaceAll_(sheetName, rows, isAdmin) {
     const sheet = ensureSheet_(sheetName);
     const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
     const lastRow = sheet.getLastRow();
+    const revisioned = REVISIONED_SHEETS.includes(sheetName);
+    const priorRevisions = {};
+    if (revisioned && lastRow > 1) {
+      const keyIndex = headers.indexOf(primaryKey_(sheetName));
+      const revIndex = headers.indexOf('rev');
+      sheet.getRange(2, 1, lastRow - 1, headers.length).getValues().forEach(function(values) {
+        const id = String(values[keyIndex] || '').trim();
+        if (id) priorRevisions[id] = Number(values[revIndex]) || 0;
+      });
+    }
     if (lastRow > 1) {
       sheet.getRange(2, 1, lastRow - 1, Math.max(headers.length, sheet.getLastColumn())).clearContent();
     }
     const normalizedRows = source.map(row => {
       const next = Object.assign({}, row || {});
-      next.updatedAt = next.updatedAt || nowIso_();
+      if (revisioned) {
+        const id = String(next[primaryKey_(sheetName)] || '').trim();
+        next.rev = (priorRevisions[id] || 0) + 1;
+        next.updatedAt = nowIso_();
+      } else {
+        next.updatedAt = next.updatedAt || nowIso_();
+      }
       return schemaRow_(sheetName, next);
     });
     if (normalizedRows.length) {

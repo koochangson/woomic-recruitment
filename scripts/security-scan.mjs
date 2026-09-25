@@ -117,13 +117,13 @@ const requiredPatterns = [
   {
     id: 'admin-batch-upsert-uses-indexed-write',
     file: 'src/admin/backend/Code.gs',
-    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,1800}appendChanges_\(changes\)/,
+    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,4000}appendChanges_\(changes\)/,
     message: 'Admin batch upsert must use one indexed sheet read and batched change logging.',
   },
   {
     id: 'public-batch-upsert-uses-indexed-write',
     file: 'src/public/backend/Code.gs',
-    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,1800}appendChanges_\(changes\)/,
+    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,4000}appendChanges_\(changes\)/,
     message: 'Public batch upsert must use one indexed sheet read and batched change logging.',
   },
   {
@@ -137,6 +137,24 @@ const requiredPatterns = [
     file: 'src/public/backend/Code.gs',
     pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,
     message: 'Public change cursors must be property-backed and read by cursor value rather than row position.',
+  },
+  {
+    id: 'admin-core-writes-use-revisions',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /REVISIONED_SHEETS[\s\S]*revisionState_\(sheetName, headers, existingValues, source\)[\s\S]*revision_conflict[\s\S]*source\.rev = revision\.current \+ 1/,
+    message: 'Admin core writes must reject stale revisions and increment the server revision.',
+  },
+  {
+    id: 'public-core-writes-use-revisions',
+    file: 'src/public/backend/Code.gs',
+    pattern: /REVISIONED_SHEETS[\s\S]*revisionState_\(sheetName, headers, existingValues, source\)[\s\S]*revision_conflict[\s\S]*source\.rev = revision\.current \+ 1/,
+    message: 'Public core writes must reject stale revisions and increment the server revision.',
+  },
+  {
+    id: 'dashboard-surfaces-revision-conflicts',
+    file: 'src/admin/frontend/js/js_01_sheets_sync.html',
+    pattern: /result\?\.error === 'revision_conflict'[\s\S]*showRevisionConflict_\(sheet, result\)/,
+    message: 'Dashboard writes must surface revision conflicts without retrying stale data.',
   },
   {
     id: 'referral-render-does-not-persist-derived-state',

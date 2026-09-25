@@ -41,9 +41,9 @@ function gsBaseUrlForSheet_(sheet) {
 
 // GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
 const GS_SCHEMA = {
-  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','updatedAt'],
-  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','updatedAt'],
-  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','updatedAt'],
+  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
   Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
@@ -130,6 +130,9 @@ function mergeGsRecords(sheet, remote, local) {
   const remoteIds = new Set(remote.map(x => String(x.id)));
   const merged = remote.map(r => {
     const l = locals.get(String(r.id));
+    const remoteRev = Number(r.rev) || 0;
+    const localRev = Number(l?.rev) || 0;
+    if(remoteRev !== localRev) return remoteRev > localRev ? r : l;
     if(!l || !l.updatedAt || !r.updatedAt) return r; // 구형 시트는 GS 데이터를 우선
     return String(l.updatedAt) > String(r.updatedAt) ? l : r;
   });
@@ -147,7 +150,10 @@ function mergeGsDeltaRecords(sheet, remote, local) {
     if(tombstones[`${sheet}:${r.id}`]) return;
     const key = String(r.id);
     const current = merged.get(key);
-    if(!current || !current.updatedAt || !r.updatedAt || String(r.updatedAt) >= String(current.updatedAt)) {
+    const remoteRev = Number(r.rev) || 0;
+    const localRev = Number(current?.rev) || 0;
+    if(!current || remoteRev > localRev ||
+      (remoteRev === localRev && (!current.updatedAt || !r.updatedAt || String(r.updatedAt) >= String(current.updatedAt)))) {
       merged.set(key, r);
     }
   });
@@ -409,6 +415,7 @@ async function gsFetch(action, sheet, data={}, options={}) {
         data,
         query: options.query || {}
       });
+      if(result?.error === 'revision_conflict') return result;
       if(result?.error) throw new Error(result.error);
       return result;
     } catch(e) {
@@ -437,6 +444,7 @@ async function gsFetch(action, sheet, data={}, options={}) {
       const postText = await postRes.text();
       if(!postRes.ok) throw new Error(`HTTP ${postRes.status}`);
       const parsed = JSON.parse(postText);
+      if(parsed?.error === 'revision_conflict') return parsed;
       if(parsed?.error) throw new Error(parsed.error);
       return parsed;
     }
@@ -543,9 +551,18 @@ async function gsGetChanges(cursor, limit=500, maxPages=20, sheet='Candidates') 
 async function gsUpsert(sheet, item) {
   const payload = gsSchemaPayload(sheet, item);
   const result = await gsFetch('upsert', sheet, payload);
+  if(result?.error === 'revision_conflict') {
+    showRevisionConflict_(sheet, result);
+    clearGsReadCache(sheet);
+    return result;
+  }
   if(result?.status === 'deleted conflict') {
     recordGsTombstone(sheet, item.id);
     showSyncStatus('이미 삭제된 항목은 다시 저장하지 않았습니다.', 'warn');
+  }
+  if(result?.data) {
+    item.rev = Number(result.data.rev) || 0;
+    item.updatedAt = result.data.updatedAt || item.updatedAt;
   }
   if(result != null) clearGsReadCache(sheet);
   if(result != null) setTimeout(flushGsRetryQueue, 500);
@@ -559,6 +576,11 @@ async function gsBatchUpsert(sheet, items, chunkSize=100) {
   for(let index=0; index<source.length; index+=chunkSize) {
     const chunk = source.slice(index, index + chunkSize).map(item => gsSchemaPayload(sheet, item));
     const result = await gsFetch('batchUpsert', sheet, chunk);
+    if(result?.error === 'revision_conflict') {
+      showRevisionConflict_(sheet, result);
+      clearGsReadCache(sheet);
+      return result;
+    }
     if(result == null || result.error) return null;
     const count = Number(result.count);
     saved += Number.isFinite(count) ? count : chunk.length;
@@ -570,6 +592,14 @@ async function gsBatchUpsert(sheet, items, chunkSize=100) {
   clearGsReadCache(sheet);
   if(conflicts.length) showSyncStatus(`삭제된 항목 ${conflicts.length}건은 다시 저장하지 않았습니다.`, 'warn');
   return {status:'ok', count:saved, conflicts};
+}
+
+function showRevisionConflict_(sheet, result) {
+  const count = Array.isArray(result?.conflicts) ? result.conflicts.length : 1;
+  const message = '다른 사용자가 먼저 수정한 ' + sheet + ' 데이터 ' + count + '건은 저장하지 않았습니다. 새로고침 후 다시 확인하세요.';
+  console.warn('[GS] revision conflict:', sheet, result);
+  showSyncStatus(message, 'warn');
+  toast(message, 'terr');
 }
 
 async function gsDelete(sheet, id) {
@@ -619,13 +649,15 @@ async function syncCandToGS(cand) {
     held:       cand.held ? 'Y' : 'N',
     lastCompletedStage: cand.lastCompletedStage != null ? cand.lastCompletedStage : '',
     lastStageChangedAt: cand.lastStageChangedAt || '',
+    rev:        Number(cand.rev) || 0,
     updatedAt:  cand.updatedAt,
   });
-  if(result?.updatedAt) {
-    cand.updatedAt = result.updatedAt;
+  if(result?.data) {
+    cand.rev = Number(result.data.rev) || 0;
+    cand.updatedAt = result.data.updatedAt || cand.updatedAt;
     scheduleLocalCacheSave();
   }
-  if(result != null) showSyncStatus('GS 동기화 완료', 'ok');
+  if(result != null && !result.error) showSyncStatus('GS 동기화 완료', 'ok');
   return result;
 }
 
@@ -665,10 +697,12 @@ async function syncIntToGS(itv) {
     result:    itv.result || '',
     note:      itv.note || '',
     evaluatedAt: itv.evaluatedAt || '',
+    rev:       Number(itv.rev) || 0,
     updatedAt: itv.updatedAt,
   });
-  if(result?.updatedAt) {
-    itv.updatedAt = result.updatedAt;
+  if(result?.data) {
+    itv.rev = Number(result.data.rev) || 0;
+    itv.updatedAt = result.data.updatedAt || itv.updatedAt;
     scheduleLocalCacheSave();
   }
   return result;
@@ -712,13 +746,15 @@ async function syncPosToGS(pos) {
     parentPosId: pos.parentPosId != null ? pos.parentPosId : '',
     closeReason: pos.closeReason || '',
     closeMemo:   pos.closeMemo || '',
+    rev:         Number(pos.rev) || 0,
     updatedAt:   pos.updatedAt,
   });
-  if(result?.updatedAt) {
-    pos.updatedAt = result.updatedAt;
+  if(result?.data) {
+    pos.rev = Number(result.data.rev) || 0;
+    pos.updatedAt = result.data.updatedAt || pos.updatedAt;
     scheduleLocalCacheSave();
   }
-  showSyncStatus('포지션 GS 동기화 완료', 'ok');
+  if(result != null && !result.error) showSyncStatus('포지션 GS 동기화 완료', 'ok');
   return result;
 }
 async function deletePosFromGS(id) {
@@ -738,7 +774,7 @@ function normalizeGsPosition(row) {
     loc:row.loc||'', owner:row.owner||'', targetDate:row.targetDate||'', memo:row.memo||'',
     createdAt:row.createdAt||'', status:row.status==='done'?'filled':(row.status||'active'),
     closedAt:row.closedAt||'', parentPosId:row.parentPosId?Number(row.parentPosId):null,
-    closeReason:row.closeReason||'', closeMemo:row.closeMemo||'', updatedAt:row.updatedAt||'',
+    closeReason:row.closeReason||'', closeMemo:row.closeMemo||'', rev:Number(row.rev)||0, updatedAt:row.updatedAt||'',
   };
 }
 
@@ -753,7 +789,7 @@ function normalizeGsInterview(row) {
     availabilityToken:row.availabilityToken||'', availabilityExpiresAt:row.availabilityExpiresAt||'', availabilityLink:row.availabilityLink||'',
     availabilitySelections:(()=>{try{return JSON.parse(row.availabilitySelections||'[]')}catch(e){return []}})(),
     availabilityStatus:row.availabilityStatus||'', availabilityRespondedAt:row.availabilityRespondedAt||'', availabilityNote:row.availabilityNote||'',
-    result:row.result||'', note:row.note||'', evaluatedAt:row.evaluatedAt||'', updatedAt:row.updatedAt||'',
+    result:row.result||'', note:row.note||'', evaluatedAt:row.evaluatedAt||'', rev:Number(row.rev)||0, updatedAt:row.updatedAt||'',
   };
 }
 
@@ -770,7 +806,7 @@ function normalizeGsCandidate(row) {
     mailPending:row.mailPending==='Y', mailPendingLabel:row.mailPendingLabel||'',
     posId:row.posId!==''&&row.posId!=null?Number(row.posId):null, intDate:row.intDate||'', held:row.held==='Y',
     lastCompletedStage:row.lastCompletedStage!==''&&row.lastCompletedStage!=null?Number(row.lastCompletedStage):null,
-    lastStageChangedAt:row.lastStageChangedAt||'', updatedAt:row.updatedAt||'',
+    lastStageChangedAt:row.lastStageChangedAt||'', rev:Number(row.rev)||0, updatedAt:row.updatedAt||'',
   };
 }
 
@@ -1089,6 +1125,7 @@ async function loadPositionsFromGS(options={}) {
         parentPosId: row.parentPosId ? Number(row.parentPosId) : null,
         closeReason: row.closeReason || '',
         closeMemo:   row.closeMemo || '',
+        rev:         Number(row.rev) || 0,
         updatedAt:   row.updatedAt || '',
       };
     });
@@ -1137,6 +1174,7 @@ async function loadInterviewsFromGS(options={}) {
       result:   row.result || '',
       note:     row.note || '',
       evaluatedAt: row.evaluatedAt || '',
+      rev:       Number(row.rev) || 0,
       updatedAt: row.updatedAt || '',
     }));
     interviews = uniqueInterviewRecords(result.isDelta

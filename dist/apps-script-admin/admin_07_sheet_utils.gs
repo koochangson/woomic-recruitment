@@ -66,6 +66,28 @@ function schemaRow_(sheetName, row) {
   return result;
 }
 
+function revisionState_(sheetName, headers, existingValues, source) {
+  const enabled = REVISIONED_SHEETS.includes(sheetName);
+  if (!enabled) return { enabled: false, conflict: false, expected: 0, current: 0 };
+  const revIndex = headers.indexOf('rev');
+  const current = existingValues && revIndex >= 0 ? Number(existingValues[revIndex]) || 0 : 0;
+  const expected = Number(source && source.rev) || 0;
+  return {
+    enabled: true,
+    conflict: !!existingValues && expected !== current,
+    expected,
+    current
+  };
+}
+
+function rowObjectFromValues_(headers, values) {
+  const result = {};
+  (headers || []).forEach(function(header, index) {
+    result[header] = normalizeCell_((values || [])[index]);
+  });
+  return result;
+}
+
 function findRowIndex_(sheet, key, id, headers) {
   const keyIndex = headers.indexOf(key);
   if (keyIndex < 0) throw new Error('missing_key_column');
