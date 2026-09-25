@@ -247,6 +247,36 @@ const requiredPatterns = [
     message: 'Rejection mail must use explicit candidate and position placeholders.',
   },
   {
+    id: 'panel-schedule-mail-placeholders',
+    file: 'templates/mail/body/mail_body_panel_schedule.html',
+    pattern: /\{\{dept\}\}[\s\S]*\{\{interviewType\}\}[\s\S]*\{\{scheduleText\}\}[\s\S]*\{\{location\}\}[\s\S]*\{\{targetCount\}\}[\s\S]*\{\{panelNames\}\}[\s\S]*\{\{targetList\}\}/,
+    message: 'Panel schedule mail must use explicit schedule, panel, and candidate placeholders.',
+  },
+  {
+    id: 'onboarding-mail-placeholders',
+    file: 'templates/mail/body/mail_body_onboarding.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{joinDate\}\}[\s\S]*\{\{joinTime\}\}[\s\S]*\{\{reportLocation\}\}[\s\S]*\{\{prepNotes\}\}/,
+    message: 'Candidate onboarding mail must use explicit candidate and joining placeholders.',
+  },
+  {
+    id: 'internal-onboarding-mail-placeholders',
+    file: 'templates/mail/body/mail_body_onboarding_internal.html',
+    pattern: /\{\{joinDate\}\}[\s\S]*\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{phone\}\}[\s\S]*\{\{replyDeadline\}\}[\s\S]*\{\{deptCooperation\}\}/,
+    message: 'Internal onboarding mail must use explicit candidate, deadline, and cooperation placeholders.',
+  },
+  {
+    id: 'headhunter-forward-mail-placeholders',
+    file: 'templates/mail/body/mail_body_headhunter_forward.html',
+    pattern: /\{\{recipientName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{candidateName\}\}[\s\S]*\{\{purpose\}\}[\s\S]*\{\{forwardBody\}\}/,
+    message: 'Headhunter forwarding mail must use explicit recipient, candidate, purpose, and body placeholders.',
+  },
+  {
+    id: 'general-notice-mail-placeholders',
+    file: 'templates/mail/body/mail_body_general_notice.html',
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{positionText\}\}[\s\S]*\{\{noticeBody\}\}/,
+    message: 'General notice mail must use explicit recipient, position, and notice placeholders.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,

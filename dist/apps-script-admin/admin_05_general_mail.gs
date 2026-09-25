@@ -309,40 +309,48 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       location: escapeMailHtml_(data.location || '')
     });
   } else if (templateKey === 'panel_schedule') {
-    rendered = rendered
-      .replace(/홍보팀/g, escapeMailHtml_(data.dept || ''))
-      .replace(/정규직/g, escapeMailHtml_(data.etype || ''))
-      .replace(/1차 실무면접/g, escapeMailHtml_(data.interviewType || ''))
-      .replace(/2026년 9월 22일 화요일 14:00~17:00/g, escapeMailHtml_(data.scheduleText || ''))
-      .replace(/본사 3층 대회의실/g, escapeMailHtml_(data.location || ''))
-      .replace(/총 4명/g, '총 ' + escapeMailHtml_(String(data.targetCount || '')) + '명')
-      .replace(/김민준 팀장, 박서연 과장/g, escapeMailHtml_(data.panelNames || ''))
-      .replace(/이하늘 \(홍보 포지션\)<br>최지우 \(홍보 포지션\)/, nlToBr_(data.targetList || ''));
+    assertGeneralMailFields_(templateKey, data, [
+      'dept','interviewType','scheduleText','targetCount','panelNames','targetList'
+    ]);
+    rendered = replaceMailPlaceholders_(rendered, {
+      dept: escapeMailHtml_(data.dept || ''),
+      etype: escapeMailHtml_(data.etype || ''),
+      interviewType: escapeMailHtml_(data.interviewType || ''),
+      scheduleText: escapeMailHtml_(data.scheduleText || ''),
+      location: escapeMailHtml_(data.location || ''),
+      targetCount: escapeMailHtml_(String(data.targetCount || '')),
+      panelNames: escapeMailHtml_(data.panelNames || ''),
+      targetList: nlToBr_(data.targetList || '')
+    });
   } else if (templateKey === 'onboarding') {
-    rendered = rendered
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-      .replace(/2026년 10월 5일/g, escapeMailHtml_(data.joinDate || ''))
-      .replace(/09:00/g, escapeMailHtml_(data.joinTime || '09:00'))
-      .replace(/본사 3층 피플팀/g, escapeMailHtml_(data.reportLocation || '본사 3층 피플팀'))
-      .replace(/홍보팀/g, escapeMailHtml_(data.dept || ''))
-      .replace(/주임/g, escapeMailHtml_(data.rank || ''))
-      .replace(/정규직/g, escapeMailHtml_(data.etype || ''))
-      .replace(/본사/g, escapeMailHtml_(data.location || ''))
-      .replace(/- 신분증 지참<br>- 계좌사본 제출/, nlToBr_(data.prepNotes || ''));
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','joinDate']);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      joinDate: escapeMailHtml_(data.joinDate || ''),
+      joinTime: escapeMailHtml_(data.joinTime || '09:00'),
+      reportLocation: escapeMailHtml_(data.reportLocation || '본사 3층 피플팀'),
+      dept: escapeMailHtml_(data.dept || ''),
+      rank: escapeMailHtml_(data.rank || ''),
+      etype: escapeMailHtml_(data.etype || ''),
+      location: escapeMailHtml_(data.location || ''),
+      prepNotes: nlToBr_(data.prepNotes || '')
+    });
   } else if (templateKey === 'onboarding_internal') {
-    rendered = rendered
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-      .replace(/홍보팀/g, escapeMailHtml_(data.dept || ''))
-      .replace(/2026년 10월 5일/g, escapeMailHtml_(data.joinDate || ''))
-      .replace(/주임/g, escapeMailHtml_(data.rank || ''))
-      .replace(/정규직/g, escapeMailHtml_(data.etype || ''))
-      .replace(/본사/g, escapeMailHtml_(data.location || ''))
-      .replace(/010-1234-5678/g, escapeMailHtml_(data.phone || ''))
-      .replace(/2026년 9월 30일까지/g, escapeMailHtml_(data.replyDeadline || ''))
-      .replace(/09:00 피플팀 방문 → 10:00 부서 배치/g, escapeMailHtml_(data.joinDaySchedule || ''))
-      .replace(/- 좌석 배정<br>- 사원증 발급 요청/, nlToBr_(data.deptCooperation || ''));
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','joinDate']);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      dept: escapeMailHtml_(data.dept || ''),
+      joinDate: escapeMailHtml_(data.joinDate || ''),
+      rank: escapeMailHtml_(data.rank || ''),
+      etype: escapeMailHtml_(data.etype || ''),
+      location: escapeMailHtml_(data.location || ''),
+      phone: escapeMailHtml_(data.phone || ''),
+      replyDeadline: escapeMailHtml_(data.replyDeadline || ''),
+      joinDaySchedule: escapeMailHtml_(data.joinDaySchedule || ''),
+      deptCooperation: nlToBr_(data.deptCooperation || '')
+    });
     const workLocation = String(data.location || data.workplace || data.site || '');
     if (!/현장|공사|사업소|프로젝트|PJ/i.test(workLocation)) {
       rendered = rendered.replace(/<tr id="siteOnboardingRequestRow">[\s\S]*?<\/tr>/, '');
@@ -367,25 +375,36 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       availabilityLink: escapeMailHtml_(data.availabilityLink || '#')
     });
   } else if (templateKey === 'headhunter_forward') {
-    rendered = rendered
-      .replace(/헤드헌팅 담당자/g, escapeMailHtml_(data.recipientName || '헤드헌팅 담당자'))
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-      .replace(/채용 진행/g, escapeMailHtml_(data.purpose || '채용 진행'))
-      .replace(/후보자에게 전달할 내용이 표시됩니다\./, nlToBr_(data.forwardBody || data.body || ''));
+    const forwardBody = data.forwardBody || data.body || '';
+    assertGeneralMailFields_(templateKey, Object.assign({}, data, { forwardBody }), [
+      'candidateName','positionText','forwardBody'
+    ]);
+    rendered = replaceMailPlaceholders_(rendered, {
+      recipientName: escapeMailHtml_(data.recipientName || '헤드헌팅 담당자'),
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      purpose: escapeMailHtml_(data.purpose || '채용 진행'),
+      forwardBody: nlToBr_(forwardBody)
+    });
   } else if (templateKey === 'general_notice') {
     const actionLink = String(data.actionLink || '').trim();
     const actionLabel = String(data.actionLabel || '바로가기').trim();
-    const noticeHtml = nlToBr_(data.noticeBody || data.body || '') + (actionLink
+    const noticeBody = data.noticeBody || data.body || '';
+    assertGeneralMailFields_(templateKey, Object.assign({}, data, { noticeBody }), [
+      'candidateName','positionText','noticeBody'
+    ]);
+    const noticeHtml = nlToBr_(noticeBody) + (actionLink
       ? '<div style="text-align:center;margin:24px 0 2px;"><a href="' + escapeMailHtml_(actionLink) + '" style="display:inline-block;background:#003087;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 24px;border-radius:7px;">' + escapeMailHtml_(actionLabel) + '</a></div>'
       : '');
-    rendered = rendered
-      .replace(/이하늘/g, escapeMailHtml_(candidateName))
-      .replace(/홍보 포지션/g, escapeMailHtml_(positionText))
-      .replace(/채용 진행 안내 내용이 표시됩니다\./, noticeHtml);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      noticeBody: noticeHtml
+    });
   }
 
-  if (['interview_first', 'interview_second', 'interview_slot_request', 'rejection'].includes(templateKey) &&
+  if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal',
+       'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&
       /\{\{[^}]+\}\}/.test(rendered)) {
     throw new Error('unresolved_general_mail_placeholder');
   }
