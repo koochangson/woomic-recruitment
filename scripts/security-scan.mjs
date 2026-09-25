@@ -67,6 +67,12 @@ const requiredPatterns = [
     message: 'Public Apps Script must reject privileged actions before dispatch.',
   },
   {
+    id: 'public-referee-verification-rate-limit',
+    file: 'src/public/backend/Code.gs',
+    pattern: /isRefereeVerifyLocked_\(token\)[\s\S]{0,120}too_many_attempts/,
+    message: 'Public Apps Script must rate-limit referee identity verification.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,

@@ -50,6 +50,8 @@ const REFERENCE_CANDIDATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-c
 const REFERENCE_RESPONSE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_check_intake.html';
 const INTERVIEW_AVAILABILITY_LINK_TTL_DAYS = 10;
 const INTERVIEW_AVAILABILITY_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/interview_availability.html';
+const REFEREE_VERIFY_ATTEMPT_LIMIT = 5;
+const REFEREE_VERIFY_LOCK_SECONDS = 10 * 60;
 const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
   issueReferenceCandidateLink: true,
   issueInterviewAvailabilityLink: true,
@@ -865,6 +867,38 @@ function verifyReferenceRefereeToken_(payload) {
   return json_({ ok: true });
 }
 
+function refereeVerifyFailKey_(token) {
+  return 'referee_verify_fail:' + String(token || '');
+}
+
+function refereeVerifyLockKey_(token) {
+  return 'referee_verify_lock:' + String(token || '');
+}
+
+function isRefereeVerifyLocked_(token) {
+  if (!token) return true;
+  return !!CacheService.getScriptCache().get(refereeVerifyLockKey_(token));
+}
+
+function recordRefereeVerifyFailure_(token) {
+  if (!token) return;
+  const cache = CacheService.getScriptCache();
+  const key = refereeVerifyFailKey_(token);
+  const count = Number(cache.get(key) || '0') + 1;
+  if (count >= REFEREE_VERIFY_ATTEMPT_LIMIT) {
+    cache.put(refereeVerifyLockKey_(token), '1', REFEREE_VERIFY_LOCK_SECONDS);
+    cache.remove(key);
+    return;
+  }
+  cache.put(key, String(count), REFEREE_VERIFY_LOCK_SECONDS);
+}
+
+function clearRefereeVerifyFailures_(token) {
+  const cache = CacheService.getScriptCache();
+  cache.remove(refereeVerifyFailKey_(token));
+  cache.remove(refereeVerifyLockKey_(token));
+}
+
 function verifyRefereeIdentity_(payload) {
   const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
   const token = String(body.token || '').trim();
@@ -872,6 +906,7 @@ function verifyRefereeIdentity_(payload) {
   const phone = normalizePhone_(body.phone);
   if (!token) return json_({ ok: false, error: 'token_required' });
   if (!email || !phone) return json_({ ok: false, error: 'identity_fields_required' });
+  if (isRefereeVerifyLocked_(token)) return json_({ ok: false, error: 'too_many_attempts' });
 
   const sheet = ensureSheet_('ReferenceResponses');
   const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.ReferenceResponses);
@@ -882,8 +917,10 @@ function verifyRefereeIdentity_(payload) {
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
   if (normalizeEmail_(row.refereeEmail) !== email && normalizePhone_(row.refereePhone) !== phone) {
+    recordRefereeVerifyFailure_(token);
     return json_({ ok: false, error: 'identity_mismatch' });
   }
+  clearRefereeVerifyFailures_(token);
 
   const verifiedAtCol = headers.indexOf('verifiedAt') + 1;
   if (verifiedAtCol > 0) sheet.getRange(rowIndex, verifiedAtCol).setValue(nowIso_());
