@@ -80,9 +80,28 @@ function findRowIndex_(sheet, key, id, headers) {
 }
 
 function appendChange_(sheetName, action, id, data) {
+  appendChanges_([{ sheetName, action, id, data }]);
+}
+
+function appendChanges_(changes) {
+  const source = Array.isArray(changes) ? changes : [];
+  if (!source.length) return;
   const sheet = ensureChangeLogSheet_();
-  const cursor = sheet.getLastRow();
-  sheet.appendRow([cursor, nowIso_(), sheetName, action, id, getActiveUserEmail_(), 'ok', JSON.stringify(data || {})]);
+  const firstCursor = sheet.getLastRow();
+  const actorEmail = getActiveUserEmail_();
+  const values = source.map(function(change, index) {
+    return [
+      firstCursor + index,
+      nowIso_(),
+      change.sheetName,
+      change.action,
+      change.id,
+      actorEmail,
+      'ok',
+      JSON.stringify(change.data || {})
+    ];
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, values.length, 8).setValues(values);
 }
 
 function ensureChangeLogSheet_() {

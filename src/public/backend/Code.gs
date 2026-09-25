@@ -207,16 +207,61 @@ function batchUpsert_(sheetName, rows, isAdmin) {
   const source = Array.isArray(rows) ? rows : [];
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
+  const receipts = [];
+  let result;
   try {
-    let count = 0;
-    source.forEach(row => {
-      const result = JSON.parse(upsertUnlocked_(sheetName, row, isAdmin).getContent());
-      if (!result.error) count++;
+    const sheet = ensureSheet_(sheetName);
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+    const key = primaryKey_(sheetName);
+    const keyIndex = headers.indexOf(key);
+    const lastRow = sheet.getLastRow();
+    const values = lastRow >= 2
+      ? sheet.getRange(2, 1, lastRow - 1, headers.length).getValues()
+      : [];
+    const rowIndexById = {};
+    values.forEach(function(rowValues, index) {
+      const id = String(rowValues[keyIndex] || '').trim();
+      if (id) rowIndexById[id] = index;
     });
-    return json_({ status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() });
+
+    const changes = [];
+    let count = 0;
+    source.forEach(function(row) {
+      let next = Object.assign({}, row || {});
+      const id = String(next[key] || '').trim();
+      if (!id) return;
+      const existingIndex = Object.prototype.hasOwnProperty.call(rowIndexById, id)
+        ? rowIndexById[id]
+        : -1;
+      if (sheetName === 'Referrals') {
+        next = secureReferralRowForUpsert_(next, existingIndex >= 0, isAdmin);
+      }
+      next.updatedAt = next.updatedAt || nowIso_();
+      const normalized = schemaRow_(sheetName, next);
+      const rowValues = headers.map(function(header) {
+        return normalized[header] == null ? '' : normalized[header];
+      });
+      if (existingIndex >= 0) {
+        values[existingIndex] = rowValues;
+      } else {
+        rowIndexById[id] = values.length;
+        values.push(rowValues);
+        if (sheetName === 'Referrals' && !isAdmin) receipts.push(normalized);
+      }
+      changes.push({ sheetName, action: 'upsert', id, data: normalized });
+      count++;
+    });
+
+    if (count) {
+      sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+      appendChanges_(changes);
+    }
+    result = { status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() };
   } finally {
     lock.releaseLock();
   }
+  receipts.forEach(sendReferralReceipt_);
+  return json_(result);
 }
 
 function replaceAll_(sheetName, rows, isAdmin) {
@@ -1418,9 +1463,28 @@ function findRowIndex_(sheet, key, id, headers) {
 // (예전에는 appendChange_만 시트별로 다른 스프레드시트로 라우팅되고, 커서 조회는 항상 활성 스프레드시트만
 // 봐서 기록 위치와 조회 위치가 어긋날 수 있었습니다. admin 백엔드의 이미 고쳐진 구현과 동일하게 맞춥니다.)
 function appendChange_(sheetName, action, id, data) {
+  appendChanges_([{ sheetName, action, id, data }]);
+}
+
+function appendChanges_(changes) {
+  const source = Array.isArray(changes) ? changes : [];
+  if (!source.length) return;
   const sheet = ensureChangeLogSheet_();
-  const cursor = sheet.getLastRow();
-  sheet.appendRow([cursor, nowIso_(), sheetName, action, id, getActiveUserEmail_(), 'ok', JSON.stringify(data || {})]);
+  const firstCursor = sheet.getLastRow();
+  const actorEmail = getActiveUserEmail_();
+  const values = source.map(function(change, index) {
+    return [
+      firstCursor + index,
+      nowIso_(),
+      change.sheetName,
+      change.action,
+      change.id,
+      actorEmail,
+      'ok',
+      JSON.stringify(change.data || {})
+    ];
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, values.length, 8).setValues(values);
 }
 
 function ensureChangeLogSheet_() {

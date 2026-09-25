@@ -115,6 +115,18 @@ const requiredPatterns = [
     message: 'Public Apps Script must serialize public reference submissions.',
   },
   {
+    id: 'admin-batch-upsert-uses-indexed-write',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,1800}appendChanges_\(changes\)/,
+    message: 'Admin batch upsert must use one indexed sheet read and batched change logging.',
+  },
+  {
+    id: 'public-batch-upsert-uses-indexed-write',
+    file: 'src/public/backend/Code.gs',
+    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,1800}appendChanges_\(changes\)/,
+    message: 'Public batch upsert must use one indexed sheet read and batched change logging.',
+  },
+  {
     id: 'admin-date-normalization-utc',
     file: 'src/admin/backend/Code.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
