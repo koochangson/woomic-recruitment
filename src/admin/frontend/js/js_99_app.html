@@ -32,10 +32,28 @@ const DELEGATED_CALLS = Object.freeze({
   setReferenceStageMailChoice, testRefAutoConnection, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateHeadhunterHint, updateIntPreview, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
   populateHeadhunterSelect, renderHeadhunterDbPreview,
 });
+const delegatedCallFailureNotices_ = new Set();
+
+function reportDelegatedCallFailure_(reason, call, error) {
+  const source = String(call || '').trim() || '(empty)';
+  const key = `${reason}:${source}`;
+  console.warn(`[delegated-call] ${reason}: ${source}`, error || '');
+  if(delegatedCallFailureNotices_.has(key)) return;
+  delegatedCallFailureNotices_.add(key);
+  if(typeof toast === 'function') toast('화면 동작을 실행하지 못했습니다. 새로고침 후 다시 시도하세요.', 'terr');
+}
+
 function invokeDelegatedCall(call, target, delegatedEvent) {
   const match = String(call || '').match(/^([A-Za-z_$][\w$]*)\((.*)\)$/);
   const fn = match && DELEGATED_CALLS[match[1]];
-  if(typeof fn !== 'function') return;
+  if(!match) {
+    reportDelegatedCallFailure_('invalid_syntax', call);
+    return;
+  }
+  if(typeof fn !== 'function') {
+    reportDelegatedCallFailure_('unregistered_function', call);
+    return;
+  }
   const raw = match[2].trim();
   const args = raw ? raw.match(/'(?:\\'|[^'])*'|"(?:\\"|[^"])*"|[^,]+/g).map(token => {
     const v = token.trim();
@@ -48,8 +66,19 @@ function invokeDelegatedCall(call, target, delegatedEvent) {
     if((v.startsWith("'")&&v.endsWith("'"))||(v.startsWith('"')&&v.endsWith('"'))) return v.slice(1,-1);
     return undefined;
   }) : [];
-  if(args.some(v => v === undefined)) return;
-  return fn(...args);
+  if(args.some(v => v === undefined)) {
+    reportDelegatedCallFailure_('unsupported_argument', call);
+    return;
+  }
+  try {
+    const result = fn(...args);
+    if(result && typeof result.catch === 'function') {
+      return result.catch(error => reportDelegatedCallFailure_('execution_failed', call, error));
+    }
+    return result;
+  } catch(error) {
+    reportDelegatedCallFailure_('execution_failed', call, error);
+  }
 }
 
 function invokeDelegatedSequence(sequence, target, delegatedEvent) {

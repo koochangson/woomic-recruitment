@@ -169,6 +169,18 @@ const requiredPatterns = [
     message: 'Dashboard initialization must start periodic change polling.',
   },
   {
+    id: 'delegated-call-runtime-failures-visible',
+    file: 'src/admin/frontend/js/js_99_app.html',
+    pattern: /reportDelegatedCallFailure_\('unregistered_function'[\s\S]*reportDelegatedCallFailure_\('unsupported_argument'[\s\S]*reportDelegatedCallFailure_\('execution_failed'/,
+    message: 'Delegated UI calls must report registration, argument, and execution failures.',
+  },
+  {
+    id: 'delegated-calls-validated-at-build',
+    file: 'tools/prepare_admin_frontend.js',
+    pattern: /missingDelegatedCalls[\s\S]*Unregistered delegated calls/,
+    message: 'Admin frontend builds must reject unregistered delegated calls.',
+  },
+  {
     id: 'referral-render-does-not-persist-derived-state',
     file: 'src/admin/frontend/js/js_04_referral.html',
     pattern: /function renderReferralSection\(\)\s*\{\s*recalculateReferralFlags\(\{transient:true\}\);/,
