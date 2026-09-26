@@ -412,6 +412,26 @@ function adminApiRun_(payload, options={}) {
   });
 }
 
+async function checkAdminDeploymentConfig_() {
+  if(!isAppsScriptDashboard_()) return null;
+  try {
+    const status = await adminApiRun_({action:'configStatus'});
+    if(status?.error) return null;
+    if(Array.isArray(status?.errors) && status.errors.length) {
+      const message = `배포 설정 실패: ${status.errors.join(' ')}`;
+      console.error('[Config]', status);
+      showSyncStatus(message, 'warn');
+      toast(message, 'terr');
+    } else if(Array.isArray(status?.warnings) && status.warnings.length) {
+      console.warn('[Config]', status.warnings.join(' '));
+    }
+    return status;
+  } catch(error) {
+    console.warn('[Config] 설정 상태 확인 실패:', error);
+    return null;
+  }
+}
+
 async function gsFetch(action, sheet, data={}, options={}) {
   const isWrite = action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow';
   if(isAppsScriptDashboard_()) {

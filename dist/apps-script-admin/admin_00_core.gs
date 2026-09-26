@@ -26,6 +26,7 @@ const DEPLOYMENT_ROLE_PROPERTY = 'RECRUITMENT_DEPLOYMENT_ROLE';
 const OPENAI_API_KEY_PROPERTY = 'OPENAI_API_KEY';
 const EMPLOYEE_DIRECTORY_LOOKUP_TOKEN_PROPERTY = 'INTERVIEWER_DB_LOOKUP_TOKEN';
 const EMPLOYEE_DIRECTORY_ADMIN_TOKEN_PROPERTY = 'INTERVIEWER_DB_ADMIN_TOKEN';
+const RECRUITMENT_SPREADSHEET_URL_PROPERTY = 'RECRUITMENT_SPREADSHEET_URL';
 const REFERRAL_CODE_TTL_SECONDS = 10 * 60;
 const REFERRAL_TOKEN_TTL_SECONDS = 60 * 60;
 const REFERRAL_CODE_SEND_LIMIT = 3;
@@ -141,6 +142,7 @@ function routeRequest_(payload) {
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
   if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
   if (action === 'getChanges') return getChanges_(query);
+  if (action === 'configStatus') return json_(getDeploymentConfigStatus_());
   if (action === 'archiveChanges') return json_(archiveOldChanges_());
   if (action === 'purgeCandidatePii') return purgeCandidatePii_(payload);
 

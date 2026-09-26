@@ -305,6 +305,7 @@ try {
       setTimeout(flushGsRetryQueue, 1500);
       startGsChangePolling_();
     }
+    checkAdminDeploymentConfig_();
   });
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   renderDashboard();

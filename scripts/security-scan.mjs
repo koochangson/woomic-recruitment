@@ -145,6 +145,18 @@ const requiredPatterns = [
     message: 'Weekly operations must invoke the bounded change-log archive handler.',
   },
   {
+    id: 'admin-deployment-config-status-is-redacted',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function getDeploymentConfigStatus_\(\)[\s\S]{0,2200}checks:\s*\{[\s\S]{0,500}adminAuthConfigured:[\s\S]{0,400}mainSpreadsheetConfigured:/,
+    message: 'Admin deployment diagnostics must return configuration booleans and messages rather than property values.',
+  },
+  {
+    id: 'dashboard-checks-deployment-config-on-start',
+    file: 'src/admin/frontend/js/js_99_app.html',
+    pattern: /startGsChangePolling_\(\);[\s\S]{0,120}checkAdminDeploymentConfig_\(\);/,
+    message: 'Dashboard startup must request the redacted deployment configuration status.',
+  },
+  {
     id: 'public-change-cursor-is-monotonic',
     file: 'src/public/backend/Code.gs',
     pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,

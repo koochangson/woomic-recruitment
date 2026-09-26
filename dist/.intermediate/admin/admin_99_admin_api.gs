@@ -36,7 +36,7 @@ function adminApi(payload) {
 }
 
 function getMainSpreadsheet_() {
-  const url = getScriptProperty_('RECRUITMENT_SPREADSHEET_URL');
+  const url = getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY);
   if (url) return SpreadsheetApp.openByUrl(url);
   return SpreadsheetApp.getActiveSpreadsheet();
 }

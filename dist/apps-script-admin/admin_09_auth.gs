@@ -18,6 +18,42 @@ function getScriptProperty_(key) {
   return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
 }
 
+function getDeploymentConfigStatus_() {
+  const role = getScriptProperty_(DEPLOYMENT_ROLE_PROPERTY).toLowerCase();
+  const allowlistConfigured = getAdminAllowlist_().length > 0;
+  const localUsersConfigured = Object.keys(getLocalAdminUsers_()).length > 0;
+  const adminTokenConfigured = !!getScriptProperty_(ADMIN_TOKEN_PROPERTY);
+  const uploadFolderConfigured = !!getScriptProperty_(REFERRAL_UPLOAD_FOLDER_ID_PROPERTY);
+  const mainSpreadsheetConfigured = !!getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY);
+  const errors = [];
+  const warnings = [];
+
+  if (role === 'public') errors.push('관리자 프로젝트의 배포 역할이 public으로 설정되어 있습니다.');
+  if (!allowlistConfigured && !localUsersConfigured && !adminTokenConfigured) {
+    errors.push('관리자 인증 수단이 설정되어 있지 않습니다.');
+  }
+  if (!role) warnings.push('RECRUITMENT_DEPLOYMENT_ROLE이 비어 있습니다. admin 설정을 권장합니다.');
+  else if (role !== 'admin' && role !== 'public') warnings.push('RECRUITMENT_DEPLOYMENT_ROLE 값이 올바르지 않습니다.');
+  if (!uploadFolderConfigured) warnings.push('REFERRAL_UPLOAD_FOLDER_ID가 없어 이력서 업로드가 실패할 수 있습니다.');
+  if (!mainSpreadsheetConfigured) warnings.push('RECRUITMENT_SPREADSHEET_URL이 없어 연결된 기본 시트를 사용합니다.');
+
+  return {
+    ok: errors.length === 0,
+    errors: errors,
+    warnings: warnings,
+    checks: {
+      roleConfigured: role === 'admin',
+      adminAuthConfigured: allowlistConfigured || localUsersConfigured || adminTokenConfigured,
+      uploadFolderConfigured: uploadFolderConfigured,
+      mainSpreadsheetConfigured: mainSpreadsheetConfigured
+    }
+  };
+}
+
+function getDeploymentConfigStatus() {
+  return getDeploymentConfigStatus_();
+}
+
 function getActiveUserEmail_() {
   try {
     return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
