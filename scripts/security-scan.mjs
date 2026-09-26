@@ -169,6 +169,12 @@ const requiredPatterns = [
     message: 'Dashboard initialization must start periodic change polling.',
   },
   {
+    id: 'dashboard-batch-upsert-preserves-pending-chunks',
+    file: 'src/admin/frontend/js/js_01_sheets_sync.html',
+    pattern: /GS_BATCH_UPSERT_CHUNK_SIZE = 25[\s\S]*function gsBatchUpsert[\s\S]{0,1800}pendingIndex=index\+safeChunkSize[\s\S]{0,500}queueGsRetry\('batchUpsert', sheet, pendingChunk\)/,
+    message: 'Dashboard batch writes must use small chunks and queue every unprocessed chunk after a failure.',
+  },
+  {
     id: 'delegated-call-runtime-failures-visible',
     file: 'src/admin/frontend/js/js_99_app.html',
     pattern: /reportDelegatedCallFailure_\('unregistered_function'[\s\S]*reportDelegatedCallFailure_\('unsupported_argument'[\s\S]*reportDelegatedCallFailure_\('execution_failed'/,

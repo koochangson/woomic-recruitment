@@ -57,6 +57,7 @@ const GS_SYNC_CURSOR_KEY = 'woomic_gs_sync_cursors_v1';
 const GS_CHANGE_CURSOR_KEY = 'woomic_gs_change_cursors_v1';
 const GS_CURSOR_OVERLAP_MS = 5 * 60 * 1000;
 const GS_CHANGE_POLL_INTERVAL_MS = 60 * 1000;
+const GS_BATCH_UPSERT_CHUNK_SIZE = 25;
 let gsRetryRunning = false;
 let gsChangePollTimer = null;
 let gsChangePollRunning = false;
@@ -574,19 +575,29 @@ async function gsUpsert(sheet, item) {
   return result;
 }
 
-async function gsBatchUpsert(sheet, items, chunkSize=100) {
+async function gsBatchUpsert(sheet, items, chunkSize=GS_BATCH_UPSERT_CHUNK_SIZE) {
   const source = Array.isArray(items) ? items : [];
+  const safeChunkSize = Math.max(1, Number(chunkSize) || GS_BATCH_UPSERT_CHUNK_SIZE);
   let saved = 0;
   const conflicts = [];
-  for(let index=0; index<source.length; index+=chunkSize) {
-    const chunk = source.slice(index, index + chunkSize).map(item => gsSchemaPayload(sheet, item));
+  for(let index=0; index<source.length; index+=safeChunkSize) {
+    const chunk = source.slice(index, index + safeChunkSize).map(item => gsSchemaPayload(sheet, item));
     const result = await gsFetch('batchUpsert', sheet, chunk);
     if(result?.error === 'revision_conflict') {
       showRevisionConflict_(sheet, result);
       clearGsReadCache(sheet);
       return result;
     }
-    if(result == null || result.error) return null;
+    if(result == null || result.error) {
+      if(result?.error) queueGsRetry('batchUpsert', sheet, chunk);
+      for(let pendingIndex=index+safeChunkSize; pendingIndex<source.length; pendingIndex+=safeChunkSize) {
+        const pendingChunk = source
+          .slice(pendingIndex, pendingIndex + safeChunkSize)
+          .map(item => gsSchemaPayload(sheet, item));
+        queueGsRetry('batchUpsert', sheet, pendingChunk);
+      }
+      return null;
+    }
     const count = Number(result.count);
     saved += Number.isFinite(count) ? count : chunk.length;
     if(Array.isArray(result.conflicts)) {
