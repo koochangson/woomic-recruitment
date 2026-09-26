@@ -2609,26 +2609,27 @@ function json_(obj) {
 
 function adminLogin_(payload) {
   const data = payload && payload.data || {};
-  const username = String(data.username || '').trim().toLowerCase();
+  const loginId = String(data.loginId || data.empNo || data.username || '').trim().toLowerCase();
   const password = String(data.password || '');
-  if (!username || !password) return { ok: false, error: 'missing_credentials' };
-  if (isAdminLoginLocked_(username)) return { ok: false, error: 'login_locked' };
+  if (!loginId || !password) return { ok: false, error: 'missing_credentials' };
+  if (loginId !== 'admin' && !/^\d+$/.test(loginId)) return { ok: false, error: 'invalid_credentials' };
+  if (isAdminLoginLocked_(loginId)) return { ok: false, error: 'login_locked' };
 
   const users = getLocalAdminUsers_();
-  const expectedHash = users[username];
+  const expectedHash = users[loginId];
   if (!expectedHash || sha256Hex_(password) !== expectedHash) {
-    recordAdminLoginFailure_(username);
+    recordAdminLoginFailure_(loginId);
     return { ok: false, error: 'invalid_credentials' };
   }
 
-  clearAdminLoginFailures_(username);
+  clearAdminLoginFailures_(loginId);
   const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
   const ttl = getAdminSessionSeconds_();
   CacheService.getScriptCache().put(adminSessionKey_(token), JSON.stringify({
-    username,
+    loginId,
     issuedAt: nowIso_()
   }), ttl);
-  return { ok: true, token, username, expiresIn: ttl };
+  return { ok: true, token, loginId, expiresIn: ttl };
 }
 
 function adminLogout_(payload) {
@@ -2644,7 +2645,7 @@ function hasValidAdminSession_(token) {
     const raw = CacheService.getScriptCache().get(adminSessionKey_(token));
     if (!raw) return false;
     const session = JSON.parse(raw);
-    return !!session && !!session.username;
+    return !!session && !!session.loginId;
   } catch (err) {
     return false;
   }
@@ -2662,9 +2663,10 @@ function getLocalAdminUsers_() {
     if (!text) return;
     const idx = text.indexOf(':');
     if (idx <= 0) return;
-    const username = text.slice(0, idx).trim().toLowerCase();
+    const loginId = String(text.slice(0, idx) || '').trim().toLowerCase();
     const hash = text.slice(idx + 1).trim().toLowerCase();
-    if (username && /^[a-f0-9]{64}$/.test(hash)) users[username] = hash;
+    const allowedId = loginId === 'admin' || /^\d+$/.test(loginId);
+    if (allowedId && /^[a-f0-9]{64}$/.test(hash)) users[loginId] = hash;
   });
   return users;
 }
@@ -2679,34 +2681,34 @@ function adminSessionKey_(token) {
   return 'admin_session:' + token;
 }
 
-function adminLoginFailKey_(username) {
-  return 'admin_login_fail:' + username;
+function adminLoginFailKey_(loginId) {
+  return 'admin_login_fail:' + loginId;
 }
 
-function adminLoginLockKey_(username) {
-  return 'admin_login_lock:' + username;
+function adminLoginLockKey_(loginId) {
+  return 'admin_login_lock:' + loginId;
 }
 
-function isAdminLoginLocked_(username) {
-  return !!CacheService.getScriptCache().get(adminLoginLockKey_(username));
+function isAdminLoginLocked_(loginId) {
+  return !!CacheService.getScriptCache().get(adminLoginLockKey_(loginId));
 }
 
-function recordAdminLoginFailure_(username) {
+function recordAdminLoginFailure_(loginId) {
   const cache = CacheService.getScriptCache();
-  const key = adminLoginFailKey_(username);
+  const key = adminLoginFailKey_(loginId);
   const count = Number(cache.get(key) || '0') + 1;
   if (count >= 5) {
-    cache.put(adminLoginLockKey_(username), '1', 10 * 60);
+    cache.put(adminLoginLockKey_(loginId), '1', 10 * 60);
     cache.remove(key);
   } else {
     cache.put(key, String(count), 10 * 60);
   }
 }
 
-function clearAdminLoginFailures_(username) {
+function clearAdminLoginFailures_(loginId) {
   const cache = CacheService.getScriptCache();
-  cache.remove(adminLoginFailKey_(username));
-  cache.remove(adminLoginLockKey_(username));
+  cache.remove(adminLoginFailKey_(loginId));
+  cache.remove(adminLoginLockKey_(loginId));
 }
 
 function sha256Hex_(value) {

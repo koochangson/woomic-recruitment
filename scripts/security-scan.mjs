@@ -157,6 +157,12 @@ const requiredPatterns = [
     message: 'Anonymous admin entry must require an application login session and must not fall back to Google identity.',
   },
   {
+    id: 'admin-login-requires-registered-identifier',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function adminLogin_\([\s\S]{0,500}data\.loginId \|\| data\.empNo \|\| data\.username[\s\S]{0,300}loginId !== 'admin' && !\/\^\\d\+\$\/\.test\(loginId\)[\s\S]{0,500}users\[loginId\]/,
+    message: 'Application admin login must accept only the legacy admin ID or registered numeric employee numbers.',
+  },
+  {
     id: 'dashboard-checks-deployment-config-on-start',
     file: 'src/admin/frontend/js/js_99_app.html',
     pattern: /startGsChangePolling_\(\);[\s\S]{0,120}checkAdminDeploymentConfig_\(\);/,

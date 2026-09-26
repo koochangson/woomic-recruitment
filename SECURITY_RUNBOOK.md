@@ -40,7 +40,7 @@
 
 - `RECRUITMENT_DEPLOYMENT_ROLE=admin`
 - Google 로그인 없이 진입 가능하되 앱 내부 관리자 세션 필수
-- `RECRUITMENT_LOCAL_ADMIN_USERS`와 `RECRUITMENT_ADMIN_TOKEN` 필수
+- `RECRUITMENT_LOCAL_ADMIN_USERS`에 등록된 관리자 사번과 `RECRUITMENT_ADMIN_TOKEN` 필수
 - `OPENAI_API_KEY`는 Script Properties에만 저장
 
 직원 DB:

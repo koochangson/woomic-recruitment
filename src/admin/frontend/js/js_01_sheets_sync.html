@@ -331,22 +331,22 @@ function bindAdminLogin_() {
   form.dataset.bound = '1';
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    const username = document.getElementById('admin-login-user')?.value?.trim() || '';
+    const loginId = document.getElementById('admin-login-user')?.value?.trim() || '';
     const password = document.getElementById('admin-login-password')?.value || '';
     const btn = document.getElementById('admin-login-submit');
     const msg = document.getElementById('admin-login-msg');
     if(btn) btn.disabled = true;
     if(msg) msg.textContent = '';
     try {
-      const result = await adminApiRun_({ action:'adminLogin', data:{ username, password } }, { skipAuth:true });
+      const result = await adminApiRun_({ action:'adminLogin', data:{ loginId, password } }, { skipAuth:true });
       if(!result?.ok || !result.token) throw new Error(result?.error || 'login_failed');
-      setAdminSession_({ token:result.token, username:result.username, issuedAt:Date.now(), expiresIn:result.expiresIn });
+      setAdminSession_({ token:result.token, username:result.loginId, issuedAt:Date.now(), expiresIn:result.expiresIn });
       hideAdminLogin_();
       await reloadAdminDataAfterLogin_();
     } catch(err) {
       if(msg) msg.textContent = err.message === 'login_locked'
         ? '로그인 시도가 잠시 잠겼습니다. 10분 후 다시 시도하세요.'
-        : '아이디 또는 비밀번호를 확인하세요.';
+        : '사번·관리자 ID 또는 비밀번호를 확인하세요.';
     } finally {
       if(btn) btn.disabled = false;
     }
