@@ -118,6 +118,7 @@
     .word-examples p { margin: 8px 0 0; font-size: 13px; color: var(--muted); line-height: 1.6; }
 
     .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+    .draft-status { min-height: 20px; margin-top: 10px; text-align: right; color: var(--muted); font-size: 12px; }
     .btn {
       appearance: none; border: 1px solid var(--accent); border-radius: 9px;
       background: var(--accent); color: #fff; font-size: 15px; font-weight: 700;
@@ -422,6 +423,7 @@
           </div>
         </div>
 
+        <div class="draft-status" id="draftStatus" aria-live="polite"></div>
         <div class="actions">
           <button type="submit" class="btn" id="submitBtn">설문 제출</button>
         </div>
@@ -473,6 +475,124 @@
 
     let refereeToken = '';
     let previewMode = false;
+    const REFERENCE_DRAFT_VERSION = 1;
+    const REFERENCE_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+    let referenceDraftSaveTimer = null;
+
+    function referenceDraftHash(value) {
+      let hash = 2166136261;
+      const text = String(value || '');
+      for (let i = 0; i < text.length; i += 1) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(36);
+    }
+
+    function referenceDraftKey() {
+      const identity = previewMode ? `preview:${new URLSearchParams(location.search).get('cand') || ''}` : refereeToken;
+      return identity ? `woomic_reference_draft_v${REFERENCE_DRAFT_VERSION}_${referenceDraftHash(identity)}` : '';
+    }
+
+    function setDraftStatus(message) {
+      const status = document.getElementById('draftStatus');
+      if (status) status.textContent = message || '';
+    }
+
+    function updateOtherInputs() {
+      document.querySelectorAll('[data-other-toggle]').forEach(radio => {
+        const input = document.getElementById(radio.dataset.otherToggle);
+        if (input) input.classList.toggle('show', radio.checked);
+      });
+    }
+
+    function collectReferenceDraft() {
+      const values = {};
+      const radios = {};
+      const checks = {};
+      document.querySelectorAll('#refCheckForm input, #refCheckForm textarea, #refCheckForm select').forEach(field => {
+        if (field.type === 'submit' || field.type === 'button') return;
+        if (field.type === 'radio') {
+          if (field.checked && field.name) radios[field.name] = field.value;
+          return;
+        }
+        if (field.type === 'checkbox') {
+          if (field.id) checks[field.id] = field.checked;
+          return;
+        }
+        if (field.id) values[field.id] = field.value;
+      });
+      return {
+        version: REFERENCE_DRAFT_VERSION,
+        savedAt: Date.now(),
+        expiresAt: Date.now() + REFERENCE_DRAFT_TTL_MS,
+        values,
+        radios,
+        checks
+      };
+    }
+
+    function saveReferenceDraft() {
+      const key = referenceDraftKey();
+      if (!key) return;
+      try {
+        localStorage.setItem(key, JSON.stringify(collectReferenceDraft()));
+        setDraftStatus('작성 내용이 이 브라우저에 임시 저장되었습니다.');
+      } catch (err) {
+        console.warn('reference_draft_save_failed', err);
+        setDraftStatus('임시 저장을 사용할 수 없습니다.');
+      }
+    }
+
+    function scheduleReferenceDraftSave() {
+      clearTimeout(referenceDraftSaveTimer);
+      referenceDraftSaveTimer = setTimeout(saveReferenceDraft, 400);
+    }
+
+    function clearReferenceDraft() {
+      clearTimeout(referenceDraftSaveTimer);
+      const key = referenceDraftKey();
+      if (!key) return;
+      try {
+        localStorage.removeItem(key);
+      } catch (err) {
+        console.warn('reference_draft_clear_failed', err);
+      }
+      setDraftStatus('');
+    }
+
+    function restoreReferenceDraft() {
+      const key = referenceDraftKey();
+      if (!key) return;
+      let draft;
+      try {
+        draft = JSON.parse(localStorage.getItem(key) || 'null');
+      } catch (err) {
+        console.warn('reference_draft_read_failed', err);
+        localStorage.removeItem(key);
+        return;
+      }
+      if (!draft) return;
+      if (draft.version !== REFERENCE_DRAFT_VERSION || Number(draft.expiresAt || 0) <= Date.now()) {
+        localStorage.removeItem(key);
+        return;
+      }
+      Object.entries(draft.values || {}).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (field && field.closest('#refCheckForm')) field.value = value;
+      });
+      Object.entries(draft.radios || {}).forEach(([name, value]) => {
+        document.querySelectorAll(`#refCheckForm input[type="radio"][name="${name}"]`).forEach(field => {
+          field.checked = field.value === value;
+        });
+      });
+      Object.entries(draft.checks || {}).forEach(([id, checked]) => {
+        const field = document.getElementById(id);
+        if (field && field.closest('#refCheckForm')) field.checked = !!checked;
+      });
+      updateOtherInputs();
+      setDraftStatus('이 브라우저에 임시 저장된 작성 내용을 불러왔습니다.');
+    }
 
     async function verifyTokenAndInit() {
       const params = new URLSearchParams(location.search);
@@ -486,6 +606,7 @@
           root.insertAdjacentHTML('afterbegin', '<div class="preview-banner">미리보기 모드 — 문구·디자인 확인용입니다. 실제로 제출되지 않습니다.</div>');
         }
         showPanel('formRoot');
+        restoreReferenceDraft();
         return;
       }
       refereeToken = clean(params.get('token'));
@@ -502,8 +623,10 @@
         const data = await res.json();
         if (!data.ok) {
           if (data.error === 'already_submitted') {
+            clearReferenceDraft();
             showError('이미 제출된 설문입니다', '이 링크로는 이미 응답을 제출하셨습니다. 소중한 답변 감사합니다.');
           } else if (data.error === 'token_expired') {
+            clearReferenceDraft();
             showError('링크가 만료되었습니다', '요청하신 분께 새 링크 발송을 부탁드려 주세요.');
           } else {
             showError('링크를 확인할 수 없습니다', '링크가 올바르지 않습니다. 요청하신 분께 다시 안내를 받아 주세요.');
@@ -562,6 +685,7 @@
         }
         setCandidateName(data.candName || 'OOO');
         showPanel('formRoot');
+        restoreReferenceDraft();
       } catch (err) {
         console.error(err);
         errEl.textContent = '네트워크 오류로 확인하지 못했습니다. 다시 시도해 주세요.';
@@ -572,17 +696,12 @@
     });
 
     document.querySelectorAll('[data-other-toggle]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        const group = radio.closest('[data-radio-group]');
-        if (!group) return;
-        group.querySelectorAll('input[type=radio]').forEach(other => {
-          const targetId = other.dataset.otherToggle;
-          if (!targetId) return;
-          const input = document.getElementById(targetId);
-          if (input) input.classList.toggle('show', other.checked);
-        });
-      });
+      radio.addEventListener('change', updateOtherInputs);
     });
+
+    const refCheckForm = document.getElementById('refCheckForm');
+    refCheckForm.addEventListener('input', scheduleReferenceDraftSave);
+    refCheckForm.addEventListener('change', scheduleReferenceDraftSave);
 
     const contactPhoneEl = document.getElementById('respondentContact');
     if (contactPhoneEl) {
@@ -756,6 +875,7 @@
       if (!validateForm()) return;
 
       if (previewMode) {
+        clearReferenceDraft();
         showPanel('completePanel');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
@@ -776,8 +896,10 @@
         const data = await res.json();
         if (!data.ok) {
           if (data.error === 'already_submitted') {
+            clearReferenceDraft();
             showError('이미 제출된 설문입니다', '이 링크로는 이미 응답을 제출하셨습니다. 소중한 답변 감사합니다.');
           } else if (data.error === 'token_expired') {
+            clearReferenceDraft();
             showError('링크가 만료되었습니다', '요청하신 분께 새 링크 발송을 부탁드려 주세요.');
           } else {
             alert('제출 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
@@ -786,6 +908,7 @@
           }
           return;
         }
+        clearReferenceDraft();
         showPanel('completePanel');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (err) {

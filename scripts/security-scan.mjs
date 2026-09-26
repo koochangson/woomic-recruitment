@@ -324,6 +324,18 @@ const requiredPatterns = [
     pattern: /webapp\?\.executeAs !== 'USER_DEPLOYING'[\s\S]{0,160}webapp\?\.access !== 'ANYONE_ANONYMOUS'/,
     message: 'Public clasp synchronization must validate anonymous web-app manifest settings.',
   },
+  {
+    id: 'reference-survey-draft-is-form-scoped-and-expiring',
+    file: 'src/public/pages/reference-check/reference_check_intake.html',
+    pattern: /REFERENCE_DRAFT_TTL_MS = 7 \* 24 \* 60 \* 60 \* 1000[\s\S]*querySelectorAll\('#refCheckForm input, #refCheckForm textarea, #refCheckForm select'\)/,
+    message: 'Reference survey drafts must expire and must not include identity verification fields.',
+  },
+  {
+    id: 'reference-survey-draft-cleared-after-submit',
+    file: 'src/public/pages/reference-check/reference_check_intake.html',
+    pattern: /action: 'submitReferenceResponse'[\s\S]{0,900}if \(!data\.ok\)[\s\S]{0,900}clearReferenceDraft\(\);\s*showPanel\('completePanel'\)/,
+    message: 'Reference survey drafts must be cleared only after a successful submission response.',
+  },
 ];
 
 function walk(dir) {
