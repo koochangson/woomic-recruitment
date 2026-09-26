@@ -145,6 +145,18 @@ const requiredPatterns = [
     message: 'Weekly operations must invoke the bounded change-log archive handler.',
   },
   {
+    id: 'admin-weekly-trigger-install-is-idempotent',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function installWeeklyOpsTrigger\(\)[\s\S]{0,900}getHandlerFunction\(\) === WEEKLY_OPS_TRIGGER_HANDLER[\s\S]{0,900}onWeekDay\(ScriptApp\.WeekDay\.MONDAY\)[\s\S]{0,200}atHour\(8\)/,
+    message: 'Weekly trigger installation must reuse the handler and avoid duplicate Monday triggers.',
+  },
+  {
+    id: 'admin-manifest-allows-trigger-management',
+    file: 'config/appsscript.admin.json',
+    pattern: /https:\/\/www\.googleapis\.com\/auth\/script\.scriptapp/,
+    message: 'Admin manifest must request the ScriptApp scope before managing installable triggers.',
+  },
+  {
     id: 'public-change-cursor-is-monotonic',
     file: 'src/public/backend/Code.gs',
     pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,
