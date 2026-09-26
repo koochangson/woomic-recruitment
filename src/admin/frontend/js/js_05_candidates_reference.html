@@ -388,24 +388,45 @@ function editCandidate(id) {
 }
 
 // ── 면접 결과 입력 ────────────────────────────────────
-function openIntResult(intId) {
-  const itv = interviews.find(i=>i.id===intId);
-  if(!itv) return;
-  const score = prompt(
-    `[${itv.candName}] ${itv.type} 면접 결과 입력
+let editingInterviewResultId = null;
 
-` +
-    `종합 평가 (합격/불합격/보류): `,
-    itv.result || '합격'
-  );
-  if(score === null) return;
-  const note = prompt('면접 소견 (자유 기술):', itv.note || '');
-  if(note === null) return;
-  itv.result = score.trim();
-  itv.note   = note;
-  itv.evaluatedAt = today();
+function openIntResult(intId) {
+  const itv = interviews.find(i=>Number(i.id)===Number(intId));
+  if(!itv) return;
+  editingInterviewResultId = Number(intId);
+  document.getElementById('ir-title').textContent = `${itv.type} 면접 결과 입력`;
+  document.getElementById('ir-summary').textContent = `${itv.candName} · ${itv.date || '일정 미등록'} · ${itv.loc || '장소 미등록'}`;
+  document.getElementById('ir-result').value = itv.result === '불합격' ? '불합격' : '합격';
+  document.getElementById('ir-note').value = itv.note || '';
+  openModal('modal-interview-result');
+}
+
+async function saveIntResult() {
+  const itv = interviews.find(i=>Number(i.id)===Number(editingInterviewResultId));
+  if(!itv) {
+    toast('저장할 면접 정보를 찾지 못했습니다.', 'terr');
+    return;
+  }
+  const result = document.getElementById('ir-result')?.value || '';
+  const note = document.getElementById('ir-note')?.value.trim() || '';
+  if(!['합격','불합격'].includes(result)) {
+    toast('면접 결과를 선택하세요.', 'terr');
+    return;
+  }
+  itv.result = result;
+  itv.note = note;
+  itv.evaluatedAt = new Date().toISOString();
   saveState();
+  if(GS_CONFIG.scriptUrl) {
+    const sync = await settleSync([syncIntToGS(itv)], `${itv.type} 면접 결과 저장`);
+    if(sync.failed) return;
+  }
+  editingInterviewResultId = null;
+  closeModal('modal-interview-result');
   renderIntTable();
+  renderDashboard();
+  renderTracker();
+  renderPositions();
   toast(`${itv.candName} 면접 결과 저장 완료`, 'tok');
 }
 

@@ -1337,6 +1337,36 @@
   </div>
 </div>
 
+<!-- ── 개별 면접 결과 입력 모달 ─────────────────────────── -->
+<div class="overlay" id="modal-interview-result">
+  <div class="modal" style="width:520px">
+    <div class="modal-hd">
+      <div class="modal-title" id="ir-title">면접 결과 입력</div>
+      <button class="mclose" aria-label="닫기" data-action="close-modal" data-id="modal-interview-result"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="ir-summary" style="font-size:12px;color:var(--t2);padding:10px 12px;background:var(--s2);border-radius:var(--rsm);margin-bottom:14px"></div>
+      <div class="fgrid" style="gap:12px">
+        <div class="fg full">
+          <label for="ir-result">면접 결과</label>
+          <select id="ir-result">
+            <option value="합격">합격</option>
+            <option value="불합격">불합격</option>
+          </select>
+        </div>
+        <div class="fg full">
+          <label for="ir-note">면접 소견</label>
+          <textarea id="ir-note" rows="6" placeholder="면접 평가 근거와 주요 의견을 입력하세요."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-interview-result">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="saveIntResult()">결과 저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 포지션 지원자 판정 입력 모달 ─────────────────────── -->
 <div class="overlay" id="modal-position-result">
   <div class="modal" style="width:660px;max-height:90vh">

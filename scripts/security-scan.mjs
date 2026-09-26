@@ -181,6 +181,12 @@ const requiredPatterns = [
     message: 'Admin frontend builds must reject unregistered delegated calls.',
   },
   {
+    id: 'interview-results-use-explicit-options',
+    file: 'src/admin/frontend/js/js_05_candidates_reference.html',
+    pattern: /function saveIntResult\([\s\S]{0,900}!\['합격','불합격'\]\.includes\(result\)[\s\S]{0,500}syncIntToGS\(itv\)/,
+    message: 'Individual interview results must allow only pass/fail and synchronize the saved result.',
+  },
+  {
     id: 'referral-render-does-not-persist-derived-state',
     file: 'src/admin/frontend/js/js_04_referral.html',
     pattern: /function renderReferralSection\(\)\s*\{\s*recalculateReferralFlags\(\{transient:true\}\);/,
