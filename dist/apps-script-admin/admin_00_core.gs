@@ -34,6 +34,9 @@ const REFERRAL_CODE_LOCK_SECONDS = 10 * 60;
 const REFERRAL_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const REFERRAL_ALLOWED_EXTENSIONS = ['pdf','doc','docx','ppt','pptx','hwp','hwpx','zip'];
 const CHANGE_LOG_SHEET = '_Changes';
+const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
+const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
+const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
@@ -138,6 +141,7 @@ function routeRequest_(payload) {
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
   if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
   if (action === 'getChanges') return getChanges_(query);
+  if (action === 'archiveChanges') return json_(archiveOldChanges_());
   if (action === 'purgeCandidatePii') return purgeCandidatePii_(payload);
 
   assertKnownSheet_(sheetName);

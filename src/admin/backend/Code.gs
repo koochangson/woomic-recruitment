@@ -34,6 +34,9 @@ const REFERRAL_CODE_LOCK_SECONDS = 10 * 60;
 const REFERRAL_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const REFERRAL_ALLOWED_EXTENSIONS = ['pdf','doc','docx','ppt','pptx','hwp','hwpx','zip'];
 const CHANGE_LOG_SHEET = '_Changes';
+const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
+const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
+const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
@@ -138,6 +141,7 @@ function routeRequest_(payload) {
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
   if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
   if (action === 'getChanges') return getChanges_(query);
+  if (action === 'archiveChanges') return json_(archiveOldChanges_());
   if (action === 'purgeCandidatePii') return purgeCandidatePii_(payload);
 
   assertKnownSheet_(sheetName);
@@ -2250,6 +2254,68 @@ function ensureChangeLogSheet_() {
     if (changed) sheet.getRange(1, 1, 1, expected.length).setValues([current.slice(0, expected.length)]);
   }
   return sheet;
+}
+
+function ensureChangeArchiveSheet_() {
+  const ss = getMainSpreadsheet_();
+  let sheet = ss.getSheetByName(CHANGE_ARCHIVE_SHEET);
+  if (!sheet) sheet = ss.insertSheet(CHANGE_ARCHIVE_SHEET);
+  const headers = ['cursor','timestamp','sheet','action','id','actorEmail','result','data'];
+  if (sheet.getLastRow() < 1) {
+    sheet.appendRow(headers);
+  } else {
+    const current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0];
+    if (headers.some(function(header, index) { return String(current[index] || '').trim() !== header; })) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+  }
+  return sheet;
+}
+
+function archiveOldChanges_(retentionDays, maxRows) {
+  const days = Math.max(1, Number(retentionDays) || CHANGE_ARCHIVE_RETENTION_DAYS);
+  const limit = Math.max(1, Math.min(Number(maxRows) || CHANGE_ARCHIVE_BATCH_SIZE, CHANGE_ARCHIVE_BATCH_SIZE));
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const source = ensureChangeLogSheet_();
+    const available = source.getLastRow() - 1;
+    if (available <= 0) return { ok: true, archived: 0, remaining: 0 };
+
+    const scanCount = Math.min(available, limit);
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    const timestamps = source.getRange(2, 2, scanCount, 1).getValues();
+    let archiveCount = 0;
+    for (let i = 0; i < timestamps.length; i++) {
+      const timestamp = new Date(timestamps[i][0]).getTime();
+      if (!Number.isFinite(timestamp) || timestamp >= cutoff) break;
+      archiveCount += 1;
+    }
+    if (!archiveCount) return { ok: true, archived: 0, remaining: available };
+
+    const rows = source.getRange(2, 1, archiveCount, 8).getValues();
+    const archive = ensureChangeArchiveSheet_();
+    const lastArchivedCursor = archive.getLastRow() < 2
+      ? 0
+      : Number(archive.getRange(archive.getLastRow(), 1).getValue()) || 0;
+    const newRows = rows.filter(function(row) { return Number(row[0]) > lastArchivedCursor; });
+    if (newRows.length) {
+      archive.getRange(archive.getLastRow() + 1, 1, newRows.length, 8).setValues(newRows);
+    }
+    source.deleteRows(2, archiveCount);
+    return {
+      ok: true,
+      archived: archiveCount,
+      remaining: available - archiveCount,
+      cutoff: new Date(cutoff).toISOString()
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function archiveOldChanges() {
+  return archiveOldChanges_();
 }
 
 function getChangeCursor_() {

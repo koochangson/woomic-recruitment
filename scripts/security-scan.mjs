@@ -133,6 +133,12 @@ const requiredPatterns = [
     message: 'Admin change cursors must be property-backed and read by cursor value rather than row position.',
   },
   {
+    id: 'admin-change-log-archive-is-bounded',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /CHANGE_ARCHIVE_RETENTION_DAYS = 90[\s\S]*CHANGE_ARCHIVE_BATCH_SIZE = 1000[\s\S]*function archiveOldChanges_\([\s\S]{0,2600}source\.deleteRows\(2, archiveCount\)/,
+    message: 'Admin change-log archiving must use a retention cutoff and a bounded batch before deleting source rows.',
+  },
+  {
     id: 'public-change-cursor-is-monotonic',
     file: 'src/public/backend/Code.gs',
     pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,
