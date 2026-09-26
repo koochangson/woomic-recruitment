@@ -336,6 +336,18 @@ const requiredPatterns = [
     pattern: /action: 'submitReferenceResponse'[\s\S]{0,900}if \(!data\.ok\)[\s\S]{0,900}clearReferenceDraft\(\);\s*showPanel\('completePanel'\)/,
     message: 'Reference survey drafts must be cleared only after a successful submission response.',
   },
+  {
+    id: 'reference-survey-four-step-flow',
+    file: 'src/public/pages/reference-check/reference_check_intake.html',
+    pattern: /data-form-step="1"[\s\S]*data-form-step="2"[\s\S]*data-form-step="3"[\s\S]*data-form-step="4"[\s\S]*REFERENCE_FORM_STEP_COUNT = 4[\s\S]*validateReferenceFormStep\(referenceFormStep\)/,
+    message: 'Reference survey must retain its four-step flow and validate each step before advancing.',
+  },
+  {
+    id: 'reference-survey-restores-draft-step',
+    file: 'src/public/pages/reference-check/reference_check_intake.html',
+    pattern: /step: referenceFormStep[\s\S]*setReferenceFormStep\(Number\(draft\.step\) \|\| 1, \{ persist: false, scroll: false \}\)/,
+    message: 'Reference survey draft restoration must return respondents to their saved step.',
+  },
 ];
 
 function walk(dir) {

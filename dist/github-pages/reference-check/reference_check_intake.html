@@ -117,7 +117,16 @@
     .word-examples summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 700; }
     .word-examples p { margin: 8px 0 0; font-size: 13px; color: var(--muted); line-height: 1.6; }
 
+    .form-progress { margin: 0 0 18px; }
+    .form-progress ol { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .form-progress li { min-width: 0; padding: 9px 6px; border-top: 3px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; text-align: center; }
+    .form-progress li.is-active { border-color: var(--accent); color: var(--accent); }
+    .form-progress li.is-complete { border-color: #4f8b6d; color: #35694f; }
+    .form-step[hidden] { display: none; }
     .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+    .step-counter { align-self: center; margin-right: auto; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .btn.secondary { border-color: var(--line); background: #fff; color: var(--text); }
+    .btn.secondary:hover { background: #f3f5f8; }
     .draft-status { min-height: 20px; margin-top: 10px; text-align: right; color: var(--muted); font-size: 12px; }
     .btn {
       appearance: none; border: 1px solid var(--accent); border-radius: 9px;
@@ -187,6 +196,16 @@
       </div>
 
       <form id="refCheckForm" novalidate>
+        <nav class="form-progress" aria-label="설문 작성 단계">
+          <ol>
+            <li data-step-indicator="1" aria-current="step">1. 관계 확인</li>
+            <li data-step-indicator="2">2. 일하는 방식</li>
+            <li data-step-indicator="3">3. 협업·리더십</li>
+            <li data-step-indicator="4">4. 마무리</li>
+          </ol>
+        </nav>
+
+        <section class="form-step" data-form-step="1" aria-label="관계 확인">
 
         <!-- Q1 -->
         <div class="q-card">
@@ -239,6 +258,9 @@
 
           <p class="q-note">정확히 알기 어려운 부분은 그대로 적어 주세요.</p>
         </div>
+        </section>
+
+        <section class="form-step" data-form-step="2" aria-label="일하는 방식" hidden>
 
         <!-- Q2 -->
         <div class="q-card">
@@ -297,6 +319,9 @@
           <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 평가보다는 직접 보신 행동이나 말하는 방식을 1~2문장으로 적어 주세요.</p>
           <textarea id="q5_feedbackResponse" required></textarea>
         </div>
+        </section>
+
+        <section class="form-step" data-form-step="3" aria-label="협업과 리더십" hidden>
 
         <!-- Q6 -->
         <div class="q-card">
@@ -389,6 +414,9 @@
           <textarea id="q11_example" required></textarea>
           <p class="q-note">어떤 일이 막혀 있었는지, 어떻게 개입했고 이후 어떻게 마무리됐는지 중심으로 적어 주세요.</p>
         </div>
+        </section>
+
+        <section class="form-step" data-form-step="4" aria-label="마무리" hidden>
 
         <!-- Q12 -->
         <div class="q-card">
@@ -422,10 +450,14 @@
             <label class="opt-row"><input type="checkbox" id="respondentConsentDataUse" required>본 설문이 채용 목적의 제한된 내부자료로 관리되며, 법령에 따른 열람 요청 시 개인정보 담당부서의 절차에 따라 처리될 수 있음을 안내받았습니다.</label>
           </div>
         </div>
+        </section>
 
         <div class="draft-status" id="draftStatus" aria-live="polite"></div>
         <div class="actions">
-          <button type="submit" class="btn" id="submitBtn">설문 제출</button>
+          <span class="step-counter" id="stepCounter">1 / 4</span>
+          <button type="button" class="btn secondary" id="prevStepBtn" hidden>이전</button>
+          <button type="button" class="btn" id="nextStepBtn">다음</button>
+          <button type="submit" class="btn" id="submitBtn" hidden>설문 제출</button>
         </div>
       </form>
     </div>
@@ -478,6 +510,8 @@
     const REFERENCE_DRAFT_VERSION = 1;
     const REFERENCE_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
     let referenceDraftSaveTimer = null;
+    let referenceFormStep = 1;
+    const REFERENCE_FORM_STEP_COUNT = 4;
 
     function referenceDraftHash(value) {
       let hash = 2166136261;
@@ -526,6 +560,7 @@
         version: REFERENCE_DRAFT_VERSION,
         savedAt: Date.now(),
         expiresAt: Date.now() + REFERENCE_DRAFT_TTL_MS,
+        step: referenceFormStep,
         values,
         radios,
         checks
@@ -591,7 +626,57 @@
         if (field && field.closest('#refCheckForm')) field.checked = !!checked;
       });
       updateOtherInputs();
+      setReferenceFormStep(Number(draft.step) || 1, { persist: false, scroll: false });
       setDraftStatus('이 브라우저에 임시 저장된 작성 내용을 불러왔습니다.');
+    }
+
+    function setReferenceFormStep(step, options = {}) {
+      referenceFormStep = Math.max(1, Math.min(REFERENCE_FORM_STEP_COUNT, Number(step) || 1));
+      document.querySelectorAll('[data-form-step]').forEach(section => {
+        section.hidden = Number(section.dataset.formStep) !== referenceFormStep;
+      });
+      document.querySelectorAll('[data-step-indicator]').forEach(indicator => {
+        const indicatorStep = Number(indicator.dataset.stepIndicator);
+        indicator.classList.toggle('is-active', indicatorStep === referenceFormStep);
+        indicator.classList.toggle('is-complete', indicatorStep < referenceFormStep);
+        if (indicatorStep === referenceFormStep) indicator.setAttribute('aria-current', 'step');
+        else indicator.removeAttribute('aria-current');
+      });
+      document.getElementById('stepCounter').textContent = `${referenceFormStep} / ${REFERENCE_FORM_STEP_COUNT}`;
+      document.getElementById('prevStepBtn').hidden = referenceFormStep === 1;
+      document.getElementById('nextStepBtn').hidden = referenceFormStep === REFERENCE_FORM_STEP_COUNT;
+      document.getElementById('submitBtn').hidden = referenceFormStep !== REFERENCE_FORM_STEP_COUNT;
+      if (options.persist !== false) saveReferenceDraft();
+      if (options.scroll !== false) {
+        document.querySelector('.form-progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function validateReferenceFormStep(step) {
+      const section = document.querySelector(`[data-form-step="${step}"]`);
+      if (!section) return false;
+      const invalidField = Array.from(section.querySelectorAll('[required]')).find(field => !field.checkValidity());
+      if (invalidField) {
+        const target = invalidField.type === 'radio'
+          ? invalidField.closest('[data-radio-group]')
+          : invalidField;
+        const message = invalidField.type === 'checkbox'
+          ? '필수 확인 항목에 동의해 주세요.'
+          : invalidField.type === 'radio'
+            ? '필수 선택 항목을 확인해 주세요.'
+            : '필수 항목을 입력해 주세요.';
+        showRequiredAlert(target, message);
+        return false;
+      }
+      const selectedOther = section.querySelector('[data-other-toggle]:checked');
+      if (selectedOther) {
+        const otherInput = document.getElementById(selectedOther.dataset.otherToggle);
+        if (otherInput && !clean(otherInput.value)) {
+          showRequiredAlert(otherInput, '기타 내용을 입력해 주세요.');
+          return false;
+        }
+      }
+      return true;
     }
 
     async function verifyTokenAndInit() {
@@ -702,6 +787,14 @@
     const refCheckForm = document.getElementById('refCheckForm');
     refCheckForm.addEventListener('input', scheduleReferenceDraftSave);
     refCheckForm.addEventListener('change', scheduleReferenceDraftSave);
+    document.getElementById('prevStepBtn').addEventListener('click', () => {
+      setReferenceFormStep(referenceFormStep - 1);
+    });
+    document.getElementById('nextStepBtn').addEventListener('click', () => {
+      if (!validateReferenceFormStep(referenceFormStep)) return;
+      setReferenceFormStep(referenceFormStep + 1);
+    });
+    setReferenceFormStep(1, { persist: false, scroll: false });
 
     const contactPhoneEl = document.getElementById('respondentContact');
     if (contactPhoneEl) {
@@ -749,6 +842,8 @@
     }
 
     function showRequiredAlert(el, message) {
+      const section = el && el.closest ? el.closest('[data-form-step]') : null;
+      if (section) setReferenceFormStep(Number(section.dataset.formStep), { persist: false, scroll: false });
       alert(message);
       if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       if (el && el.focus) el.focus();
