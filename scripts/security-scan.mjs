@@ -139,6 +139,12 @@ const requiredPatterns = [
     message: 'Admin change-log archiving must use a retention cutoff and a bounded batch before deleting source rows.',
   },
   {
+    id: 'admin-weekly-ops-archives-change-log',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function weeklyOps\(\)\s*\{\s*const archiveResult = archiveOldChanges_\(\);[\s\S]{0,240}changeArchive: archiveResult/,
+    message: 'Weekly operations must invoke the bounded change-log archive handler.',
+  },
+  {
     id: 'public-change-cursor-is-monotonic',
     file: 'src/public/backend/Code.gs',
     pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,

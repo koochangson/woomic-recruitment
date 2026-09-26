@@ -2318,6 +2318,12 @@ function archiveOldChanges() {
   return archiveOldChanges_();
 }
 
+function weeklyOps() {
+  const archiveResult = archiveOldChanges_();
+  console.log('weeklyOps: ' + JSON.stringify({ changeArchive: archiveResult }));
+  return { ok: true, changeArchive: archiveResult };
+}
+
 function getChangeCursor_() {
   return getStoredChangeCursor_(ensureChangeLogSheet_());
 }
