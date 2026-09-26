@@ -37,7 +37,6 @@ const CHANGE_LOG_SHEET = '_Changes';
 const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
 const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
 const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
-const WEEKLY_OPS_TRIGGER_HANDLER = 'weeklyOps';
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];

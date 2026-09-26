@@ -215,22 +215,6 @@ function weeklyOps() {
   return { ok: true, changeArchive: archiveResult };
 }
 
-function installWeeklyOpsTrigger() {
-  const matching = ScriptApp.getProjectTriggers().filter(function(trigger) {
-    return trigger.getHandlerFunction() === WEEKLY_OPS_TRIGGER_HANDLER;
-  });
-  if (matching.length) {
-    matching.slice(1).forEach(function(trigger) { ScriptApp.deleteTrigger(trigger); });
-    return { ok: true, created: false, removedDuplicates: Math.max(0, matching.length - 1) };
-  }
-  ScriptApp.newTrigger(WEEKLY_OPS_TRIGGER_HANDLER)
-    .timeBased()
-    .onWeekDay(ScriptApp.WeekDay.MONDAY)
-    .atHour(8)
-    .create();
-  return { ok: true, created: true, removedDuplicates: 0 };
-}
-
 function getChangeCursor_() {
   return getStoredChangeCursor_(ensureChangeLogSheet_());
 }

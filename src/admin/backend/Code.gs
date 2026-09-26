@@ -37,7 +37,6 @@ const CHANGE_LOG_SHEET = '_Changes';
 const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
 const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
 const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
-const WEEKLY_OPS_TRIGGER_HANDLER = 'weeklyOps';
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
@@ -2323,22 +2322,6 @@ function weeklyOps() {
   const archiveResult = archiveOldChanges_();
   console.log('weeklyOps: ' + JSON.stringify({ changeArchive: archiveResult }));
   return { ok: true, changeArchive: archiveResult };
-}
-
-function installWeeklyOpsTrigger() {
-  const matching = ScriptApp.getProjectTriggers().filter(function(trigger) {
-    return trigger.getHandlerFunction() === WEEKLY_OPS_TRIGGER_HANDLER;
-  });
-  if (matching.length) {
-    matching.slice(1).forEach(function(trigger) { ScriptApp.deleteTrigger(trigger); });
-    return { ok: true, created: false, removedDuplicates: Math.max(0, matching.length - 1) };
-  }
-  ScriptApp.newTrigger(WEEKLY_OPS_TRIGGER_HANDLER)
-    .timeBased()
-    .onWeekDay(ScriptApp.WeekDay.MONDAY)
-    .atHour(8)
-    .create();
-  return { ok: true, created: true, removedDuplicates: 0 };
 }
 
 function getChangeCursor_() {
