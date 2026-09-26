@@ -106,13 +106,51 @@ function openModal(id) {
     else { el.setAttribute('tabindex','-1'); el.focus(); }
   }, 30);
 }
+
+let actionConfirmResolver_ = null;
+
+function confirmActionModal(options={}) {
+  const title = document.getElementById('action-confirm-title');
+  const message = document.getElementById('action-confirm-message');
+  const itemsBox = document.getElementById('action-confirm-items');
+  const submit = document.getElementById('action-confirm-submit');
+  if(!title || !message || !itemsBox || !submit) return Promise.resolve(false);
+  if(actionConfirmResolver_) finishActionConfirm(false);
+
+  title.textContent = String(options.title || '작업 확인');
+  message.textContent = String(options.message || '이 작업을 계속하시겠습니까?');
+  submit.textContent = String(options.confirmLabel || '확인');
+  itemsBox.replaceChildren();
+  const items = Array.isArray(options.items) ? options.items : [];
+  items.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.textContent = `${index + 1}. ${String(item || '')}`;
+    row.style.cssText = 'padding:9px 11px;border-bottom:1px solid var(--line);font-size:13px;color:var(--t2)';
+    itemsBox.appendChild(row);
+  });
+  if(itemsBox.lastElementChild) itemsBox.lastElementChild.style.borderBottom = '0';
+  itemsBox.style.display = items.length ? 'block' : 'none';
+  openModal('modal-action-confirm');
+  return new Promise(resolve => { actionConfirmResolver_ = resolve; });
+}
+
+function finishActionConfirm(confirmed) {
+  const resolve = actionConfirmResolver_;
+  actionConfirmResolver_ = null;
+  closeModal('modal-action-confirm');
+  if(resolve) resolve(!!confirmed);
+}
+
 function closeModal(id) {
   const el = document.getElementById(id);
   if(!el) return;
+  const cancelledResolver = id === 'modal-action-confirm' ? actionConfirmResolver_ : null;
+  if(cancelledResolver) actionConfirmResolver_ = null;
   el.style.display = 'none';
   el.classList.remove('open');
   if(!document.querySelector('.overlay.open')) document.querySelectorAll('.sb,.main').forEach(x => { x.inert = false; });
   if(el._prevFocus && el._prevFocus.focus){ try{ el._prevFocus.focus(); }catch(e){} el._prevFocus=null; } // 포커스 복귀
+  if(cancelledResolver) cancelledResolver(false);
 }
 
 // 신규 지원자 등록 모달 열기 (포지션 드롭다운 자동 채움)

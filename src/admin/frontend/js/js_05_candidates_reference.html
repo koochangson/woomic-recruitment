@@ -1416,7 +1416,13 @@ async function sendRefRequest(id){
 async function startAllEligible(){
   const el=candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=2&&c.stage<=5&&c.ref==='미시작');
   if(!el.length){alert('일괄 시작할 대상이 없습니다.');return;}
-  if(!confirm(`레퍼런스 대상 미시작 ${el.length}명에게 일괄 발송하시겠습니까?`))return;
+  const confirmed = await confirmActionModal({
+    title:'레퍼런스 안내 일괄 발송',
+    message:`아래 ${el.length}명에게 추천인 등록 안내 메일을 순차 발송합니다. 수신 대상을 확인해 주세요.`,
+    confirmLabel:`${el.length}명에게 발송`,
+    items:el.map(c=>`${c.name} — ${c.email||'이메일 미등록'}`)
+  });
+  if(!confirmed)return;
   let idx=0;
   for(const c of el){
     const sent = await startRef(c.id, false);

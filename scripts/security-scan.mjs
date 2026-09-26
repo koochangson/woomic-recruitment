@@ -217,6 +217,18 @@ const requiredPatterns = [
     message: 'Individual interview results must allow only pass/fail and synchronize the saved result.',
   },
   {
+    id: 'action-confirm-list-uses-text-content',
+    file: 'src/admin/frontend/js/js_03_ui_dashboard.html',
+    pattern: /function confirmActionModal\([\s\S]{0,900}itemsBox\.replaceChildren\(\)[\s\S]{0,500}row\.textContent[\s\S]{0,700}return new Promise/,
+    message: 'Reusable action confirmations must render item labels through DOM text content.',
+  },
+  {
+    id: 'reference-bulk-send-confirms-recipients',
+    file: 'src/admin/frontend/js/js_05_candidates_reference.html',
+    pattern: /async function startAllEligible\(\)[\s\S]{0,500}await confirmActionModal\([\s\S]{0,500}items:el\.map/,
+    message: 'Bulk reference mail sends must show the recipient list before dispatch.',
+  },
+  {
     id: 'referral-render-does-not-persist-derived-state',
     file: 'src/admin/frontend/js/js_04_referral.html',
     pattern: /function renderReferralSection\(\)\s*\{\s*recalculateReferralFlags\(\{transient:true\}\);/,
