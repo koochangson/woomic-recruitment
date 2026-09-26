@@ -24,4 +24,6 @@ Only when the manifest policy itself must change, opt in explicitly:
 node tools/deploy_admin_clasp.js --sync-manifest
 ```
 
+The admin web app uses `USER_DEPLOYING` / `ANYONE_ANONYMOUS` so the application login page opens without a specific Google account. Administrator data remains protected by `RECRUITMENT_LOCAL_ADMIN_USERS`, the application session, and `RECRUITMENT_ADMIN_TOKEN`.
+
 `clasp push` updates the Apps Script project source. It does not change the production web-app deployment version. After testing, edit the existing deployment and select a new version to preserve the `/exec` URL.

@@ -19,7 +19,6 @@
 
 const REFERRAL_UPLOAD_FOLDER_ID_PROPERTY = 'REFERRAL_UPLOAD_FOLDER_ID';
 const ADMIN_TOKEN_PROPERTY = 'RECRUITMENT_ADMIN_TOKEN';
-const ADMIN_ALLOWLIST_PROPERTY = 'RECRUITMENT_ADMIN_ALLOWLIST';
 const LOCAL_ADMIN_USERS_PROPERTY = 'RECRUITMENT_LOCAL_ADMIN_USERS';
 const ADMIN_SESSION_SECONDS_PROPERTY = 'RECRUITMENT_ADMIN_SESSION_SECONDS';
 const DEPLOYMENT_ROLE_PROPERTY = 'RECRUITMENT_DEPLOYMENT_ROLE';
@@ -2495,9 +2494,7 @@ function nowIso_() {
 function isAdminRequest_(payload) {
   const token = String(payload.adminToken || payload.query && payload.query.adminToken || payload.data && payload.data.adminToken || '').trim();
   const configuredToken = getScriptProperty_(ADMIN_TOKEN_PROPERTY);
-  if (configuredToken && token === configuredToken) return true;
-  const email = getActiveUserEmail_();
-  return !!email && getAdminAllowlist_().includes(email);
+  return !!configuredToken && token === configuredToken;
 }
 
 function isPublicDeployment_() {
@@ -2510,7 +2507,6 @@ function getScriptProperty_(key) {
 
 function getDeploymentConfigStatus_() {
   const role = getScriptProperty_(DEPLOYMENT_ROLE_PROPERTY).toLowerCase();
-  const allowlistConfigured = getAdminAllowlist_().length > 0;
   const localUsersConfigured = Object.keys(getLocalAdminUsers_()).length > 0;
   const adminTokenConfigured = !!getScriptProperty_(ADMIN_TOKEN_PROPERTY);
   const uploadFolderConfigured = !!getScriptProperty_(REFERRAL_UPLOAD_FOLDER_ID_PROPERTY);
@@ -2519,9 +2515,8 @@ function getDeploymentConfigStatus_() {
   const warnings = [];
 
   if (role === 'public') errors.push('관리자 프로젝트의 배포 역할이 public으로 설정되어 있습니다.');
-  if (!allowlistConfigured && !localUsersConfigured && !adminTokenConfigured) {
-    errors.push('관리자 인증 수단이 설정되어 있지 않습니다.');
-  }
+  if (!localUsersConfigured) errors.push('앱 내부 관리자 계정이 설정되어 있지 않습니다.');
+  if (!adminTokenConfigured) errors.push('관리자 내부 API 토큰이 설정되어 있지 않습니다.');
   if (!role) warnings.push('RECRUITMENT_DEPLOYMENT_ROLE이 비어 있습니다. admin 설정을 권장합니다.');
   else if (role !== 'admin' && role !== 'public') warnings.push('RECRUITMENT_DEPLOYMENT_ROLE 값이 올바르지 않습니다.');
   if (!uploadFolderConfigured) warnings.push('REFERRAL_UPLOAD_FOLDER_ID가 없어 이력서 업로드가 실패할 수 있습니다.');
@@ -2533,7 +2528,7 @@ function getDeploymentConfigStatus_() {
     warnings: warnings,
     checks: {
       roleConfigured: role === 'admin',
-      adminAuthConfigured: allowlistConfigured || localUsersConfigured || adminTokenConfigured,
+      adminAuthConfigured: localUsersConfigured && adminTokenConfigured,
       uploadFolderConfigured: uploadFolderConfigured,
       mainSpreadsheetConfigured: mainSpreadsheetConfigured
     }
@@ -2550,18 +2545,6 @@ function getActiveUserEmail_() {
   } catch (err) {
     return '';
   }
-}
-
-function getAdminAllowlist_() {
-  return getScriptProperty_(ADMIN_ALLOWLIST_PROPERTY)
-    .split(/[,\n;]/)
-    .map(email => String(email || '').trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function isGoogleAllowlistedAdmin_() {
-  const email = getActiveUserEmail_();
-  return !!email && getAdminAllowlist_().includes(email);
 }
 
 function compactReferralStatus_(status) {
@@ -2746,7 +2729,7 @@ function adminApi(payload) {
     if (payload.action === 'adminLogout') return adminLogout_(payload);
 
     const hasSession = hasValidAdminSession_(getAdminSessionTokenFromPayload_(payload));
-    if (!hasSession && !isGoogleAllowlistedAdmin_()) {
+    if (!hasSession) {
       return { error: 'admin_login_required' };
     }
 

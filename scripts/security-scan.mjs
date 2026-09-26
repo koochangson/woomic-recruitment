@@ -151,6 +151,12 @@ const requiredPatterns = [
     message: 'Admin deployment diagnostics must return configuration booleans and messages rather than property values.',
   },
   {
+    id: 'anonymous-admin-requires-local-session',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function isAdminRequest_\([\s\S]{0,500}return !!configuredToken && token === configuredToken[\s\S]*function adminApi\([\s\S]{0,500}if \(!hasSession\)/,
+    message: 'Anonymous admin entry must require an application login session and must not fall back to Google identity.',
+  },
+  {
     id: 'dashboard-checks-deployment-config-on-start',
     file: 'src/admin/frontend/js/js_99_app.html',
     pattern: /startGsChangePolling_\(\);[\s\S]{0,120}checkAdminDeploymentConfig_\(\);/,

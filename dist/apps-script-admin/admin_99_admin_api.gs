@@ -5,7 +5,7 @@ function adminApi(payload) {
     if (payload.action === 'adminLogout') return adminLogout_(payload);
 
     const hasSession = hasValidAdminSession_(getAdminSessionTokenFromPayload_(payload));
-    if (!hasSession && !isGoogleAllowlistedAdmin_()) {
+    if (!hasSession) {
       return { error: 'admin_login_required' };
     }
 

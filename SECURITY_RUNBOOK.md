@@ -39,8 +39,8 @@
 관리자:
 
 - `RECRUITMENT_DEPLOYMENT_ROLE=admin`
-- DOMAIN 접근 제한
-- `RECRUITMENT_ADMIN_ALLOWLIST` 적용
+- Google 로그인 없이 진입 가능하되 앱 내부 관리자 세션 필수
+- `RECRUITMENT_LOCAL_ADMIN_USERS`와 `RECRUITMENT_ADMIN_TOKEN` 필수
 - `OPENAI_API_KEY`는 Script Properties에만 저장
 
 직원 DB:

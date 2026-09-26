@@ -8,16 +8,16 @@ const checks = [
     message: 'Public template must allow anonymous access for referral intake.',
   },
   {
-    id: 'admin-template-domain',
+    id: 'admin-template-anonymous-entry',
     file: 'config/appsscript.admin.json',
-    pattern: /"access"\s*:\s*"DOMAIN"/,
-    message: 'Admin template must use DOMAIN access.',
+    pattern: /"access"\s*:\s*"ANYONE_ANONYMOUS"/,
+    message: 'Admin template must allow the application login page without Google sign-in.',
   },
   {
-    id: 'admin-template-user-accessing',
+    id: 'admin-template-user-deploying',
     file: 'config/appsscript.admin.json',
-    pattern: /"executeAs"\s*:\s*"USER_ACCESSING"/,
-    message: 'Admin template must execute as the accessing user.',
+    pattern: /"executeAs"\s*:\s*"USER_DEPLOYING"/,
+    message: 'Admin template must execute as the deploying user.',
   },
   {
     id: 'deployment-steps-exist',

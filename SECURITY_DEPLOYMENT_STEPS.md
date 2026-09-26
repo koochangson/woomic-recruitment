@@ -55,15 +55,18 @@ Script Properties:
 - `RECRUITMENT_DEPLOYMENT_ROLE`: `admin`
 - `REFERRAL_UPLOAD_FOLDER_ID`: 사내추천 이력서를 저장할 비공개 Google Drive 폴더 ID
 - `RECRUITMENT_ADMIN_TOKEN`: 새 관리자 토큰
-- `RECRUITMENT_ADMIN_ALLOWLIST`: 허용 이메일 목록, 쉼표 또는 줄바꿈 구분
+- `RECRUITMENT_LOCAL_ADMIN_USERS`: `아이디:SHA-256해시` 형식의 앱 내부 관리자 계정
+- `RECRUITMENT_ADMIN_SESSION_SECONDS`: 선택값, 최대 6시간
 - `OPENAI_API_KEY`: 레퍼런스 AI 요약용 OpenAI API 키
 - `INTERVIEWER_DB_LOOKUP_TOKEN`: 직원 DB와 같은 단건 조회 토큰
 - `INTERVIEWER_DB_ADMIN_TOKEN`: 전체 직원 DB 동기화가 필요한 경우에만 설정
 
 배포 설정:
 
-- access: `DOMAIN`
-- executeAs: `USER_ACCESSING`
+- access: `ANYONE_ANONYMOUS`
+- executeAs: `USER_DEPLOYING`
+
+Google 로그인 없이 관리자 로그인 화면까지 접근할 수 있지만, 모든 관리자 데이터 API는 앱 내부 로그인 세션이 있어야 실행됩니다. `RECRUITMENT_LOCAL_ADMIN_USERS`와 `RECRUITMENT_ADMIN_TOKEN`이 모두 설정되지 않으면 운영 배포하지 않습니다.
 
 배포 후 `recruitment_dashboard_v4.html`의 관리자용 Google Sheets URL을 관리자 배포 URL로 교체합니다.
 관리자 URL은 공개 저장소에 하드코딩하지 않고 설정 탭 또는 사내 전용 배포 설정으로 주입합니다.

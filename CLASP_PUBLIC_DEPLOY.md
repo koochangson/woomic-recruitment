@@ -35,15 +35,17 @@ preserve the `/exec` URL.
 
 | Setting | Admin project | Public project |
 |---|---|---|
-| Execute as | 접속 사용자(USER_ACCESSING) | 나(USER_DEPLOYING) |
-| Who has access | 도메인 내 모든 사용자(DOMAIN) | 모든 사용자(익명 포함, ANYONE_ANONYMOUS) |
+| Execute as | 나(USER_DEPLOYING) | 나(USER_DEPLOYING) |
+| Who has access | 모든 사용자(익명 포함, ANYONE_ANONYMOUS) | 모든 사용자(익명 포함, ANYONE_ANONYMOUS) |
+
+관리자 프로젝트는 Google 로그인 대신 자체 관리자 로그인 세션으로 데이터를 보호합니다. 공개 프로젝트는 접수·응답별 토큰 검증으로 보호하므로 두 프로젝트의 동일한 웹 앱 접근 설정이 인증 방식까지 같다는 뜻은 아닙니다.
 
 The public project must allow anonymous access — candidates and referees
 filling out the GitHub Pages forms don't have company Google accounts, so
 the deployment relies on this Apps Script setting plus its own token-based
 checks, not Google sign-in. If the public `/exec` URL stops responding for
 anonymous visitors right after a clasp push, check the pushed
-`appsscript.json` — if it shows `USER_ACCESSING`/`DOMAIN`, the admin bundle
-was pushed to the public project by mistake. Re-run
+`appsscript.json` — if it shows `USER_ACCESSING`/`DOMAIN`, an old restricted
+manifest was pushed. Re-run
 `node tools/deploy_public_clasp.js` with the correct `--target`, then edit
 the existing deployment in the Apps Script editor and deploy a new version.
