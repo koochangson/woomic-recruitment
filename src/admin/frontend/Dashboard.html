@@ -14,13 +14,21 @@
 <body>
 <div id="admin-login" class="admin-login-backdrop" aria-hidden="true">
   <form id="admin-login-form" class="admin-login-box">
-    <div class="admin-login-title">관리자 로그인</div>
-    <div class="admin-login-sub">등록된 관리자 사번 또는 관리자 ID와 비밀번호를 입력하세요.</div>
-    <label for="admin-login-user">사번 / 관리자 ID</label>
-    <input id="admin-login-user" autocomplete="username" placeholder="사번 또는 관리자 ID" maxlength="20" required>
-    <label for="admin-login-password">비밀번호</label>
-    <input id="admin-login-password" type="password" autocomplete="current-password" required>
-    <button id="admin-login-submit" type="submit">로그인</button>
+    <div class="admin-login-title">채용관리 로그인</div>
+    <div class="admin-login-sub" id="admin-login-sub">사번을 먼저 입력하세요. 기존 관리자 계정은 admin을 사용할 수 있습니다.</div>
+    <div id="admin-login-id-step">
+      <label for="admin-login-user">사번</label>
+      <input id="admin-login-user" autocomplete="username" placeholder="사번" maxlength="20" required>
+    </div>
+    <div id="admin-login-password-step" hidden>
+      <div class="admin-login-id-summary">
+        <span id="admin-login-selected-id"></span>
+        <button id="admin-login-change-id" class="admin-login-id-change" type="button">변경</button>
+      </div>
+      <label for="admin-login-password">비밀번호</label>
+      <input id="admin-login-password" type="password" autocomplete="current-password" disabled required>
+    </div>
+    <button id="admin-login-submit" type="submit">다음</button>
     <div id="admin-login-msg" class="admin-login-msg"></div>
   </form>
 </div>
@@ -373,7 +381,11 @@
               <div style="font-size:11px;color:var(--t3);margin-bottom:3px" id="ref-ai-label">분석 중...</div>
               <div class="prog"><div class="pf-bar pfb" id="ref-ai-bar" style="width:0%"></div></div>
             </div>
-            <div id="ref-ai-output" style="display:none"><div id="ref-ai-text"></div></div>
+            <div id="ref-ai-output" style="display:none">
+              <div id="ref-ai-text" style="white-space:pre-wrap;font-size:12px;line-height:1.6;background:var(--s2);border-radius:var(--rsm);padding:10px;margin-bottom:8px;max-height:280px;overflow-y:auto"></div>
+              <div class="field-hint" style="margin-bottom:8px">AI 요약은 참고용입니다. 내용을 확인한 뒤 "결과표에 반영"을 눌러야 정리표에 옮겨집니다.</div>
+              <button class="btn btn-sm" data-action="call" data-call="applyAIToRefReport()" style="margin-bottom:10px">결과표에 반영</button>
+            </div>
             <button class="btn btn-primary btn-sm" data-action="call" data-call="generateAI()">AI 요약 생성</button>
           </div>
         </div>
@@ -1219,7 +1231,8 @@
       </div>
       <div class="fg" id="fg-team" style="display:none;grid-column:1/-1">
         <label>팀 *</label>
-        <select id="pos-team"><option value="">팀 선택</option></select>
+        <input id="pos-team" list="pos-team-options" placeholder="팀명 검색 또는 선택" autocomplete="off"/>
+        <datalist id="pos-team-options"></datalist>
       </div>
       <div class="fg" id="fg-jobtype" style="display:none;grid-column:1/-1">
         <label>직종 *</label>

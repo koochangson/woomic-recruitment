@@ -58,7 +58,8 @@ const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
   issueReferenceCandidateLink: true,
   issueInterviewAvailabilityLink: true,
   issuePanelAvailabilityLink: true,
-  getPanelAvailabilityResponses: true
+  getPanelAvailabilityResponses: true,
+  generateReferenceSummary: true
 });
 
 const SHEET_SCHEMAS = {

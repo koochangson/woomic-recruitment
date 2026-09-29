@@ -1843,7 +1843,7 @@ function generateReferenceSummary_(data) {
     },
     payload: JSON.stringify({
       model: 'gpt-4o-mini',
-      max_tokens: 1400,
+      max_tokens: 3000,
       messages: [
         { role: 'system', content: '당신은 건설회사 피플팀 채용 담당자를 돕는 전문 어시스턴트입니다.' },
         { role: 'user', content: prompt }
@@ -1860,7 +1860,9 @@ function generateReferenceSummary_(data) {
   if (res.getResponseCode() < 200 || res.getResponseCode() >= 300) {
     return json_({ error: parsed.error && parsed.error.message || 'openai_request_failed' });
   }
-  return json_({ ok: true, text: parsed.choices && parsed.choices[0] && parsed.choices[0].message && parsed.choices[0].message.content || '' });
+  const choice = parsed.choices && parsed.choices[0];
+  const content = choice && choice.message && choice.message.content || '';
+  return json_({ ok: true, text: content, truncated: choice && choice.finish_reason === 'length' });
 }
 
 function parseRefItems_(value) {
