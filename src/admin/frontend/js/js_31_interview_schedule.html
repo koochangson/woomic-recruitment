@@ -400,18 +400,20 @@ async function sendPanelAvailabilityRequest() {
   let sentCount = 0;
   const failed = [];
   for(const panelist of pendingPanelists) {
+    const iv = interviewers.find(x => x.email === panelist.email);
+    const panelistDisplayName = iv && iv.rank ? `${iv.name} ${iv.rank}` : panelist.name;
     const issued = await gsFetch('issuePanelAvailabilityLink', '', {
       positionId: pos.id,
       positionTitle: pos.title,
       round,
-      panelistName: panelist.name || '면접관',
+      panelistName: panelistDisplayName || '면접관',
       panelistEmail: panelist.email,
       options,
       expiresAt
     }, { allowQueue:false });
-    if(!issued?.ok || !issued.link) { failed.push(panelist.name || panelist.email); continue; }
+    if(!issued?.ok || !issued.link) { failed.push(panelistDisplayName || panelist.email); continue; }
     const body = [
-      `안녕하세요 ${panelist.name || '면접위원'}님,`, '',
+      `안녕하세요 ${panelistDisplayName || '면접위원'}님,`, '',
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
       '아래 후보 일정을 확인하시고 링크에서 참석 가능한 날짜와 오전·오후를 모두 선택해 주세요.', '',
       optionText, '',
@@ -428,11 +430,11 @@ async function sendPanelAvailabilityRequest() {
       optionText, '',
       `응답 마감: ${deadline}`
     ].join('\n');
-    const sent = await sendGeneralEmailViaGmail(panelist.email, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, panelist.name || pos.title, {
-      templateType:'general_notice', candidateName:panelist.name || '면접위원', positionText:pos.title,
+    const sent = await sendGeneralEmailViaGmail(panelist.email, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, panelistDisplayName || pos.title, {
+      templateType:'general_notice', candidateName:panelistDisplayName || '면접위원', positionText:pos.title,
       headerTitle:`${round} 면접 가능 일정 확인`, noticeBody, actionLink:issued.link, actionLabel:'면접 가능 일정 선택'
     });
-    if(sent) sentCount++; else failed.push(panelist.name || panelist.email);
+    if(sent) sentCount++; else failed.push(panelistDisplayName || panelist.email);
   }
   if(!sentCount && failed.length) { toast(`면접관 확인 메일을 발송하지 못했습니다: ${failed.join(', ')}`, 'terr'); return; }
   pos[keys.options] = options;
