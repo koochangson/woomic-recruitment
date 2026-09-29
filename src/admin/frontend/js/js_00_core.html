@@ -100,26 +100,27 @@ function routeMailSubject(cand, directSubject) {
 function wrapHeadhunterBody(cand, purpose, directBody) {
   if(!isHeadhuntingCandidate(cand)) return directBody;
   const target = getCandidateMailTarget(cand);
+  const usesSystemResponse = /후보일정|가능 일정/.test(String(purpose || ''));
   return `안녕하세요, ${target.recipientName}님.
 
 우미건설 ${cand.pos || ''} 포지션 헤드헌팅 후보자 ${cand.name}님의 ${purpose} 관련 안내드립니다.
-아래 내용을 후보자분께 전달하시고, 일정 확인 및 회신은 담당 컨설턴트님을 통해 진행 부탁드립니다.
+아래 내용을 후보자분께 전달하시고, ${usesSystemResponse ? '후보자에게 참석 가능 여부를 확인한 뒤 안내된 링크에서 대신 입력해 주세요.' : '일정 확인 및 회신은 담당 컨설턴트님을 통해 진행 부탁드립니다.'}
 
 ----- 후보자 전달 내용 -----
 ${String(directBody || '').replace(new RegExp(`안녕하세요\\\\s*${cand.name}님,?\\\\n*`, 'g'), '').trim()}
 
 ----------------------------
 
-회신 시 후보자명과 포지션명을 함께 기재해 주세요.
+${usesSystemResponse ? '링크에서 제출한 내용은 헤드헌터 대리 회신으로 기록됩니다.' : '회신 시 후보자명과 포지션명을 함께 기재해 주세요.'}
 
 우미건설 피플팀 드림`;
 }
 
 // 헤드헌팅 경유 여부에 따라 대행사 전달 메일 또는 지원자 직접 메일로 분기해 발송한다.
 // (발송 지점마다 isHeadhuntingCandidate 분기가 중복되던 것을 한곳에 모음)
-async function dispatchCandidateMail_(cand, { subject, purpose, directBody, logType, sendDirect }) {
+async function dispatchCandidateMail_(cand, { subject, purpose, directBody, logType, sendDirect, headhunterTemplateData }) {
   if (isHeadhuntingCandidate(cand)) {
-    return await sendHeadhunterForwardEmailViaGmail(cand, routeMailSubject(cand, subject), purpose, directBody, logType);
+    return await sendHeadhunterForwardEmailViaGmail(cand, routeMailSubject(cand, subject), purpose, directBody, logType, headhunterTemplateData);
   }
   return await sendDirect();
 }
@@ -1316,6 +1317,8 @@ async function settleSync(tasks, label='GS 동기화'){
   showGlobalSyncProgress(`${label} 중입니다. 잠시만 기다려 주세요.`);
   showSyncStatus(`${label} 중...`, '');
   try {
+    // 오버레이와 버튼 잠금이 먼저 화면에 그려진 뒤 네트워크 완료를 기다린다.
+    await waitForUiPaint_();
     const results = await Promise.allSettled(tasks);
     const failed = results.filter(r => r.status === 'rejected' || r.value == null || r.value?.error).length;
     if(failed) {

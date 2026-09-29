@@ -340,6 +340,7 @@ async function confirmStageChange() {
   closeModal('modal-confirm-stage');
   pendingStageChange = null;
   renderTracker(); renderDashboard(); renderPositions(); renderReferralSection();
+  refreshOpenPositionDetail(c.posId);
   toast(`${esc(c.name)} → ${STAGES[newStage]}`, 'tok');
   saveState();
   // 포지션 상세에서 진입한 경우 복귀
@@ -1317,7 +1318,7 @@ async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetN
   return true;
 }
 
-async function sendHeadhunterForwardEmailViaGmail(cand, subject, purpose, directBody, logType='업체경유안내') {
+async function sendHeadhunterForwardEmailViaGmail(cand, subject, purpose, directBody, logType='업체경유안내', templateData={}) {
   const target = getCandidateMailTarget(cand);
   const cleanBody = String(directBody || '').replace(new RegExp(`안녕하세요\\s*${cand.name}님,?\\n*`, 'g'), '').trim();
   return sendGeneralEmailViaGmail(target.to, subject, wrapHeadhunterBody(cand, purpose, directBody), logType, cand.name, {
@@ -1326,7 +1327,8 @@ async function sendHeadhunterForwardEmailViaGmail(cand, subject, purpose, direct
     candidateName: cand.name,
     positionText: cand.pos || '',
     purpose,
-    forwardBody: cleanBody
+    forwardBody: cleanBody,
+    ...templateData
   });
 }
 

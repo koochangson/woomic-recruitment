@@ -64,7 +64,7 @@ const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
 
 const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
-  Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
   PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','loc','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
@@ -637,6 +637,7 @@ function issueInterviewAvailabilityLink_(payload) {
   const interviewId = String(body.interviewId || body.id || '').trim();
   const candId = String(body.candId || '').trim();
   const candName = String(body.candName || '').trim();
+  const responseBy = body.responseBy === 'headhunter' ? 'headhunter' : 'candidate';
   const options = normalizeInterviewAvailabilityOptions_(body.options);
   if (!interviewId || !candId || !candName || !options.length) return json_({ error: 'missing_interview_availability_fields' });
   const sheet = ensureSheet_('Interviews');
@@ -650,7 +651,9 @@ function issueInterviewAvailabilityLink_(payload) {
     id:interviewId, candId, candName, type:String(body.type || existing.type || ''), loc:String(body.loc || existing.loc || ''),
     status:existing.status || 'pending', availabilityOptions:JSON.stringify(options), availabilityToken:token,
     availabilityExpiresAt:expiresAt, availabilityLink:link, availabilitySelections:'', availabilityStatus:'SENT',
-    availabilityRespondedAt:'', availabilityNote:'', updatedAt:nowIso_()
+    availabilityRespondedAt:'', availabilityNote:'', availabilityResponseBy:responseBy,
+    availabilityResponderName:String(body.responderName || '').trim(), availabilityResponderEmail:normalizeEmail_(body.responderEmail || ''),
+    availabilityResponderOrg:String(body.responderOrg || '').trim(), availabilityProxyConfirmedAt:'', updatedAt:nowIso_()
   });
   const normalized = schemaRow_('Interviews', row);
   const values = headers.map(header => normalized[header] == null ? '' : normalized[header]);
@@ -671,7 +674,10 @@ function verifyInterviewAvailabilityToken_(payload) {
   return json_({ ok:true, candName:row.candName || '', positionText:candidate.pos || '', interviewType:row.type || '', location:row.loc || '',
     options:normalizeInterviewAvailabilityOptions_(row.availabilityOptions),
     alreadySubmitted:row.availabilityStatus === 'RESPONDED' || row.availabilityStatus === 'UNAVAILABLE',
-    unavailable:row.availabilityStatus === 'UNAVAILABLE', selections, note:row.availabilityNote || '' });
+    unavailable:row.availabilityStatus === 'UNAVAILABLE', selections, note:row.availabilityNote || '',
+    responseBy:row.availabilityResponseBy || 'candidate', responderName:row.availabilityResponderName || '',
+    responderEmail:row.availabilityResponderEmail || '', responderOrg:row.availabilityResponderOrg || '',
+    proxyConfirmed:!!row.availabilityProxyConfirmedAt });
 }
 
 function submitInterviewAvailability_(payload) {
@@ -680,6 +686,7 @@ function submitInterviewAvailability_(payload) {
   const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
   const requested = Array.isArray(body.selections) ? body.selections.map(v => String(v || '').trim()) : [];
   const note = String(body.note || '').trim().slice(0, 500);
+  const proxyConfirmed = body.proxyConfirmed === true || String(body.proxyConfirmed || '').toLowerCase() === 'true';
   if (!token) return json_({ ok:false, error:'token_required' });
   if (!unavailable && !requested.length) return json_({ ok:false, error:'selection_required' });
   if (unavailable && !note) return json_({ ok:false, error:'alternative_note_required' });
@@ -692,12 +699,14 @@ function submitInterviewAvailability_(payload) {
     if (rowIndex < 0) return json_({ ok:false, error:'invalid_token' });
     const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
     if (!row || interviewAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
+    if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok:false, error:'proxy_confirmation_required' });
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => option.periods.forEach(period => { allowed[option.date + '|' + period] = true; }));
     const selections = requested.filter((value,index,arr) => allowed[value] && arr.indexOf(value) === index);
     if (!unavailable && selections.length !== requested.length) return json_({ ok:false, error:'invalid_selection' });
     const next = Object.assign({}, row, {availabilitySelections:JSON.stringify(unavailable ? [] : selections),
-      availabilityStatus:unavailable ? 'UNAVAILABLE' : 'RESPONDED', availabilityRespondedAt:nowIso_(), availabilityNote:note, updatedAt:nowIso_()});
+      availabilityStatus:unavailable ? 'UNAVAILABLE' : 'RESPONDED', availabilityRespondedAt:nowIso_(), availabilityNote:note,
+      availabilityProxyConfirmedAt:row.availabilityResponseBy === 'headhunter' ? nowIso_() : '', updatedAt:nowIso_()});
     const normalized = schemaRow_('Interviews', next);
     sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('Interviews', 'upsert', row.id, normalized);

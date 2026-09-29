@@ -61,7 +61,7 @@ const REFEREE_VERIFY_LOCK_SECONDS = 10 * 60;
 
 const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
-  Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
   PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','loc','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
@@ -702,6 +702,7 @@ function issueInterviewAvailabilityLink_(payload) {
   const interviewId = String(body.interviewId || body.id || '').trim();
   const candId = String(body.candId || '').trim();
   const candName = String(body.candName || '').trim();
+  const responseBy = body.responseBy === 'headhunter' ? 'headhunter' : 'candidate';
   const options = normalizeInterviewAvailabilityOptions_(body.options);
   if (!interviewId || !candId || !candName || !options.length) return json_({ error: 'missing_interview_availability_fields' });
 
@@ -729,6 +730,11 @@ function issueInterviewAvailabilityLink_(payload) {
     availabilityStatus: 'SENT',
     availabilityRespondedAt: '',
     availabilityNote: '',
+    availabilityResponseBy: responseBy,
+    availabilityResponderName: String(body.responderName || '').trim(),
+    availabilityResponderEmail: normalizeEmail_(body.responderEmail || ''),
+    availabilityResponderOrg: String(body.responderOrg || '').trim(),
+    availabilityProxyConfirmedAt: '',
     updatedAt: nowIso_()
   });
   const normalized = schemaRow_('Interviews', row);
@@ -758,7 +764,12 @@ function verifyInterviewAvailabilityToken_(payload) {
     alreadySubmitted: row.availabilityStatus === 'RESPONDED' || row.availabilityStatus === 'UNAVAILABLE',
     unavailable: row.availabilityStatus === 'UNAVAILABLE',
     selections,
-    note: row.availabilityNote || ''
+    note: row.availabilityNote || '',
+    responseBy: row.availabilityResponseBy || 'candidate',
+    responderName: row.availabilityResponderName || '',
+    responderEmail: row.availabilityResponderEmail || '',
+    responderOrg: row.availabilityResponderOrg || '',
+    proxyConfirmed: !!row.availabilityProxyConfirmedAt
   });
 }
 
@@ -768,6 +779,7 @@ function submitInterviewAvailability_(payload) {
   const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
   const requested = Array.isArray(body.selections) ? body.selections.map(v => String(v || '').trim()) : [];
   const note = String(body.note || '').trim().slice(0, 500);
+  const proxyConfirmed = body.proxyConfirmed === true || String(body.proxyConfirmed || '').toLowerCase() === 'true';
   if (!token) return json_({ ok: false, error: 'token_required' });
   if (!unavailable && !requested.length) return json_({ ok: false, error: 'selection_required' });
   if (unavailable && !note) return json_({ ok: false, error: 'alternative_note_required' });
@@ -782,6 +794,7 @@ function submitInterviewAvailability_(payload) {
     const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
     if (!row) return json_({ ok: false, error: 'invalid_token' });
     if (interviewAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok: false, error: 'proxy_confirmation_required' });
 
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => {
@@ -795,6 +808,7 @@ function submitInterviewAvailability_(payload) {
       availabilityStatus: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
       availabilityRespondedAt: nowIso_(),
       availabilityNote: note,
+      availabilityProxyConfirmedAt: row.availabilityResponseBy === 'headhunter' ? nowIso_() : '',
       updatedAt: nowIso_()
     });
     const normalized = schemaRow_('Interviews', next);
@@ -1775,6 +1789,11 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
     });
   } else if (templateKey === 'headhunter_forward') {
     const forwardBody = data.forwardBody || data.body || '';
+    const actionLink = String(data.actionLink || '').trim();
+    const actionLabel = String(data.actionLabel || '바로가기').trim();
+    const responseAction = actionLink
+      ? '<div style="text-align:center;margin:22px 0 2px;"><a href="' + escapeMailHtml_(actionLink) + '" style="display:inline-block;background:#003087;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 24px;border-radius:7px;">' + escapeMailHtml_(actionLabel) + '</a></div>'
+      : '';
     assertGeneralMailFields_(templateKey, Object.assign({}, data, { forwardBody }), [
       'candidateName','positionText','forwardBody'
     ]);
@@ -1783,7 +1802,10 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       candidateName: escapeMailHtml_(candidateName),
       positionText: escapeMailHtml_(positionText),
       purpose: escapeMailHtml_(data.purpose || '채용 진행'),
-      forwardBody: nlToBr_(forwardBody)
+      forwardBody: nlToBr_(forwardBody),
+      responseInstruction: escapeMailHtml_(data.responseInstruction || '아래 내용을 후보자에게 전달하신 후, 참석 가능 여부를 본 메일로 회신해 주세요.'),
+      responseNote: escapeMailHtml_(data.responseNote || '회신 시 후보자명, 포지션명, 참석 가능 여부를 함께 기재해 주세요.'),
+      responseAction
     });
   } else if (templateKey === 'general_notice') {
     const actionLink = String(data.actionLink || '').trim();

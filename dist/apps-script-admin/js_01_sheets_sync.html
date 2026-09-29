@@ -42,7 +42,7 @@ function gsBaseUrlForSheet_(sheet) {
 // GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
 const GS_SCHEMA = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
-  Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
@@ -770,6 +770,11 @@ async function syncIntToGS(itv) {
     availabilityStatus: itv.availabilityStatus || '',
     availabilityRespondedAt: itv.availabilityRespondedAt || '',
     availabilityNote: itv.availabilityNote || '',
+    availabilityResponseBy: itv.availabilityResponseBy || 'candidate',
+    availabilityResponderName: itv.availabilityResponderName || '',
+    availabilityResponderEmail: itv.availabilityResponderEmail || '',
+    availabilityResponderOrg: itv.availabilityResponderOrg || '',
+    availabilityProxyConfirmedAt: itv.availabilityProxyConfirmedAt || '',
     result:    itv.result || '',
     note:      itv.note || '',
     evaluatedAt: itv.evaluatedAt || '',
@@ -865,6 +870,9 @@ function normalizeGsInterview(row) {
     availabilityToken:row.availabilityToken||'', availabilityExpiresAt:row.availabilityExpiresAt||'', availabilityLink:row.availabilityLink||'',
     availabilitySelections:(()=>{try{return JSON.parse(row.availabilitySelections||'[]')}catch(e){return []}})(),
     availabilityStatus:row.availabilityStatus||'', availabilityRespondedAt:row.availabilityRespondedAt||'', availabilityNote:row.availabilityNote||'',
+    availabilityResponseBy:row.availabilityResponseBy||'candidate', availabilityResponderName:row.availabilityResponderName||'',
+    availabilityResponderEmail:row.availabilityResponderEmail||'', availabilityResponderOrg:row.availabilityResponderOrg||'',
+    availabilityProxyConfirmedAt:row.availabilityProxyConfirmedAt||'',
     result:row.result||'', note:row.note||'', evaluatedAt:row.evaluatedAt||'', rev:Number(row.rev)||0, updatedAt:row.updatedAt||'',
   };
 }
@@ -1330,6 +1338,11 @@ async function loadInterviewsFromGS(options={}) {
       availabilityStatus: row.availabilityStatus || '',
       availabilityRespondedAt: row.availabilityRespondedAt || '',
       availabilityNote: row.availabilityNote || '',
+      availabilityResponseBy: row.availabilityResponseBy || 'candidate',
+      availabilityResponderName: row.availabilityResponderName || '',
+      availabilityResponderEmail: row.availabilityResponderEmail || '',
+      availabilityResponderOrg: row.availabilityResponderOrg || '',
+      availabilityProxyConfirmedAt: row.availabilityProxyConfirmedAt || '',
       result:   row.result || '',
       note:     row.note || '',
       evaluatedAt: row.evaluatedAt || '',

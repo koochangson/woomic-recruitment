@@ -14,10 +14,23 @@ function showSyncStatus(msg, type='') {
 }
 
 let globalSyncBusyDepth = 0;
+function globalProgressTitle_(message) {
+  const value = String(message || '');
+  if(value.includes('메일')) return '메일 발송 중';
+  if(value.includes('저장')) return '저장 중';
+  return '동기화 중';
+}
+
+function waitForUiPaint_() {
+  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
 function showGlobalSyncProgress(message='Google Sheets에 반영하고 있습니다.') {
   globalSyncBusyDepth++;
   const overlay = document.getElementById('global-sync-overlay');
+  const title = document.getElementById('global-sync-title');
   const text = document.getElementById('global-sync-message');
+  if(title) title.textContent = globalProgressTitle_(message);
   if(text) text.textContent = message;
   if(overlay) {
     overlay.classList.add('on');
@@ -26,7 +39,9 @@ function showGlobalSyncProgress(message='Google Sheets에 반영하고 있습니
 }
 
 function updateGlobalSyncProgress(message) {
+  const title = document.getElementById('global-sync-title');
   const text = document.getElementById('global-sync-message');
+  if(title && message) title.textContent = globalProgressTitle_(message);
   if(text && message) text.textContent = message;
 }
 
@@ -43,6 +58,7 @@ function hideGlobalSyncProgress() {
 async function withGlobalSyncProgress(message, task) {
   showGlobalSyncProgress(message);
   try {
+    await waitForUiPaint_();
     return await task();
   } finally {
     hideGlobalSyncProgress();

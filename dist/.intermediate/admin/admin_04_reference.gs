@@ -35,6 +35,7 @@ function issueInterviewAvailabilityLink_(payload) {
   const interviewId = String(body.interviewId || body.id || '').trim();
   const candId = String(body.candId || '').trim();
   const candName = String(body.candName || '').trim();
+  const responseBy = body.responseBy === 'headhunter' ? 'headhunter' : 'candidate';
   const options = normalizeInterviewAvailabilityOptions_(body.options);
   if (!interviewId || !candId || !candName || !options.length) return json_({ error: 'missing_interview_availability_fields' });
 
@@ -62,6 +63,11 @@ function issueInterviewAvailabilityLink_(payload) {
     availabilityStatus: 'SENT',
     availabilityRespondedAt: '',
     availabilityNote: '',
+    availabilityResponseBy: responseBy,
+    availabilityResponderName: String(body.responderName || '').trim(),
+    availabilityResponderEmail: normalizeEmail_(body.responderEmail || ''),
+    availabilityResponderOrg: String(body.responderOrg || '').trim(),
+    availabilityProxyConfirmedAt: '',
     updatedAt: nowIso_()
   });
   const normalized = schemaRow_('Interviews', row);
@@ -91,7 +97,12 @@ function verifyInterviewAvailabilityToken_(payload) {
     alreadySubmitted: row.availabilityStatus === 'RESPONDED' || row.availabilityStatus === 'UNAVAILABLE',
     unavailable: row.availabilityStatus === 'UNAVAILABLE',
     selections,
-    note: row.availabilityNote || ''
+    note: row.availabilityNote || '',
+    responseBy: row.availabilityResponseBy || 'candidate',
+    responderName: row.availabilityResponderName || '',
+    responderEmail: row.availabilityResponderEmail || '',
+    responderOrg: row.availabilityResponderOrg || '',
+    proxyConfirmed: !!row.availabilityProxyConfirmedAt
   });
 }
 
@@ -101,6 +112,7 @@ function submitInterviewAvailability_(payload) {
   const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
   const requested = Array.isArray(body.selections) ? body.selections.map(v => String(v || '').trim()) : [];
   const note = String(body.note || '').trim().slice(0, 500);
+  const proxyConfirmed = body.proxyConfirmed === true || String(body.proxyConfirmed || '').toLowerCase() === 'true';
   if (!token) return json_({ ok: false, error: 'token_required' });
   if (!unavailable && !requested.length) return json_({ ok: false, error: 'selection_required' });
   if (unavailable && !note) return json_({ ok: false, error: 'alternative_note_required' });
@@ -115,6 +127,7 @@ function submitInterviewAvailability_(payload) {
     const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
     if (!row) return json_({ ok: false, error: 'invalid_token' });
     if (interviewAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok: false, error: 'proxy_confirmation_required' });
 
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => {
@@ -128,6 +141,7 @@ function submitInterviewAvailability_(payload) {
       availabilityStatus: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
       availabilityRespondedAt: nowIso_(),
       availabilityNote: note,
+      availabilityProxyConfirmedAt: row.availabilityResponseBy === 'headhunter' ? nowIso_() : '',
       updatedAt: nowIso_()
     });
     const normalized = schemaRow_('Interviews', next);

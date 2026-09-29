@@ -379,6 +379,11 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
     });
   } else if (templateKey === 'headhunter_forward') {
     const forwardBody = data.forwardBody || data.body || '';
+    const actionLink = String(data.actionLink || '').trim();
+    const actionLabel = String(data.actionLabel || '바로가기').trim();
+    const responseAction = actionLink
+      ? '<div style="text-align:center;margin:22px 0 2px;"><a href="' + escapeMailHtml_(actionLink) + '" style="display:inline-block;background:#003087;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 24px;border-radius:7px;">' + escapeMailHtml_(actionLabel) + '</a></div>'
+      : '';
     assertGeneralMailFields_(templateKey, Object.assign({}, data, { forwardBody }), [
       'candidateName','positionText','forwardBody'
     ]);
@@ -387,7 +392,10 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       candidateName: escapeMailHtml_(candidateName),
       positionText: escapeMailHtml_(positionText),
       purpose: escapeMailHtml_(data.purpose || '채용 진행'),
-      forwardBody: nlToBr_(forwardBody)
+      forwardBody: nlToBr_(forwardBody),
+      responseInstruction: escapeMailHtml_(data.responseInstruction || '아래 내용을 후보자에게 전달하신 후, 참석 가능 여부를 본 메일로 회신해 주세요.'),
+      responseNote: escapeMailHtml_(data.responseNote || '회신 시 후보자명, 포지션명, 참석 가능 여부를 함께 기재해 주세요.'),
+      responseAction
     });
   } else if (templateKey === 'general_notice') {
     const actionLink = String(data.actionLink || '').trim();
