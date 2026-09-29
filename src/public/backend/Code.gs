@@ -65,7 +65,7 @@ const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
 const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
-  PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
+  PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','loc','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
@@ -735,6 +735,7 @@ function issuePanelAvailabilityLink_(payload) {
   const round = String(body.round || '').trim();
   const panelistName = String(body.panelistName || '').trim();
   const panelistEmail = normalizeEmail_(body.panelistEmail);
+  const loc = String(body.loc || '').trim();
   const options = normalizeInterviewAvailabilityOptions_(body.options);
   if (!positionId || !positionTitle || !round || !panelistEmail || !options.length) return json_({ error: 'missing_panel_availability_fields' });
   const sheet = ensureSheet_('PanelAvailability');
@@ -746,7 +747,7 @@ function issuePanelAvailabilityLink_(payload) {
   const expiresAt = body.expiresAt ? new Date(body.expiresAt).toISOString() : new Date(Date.now() + INTERVIEW_AVAILABILITY_LINK_TTL_DAYS * 86400000).toISOString();
   const link = buildPanelAvailabilityLinkUrl_(token);
   const normalized = schemaRow_('PanelAvailability', Object.assign({}, existing, {
-    id, positionId, positionTitle, round, panelistName, panelistEmail,
+    id, positionId, positionTitle, round, panelistName, panelistEmail, loc: loc || existing.loc || '',
     availabilityOptions:JSON.stringify(options), token, tokenExpiresAt:expiresAt, link,
     selections:'', status:'SENT', respondedAt:'', note:'',
     createdAt:existing.createdAt || nowIso_(), updatedAt:nowIso_()
@@ -775,7 +776,7 @@ function verifyPanelAvailabilityToken_(payload) {
   const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
   if (!row) return json_({ ok:false, error:'invalid_token' });
   if (panelAvailabilityExpired_(row)) return json_({ ok:false, error:'token_expired' });
-  return json_({ ok:true, participantRole:'panel', participantName:row.panelistName || '', positionText:row.positionTitle || '', interviewType:row.round || '',
+  return json_({ ok:true, participantRole:'panel', participantName:row.panelistName || '', positionText:row.positionTitle || '', interviewType:row.round || '', location:row.loc || '',
     options:normalizeInterviewAvailabilityOptions_(row.availabilityOptions), alreadySubmitted:row.status === 'RESPONDED' || row.status === 'UNAVAILABLE',
     unavailable:row.status === 'UNAVAILABLE', selections:parseJsonArray_(row.selections), note:row.note || '' });
 }

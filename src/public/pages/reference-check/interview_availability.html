@@ -22,7 +22,7 @@
       <form id="form" class="hidden">
         <p class="hello">안녕하세요 <span id="participant-name"></span>님,</p>
         <p id="intro" class="intro"><b id="position-text"></b> <span id="interview-type"></span> 진행을 위해 가능한 시간대를 확인합니다. 가능한 항목을 모두 선택해 주세요.</p>
-        <div id="guide" class="meta"><b>안내</b><br>정확한 면접시간과 순서는 응답 취합 후 피플팀에서 별도로 안내드립니다.<span id="location-wrap" class="hidden"><br>예정 장소: <span id="location"></span></span></div>
+        <div id="guide" class="meta"><b>안내</b><br>정확한 면접시간과 장소, 순서는 응답 취합 후 피플팀에서 별도로 안내드립니다.</div>
         <div id="options" class="options"></div>
         <div class="unavailable">
           <label><input id="unavailable" type="checkbox"> 제시된 일정이 모두 어렵습니다</label>
@@ -52,6 +52,9 @@
       error.classList.remove('hidden');
       document.getElementById('error-message').textContent = message;
     }
+    function escHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
     function dateLabel(value) {
       const d = new Date(value + 'T00:00:00');
       return `${d.getMonth()+1}월 ${d.getDate()}일(${['일','월','화','수','목','금','토'][d.getDay()]})`;
@@ -76,11 +79,11 @@
         document.getElementById('interview-type').textContent = data.interviewType ? `${data.interviewType} 면접` : '면접';
         if(isPanel) {
           document.getElementById('page-title').textContent = '면접위원 가능 일정 확인';
-          document.getElementById('intro').lastChild.textContent = ' 참석 가능한 날짜와 오전·오후를 모두 선택해 주세요.';
-          document.getElementById('guide').innerHTML = '<b>안내</b><br>지원자 일정까지 취합한 뒤 피플팀에서 정확한 면접시간과 순서를 별도로 안내드립니다.';
+          document.getElementById('intro').lastChild.textContent = ' 참석 가능한 날짜와 시간대를 모두 선택해 주세요.';
+          const locationLine = data.location ? `<br>면접 장소: <b>${escHtml(data.location)}</b>` : '';
+          document.getElementById('guide').innerHTML = `<b>안내</b><br>지원자 일정까지 취합한 뒤 피플팀에서 정확한 면접시간과 순서를 별도로 안내드립니다.${locationLine}`;
           document.getElementById('complete-message').textContent = '지원자 일정 취합 후 확정된 면접시간을 별도 메일로 안내드리겠습니다.';
         }
-        if(data.location) { document.getElementById('location').textContent = data.location; document.getElementById('location-wrap').classList.remove('hidden'); }
         const selected = new Set(data.selections || []);
         document.getElementById('options').innerHTML = (data.options || []).map(item => `<div class="option"><div class="date">${dateLabel(item.date)}</div><div class="periods">${item.periods.map(period => { const value=`${item.date}|${period}`; return `<label class="period"><input type="checkbox" name="availability" value="${value}" ${selected.has(value)?'checked':''}> ${period==='AM'?'오전':'오후'}</label>`; }).join('')}</div></div>`).join('');
         unavailable.checked = !!data.unavailable;

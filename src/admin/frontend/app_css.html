@@ -1032,6 +1032,8 @@ html,body{line-height:1.55;}
   .pp-cand{grid-template-columns:1fr auto;}
   .pp-cand-cell{display:none;}
 }
+.spin{display:inline-block;animation:spin .8s linear infinite;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 
 /* ── 반복 UI 패턴 컴포넌트화 (Phase 2 정리) ─────────────────────
    Dashboard.html에 흩어져 있던 inline style 중 반복 빈도가 높은 패턴만
