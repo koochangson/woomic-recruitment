@@ -638,10 +638,10 @@ function exportReferralRewardsCsv(payMonth='') {
   setTimeout(()=>URL.revokeObjectURL(url), 500);
 }
 function refreshReferralsFromGS() {
-  return Promise.all([
+  return withGlobalSyncProgress('사내추천 시트를 동기화하고 있습니다.', () => Promise.all([
     loadReferralsFromGS({forceFull:true, force:true}),
     loadEmployeesFromGS({forceFull:true, force:true}),
-  ]);
+  ]));
 }
 function renderReferralRewardsView() {
   const list = document.getElementById('rf-list'), detail = document.getElementById('rf-detail');

@@ -17,7 +17,7 @@ const GENERAL_MAIL_PREHEADER = {
   onboarding: data => `입사를 진심으로 축하드립니다. 입사일 ${data.joinDate || ''}`,
   onboarding_internal: data => `신규입사자 안내 — ${data.joinDate || ''} 입사 예정`,
   rejection: () => '채용 결과를 안내드립니다.',
-  interview_slot_request: () => '가능한 면접 날짜와 오전·오후 시간대를 선택해 주세요.',
+  interview_slot_request: () => '가능한 면접 날짜와 시간대를 선택해 주세요.',
   headhunter_forward: data => `헤드헌팅 후보자 ${data.candidateName || ''}님의 ${data.purpose || '채용 진행'} 안내입니다.`,
   general_notice: () => '채용 진행 관련 안내드립니다.'
 };
@@ -76,6 +76,7 @@ function issuePanelAvailabilityLink_(payload) {
   const round = String(body.round || '').trim();
   const panelistName = String(body.panelistName || '').trim();
   const panelistEmail = normalizeEmail_(body.panelistEmail);
+  const loc = String(body.loc || '').trim();
   const options = normalizeInterviewAvailabilityOptions_(body.options);
   if (!positionId || !positionTitle || !round || !panelistEmail || !options.length) {
     return json_({ error: 'missing_panel_availability_fields' });
@@ -98,6 +99,7 @@ function issuePanelAvailabilityLink_(payload) {
     round,
     panelistName,
     panelistEmail,
+    loc: loc || existing.loc || '',
     availabilityOptions: JSON.stringify(options),
     token,
     tokenExpiresAt: expiresAt,
@@ -143,6 +145,7 @@ function verifyPanelAvailabilityToken_(payload) {
     participantName: row.panelistName || '',
     positionText: row.positionTitle || '',
     interviewType: row.round || '',
+    location: row.loc || '',
     options: normalizeInterviewAvailabilityOptions_(row.availabilityOptions),
     alreadySubmitted: row.status === 'RESPONDED' || row.status === 'UNAVAILABLE',
     unavailable: row.status === 'UNAVAILABLE',

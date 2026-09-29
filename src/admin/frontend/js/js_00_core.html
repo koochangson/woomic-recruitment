@@ -358,11 +358,12 @@ function onPosLocationChange(selectedTeam='', selectedJobType='') {
   const fgTeam = document.getElementById('fg-team');
   const fgJobType = document.getElementById('fg-jobtype');
   const teamSel = document.getElementById('pos-team');
+  const teamOptions = document.getElementById('pos-team-options');
   const jobSel = document.getElementById('pos-jobtype');
-  if(!fgTeam || !fgJobType || !teamSel || !jobSel) return;
+  if(!fgTeam || !fgJobType || !teamSel || !teamOptions || !jobSel) return;
   const teams=getSelectableTeams();
   if(selectedTeam&&!teams.some(t=>t.name===selectedTeam)) teams.push({name:selectedTeam,division:'기존 포지션'});
-  teamSel.innerHTML = '<option value="">팀 선택</option>' + teams.map(t=>`<option value="${esc(t.name)}">${esc(t.division?`${t.division} · ${t.name}`:t.name)}</option>`).join('');
+  teamOptions.innerHTML = teams.map(t=>`<option value="${esc(t.name)}" label="${esc(t.division?`${t.division} · ${t.name}`:t.name)}"></option>`).join('');
   jobSel.innerHTML = '<option value="">직종 선택</option>' + JOB_TYPES.map(name=>`<option value="${name}">${name}</option>`).join('');
   fgTeam.style.display = location==='본사' ? '' : 'none';
   fgJobType.style.display = location==='현장' ? '' : 'none';
@@ -629,14 +630,14 @@ const TITLES = {
 };
 
 const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격','입사'];
-const STAGE_DISPLAY = { 0:'1차 일정 수립 전' }; // 지원자 단계 표시용 (포지션 충원완료와 구분)
+const STAGE_DISPLAY = { 0:'서류합격' };
 function stageLabel(stageIdx){ return STAGE_DISPLAY[stageIdx] || STAGES[stageIdx] || ''; }
 const SBG    = ['bgray','bblue','bblue','bblue','bamber','bgreen','bred','bgreen'];
 const STAGE_GUIDES = {
   0: { msg:'서류 검토 단계로 이동합니다.', notify:false },
-  1: { msg:'1차 실무면접 단계로 이동합니다.\n면접 일정을 등록하고 지원자에게 안내 메시지를 발송하세요.', notify:true, tpl:'int1' },
+  1: { msg:'1차 실무면접 단계로 이동합니다.\n면접 일정 확인과 안내 발송은 포지션 상세 프로세스에서 진행합니다.', notify:false },
   2: { msg:'레퍼런스 체크 단계로 이동합니다.\n지원자에게 추천인 등록 안내를 발송하고 체크를 시작합니다.', notify:true, tpl:'ref' },
-  3: { msg:'2차 임원면접 단계로 이동합니다.\n레퍼런스 체크 완료 확인 후 면접 일정을 등록하세요.', notify:true, tpl:'int2' },
+  3: { msg:'2차 임원면접 단계로 이동합니다.\n면접 일정 확인과 안내 발송은 포지션 상세 프로세스에서 진행합니다.', notify:false },
   4: { msg:'처우협의 단계로 이동합니다.\n연봉·직급·입사일 등 조건 협의 후 최종 판정을 진행하세요.', notify:false },
   5: { msg:'🎉 처우협의가 완료되어 최종합격으로 확정됩니다.\n확정 후 입사 안내 화면으로 자동 이동합니다.', notify:false },
   6: { msg:'불합격 처리합니다.\n지원자에게 불합격 안내 메시지를 발송하시겠습니까?', notify:true, tpl:'reject' },
@@ -1312,13 +1313,21 @@ function applyPrivacyRetention() {
 // 일괄 GS 동기화 결과를 집계해 일부 실패를 사용자에게 알림
 async function settleSync(tasks, label='GS 동기화'){
   if(!tasks.length) return { ok:0, failed:0 };
-  const results = await Promise.allSettled(tasks);
-  const failed = results.filter(r => r.status === 'rejected' || r.value == null || r.value?.error).length;
-  if(failed) {
-    showSyncStatus(`${label} 일부 실패 (${failed}/${results.length})`, 'warn');
-    toast(`${label} 일부 실패: ${failed}건`, 'terr');
+  showGlobalSyncProgress(`${label} 중입니다. 잠시만 기다려 주세요.`);
+  showSyncStatus(`${label} 중...`, '');
+  try {
+    const results = await Promise.allSettled(tasks);
+    const failed = results.filter(r => r.status === 'rejected' || r.value == null || r.value?.error).length;
+    if(failed) {
+      showSyncStatus(`${label} 일부 실패 (${failed}/${results.length})`, 'warn');
+      toast(`${label} 일부 실패: ${failed}건`, 'terr');
+    } else {
+      showSyncStatus(`${label} 완료`, 'ok');
+    }
+    return { ok:results.length-failed, failed };
+  } finally {
+    hideGlobalSyncProgress();
   }
-  return { ok:results.length-failed, failed };
 }
 
 // ── 포지션 상태 모델 (진행중/충원완료/미채용완료/채용중단) ──────────────

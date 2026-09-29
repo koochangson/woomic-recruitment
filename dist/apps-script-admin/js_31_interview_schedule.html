@@ -41,6 +41,12 @@ function openCollectSlots(posId, stageIdx) {
   const requestedKey = stageIdx === 1 ? 'panel1AvailabilityRequestedAt' : 'panel2AvailabilityRequestedAt';
   const confirmedKey = stageIdx === 1 ? 'panel1AvailabilityConfirmedAt' : 'panel2AvailabilityConfirmedAt';
   const panelMode = !pos[confirmedKey];
+  const roundInterviews = targets.map(c => interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round));
+  const candidateResponsesComplete = targets.length > 0 && roundInterviews.every(itv => ['RESPONDED','UNAVAILABLE'].includes(itv?.availabilityStatus));
+  if(!panelMode && candidateResponsesComplete) {
+    openPositionRoundSchedule(posId, stageIdx);
+    return;
+  }
   collectSlotsCtx = { posId, stageIdx, mode:panelMode ? 'panel' : 'candidate' };
   document.getElementById('csl-title').textContent = panelMode
     ? `${round} 면접관 후보일정 확인 — ${(pos.dept?pos.dept+' · ':'')+pos.title}`
@@ -90,14 +96,14 @@ function openCollectSlots(posId, stageIdx) {
   const panelStatus = document.getElementById('csl-panel-status');
   if(panelStatus) panelStatus.textContent = pos[confirmedKey]
     ? `면접관 확인 완료 · ${fmtDate(pos[confirmedKey])}`
-    : pos[requestedKey] ? `확인 요청 발송 · ${fmtDate(pos[requestedKey])}` : '면접관 확인 전';
+    : pos[requestedKey] ? `메일 발송 완료 · ${fmtDate(pos[requestedKey])}` : '면접관 확인 전';
   const panelResend = document.getElementById('csl-panel-resend');
   if(panelResend) panelResend.style.display = panelMode && pos[requestedKey] ? '' : 'none';
   const panelRefresh = document.getElementById('csl-panel-refresh');
   if(panelRefresh) panelRefresh.style.display = panelMode && pos[requestedKey] ? '' : 'none';
   const candidateFields = document.getElementById('csl-candidate-fields');
   if(candidateFields) candidateFields.style.display = panelMode ? 'none' : '';
-  document.getElementById('csl-loc').value = pos.loc || '';
+  document.getElementById('csl-loc').value = panelMode ? (pos.loc || '') : '강남사옥 14F (린스퀘어)';
   const primary = document.getElementById('csl-primary-action');
   if(primary) {
     primary.textContent = panelMode
@@ -243,7 +249,7 @@ function panelAvailabilityCacheKey(posId, stageIdx) {
 function panelAvailabilityResponseText(response) {
   if(response?.status === 'RESPONDED') return formatAvailabilitySelections(response.selections) || '응답완료';
   if(response?.status === 'UNAVAILABLE') return `모두 어려움${response.note ? ` · ${response.note}` : ''}`;
-  if(response?.status === 'SENT') return '응답대기';
+  if(response?.status === 'SENT') return '메일 발송완료 · 응답대기';
   return '미발송';
 }
 
@@ -284,8 +290,13 @@ async function refreshPanelAvailabilityResponses(posId, stageIdx, showToast=fals
     const expected = parsePanelists(pos[panelAvailabilityKeys(stageIdx).panel]).filter(panelist => panelist.email);
     const byEmail = new Map((result.responses || []).map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
     const responded = expected.filter(panelist => ['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(panelist.email).toLowerCase())?.status)).length;
+    const delivered = expected.filter(panelist => ['SENT','RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(panelist.email).toLowerCase())?.status)).length;
     const status = document.getElementById('csl-panel-status');
-    if(status) status.textContent = `면접관 응답 ${responded}/${expected.length}`;
+    if(status) status.textContent = delivered
+      ? `메일 발송 완료 ${delivered}/${expected.length} · 면접관 응답 ${responded}/${expected.length}`
+      : `메일 미발송 · 면접관 응답 ${responded}/${expected.length}`;
+    const resend = document.getElementById('csl-panel-resend');
+    if(resend) resend.style.display = expected.length && responded < expected.length ? '' : 'none';
     renderPanelCommonAvailability(pos, stageIdx, result.responses || []);
     const primary = document.getElementById('csl-primary-action');
     if(primary && expected.length && responded === expected.length) primary.textContent = '지원자 후보일정 확정';
@@ -397,24 +408,33 @@ async function sendPanelAvailabilityRequest() {
   const existing = await refreshPanelAvailabilityResponses(posId, stageIdx);
   const responseByEmail = new Map(existing.map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
   const pendingPanelists = panelists.filter(panelist => !['RESPONDED','UNAVAILABLE'].includes(responseByEmail.get(String(panelist.email).toLowerCase())?.status));
-  if(!pendingPanelists.length) { toast('모든 면접관이 이미 응답했습니다. 공통 일정을 확정해 주세요.', 'tw'); return; }
+  if(!pendingPanelists.length) {
+    const resend = document.getElementById('csl-panel-resend');
+    if(resend) resend.style.display = 'none';
+    toast(`면접관 응답 ${panelists.length}/${panelists.length} 완료 · 재발송 대상이 없습니다.`, 'tw');
+    return;
+  }
+  const panelLoc = document.getElementById('csl-loc')?.value || pos.loc || '';
   let sentCount = 0;
   const failed = [];
   for(const panelist of pendingPanelists) {
+    const iv = interviewers.find(x => x.email === panelist.email);
+    const panelistDisplayName = iv && iv.rank ? `${iv.name} ${iv.rank}` : panelist.name;
     const issued = await gsFetch('issuePanelAvailabilityLink', '', {
       positionId: pos.id,
       positionTitle: pos.title,
       round,
-      panelistName: panelist.name || '면접관',
+      panelistName: panelistDisplayName || '면접관',
       panelistEmail: panelist.email,
+      loc: panelLoc,
       options,
       expiresAt
     }, { allowQueue:false });
-    if(!issued?.ok || !issued.link) { failed.push(panelist.name || panelist.email); continue; }
+    if(!issued?.ok || !issued.link) { failed.push(panelistDisplayName || panelist.email); continue; }
     const body = [
-      `안녕하세요 ${panelist.name || '면접위원'}님,`, '',
+      `안녕하세요 ${panelistDisplayName || '면접위원'}님,`, '',
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
-      '아래 후보 일정을 확인하시고 링크에서 참석 가능한 날짜와 오전·오후를 모두 선택해 주세요.', '',
+      '아래 후보 일정을 확인하시고 링크에서 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
       optionText, '',
       `응답 마감: ${deadline}`, '',
       `일정 선택 링크: ${issued.link}`, '',
@@ -425,15 +445,15 @@ async function sendPanelAvailabilityRequest() {
     // (템플릿 상단에서 이미 candidateName으로 인사말을 렌더링하고, 링크는 actionLink 버튼으로 별도 렌더링됨)
     const noticeBody = [
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
-      '아래 후보 일정을 확인하시고 참석 가능한 날짜와 오전·오후를 모두 선택해 주세요.', '',
+      '아래 후보 일정을 확인하시고 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
       optionText, '',
       `응답 마감: ${deadline}`
     ].join('\n');
-    const sent = await sendGeneralEmailViaGmail(panelist.email, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, panelist.name || pos.title, {
-      templateType:'general_notice', candidateName:panelist.name || '면접위원', positionText:pos.title,
+    const sent = await sendGeneralEmailViaGmail(panelist.email, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, panelistDisplayName || pos.title, {
+      templateType:'general_notice', candidateName:panelistDisplayName || '면접위원', positionText:pos.title,
       headerTitle:`${round} 면접 가능 일정 확인`, noticeBody, actionLink:issued.link, actionLabel:'면접 가능 일정 선택'
     });
-    if(sent) sentCount++; else failed.push(panelist.name || panelist.email);
+    if(sent) sentCount++; else failed.push(panelistDisplayName || panelist.email);
   }
   if(!sentCount && failed.length) { toast(`면접관 확인 메일을 발송하지 못했습니다: ${failed.join(', ')}`, 'terr'); return; }
   pos[keys.options] = options;
@@ -615,15 +635,22 @@ function renderCollectSendStep() {
     <button class="btn btn-primary" data-action="call" data-call="doCollectSendCurrent()">✉ ${cand&&isHeadhuntingCandidate(cand)?'업체':'지원자'} 메일 발송</button>`;
 }
 
+// 발송 중 중복 클릭으로 같은 대상에게 메일이 두 번 나가는 것을 막는다.
+let collectSendBusy = false;
+
 // 현재 대상 메일 작성창 열기
 async function doCollectSendCurrent() {
+  if(collectSendBusy) return;
   const q = collectSendQueue;
   if(!q) return;
   const cur = q.list[q.idx];
   if(!cur) return;
+  collectSendBusy = true;
+  const footer = document.getElementById('csend-footer');
+  if(footer) footer.innerHTML = `<span style="font-size:11.5px;color:var(--t3);align-self:center;display:flex;align-items:center;gap:6px"><span class="spin" aria-hidden="true">⏳</span> ${esc(cur.name)}님에게 메일 발송 중입니다...</span>`;
   const cand = candidates.find(c => Number(c.id) === Number(cur.id));
   const itv = interviews.find(i => Number(i.candId) === Number(cur.id) && i.type === q.round);
-  if(!itv) { toast('면접 응답 정보를 찾을 수 없습니다.', 'terr'); return; }
+  if(!itv) { toast('면접 응답 정보를 찾을 수 없습니다.', 'terr'); collectSendBusy = false; renderCollectSendStep(); return; }
   const target = getCandidateMailTarget(cand || cur);
   const issue = await gsFetch('issueInterviewAvailabilityLink', '', {
     interviewId: itv.id,
@@ -636,6 +663,8 @@ async function doCollectSendCurrent() {
   }, { allowQueue:false });
   if(!issue?.ok || !issue.link) {
     toast(`응답 링크 생성 실패: ${issue?.error || 'Apps Script 설정을 확인하세요.'}`, 'terr');
+    collectSendBusy = false;
+    renderCollectSendStep();
     return;
   }
   itv.availabilityLink = issue.link;
@@ -656,7 +685,7 @@ async function doCollectSendCurrent() {
       .replace(/\{응답링크\}/g, issue.link)
       .replace(/\{응답마감\}/g, q.deadline);
   } else {
-    body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜의 오전·오후 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
+    body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜와 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
   }
   const sent = await dispatchCandidateMail_(cand || cur, {
     subject, purpose: `${q.roundLabel} 후보일정 협의`, directBody: body, logType: `${q.round}후보일정(업체경유)`,
@@ -671,14 +700,17 @@ async function doCollectSendCurrent() {
       responseDeadline: q.deadline
     })
   });
-  if(sent === false) return;
+  if(sent === false) { collectSendBusy = false; renderCollectSendStep(); return; }
   saveState();
   logNotify('Gmail', `${q.round}후보일정${cand&&isHeadhuntingCandidate(cand)?'업체경유':'안내'}`, cur.name, target.to || cur.email);
   const isLast = q.idx >= q.list.length - 1;
-  // 발송 요청 후 다음 대상 또는 완료 버튼으로 전환
+  // 발송 완료 표시 후 자동으로 다음 대상으로 넘어간다 (건별로 "다음 사람" 클릭을 누를 필요가 없다).
   document.getElementById('csend-footer').innerHTML = `
-    <span style="font-size:11.5px;color:var(--t3);align-self:center">${cur.name}님 발송 요청을 완료했습니다.</span>
-    <button class="btn btn-primary" data-action="call" data-call="${isLast?'closeCollectSend()':'nextCollectSend()'}">${isLast?'완료':'다음 사람 →'}</button>`;
+    <span style="font-size:11.5px;color:var(--green);align-self:center">✓ ${esc(cur.name)}님 발송 완료${isLast?'':' · 다음 대상으로 이동 중...'}</span>`;
+  setTimeout(() => {
+    collectSendBusy = false;
+    if(isLast) closeCollectSend(); else nextCollectSend();
+  }, 700);
 }
 
 function nextCollectSend() {
@@ -701,6 +733,61 @@ function closeCollectSend() {
 
 // ── (이하 면접 일괄 배치) ──
 let batchScheduleCtx = { posId: null, stageIdx: null, sourceStage: null, moveAfterApply: false };
+let batchScheduleBusy = false;
+
+function setBatchScheduleBusy(busy, message='') {
+  const changed = batchScheduleBusy !== busy;
+  batchScheduleBusy = busy;
+  const button = document.getElementById('bs-apply-btn');
+  const status = document.getElementById('bs-save-status');
+  if(button) {
+    button.disabled = busy;
+    button.textContent = busy ? '처리 중...' : '일정 확정';
+  }
+  if(status) status.textContent = message;
+  if(busy) {
+    if(changed) showGlobalSyncProgress(message || '면접 일정을 저장하고 있습니다.');
+    else updateGlobalSyncProgress(message);
+  } else if(changed) {
+    hideGlobalSyncProgress();
+  }
+}
+
+function getBatchSharedAvailability(posId, stageIdx, sourceStage) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return [];
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const optionKey = stageIdx === 1 ? 'panel1AvailabilityOptions' : 'panel2AvailabilityOptions';
+  const panelSlots = (pos[optionKey] || []).flatMap(option =>
+    (option.periods || []).map(period => `${option.date}|${period}`)
+  );
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === sourceStage);
+  return panelSlots.filter(key => targets.length && targets.every(c => {
+    const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
+    return itv?.availabilityStatus === 'RESPONDED' && (itv.availabilitySelections || []).includes(key);
+  }));
+}
+
+function selectBatchSharedAvailability(date, period) {
+  const dateEl = document.getElementById('bs-date');
+  const startEl = document.getElementById('bs-start');
+  if(dateEl) dateEl.value = date;
+  if(startEl) startEl.value = period === 'AM' ? '10:00' : '14:00';
+  renderBatchPreview();
+}
+
+function renderBatchSharedAvailability(sharedSlots) {
+  const container = document.getElementById('bs-common-options');
+  if(!container) return;
+  if(!sharedSlots.length) {
+    container.innerHTML = `<div style="font-size:11.5px;color:var(--red);padding:9px 10px;background:var(--red-bg,#fff1f2);border-radius:var(--rsm)">면접관과 모든 지원자가 함께 가능한 시간대가 없습니다. 지원자별 일정을 확인해 개별 조율해 주세요.</div>`;
+    return;
+  }
+  container.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:7px">면접관·지원자 공통 가능 일정</div><div style="display:flex;flex-wrap:wrap;gap:6px">${sharedSlots.map(key => {
+    const [date, period] = key.split('|');
+    return `<button type="button" class="btn btn-xs" data-action="call" data-call="selectBatchSharedAvailability('${date}','${period}')">${esc(formatAvailabilitySelections([key]))}</button>`;
+  }).join('')}</div>`;
+}
 
 function openPositionRoundSchedule(posId, stageIdx) {
   const prevStage = stageIdx === 1 ? 0 : 2;
@@ -719,20 +806,23 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
   }
   const orderedIds = targets.slice().sort((a,b) => a.name.localeCompare(b.name,'ko')).map(c => Number(c.id));
   batchScheduleCtx = { posId, stageIdx, sourceStage, moveAfterApply, order:orderedIds };
+  setBatchScheduleBusy(false, '');
   document.getElementById('bs-title').textContent = `${round} 면접 공통일정 확정${moveAfterApply?' 후 단계 이동':''} — ${pos.title} (${targets.length}명)`;
-  // 기본값 설정
+  const sharedSlots = getBatchSharedAvailability(posId, stageIdx, sourceStage);
+  renderBatchSharedAvailability(sharedSlots);
+  // 면접관·지원자 공통 가능 시간대가 있으면 첫 항목을 기본값으로 사용한다.
   const dateEl = document.getElementById('bs-date');
-  if(dateEl && !dateEl.value) {
-    const d = new Date(); d.setDate(d.getDate() + 3); // 기본 3일 후
-    dateEl.value = localDateInputValue(d);
-  }
-  document.getElementById('bs-start').value = '10:00';
+  const [defaultDate = '', defaultPeriod = 'AM'] = String(sharedSlots[0] || '').split('|');
+  if(dateEl) dateEl.value = defaultDate;
+  document.getElementById('bs-start').value = defaultPeriod === 'PM' ? '14:00' : '10:00';
   document.getElementById('bs-interval').value = '30';
-  document.getElementById('bs-loc').value = '린스퀘어';
+  const existingInterview = interviews.find(i => orderedIds.includes(Number(i.candId)) && i.type === round);
+  document.getElementById('bs-loc').value = existingInterview?.candidateLoc || existingInterview?.loc || '강남사옥 14F (린스퀘어)';
+  document.getElementById('bs-panel-loc').value = existingInterview?.panelLoc || pos.loc || '';
   // 포지션 상세는 뒤에 유지해 취소·적용 후 즉시 복귀한다.
   renderBatchPreview();
   // 입력 변경 시 미리보기 갱신
-  ['bs-date','bs-start','bs-interval','bs-loc'].forEach(id => {
+  ['bs-date','bs-start','bs-interval','bs-loc','bs-panel-loc'].forEach(id => {
     const el = document.getElementById(id);
     if(el) { el.oninput = renderBatchPreview; el.onchange = renderBatchPreview; }
   });
@@ -740,12 +830,17 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
 }
 
 function computeBatchSlots() {
-  const { posId, sourceStage } = batchScheduleCtx;
+  const { posId, stageIdx, sourceStage } = batchScheduleCtx;
   const date     = document.getElementById('bs-date')?.value;
   const start    = document.getElementById('bs-start')?.value || '10:00';
   const interval = parseInt(document.getElementById('bs-interval')?.value || '30');
   const source = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === sourceStage);
   const order = Array.isArray(batchScheduleCtx.order) ? batchScheduleCtx.order : [];
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  const optionKey = stageIdx === 1 ? 'panel1AvailabilityOptions' : 'panel2AvailabilityOptions';
+  const panelSlots = new Set((pos?.[optionKey] || []).flatMap(option =>
+    (option.periods || []).map(period => `${option.date}|${period}`)
+  ));
   const targets = source.slice().sort((a,b) => {
     const ai = order.indexOf(Number(a.id));
     const bi = order.indexOf(Number(b.id));
@@ -763,7 +858,8 @@ function computeBatchSlots() {
     const round = batchScheduleCtx.stageIdx === 1 ? '1차' : '2차';
     const itv = interviews.find(item => Number(item.candId) === Number(c.id) && item.type === round);
     const availabilityKey = `${date}|${period}`;
-    const availability = itv?.availabilityStatus === 'UNAVAILABLE' ? 'unavailable'
+    const availability = panelSlots.size && !panelSlots.has(availabilityKey) ? 'panel_conflict'
+      : itv?.availabilityStatus === 'UNAVAILABLE' ? 'unavailable'
       : itv?.availabilityStatus !== 'RESPONDED' ? 'unknown'
       : (itv.availabilitySelections || []).includes(availabilityKey) ? 'available' : 'conflict';
     return { cand: c, time: `${hh}:${mm}`, datetime: `${date} ${hh}:${mm}`, availability };
@@ -789,45 +885,57 @@ function renderBatchPreview() {
     return;
   }
   const loc = document.getElementById('bs-loc')?.value || '미정';
+  const panelLoc = document.getElementById('bs-panel-loc')?.value || '미정';
   el.innerHTML = slots.map((s,i) => `
     <div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border)">
       <span style="width:20px;color:var(--t3);font-size:11px">${i+1}</span>
       <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--blue);min-width:54px">${s.time}</span>
       <span style="flex:1;font-weight:600">${s.cand.name}</span>
-      <span class="b ${s.availability==='available'?'bgreen':s.availability==='conflict'||s.availability==='unavailable'?'bred':'bgray'}">${s.availability==='available'?'가능':s.availability==='conflict'?'응답 불일치':s.availability==='unavailable'?'개별조율':'미응답'}</span>
+      <span class="b ${s.availability==='available'?'bgreen':s.availability==='conflict'||s.availability==='unavailable'||s.availability==='panel_conflict'?'bred':'bgray'}">${s.availability==='available'?'양측 가능':s.availability==='panel_conflict'?'면접관 불가':s.availability==='conflict'?'지원자 불가':s.availability==='unavailable'?'개별조율':'미응답'}</span>
       <span style="font-size:11px;color:var(--t3)">${s.cand.email}</span>
       <span style="display:flex;gap:3px"><button type="button" class="btn btn-xs" title="순서를 위로" data-action="call" data-call="moveBatchCandidate(${s.cand.id},-1)">↑</button><button type="button" class="btn btn-xs" title="순서를 아래로" data-action="call" data-call="moveBatchCandidate(${s.cand.id},1)">↓</button></span>
     </div>`).join('') +
-    `<div style="padding:8px 4px 2px;font-size:11px;color:var(--t3)">📍 장소: ${loc} · 총 ${slots.length}명 · 종료 예정 ${slots[slots.length-1].time} 이후</div>`;
+    `<div style="padding:8px 4px 2px;font-size:11px;color:var(--t3)">지원자 안내: ${esc(loc)} · 면접관 안내: ${esc(panelLoc)} · 총 ${slots.length}명 · 종료 예정 ${slots[slots.length-1].time} 이후</div>`;
 }
 
 async function applyBatchSchedule() {
+  if(batchScheduleBusy) return;
   const { posId, stageIdx, sourceStage, moveAfterApply } = batchScheduleCtx;
   const date = document.getElementById('bs-date')?.value;
-  const loc  = document.getElementById('bs-loc')?.value || '미정';
+  const loc  = document.getElementById('bs-loc')?.value?.trim() || '';
+  const panelLoc = document.getElementById('bs-panel-loc')?.value?.trim() || '';
   if(!date) { toast('면접 날짜를 선택하세요.', 'terr'); return; }
+  if(!loc) { toast('지원자에게 안내할 장소를 입력하세요.', 'terr'); return; }
+  if(!panelLoc) { toast('면접관에게 안내할 실제 면접 장소를 입력하세요.', 'terr'); return; }
 
   const pos = positions.find(p => Number(p.id) === Number(posId));
   const round = stageIdx === 1 ? '1차' : '2차';
   const { slots } = computeBatchSlots();
   if(!slots.length) { toast('배치할 지원자가 없습니다.', 'terr'); return; }
   const conflicts = slots.filter(slot => slot.availability !== 'available');
-  if(conflicts.length && !confirm(`선택한 날짜·시간대와 지원자 응답이 일치하지 않거나 미응답인 대상이 ${conflicts.length}명 있습니다.\n\n${conflicts.map(slot => `${slot.cand.name}: ${slot.availability==='conflict'?'응답 불일치':slot.availability==='unavailable'?'개별 조율 필요':'미응답'}`).join('\n')}\n\n그래도 일정을 확정할까요?`)) return;
+  if(conflicts.length && !confirm(`선택한 날짜·시간대가 면접관 또는 지원자 응답과 일치하지 않는 대상이 ${conflicts.length}명 있습니다.\n\n${conflicts.map(slot => `${slot.cand.name}: ${slot.availability==='panel_conflict'?'면접관 불가':slot.availability==='conflict'?'지원자 불가':slot.availability==='unavailable'?'개별 조율 필요':'미응답'}`).join('\n')}\n\n그래도 일정을 확정할까요?`)) return;
 
-  const panel = stageIdx === 1
-    ? parsePanelists(pos.panel1).map(p => p.name).join(', ')
-    : parsePanelists(pos.panel2).map(p => p.name).join(', ');
+  setBatchScheduleBusy(true, '면접 일정을 저장하고 있습니다.');
+  try {
+    const panel = stageIdx === 1
+      ? parsePanelists(pos.panel1).map(p => p.name).join(', ')
+      : parsePanelists(pos.panel2).map(p => p.name).join(', ');
 
-  let created = 0, updated = 0;
-  slots.forEach(s => {
+    let created = 0, updated = 0;
+    slots.forEach(s => {
     // 기존 면접 있으면 갱신, 없으면 생성
     const existing = interviews.find(i => i.candId === s.cand.id && i.type === round);
     if(existing) {
       existing.date = s.datetime;
       existing.loc  = loc;
+      existing.candidateLoc = loc;
+      existing.panelLoc = panelLoc;
       existing.panel = panel || '미정';
       existing.status = 'confirmed';
       existing.notified = false;
+      existing.panelNotified = false;
+      existing.candidateNotified = false;
+      existing.candNotified = false;
       updated++;
     } else {
       interviews.push({
@@ -836,6 +944,8 @@ async function applyBatchSchedule() {
         type: round,
         date: s.datetime,
         loc: loc,
+        candidateLoc: loc,
+        panelLoc,
         panel: panel || '미정',
         memo: `포지션 일괄 배치 (${pos.title})`,
         status: 'confirmed',
@@ -845,26 +955,35 @@ async function applyBatchSchedule() {
     }
     s.cand.intDate = s.datetime;
     if(moveAfterApply && s.cand.stage === sourceStage) s.cand.stage = stageIdx;
-  });
-
-  saveState();
-  if(GS_CONFIG.scriptUrl) {
-    const syncTasks = slots.map(s => syncCandToGS(s.cand));
-    // 이번 배치로 생성/갱신된 면접 동기화
-    slots.forEach(s => {
-      const itv = interviews.find(i => i.candId === s.cand.id && i.type === round);
-      if(itv) syncTasks.push(syncIntToGS(itv));
     });
-    const result = await settleSync(syncTasks, `${round} 면접 일정 동기화`);
-    if(result.failed) return;
+
+    saveState();
+    if(GS_CONFIG.scriptUrl) {
+      const syncTasks = slots.map(s => syncCandToGS(s.cand));
+    // 이번 배치로 생성/갱신된 면접 동기화
+      slots.forEach(s => {
+        const itv = interviews.find(i => i.candId === s.cand.id && i.type === round);
+        if(itv) syncTasks.push(syncIntToGS(itv));
+      });
+      const result = await settleSync(syncTasks, `${round} 면접 일정 동기화`);
+      if(result.failed) return;
+    }
+    setBatchScheduleBusy(true, '일정 저장 완료 · 지원자 안내 메일을 발송하고 있습니다.');
+    const noticeResult = await sendCandidateThenPanelNotices(posId, stageIdx, round === '1차' ? 1 : 2, true);
+    const mailStatus = `지원자 ${noticeResult.candidateSent}/${noticeResult.candidateTotal}명 발송 완료${noticeResult.panelPending?' · 면접관 메일 작성 필요':''}`;
+    setBatchScheduleBusy(true, mailStatus);
+    renderDashboard(); renderTracker(); renderPositions();
+    if(typeof renderIntTable === 'function') renderIntTable();
+    toast(`${round} 면접 일정 저장 완료 · ${mailStatus}`, noticeResult.candidateSent === noticeResult.candidateTotal ? 'tok' : 'tw');
+    closeModal('modal-batch-schedule');
+    refreshOpenPositionDetail(posId);
+    openInterviewNoticeFlow(posId, stageIdx, round === '1차' ? 1 : 2);
+  } catch(error) {
+    console.error('[applyBatchSchedule]', error);
+    toast(`면접 일정 처리 실패: ${error?.message || error}`, 'terr');
+  } finally {
+    setBatchScheduleBusy(false, '');
   }
-  closeModal('modal-batch-schedule');
-  renderDashboard(); renderTracker(); renderPositions();
-  if(typeof renderIntTable === 'function') renderIntTable();
-  toast(`${round} 면접 공통일정 ${slots.length}명 확정${moveAfterApply?' · 단계 이동 완료':''} (신규 ${created} / 갱신 ${updated})`, 'tok');
-  setTimeout(() => sendCandidateThenPanelNotices(posId, stageIdx, round === '1차' ? 1 : 2, true), 400);
-  // 적용 결과를 반영한 포지션 상세 화면으로 즉시 복귀
-  refreshOpenPositionDetail(posId);
 }
 
 </script>

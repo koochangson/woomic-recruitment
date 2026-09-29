@@ -282,6 +282,10 @@ function savePosition() {
   const jobType = document.getElementById('pos-jobtype')?.value || '';
   if(!location) { toast('소속을 선택하세요.', 'terr'); return; }
   if(location==='본사' && !team) { toast('본사 팀을 선택하세요.', 'terr'); return; }
+  if(location==='본사') {
+    const validTeams = [...document.querySelectorAll('#pos-team-options option')].map(option=>option.value);
+    if(!validTeams.includes(team)) { toast('검색 목록에서 팀을 선택하세요.', 'terr'); return; }
+  }
   if(location==='현장' && !jobType) { toast('현장 직종을 선택하세요.', 'terr'); return; }
   const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
 

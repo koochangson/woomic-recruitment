@@ -76,16 +76,17 @@ function requestStageChange(candId, newStage) {
   const preview = buildStageNotifyMsg(c, newStage);
   updateCsPreview(c, newStage);
 
-  // 면접 단계(1차/2차)일 때 일정 입력 섹션 표시
+  // 면접 일정과 안내 발송은 포지션 상세 프로세스에서만 처리한다.
   const intSched = document.getElementById('cs-int-schedule');
   if(intSched) {
-    intSched.style.display = (newStage===1||newStage===3) ? '' : 'none';
-    // 후보 일정 드롭다운 초기화 + 입력값 비우기
+    intSched.style.display = 'none';
     initSlotDropdowns();
     [1,2,3].forEach(n=>{
       const dtEl=document.getElementById(`cs-slot${n}-dt`); if(dtEl) dtEl.value='';
     });
   }
+  const previewArea = document.getElementById('cs-preview-area');
+  if(previewArea) previewArea.style.display = guide.notify && newStage !== 2 ? '' : 'none';
   openModal('modal-confirm-stage');
 }
 
@@ -1632,6 +1633,10 @@ async function testRefAutoConnection() {
 
 // 구글시트(레퍼런스상태)에서 접수/응답 현황을 가져와 candidates에 반영
 async function syncRefFromGS() {
+  return withGlobalSyncProgress('레퍼런스 상태를 동기화하고 있습니다.', syncRefFromGSInternal);
+}
+
+async function syncRefFromGSInternal() {
   const url = GS_CONFIG.refAutoUrl || document.getElementById('cfg-ref-auto-url')?.value?.trim();
   const status = document.getElementById('ref-auto-conn-status');
   if(!url) { toast('레퍼런스 자동화 URL을 먼저 입력하세요.', 'terr'); return; }

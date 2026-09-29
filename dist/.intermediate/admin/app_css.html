@@ -51,6 +51,8 @@ html,body{height:100%;font-family:'Pretendard Variable','Pretendard',-apple-syst
 .admin-login-box label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin:12px 0 6px;}
 .admin-login-box input{width:100%;height:40px;border:1px solid var(--border);border-radius:6px;padding:0 11px;font-family:'Pretendard',sans-serif;font-size:14px;}
 .admin-login-box button{width:100%;height:40px;margin-top:16px;border:1px solid var(--acc);border-radius:6px;background:var(--acc);color:#fff;font-weight:700;cursor:pointer;}
+.admin-login-id-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;padding:10px 11px;background:var(--s2);border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:700;color:var(--text);}
+.admin-login-box .admin-login-id-change{width:auto;height:auto;margin:0;padding:3px 7px;border:0;background:transparent;color:var(--acc);font-size:11px;}
 .admin-login-msg{min-height:18px;margin-top:10px;font-size:12px;color:var(--danger);}
 .sb-nav{padding:10px 8px;flex:1;overflow-y:auto;}
 .ng{margin-bottom:16px;}
@@ -1032,6 +1034,14 @@ html,body{line-height:1.55;}
   .pp-cand{grid-template-columns:1fr auto;}
   .pp-cand-cell{display:none;}
 }
+.spin{display:inline-block;animation:spin .8s linear infinite;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.global-sync-overlay{position:fixed;inset:0;z-index:5000;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.32);backdrop-filter:blur(1px);}
+.global-sync-overlay.on{display:flex;}
+.global-sync-box{width:min(320px,calc(100vw - 40px));display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px 22px;border:1px solid var(--border);border-radius:8px;background:var(--surface);box-shadow:0 18px 50px rgba(15,23,42,.2);text-align:center;}
+.global-sync-box strong{font-size:14px;color:var(--t1);}
+.global-sync-box span:last-child{font-size:11.5px;color:var(--t3);}
+.global-sync-spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
 
 /* ── 반복 UI 패턴 컴포넌트화 (Phase 2 정리) ─────────────────────
    Dashboard.html에 흩어져 있던 inline style 중 반복 빈도가 높은 패턴만

@@ -42,7 +42,7 @@ function gsBaseUrlForSheet_(sheet) {
 // GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
 const GS_SCHEMA = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
-  Interviews: ['id','candId','candName','type','date','loc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
+  Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','result','note','evaluatedAt','rev','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
@@ -306,6 +306,28 @@ function clearAdminSession_() {
   sessionStorage.removeItem(ADMIN_SESSION_KEY);
 }
 
+function setAdminLoginStep_(step) {
+  const form = document.getElementById('admin-login-form');
+  const idStep = document.getElementById('admin-login-id-step');
+  const passwordStep = document.getElementById('admin-login-password-step');
+  const loginIdInput = document.getElementById('admin-login-user');
+  const passwordInput = document.getElementById('admin-login-password');
+  const selectedId = document.getElementById('admin-login-selected-id');
+  const submit = document.getElementById('admin-login-submit');
+  const isPasswordStep = step === 'password';
+  if(form) form.dataset.step = isPasswordStep ? 'password' : 'id';
+  if(idStep) idStep.hidden = isPasswordStep;
+  if(passwordStep) passwordStep.hidden = !isPasswordStep;
+  if(loginIdInput) loginIdInput.disabled = isPasswordStep;
+  if(passwordInput) {
+    passwordInput.disabled = !isPasswordStep;
+    if(!isPasswordStep) passwordInput.value = '';
+  }
+  if(selectedId) selectedId.textContent = loginIdInput?.value?.trim() || '';
+  if(submit) submit.textContent = isPasswordStep ? '로그인' : '다음';
+  setTimeout(() => (isPasswordStep ? passwordInput : loginIdInput)?.focus(), 30);
+}
+
 function showAdminLogin_(message='') {
   stopGsChangePolling_();
   const box = document.getElementById('admin-login');
@@ -314,7 +336,7 @@ function showAdminLogin_(message='') {
   if(box) {
     box.classList.add('on');
     box.setAttribute('aria-hidden', 'false');
-    setTimeout(() => document.getElementById('admin-login-password')?.focus(), 50);
+    setAdminLoginStep_('id');
   }
 }
 
@@ -330,14 +352,28 @@ function bindAdminLogin_() {
   const form = document.getElementById('admin-login-form');
   if(!form || form.dataset.bound === '1') return;
   form.dataset.bound = '1';
+  document.getElementById('admin-login-change-id')?.addEventListener('click', () => {
+    const msg = document.getElementById('admin-login-msg');
+    if(msg) msg.textContent = '';
+    setAdminLoginStep_('id');
+  });
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const loginId = document.getElementById('admin-login-user')?.value?.trim() || '';
     const password = document.getElementById('admin-login-password')?.value || '';
     const btn = document.getElementById('admin-login-submit');
     const msg = document.getElementById('admin-login-msg');
-    if(btn) btn.disabled = true;
     if(msg) msg.textContent = '';
+    if(form.dataset.step !== 'password') {
+      const normalizedId = loginId.toLowerCase();
+      if(normalizedId !== 'admin' && !/^\d+$/.test(normalizedId)) {
+        if(msg) msg.textContent = '사번을 확인하세요.';
+        return;
+      }
+      setAdminLoginStep_('password');
+      return;
+    }
+    if(btn) btn.disabled = true;
     try {
       const result = await adminApiRun_({ action:'adminLogin', data:{ loginId, password } }, { skipAuth:true });
       if(!result?.ok || !result.token) throw new Error(result?.error || 'login_failed');
@@ -347,7 +383,8 @@ function bindAdminLogin_() {
     } catch(err) {
       if(msg) msg.textContent = err.message === 'login_locked'
         ? '로그인 시도가 잠시 잠겼습니다. 10분 후 다시 시도하세요.'
-        : '사번·관리자 ID 또는 비밀번호를 확인하세요.';
+        : '사번 또는 비밀번호를 확인하세요.';
+      document.getElementById('admin-login-password')?.select();
     } finally {
       if(btn) btn.disabled = false;
     }
@@ -715,6 +752,8 @@ async function syncIntToGS(itv) {
     type:      itv.type || '',
     date:      itv.date || '',
     loc:       itv.loc || '',
+    candidateLoc: itv.candidateLoc || itv.loc || '',
+    panelLoc:  itv.panelLoc || '',
     panel:     itv.panel || '',
     memo:      itv.memo || '',
     notified:  itv.notified ? 'Y' : 'N',
@@ -818,7 +857,7 @@ function normalizeGsPosition(row) {
 function normalizeGsInterview(row) {
   return {
     id:Number(row.id), candId:row.candId!==''&&row.candId!=null?Number(row.candId):null,
-    candName:row.candName, type:row.type, date:row.date, loc:row.loc, panel:row.panel, memo:row.memo,
+    candName:row.candName, type:row.type, date:row.date, loc:row.loc, candidateLoc:row.candidateLoc||row.loc||'', panelLoc:row.panelLoc||'', panel:row.panel, memo:row.memo,
     notified:row.notified==='Y', candidateNotified:row.candidateNotified==='Y', panelNotified:row.panelNotified==='Y',
     mailPending:row.mailPending==='Y', status:row.status||'pending',
     slots:(()=>{try{return JSON.parse(row.slots||'[]')}catch(e){return []}})(),
@@ -1044,6 +1083,10 @@ function applyGsChanges(changes) {
 }
 
 async function syncCoreFromGS(options={}) {
+  return withGlobalSyncProgress('Google Sheets 데이터를 동기화하고 있습니다.', () => syncCoreFromGSInternal(options));
+}
+
+async function syncCoreFromGSInternal(options={}) {
   if(!hasGsBridge_()) return false;
   const cursor = options.forceFull ? null : getGsChangeCursor();
   if(cursor !== null) {
@@ -1269,6 +1312,8 @@ async function loadInterviewsFromGS(options={}) {
       type:     row.type,
       date:     row.date,
       loc:      row.loc,
+      candidateLoc: row.candidateLoc || row.loc || '',
+      panelLoc: row.panelLoc || '',
       panel:    row.panel,
       memo:     row.memo,
       notified: row.notified === 'Y',

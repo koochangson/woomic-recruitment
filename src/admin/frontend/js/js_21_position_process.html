@@ -26,7 +26,7 @@ function positionRoundData(positionId, stageIdx) {
   const positionCands = candidates.filter(c => Number(c.posId) === Number(positionId));
   const roundCands = positionCands.filter(c => candidateStages.includes(c.stage));
   const positionIds = new Set(positionCands
-    .filter(c => c.stage !== 0 && (c.stage >= stageIdx || Number(c.lastCompletedStage) >= stageIdx))
+    .filter(c => candidateStages.includes(c.stage) || (c.stage !== 0 && (c.stage >= stageIdx || Number(c.lastCompletedStage) >= stageIdx)))
     .map(c => Number(c.id)));
   const roundInterviews = interviews.filter(i => positionIds.has(Number(i.candId)) && i.type === round);
   return {
@@ -37,6 +37,14 @@ function positionRoundData(positionId, stageIdx) {
     candidateNotified:roundInterviews.filter(i => i.candidateNotified || i.candNotified),
     panelNotified:roundInterviews.filter(i => i.panelNotified || i.notified),
   };
+}
+
+function isRoundAvailabilityComplete(roundData) {
+  if(!roundData?.candidates?.length) return false;
+  return roundData.candidates.every(c => {
+    const itv = roundData.interviews.find(i => Number(i.candId) === Number(c.id));
+    return ['RESPONDED','UNAVAILABLE'].includes(itv?.availabilityStatus);
+  });
 }
 
 function getPositionActionItems(positionId) {
@@ -127,13 +135,13 @@ function getPositionProcessStatus(positionId) {
   const checks = [
     { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
     { key:'int1_panel', title:'1차 면접관 일정 확인', done:!!pos.panel1AvailabilityConfirmedAt || pastInt1, skip:false },
-    { key:'int1_slots', title:'1차 지원자 가능일 확인', done:r1.interviews.length > 0 || pastInt1, skip:false },
+    { key:'int1_slots', title:'1차 지원자 가능일 확인', done:isRoundAvailabilityComplete(r1) || pastInt1, skip:false },
     { key:'int1_notice', title:'1차 면접안내', done:r1.confirmed.length > 0 || pastInt1, skip:false },
     { key:'int1_result', title:'1차 면접결과', done:pastInt1, skip:false },
     { key:'ref_req', title:'레퍼런스 체크 요청', done:refCands.some(c => c.ref !== '미시작'), skip:short },
     { key:'ref_done', title:'레퍼런스 완료', done:refCands.some(c => c.ref === '완료') || list.some(c => c.stage >= 3 && c.stage !== 6), skip:short },
     { key:'int2_panel', title:'2차 면접관 일정 확인', done:!!pos.panel2AvailabilityConfirmedAt || pastInt2, skip:short },
-    { key:'int2_slots', title:'2차 지원자 가능일 확인', done:r2.interviews.length > 0 || pastInt2, skip:short },
+    { key:'int2_slots', title:'2차 지원자 가능일 확인', done:isRoundAvailabilityComplete(r2) || pastInt2, skip:short },
     { key:'int2_notice', title:'2차 면접안내', done:r2.confirmed.length > 0 || pastInt2, skip:short },
     { key:'int2_result', title:'2차 면접결과', done:pastInt2, skip:short },
     { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
@@ -214,7 +222,7 @@ function renderPositionProcessChecklist(positionId) {
   const refResendNeeded = d && d.list.some(c => c.stage===2 && c.ref==='진행중' && Number(c.refD||0)===0 && ensureRefDetails(c).length===0);
   const refRequestTitle = refResendNeeded ? '레퍼런스 재요청' : '레퍼런스 요청';
   const groups = [
-    { title:'준비', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
+    { title:'서류합격', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
     { title:'1차 면접', stage:1, tasks:[mergeTask('면접관 일정 확인',['int1_panel'],'int1_panel'),mergeTask('지원자 가능일 확인',['int1_slots'],'int1_slots'),mergeTask('면접안내',['int1_notice'],'int1_notice'),mergeTask('면접결과',['int1_result'],'int1_result')] },
     { title:'레퍼런스', stage:2, tasks:[mergeTask(refRequestTitle,['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete')] },
     { title:'2차 면접', stage:3, tasks:[mergeTask('면접관 일정 확인',['int2_panel'],'int2_panel'),mergeTask('지원자 가능일 확인',['int2_slots'],'int2_slots'),mergeTask('면접안내',['int2_notice'],'int2_notice'),mergeTask('면접결과',['int2_result'],'int2_result')] },
@@ -226,6 +234,9 @@ function renderPositionProcessChecklist(positionId) {
     .map(c => flowIndex(Number(c.stage), flow))
     .filter(idx => idx >= 0) : [];
   const alignGroupStatusWithCandidates = (groupStatus, groupStage) => {
+    // A completed workflow group must not become current again just because a
+    // candidate still carries that group's stage value.
+    if(groupStatus === 'complete' || groupStatus === 'skipped') return groupStatus;
     const targetIndex = flow.indexOf(groupStage);
     if(targetIndex < 0 || !candidateFlowIndexes.length) return groupStatus;
     if(candidateFlowIndexes.every(idx => idx > targetIndex)) return 'complete';
@@ -247,7 +258,7 @@ function renderPositionProcessChecklist(positionId) {
         : activeTasks.some(s=>s.status==='current') ? 'current'
         : activeTasks.some(s=>s.status==='complete') ? 'active' : 'upcoming';
       const groupStatus = alignGroupStatusWithCandidates(taskGroupStatus, g.stage);
-      const groupStatusLabel = groupStatus==='complete'?'완료':groupStatus==='current'?'현재 진행':groupStatus==='delayed'?'처리 필요':groupStatus==='active'?'진행 보유':groupStatus==='skipped'?'생략':'예정';
+      const groupStatusLabel = groupStatus==='complete'?'완료':groupStatus==='current'?'현재 진행':groupStatus==='delayed'?'현재 진행':groupStatus==='active'?'진행 보유':groupStatus==='skipped'?'생략':'예정';
       const targetIndex = flow.indexOf(g.stage);
       const fromStage = targetIndex > 0 ? flow[targetIndex-1] : -1;
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
@@ -371,7 +382,13 @@ async function executePositionProcessTask(positionId, actionKey) {
   const round = actionKey.startsWith('int1') ? 1 : actionKey.startsWith('int2') ? 2 : 0;
   const stageIdx = round === 1 ? 1 : round === 2 ? 3 : -1;
   if(actionKey === 'candidate_register') return addCandToPos(positionId);
-  if(actionKey === 'int1_panel' || actionKey === 'int2_panel' || actionKey === 'int1_slots' || actionKey === 'int2_slots') return openCollectSlots(positionId, stageIdx);
+  if(actionKey === 'int1_panel' || actionKey === 'int2_panel') return openCollectSlots(positionId, stageIdx);
+  if(actionKey === 'int1_slots' || actionKey === 'int2_slots') {
+    const roundData = positionRoundData(positionId, stageIdx);
+    return isRoundAvailabilityComplete(roundData)
+      ? openPositionRoundSchedule(positionId, stageIdx)
+      : openCollectSlots(positionId, stageIdx);
+  }
   if(actionKey === 'int1_confirm' || actionKey === 'int2_confirm') return openPositionRoundSchedule(positionId, stageIdx);
   if(actionKey === 'int1_notice' || actionKey === 'int2_notice') {
     const roundData = positionRoundData(positionId, stageIdx);

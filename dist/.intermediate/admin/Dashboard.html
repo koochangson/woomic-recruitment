@@ -14,13 +14,21 @@
 <body>
 <div id="admin-login" class="admin-login-backdrop" aria-hidden="true">
   <form id="admin-login-form" class="admin-login-box">
-    <div class="admin-login-title">관리자 로그인</div>
-    <div class="admin-login-sub">등록된 관리자 사번 또는 관리자 ID와 비밀번호를 입력하세요.</div>
-    <label for="admin-login-user">사번 / 관리자 ID</label>
-    <input id="admin-login-user" autocomplete="username" placeholder="사번 또는 관리자 ID" maxlength="20" required>
-    <label for="admin-login-password">비밀번호</label>
-    <input id="admin-login-password" type="password" autocomplete="current-password" required>
-    <button id="admin-login-submit" type="submit">로그인</button>
+    <div class="admin-login-title">채용관리 로그인</div>
+    <div class="admin-login-sub" id="admin-login-sub">사번을 먼저 입력하세요. 기존 관리자 계정은 admin을 사용할 수 있습니다.</div>
+    <div id="admin-login-id-step">
+      <label for="admin-login-user">사번</label>
+      <input id="admin-login-user" autocomplete="username" placeholder="사번" maxlength="20" required>
+    </div>
+    <div id="admin-login-password-step" hidden>
+      <div class="admin-login-id-summary">
+        <span id="admin-login-selected-id"></span>
+        <button id="admin-login-change-id" class="admin-login-id-change" type="button">변경</button>
+      </div>
+      <label for="admin-login-password">비밀번호</label>
+      <input id="admin-login-password" type="password" autocomplete="current-password" disabled required>
+    </div>
+    <button id="admin-login-submit" type="submit">다음</button>
     <div id="admin-login-msg" class="admin-login-msg"></div>
   </form>
 </div>
@@ -107,6 +115,13 @@
 
 <!-- ── 메인 ─────────────────────────────────────────────── -->
 <div class="main">
+  <div id="global-sync-overlay" class="global-sync-overlay" role="status" aria-live="polite" aria-hidden="true">
+    <div class="global-sync-box">
+      <span class="global-sync-spinner" aria-hidden="true"></span>
+      <strong id="global-sync-title">동기화 중</strong>
+      <span id="global-sync-message">잠시만 기다려 주세요.</span>
+    </div>
+  </div>
   <div id="sync-fail-banner" class="sync-fail-banner">
     <span>Google Sheets 동기화에 실패했습니다. 데이터가 최신이 아닐 수 있습니다.</span>
     <button class="btn btn-xs" style="margin-left:auto" data-action="call" data-call="syncCoreFromGS()">재시도</button>
@@ -373,7 +388,11 @@
               <div style="font-size:11px;color:var(--t3);margin-bottom:3px" id="ref-ai-label">분석 중...</div>
               <div class="prog"><div class="pf-bar pfb" id="ref-ai-bar" style="width:0%"></div></div>
             </div>
-            <div id="ref-ai-output" style="display:none"><div id="ref-ai-text"></div></div>
+            <div id="ref-ai-output" style="display:none">
+              <div id="ref-ai-text" style="white-space:pre-wrap;font-size:12px;line-height:1.6;background:var(--s2);border-radius:var(--rsm);padding:10px;margin-bottom:8px;max-height:280px;overflow-y:auto"></div>
+              <div class="field-hint" style="margin-bottom:8px">AI 요약은 참고용입니다. 내용을 확인한 뒤 "결과표에 반영"을 눌러야 정리표에 옮겨집니다.</div>
+              <button class="btn btn-sm" data-action="call" data-call="applyAIToRefReport()" style="margin-bottom:10px">결과표에 반영</button>
+            </div>
             <button class="btn btn-primary btn-sm" data-action="call" data-call="generateAI()">AI 요약 생성</button>
           </div>
         </div>
@@ -872,7 +891,7 @@
           <div class="template-panel" data-template-panel="tpl-collect"><label>면접 가능 시간대 안내 (일정 취합용)</label><div class="template-desc">면접관 일정을 확인한 뒤 지원자에게 날짜별 오전·오후 가능 여부를 요청할 때 사용됩니다.</div><textarea id="tpl-collect">안녕하세요 {지원자명}님,
 
 우미건설 {포지션} 포지션 {면접유형}을 진행하고자 합니다.
-아래 링크에서 가능한 날짜의 오전·오후 시간대를 모두 선택해 주세요.
+아래 링크에서 가능한 날짜와 시간대를 모두 선택해 주세요.
 
 {후보일정}
 {장소}
@@ -1047,28 +1066,6 @@
         </div>
       </div>
 
-      <!-- 면접 후보 일정 입력 (1차/2차 면접 단계에서만 표시) -->
-      <div id="cs-int-schedule" style="display:none;margin-bottom:14px">
-        <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px">📅 면접 후보 일정 입력 (선택)</div>
-        <div class="slot-option-list">
-          <div class="slot-option-row">
-            <span class="slot-option-label">1안</span>
-            <input id="cs-slot1-dt" type="datetime-local" step="600" class="slot-option-input is-solid"/>
-          </div>
-          <div class="slot-option-row">
-            <span class="slot-option-label">2안</span>
-            <input id="cs-slot2-dt" type="datetime-local" step="600" class="slot-option-input is-solid"/>
-          </div>
-          <div class="slot-option-row">
-            <span class="slot-option-label">3안</span>
-            <input id="cs-slot3-dt" type="datetime-local" step="600" class="slot-option-input is-solid"/>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:6px 8px;background:var(--bbg);border-radius:var(--rsm)">
-          💡 입력 시 이메일 본문에 자동 포함 · 지원자 회신 후 면접 관리 탭에서 일정 확정
-        </div>
-      </div>
-
       <!-- 알림 미리보기 -->
       <div id="cs-preview-area" style="margin-top:12px">
         <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">알림 메시지 미리보기</div>
@@ -1219,7 +1216,8 @@
       </div>
       <div class="fg" id="fg-team" style="display:none;grid-column:1/-1">
         <label>팀 *</label>
-        <select id="pos-team"><option value="">팀 선택</option></select>
+        <input id="pos-team" list="pos-team-options" placeholder="팀명 검색 또는 선택" autocomplete="off"/>
+        <datalist id="pos-team-options"></datalist>
       </div>
       <div class="fg" id="fg-jobtype" style="display:none;grid-column:1/-1">
         <label>직종 *</label>
@@ -1395,8 +1393,9 @@
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
-        포지션 공통 면접 날짜를 기준으로 지원자 전원의 일정을 확정합니다. 특별한 사유가 있는 경우에만 확정 후 개인 시간을 수정하세요.
+        면접관과 지원자가 모두 가능한 일정 중 정확한 시간과 순서를 확정합니다. 확정 후 면접관·지원자 안내가 이어집니다.
       </div>
+      <div id="bs-common-options" style="margin-bottom:14px"></div>
       <div class="fgrid" style="gap:10px;margin-bottom:14px">
         <div class="fg"><label>면접 날짜</label><input type="date" id="bs-date"/></div>
         <div class="fg"><label>시작 시간</label><input type="time" id="bs-start" step="600" value="10:00" data-onchange="snapTo10(this)"/></div>
@@ -1408,14 +1407,16 @@
             <option value="60">1시간</option>
           </select>
         </div>
-        <div class="fg"><label>면접 장소</label><input id="bs-loc" placeholder="예: 본사 3층 회의실 A"/></div>
+        <div class="fg"><label>지원자 안내 장소</label><input id="bs-loc" placeholder="강남사옥 14F (린스퀘어)"/></div>
+        <div class="fg"><label>면접관 안내 장소</label><input id="bs-panel-loc" placeholder="예: 강남사옥 14F 회의실 A"/></div>
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:8px">확정 일정 미리보기</div>
       <div id="bs-preview" style="border:1px solid var(--border);border-radius:var(--rsm);padding:10px;max-height:240px;overflow-y:auto;font-size:12.5px"></div>
     </div>
     <div class="modal-ft">
+      <span id="bs-save-status" aria-live="polite" style="margin-right:auto;font-size:11.5px;color:var(--t3)"></span>
       <button class="btn" data-action="close-modal" data-id="modal-batch-schedule">취소</button>
-      <button class="btn btn-primary" data-action="call" data-call="applyBatchSchedule()">일정 확정</button>
+      <button class="btn btn-primary" id="bs-apply-btn" data-action="call" data-call="applyBatchSchedule()">일정 확정</button>
     </div>
   </div>
 </div>
@@ -1611,7 +1612,7 @@
       <button class="mclose" aria-label="닫기" data-action="close-modal" data-id="modal-interview-notice-flow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
-      <div class="alert aw"><span>지원자에게는 개인별 메일을 발송하고, 면접관에게는 확정 일정 전체를 단체 메일로 발송합니다.</span></div>
+      <div class="alert aw"><span>지원자 메일은 시스템에서 발송합니다. 면접관 메일은 작성창에서 면접조서를 첨부해 직접 발송한 뒤 완료로 표시합니다.</span></div>
       <div id="inf-status" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"></div>
     </div>
     <div class="modal-ft">

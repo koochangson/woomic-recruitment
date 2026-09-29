@@ -163,6 +163,12 @@ const requiredPatterns = [
     message: 'Application admin login must accept only the legacy admin ID or registered numeric employee numbers.',
   },
   {
+    id: 'admin-login-uses-two-step-form',
+    file: 'src/admin/frontend/js/js_01_sheets_sync.html',
+    pattern: /function setAdminLoginStep_\([\s\S]{0,2000}form\.dataset\.step[\s\S]{0,3500}form\.dataset\.step !== 'password'[\s\S]{0,800}setAdminLoginStep_\('password'\)/,
+    message: 'Admin login must collect the employee number before revealing the password step.',
+  },
+  {
     id: 'dashboard-checks-deployment-config-on-start',
     file: 'src/admin/frontend/js/js_99_app.html',
     pattern: /startGsChangePolling_\(\);[\s\S]{0,120}checkAdminDeploymentConfig_\(\);/,

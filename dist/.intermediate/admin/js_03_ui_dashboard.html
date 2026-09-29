@@ -13,6 +13,42 @@ function showSyncStatus(msg, type='') {
   if(banner) banner.style.display = failed ? 'flex' : type === 'ok' ? 'none' : banner.style.display;
 }
 
+let globalSyncBusyDepth = 0;
+function showGlobalSyncProgress(message='Google Sheets에 반영하고 있습니다.') {
+  globalSyncBusyDepth++;
+  const overlay = document.getElementById('global-sync-overlay');
+  const text = document.getElementById('global-sync-message');
+  if(text) text.textContent = message;
+  if(overlay) {
+    overlay.classList.add('on');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function updateGlobalSyncProgress(message) {
+  const text = document.getElementById('global-sync-message');
+  if(text && message) text.textContent = message;
+}
+
+function hideGlobalSyncProgress() {
+  globalSyncBusyDepth = Math.max(0, globalSyncBusyDepth - 1);
+  if(globalSyncBusyDepth) return;
+  const overlay = document.getElementById('global-sync-overlay');
+  if(overlay) {
+    overlay.classList.remove('on');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+}
+
+async function withGlobalSyncProgress(message, task) {
+  showGlobalSyncProgress(message);
+  try {
+    return await task();
+  } finally {
+    hideGlobalSyncProgress();
+  }
+}
+
 function updateSidebarUrgency() {
   const posUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high'));
   const interviewUrgent = positions.some(p => getPositionActionItems(p.id).some(item => item.priority === 'high' && /^(first|second)_/.test(item.type)));
@@ -348,6 +384,7 @@ function openMailto(toEmail, subject, body, sequential) {
 
 function buildIntEmail(itv, cand) {
   const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
+  const candidateLoc = itv.candidateLoc || itv.loc || '강남사옥 14F (린스퀘어)';
   const tplId = itv.type === '1차' ? 'tpl-int1' : 'tpl-int2';
   const tpl = document.getElementById(tplId)?.value || '';
   if(tpl) {
@@ -356,11 +393,11 @@ function buildIntEmail(itv, cand) {
       .replace(/\{포지션\}/g, cand?.pos || '')
       .replace(/\{면접유형\}/g, type)
       .replace(/\{면접일시\}/g, itv.date || '별도 안내 예정')
-      .replace(/\{장소\}/g,    itv.loc  || '별도 안내 예정')
+      .replace(/\{장소\}/g,    candidateLoc)
       .replace(/\{면접관\}/g,  itv.panel || '')
       .replace(/\{메모\}/g,    itv.memo ? '\n안내사항: ' + itv.memo : '');
   }
-  return `안녕하세요 ${cand?.name || ''}님,\n\n${type} 일정을 안내드립니다.\n\n일시: ${itv.date || '별도 안내 예정'}\n장소: ${itv.loc || '별도 안내 예정'}${itv.memo ? '\n안내: ' + itv.memo : ''}`;
+  return `안녕하세요 ${cand?.name || ''}님,\n\n${type} 일정을 안내드립니다.\n\n일시: ${itv.date || '별도 안내 예정'}\n장소: ${candidateLoc}${itv.memo ? '\n안내: ' + itv.memo : ''}`;
 }
 
 function selectTemplateEditor(templateId, trigger) {
