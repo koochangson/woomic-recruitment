@@ -74,6 +74,37 @@ function updateSidebarUrgency() {
   document.getElementById('nb-notify')?.classList.toggle('urgent', mailUrgent);
 }
 
+let lazyInterviewerLoadPromise_ = null;
+let lazyReferenceLoadPromise_ = null;
+let lazyReferenceLoaded_ = false;
+
+function loadSectionDataLazily_(id) {
+  const needsInterviewers = ['position','posdetail','interview','settings'].includes(id);
+  if(needsInterviewers && !interviewers.length && GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function' && !lazyInterviewerLoadPromise_) {
+    lazyInterviewerLoadPromise_ = withGlobalSyncProgress('면접관 DB를 불러오고 있습니다.', async () => {
+      await loadInterviewers();
+      renderTeamMaster();
+      renderIntTable();
+      renderPositions();
+      if(currentPosDetailId != null) refreshOpenPositionDetail(currentPosDetailId);
+      return interviewers.length > 0;
+    }).catch(error => {
+      console.warn('면접관 DB 지연 로드 실패:', error);
+      return false;
+    }).finally(() => { lazyInterviewerLoadPromise_ = null; });
+  }
+
+  if(id === 'reference' && !lazyReferenceLoaded_ && GS_CONFIG.refAutoUrl && typeof syncRefFromGS === 'function' && !lazyReferenceLoadPromise_) {
+    lazyReferenceLoadPromise_ = syncRefFromGS()
+      .then(loaded => { lazyReferenceLoaded_ = loaded === true; return loaded; })
+      .catch(error => {
+        console.warn('레퍼런스 상태 지연 로드 실패:', error);
+        return false;
+      })
+      .finally(() => { lazyReferenceLoadPromise_ = null; });
+  }
+}
+
 function nav(id, btn) {
   document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
   document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
@@ -100,6 +131,7 @@ function nav(id, btn) {
   if(id==='notifylog') renderPeriodReport();
   if(id==='position') renderPositions();
   if(id==='settings') renderTeamMaster();
+  loadSectionDataLazily_(id);
 }
 function navBtn(id) {
   const btn = document.querySelector(`.nb[data-action="nav"][data-target="${id}"]`);

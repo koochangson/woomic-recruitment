@@ -60,7 +60,7 @@ function issueInterviewAvailabilityLink_(payload) {
     availabilityExpiresAt: expiresAt,
     availabilityLink: link,
     availabilitySelections: '',
-    availabilityStatus: 'SENT',
+    availabilityStatus: 'READY',
     availabilityRespondedAt: '',
     availabilityNote: '',
     availabilityResponseBy: responseBy,
@@ -76,6 +76,38 @@ function issueInterviewAvailabilityLink_(payload) {
   else sheet.appendRow(values);
   appendChange_('Interviews', 'upsert', interviewId, normalized);
   return json_({ ok: true, interviewId, link, tokenExpiresAt: expiresAt });
+}
+
+function setInterviewAvailabilityDeliveryStatus_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const interviewId = String(body.interviewId || body.id || '').trim();
+  const status = String(body.status || '').trim().toUpperCase();
+  if (!interviewId || !['SENT', 'SEND_FAILED'].includes(status)) {
+    return json_({ error: 'invalid_interview_availability_delivery_status' });
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = ensureSheet_('Interviews');
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.Interviews);
+    const rowIndex = findRowIndex_(sheet, 'id', interviewId, headers);
+    if (rowIndex < 1) return json_({ error: 'interview_not_found' });
+    const existing = readRows_('Interviews').find(row => String(row.id) === interviewId);
+    if (!existing) return json_({ error: 'interview_not_found' });
+    const normalized = schemaRow_('Interviews', Object.assign({}, existing, {
+      availabilityStatus: status,
+      updatedAt: nowIso_()
+    }));
+    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([
+      headers.map(header => normalized[header] == null ? '' : normalized[header])
+    ]);
+    appendChange_('Interviews', 'upsert', interviewId, normalized);
+    return json_({ ok: true, interviewId, status });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function verifyInterviewAvailabilityToken_(payload) {
@@ -180,7 +212,7 @@ function notifyIfInterviewAvailabilityCohortComplete_(justUpdatedRow) {
   const cohort = readRows_('Interviews').filter(i =>
     i.type === justUpdatedRow.type &&
     cohortCandIds.includes(String(i.candId)) &&
-    i.availabilityStatus
+    ['SENT', 'RESPONDED', 'UNAVAILABLE'].includes(i.availabilityStatus)
   );
   if (!cohort.length || !cohort.every(i => i.availabilityStatus === 'RESPONDED' || i.availabilityStatus === 'UNAVAILABLE')) return;
   sendCohortCompleteNotice_(

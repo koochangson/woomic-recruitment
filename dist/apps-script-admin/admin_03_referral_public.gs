@@ -7,6 +7,7 @@ function handleReferralSecurityAction_(payload) {
   if (payload.action === 'getInterviewersFromDirectory') return getInterviewersFromDirectory_(payload);
   if (payload.action === 'issueReferenceCandidateLink') return issueReferenceCandidateLink_(payload);
   if (payload.action === 'issueInterviewAvailabilityLink') return issueInterviewAvailabilityLink_(payload);
+  if (payload.action === 'setInterviewAvailabilityDeliveryStatus') return setInterviewAvailabilityDeliveryStatus_(payload);
   if (payload.action === 'verifyInterviewAvailabilityToken') return verifyInterviewAvailabilityToken_(payload);
   if (payload.action === 'submitInterviewAvailability') return submitInterviewAvailability_(payload);
   if (payload.action === 'issuePanelAvailabilityLink') return issuePanelAvailabilityLink_(payload);

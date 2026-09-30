@@ -512,7 +512,7 @@ function createCandidateFromReferral(id) {
   if(pos?.id) ref.posId = pos.id;
   if(ref.status==='SUBMITTED'||ref.status==='REVIEWING') ref.status = 'IN_PROCESS';
   saveState();
-  if(GS_CONFIG.scriptUrl) settleSync([syncCandToGS(cand), syncReferralToGS(ref)], '사내추천 후보 생성');
+  if(GS_CONFIG.scriptUrl) settleSync([() => syncCandToGS(cand), () => syncReferralToGS(ref)], '사내추천 후보 생성');
   renderReferralSection(); renderTracker(); renderDashboard();
   toast(`${esc(cand.name)} 후보를 생성하고 추천 건과 연결했습니다.`,'tok');
 }

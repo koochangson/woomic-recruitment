@@ -203,11 +203,15 @@ async function confirmStageChange() {
   if(newStage === 5 && c.posId != null) {
     if(!await warnSeatOverflow(c.posId, 1)) return;
   }
+  showGlobalSyncProgress(`${c.name}님의 단계를 ${STAGES[newStage]}(으)로 변경하고 있습니다.`);
+  await waitForUiPaint_();
+  try {
   const previousFlow = getFlowForCandidate(c);
   const movingForwardStage = (newStage === 6) || (flowIndex(newStage, previousFlow) > flowIndex(oldStage, previousFlow));
   const movingBackwardStage = newStage !== 6 && flowIndex(newStage, previousFlow) < flowIndex(oldStage, previousFlow);
   const completedInterview = movingForwardStage ? preserveCompletedStage(c, oldStage) : null;
   const removedInterviewIds = movingBackwardStage ? resetCandidateProgressForRollback(c, newStage) : [];
+  const resetPosition = movingBackwardStage ? resetPositionRoundForRollback(c, newStage) : null;
   c.stage = newStage;
   if(newStage === 5 && !c.joinDate) c.joinDate = '';
   if(newStage === 6) recordRejection(c, rejectionInfo.reason, rejectionInfo.memo);
@@ -284,10 +288,23 @@ async function confirmStageChange() {
         joinDate: c.joinDate || '', dept: c.dept || '', rank: '', etype: c.etype || '', location: c.loc || '', prepNotes: ''
       };
     }
-    await dispatchCandidateMail_(c, {
-      subject, purpose: `${STAGES[newStage]} 단계`, directBody: body, logType: STAGES[newStage]+'안내(업체경유)',
-      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, generalParams)
-    });
+    let mailSent = false;
+    try {
+      mailSent = await dispatchCandidateMail_(c, {
+        subject, purpose: `${STAGES[newStage]} 단계`, directBody: body, logType: STAGES[newStage]+'안내(업체경유)',
+        sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, generalParams)
+      });
+    } catch(error) {
+      console.warn('단계 변경 안내 메일 발송 오류:', error);
+    }
+    if(mailSent === false) {
+      c.mailPending = true;
+      c.mailPendingLabel = `${STAGES[newStage]} 안내 재발송 필요`;
+      toast('단계는 변경하지만 안내 메일은 발송되지 않았습니다. 재발송 필요 항목을 확인해 주세요.', 'tw');
+    } else {
+      c.mailPending = false;
+      c.mailPendingLabel = '';
+    }
   }
 
   if(shouldPromptReferenceStart) {
@@ -300,6 +317,7 @@ async function confirmStageChange() {
   }
 
   // 면접 후보 일정 자동 등록 (1차/2차 면접 단계) — 같은 type 면접 1건만 유지(갱신)
+  let scheduledInterview = null;
   if(newStage === 1 || newStage === 3) {
     const slots = [1,2,3]
       .map(n => getSlotValue(n))
@@ -336,8 +354,7 @@ async function confirmStageChange() {
       c.intDate = firstDate;
       // 생성/갱신된 면접 GS 저장
       if(GS_CONFIG.scriptUrl) {
-        const savedItv = interviews.find(i => i.candId === c.id && i.type === intType);
-        if(savedItv) syncIntToGS(savedItv);
+        scheduledInterview = interviews.find(i => i.candId === c.id && i.type === intType) || null;
       }
       toast(`면접 후보 일정 ${slots.length}개 등록 (면접 관리 탭에서 확정하세요)`, 'tok');
     }
@@ -347,9 +364,11 @@ async function confirmStageChange() {
   saveState();
   if(GS_CONFIG.scriptUrl) {
     await settleSync([
-      syncCandToGS(c),
-      ...(completedInterview ? [syncIntToGS(completedInterview)] : []),
-      ...removedInterviewIds.map(id => deleteIntFromGS(id)),
+      () => syncCandToGS(c),
+      ...(completedInterview ? [() => syncIntToGS(completedInterview)] : []),
+      ...(scheduledInterview ? [() => syncIntToGS(scheduledInterview)] : []),
+      ...removedInterviewIds.map(id => () => deleteIntFromGS(id)),
+      ...(resetPosition ? [() => syncPosToGS(resetPosition), () => deletePanelAvailabilityRoundFromGS(resetPosition.id, 1)] : []),
     ], movingBackwardStage ? '단계 되돌리기 동기화' : '단계 변경 동기화');
   }
   closeModal('modal-confirm-stage');
@@ -363,6 +382,9 @@ async function confirmStageChange() {
     const pid = returnToPosId;
     returnToPosId = null;
     setTimeout(() => openPosDetail(Number(pid)), 300);
+  }
+  } finally {
+    hideGlobalSyncProgress();
   }
 }
 
@@ -435,7 +457,7 @@ async function saveIntResult() {
   itv.evaluatedAt = new Date().toISOString();
   saveState();
   if(GS_CONFIG.scriptUrl) {
-    const sync = await settleSync([syncIntToGS(itv)], `${itv.type} 면접 결과 저장`);
+    const sync = await settleSync([() => syncIntToGS(itv)], `${itv.type} 면접 결과 저장`);
     if(sync.failed) return;
   }
   editingInterviewResultId = null;
@@ -841,7 +863,7 @@ async function addInterview() {
   interviews.push(itv);
   saveState();
   if(GS_CONFIG.scriptUrl) {
-    const result = await settleSync([syncIntToGS(itv), syncCandToGS(cand)], `${type} 면접 일정 저장`);
+    const result = await settleSync([() => syncIntToGS(itv), () => syncCandToGS(cand)], `${type} 면접 일정 저장`);
     if(result.failed) return;
   }
   renderIntTable(); updateMetrics(); populateSel('int-cand');
@@ -1671,12 +1693,12 @@ async function syncRefFromGS() {
 async function syncRefFromGSInternal() {
   const url = GS_CONFIG.refAutoUrl || document.getElementById('cfg-ref-auto-url')?.value?.trim();
   const status = document.getElementById('ref-auto-conn-status');
-  if(!url) { toast('레퍼런스 자동화 URL을 먼저 입력하세요.', 'terr'); return; }
+  if(!url) { toast('레퍼런스 자동화 URL을 먼저 입력하세요.', 'terr'); return false; }
   if(status) status.textContent = '가져오는 중...';
   try {
     const res = await fetch(url + '?action=getRefStatus');
     const data = await res.json();
-    if(!data || !Array.isArray(data.data)) { if(status) status.textContent='❌ 응답 오류'; return; }
+    if(!data || !Array.isArray(data.data)) { if(status) status.textContent='❌ 응답 오류'; return false; }
 
     // surveySent 플래그 보존용으로 기존 refDetails 백업 후 전체 초기화
     const prevRefDetails = {};
@@ -1742,8 +1764,10 @@ async function syncRefFromGSInternal() {
     updateMetrics();
     if(status) status.textContent = `✅ ${matched}명 동기화${unmatched ? ` · 미매칭 ${unmatched}건` : ''}`;
     toast(`레퍼런스 ${matched}명 동기화 완료${unmatched ? ` · 지원자 미매칭 ${unmatched}건` : ''}`, unmatched ? 'tw' : 'tok');
+    return true;
   } catch(e) {
     if(status) status.textContent = '❌ 실패: ' + e.message;
+    return false;
   }
 }
 

@@ -385,7 +385,7 @@ async function saveSettingsToGS(cfg) {
   const remoteCfg = {...cfg};
   delete remoteCfg.openaiKey;
   const items = Object.entries(remoteCfg).map(([key, val]) => ({id: key, value: val}));
-  await settleSync([gsBatchUpsert('Settings', items)], '설정 동기화');
+  await settleSync([() => gsBatchUpsert('Settings', items)], '설정 동기화');
 }
 
 async function loadSettingsFromGS() {
@@ -447,7 +447,7 @@ async function loadSettingsWithGS() {
       set('tpl-collect',         gsCfg.tplCollect);
       if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
       if(gsCfg.referralDataUrl) GS_CONFIG.referralDataUrl = gsCfg.referralDataUrl;
-      if(gsCfg.interviewerUrl) { GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl; loadInterviewers(); }
+      if(gsCfg.interviewerUrl) GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl;
       if(gsCfg.refAutoUrl)     GS_CONFIG.refAutoUrl = gsCfg.refAutoUrl;
       setPrivacyMask(gsCfg.maskPii === 'true');
       resetIdleLock();
@@ -534,7 +534,6 @@ function loadSettings() {
     set('cfg-interviewer-url', cfg.interviewerUrl);
     if(cfg.interviewerUrl) {
       GS_CONFIG.interviewerUrl = cfg.interviewerUrl;
-      loadInterviewers();
     }
     set('cfg-ref-auto-url', cfg.refAutoUrl);
     if(cfg.refAutoUrl) GS_CONFIG.refAutoUrl = cfg.refAutoUrl;

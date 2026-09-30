@@ -371,7 +371,7 @@ async function deletePosition(posId) {
   if(linked > 0) {
     const unlinked = candidates.filter(c => Number(c.posId) === Number(posId));
     unlinked.forEach(c => { c.posId = null; });
-    if(GS_CONFIG.scriptUrl && typeof syncCandToGS === 'function') await settleSync(unlinked.map(c => syncCandToGS(c)), '지원자 연결 해제 동기화');
+    if(GS_CONFIG.scriptUrl && typeof syncCandToGS === 'function') await settleSync(unlinked.map(c => () => syncCandToGS(c)), '지원자 연결 해제 동기화');
   }
   positions = positions.filter(p => p.id !== posId);
   saveState();

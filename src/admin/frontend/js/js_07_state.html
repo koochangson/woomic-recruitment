@@ -42,8 +42,8 @@ async function syncAuxStateToGS() {
   const json = JSON.stringify(getAuxStateSnapshot());
   const chunks = chunkText(json);
   const tasks = [
-    gsUpsert('Settings', {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})}),
-    ...chunks.map((value,i)=>gsUpsert('Settings',{id:`auxState:${i}`,value})),
+    () => gsUpsert('Settings', {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})}),
+    ...chunks.map((value,i)=>()=>gsUpsert('Settings',{id:`auxState:${i}`,value})),
   ];
   await settleSync(tasks, '보조 데이터 동기화');
 }

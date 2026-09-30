@@ -471,7 +471,7 @@ async function savePositionResults(confirmAndMove) {
     return confirmStageDecisions(positionId, stageIdx, {skipConfirm:true});
   }
   saveState();
-  if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>syncCandToGS(c)), stageIdx===4?'처우협의 결과 저장 동기화':'면접 결과 저장 동기화');
+  if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>()=>syncCandToGS(c)), stageIdx===4?'처우협의 결과 저장 동기화':'면접 결과 저장 동기화');
   closeModal('modal-position-result');
   refreshOpenPositionDetail(positionId);
   toast(`${stageIdx===4?'처우협의 결과':stageLabel(stageIdx)+' 판정'} 저장 완료`, 'tok');
@@ -491,7 +491,7 @@ async function completePositionInterviews(positionId, stageIdx) {
   if(!confirmed) return;
   targets.forEach(i=>{ i.status='done'; });
   saveState();
-  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
+  if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>()=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
   refreshOpenPositionDetail(positionId); renderDashboard();
   toast(`${round} 면접 ${targets.length}건 완료 처리`, 'tok');
 }
@@ -529,7 +529,7 @@ async function completePositionReferences(positionId) {
   if(!confirmed) return;
   eligible.forEach(c=>{ c.ref='완료'; c.refD=c.refT; refDetails[c.id].forEach(r=>r.status='응답'); });
   saveState();
-  if(GS_CONFIG.scriptUrl) await settleSync(eligible.map(c=>syncCandToGS(c)), '레퍼런스 완료 동기화');
+  if(GS_CONFIG.scriptUrl) await settleSync(eligible.map(c=>()=>syncCandToGS(c)), '레퍼런스 완료 동기화');
   refreshOpenPositionDetail(positionId); updateMetrics();
   toast(`${eligible.length}명 레퍼런스 완료 처리`, 'tok');
 }
@@ -597,7 +597,7 @@ function openPosDetail(positionId) {
   nav('posdetail');
   renderPosDetailSection(currentPosDetailId);
   if(aligned.length && GS_CONFIG.scriptUrl) {
-    settleSync(aligned.map(c => syncCandToGS(c)), '면접 진행단계 동기화')
+    settleSync(aligned.map(c => () => syncCandToGS(c)), '면접 진행단계 동기화')
       .then(() => refreshOpenPositionDetail(currentPosDetailId));
   }
   window.scrollTo(0, 0);
@@ -755,8 +755,8 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   });
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync([
-    ...[...passers, ...failers].map(c => syncCandToGS(c)),
-    ...decidedInterviews.map(i => syncIntToGS(i)),
+    ...[...passers, ...failers].map(c => () => syncCandToGS(c)),
+    ...decidedInterviews.map(i => () => syncIntToGS(i)),
   ], '판정 결과 동기화');
   renderPositions(); renderDashboard();
   if(isFinalDecision && passCnt > 0) {
@@ -830,6 +830,35 @@ function resetCandidateProgressForRollback(c, newStage) {
   return removedInterviewIds;
 }
 
+function resetPositionRoundForRollback(c, newStage) {
+  if(!c || Number(newStage) !== 0) return null;
+  const pos = positions.find(p => Number(p.id) === Number(c.posId));
+  if(!pos) return null;
+  const hasOtherProgressedCandidate = candidates.some(other =>
+    Number(other.id) !== Number(c.id) &&
+    Number(other.posId) === Number(c.posId) &&
+    Number(other.stage) !== 6 &&
+    flowIndex(Number(other.stage), getFlowForCandidate(other)) >= flowIndex(1, getFlowForCandidate(other))
+  );
+  if(hasOtherProgressedCandidate) return null;
+
+  pos.panel1AvailabilityOptions = [];
+  pos.panel1AvailabilityRequestedAt = '';
+  pos.panel1AvailabilityConfirmedAt = '';
+  delete panelAvailabilityCache[panelAvailabilityCacheKey(pos.id, 1)];
+  return pos;
+}
+
+async function deletePanelAvailabilityRoundFromGS(positionId, stageIdx) {
+  const round = Number(stageIdx) === 1 ? '1차' : '2차';
+  const result = await gsFetch('getPanelAvailabilityResponses', '', { positionId, round }, { allowQueue:false });
+  if(!result?.ok) throw new Error(result?.error || '면접관 일정 응답 조회 실패');
+  const rows = (result.responses || []).filter(row => row?.id != null && row.id !== '');
+  const deleted = await Promise.all(rows.map(row => gsDelete('PanelAvailability', row.id)));
+  if(deleted.some(value => value == null || value?.error)) throw new Error('면접관 일정 응답 초기화 실패');
+  return { ok:true, deleted:rows.length };
+}
+
 async function batchStageChange(posId, fromStage, toStage) {
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === fromStage);
   if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
@@ -887,9 +916,9 @@ async function batchStageChange(posId, fromStage, toStage) {
   });
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync([
-    ...targets.map(c => syncCandToGS(c)),
-    ...completedInterviews.map(i => syncIntToGS(i)),
-    ...removedInterviewIds.map(id => deleteIntFromGS(id)),
+    ...targets.map(c => () => syncCandToGS(c)),
+    ...completedInterviews.map(i => () => syncIntToGS(i)),
+    ...removedInterviewIds.map(id => () => deleteIntFromGS(id)),
   ], movingBackward ? '단계 일괄 되돌리기 동기화' : '단계 일괄 이동 동기화');
   renderDashboard(); renderTracker(); renderPositions();
   toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');

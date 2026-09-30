@@ -297,10 +297,7 @@ try {
       auxSyncSuspended = false;
       showSyncStatus('⚠ 관리자 URL 미설정 — 설정 탭에서 관리자 Apps Script URL을 입력하세요.', 'warn');
     }
-    // 면접관 DB 자동 로드
-    if(GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function') loadInterviewers();
-    // 레퍼런스 상태 자동 동기화
-    if(GS_CONFIG.refAutoUrl && typeof syncRefFromGS === 'function') syncRefFromGS();
+    // 면접관 DB와 외부 레퍼런스 상태는 관련 화면에 처음 진입할 때 불러온다.
     // 이전 세션에서 실패한 GS 저장 요청 재시도
     if(hasGsBridge_()) {
       setTimeout(flushGsRetryQueue, 1500);

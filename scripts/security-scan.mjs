@@ -151,6 +151,24 @@ const requiredPatterns = [
     message: 'Candidate PII purge must remove matching records from both active and archived change logs.',
   },
   {
+    id: 'admin-interview-availability-status-after-delivery',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function issueInterviewAvailabilityLink_\([\s\S]{0,1800}availabilityStatus:\s*'READY'[\s\S]{0,1800}function setInterviewAvailabilityDeliveryStatus_\(/,
+    message: 'Interview availability links must remain READY until mail delivery reports success or failure.',
+  },
+  {
+    id: 'public-interview-availability-status-after-delivery',
+    file: 'src/public/backend/Code.gs',
+    pattern: /function issueInterviewAvailabilityLink_\([\s\S]{0,1800}availabilityStatus:\s*'READY'[\s\S]{0,1800}function setInterviewAvailabilityDeliveryStatus_\(/,
+    message: 'Public shared source must preserve the READY-to-delivery status transition.',
+  },
+  {
+    id: 'admin-purge-server-before-local-delete',
+    file: 'src/admin/frontend/js/js_00_core.html',
+    pattern: /function purgeExpiredPii\(\)[\s\S]{0,2200}gsFetch\('purgeCandidatePii'[\s\S]{0,1000}candidates\s*=\s*candidates\.filter/,
+    message: 'Candidate PII must be purged on the server before local records are removed.',
+  },
+  {
     id: 'admin-daily-ops-is-idempotent',
     file: 'src/admin/backend/Code.gs',
     pattern: /function dailyOps\(\)[\s\S]{0,9000}function sendOpsMailOnce_\([\s\S]{0,500}mailEventAlreadySent_\(eventKey\)/,

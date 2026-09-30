@@ -234,6 +234,8 @@ function interviewAvailabilityStatusText(itv) {
   if(itv?.availabilityStatus === 'RESPONDED') return (formatAvailabilitySelections(itv.availabilitySelections) || '응답완료') + responseRoute;
   if(itv?.availabilityStatus === 'UNAVAILABLE') return `모두 어려움${itv.availabilityNote ? ` · ${itv.availabilityNote}` : ''}${responseRoute}`;
   if(itv?.availabilityStatus === 'SENT') return '응답대기';
+  if(itv?.availabilityStatus === 'READY') return '발송 준비';
+  if(itv?.availabilityStatus === 'SEND_FAILED') return '발송 실패';
   return '미발송';
 }
 
@@ -464,8 +466,8 @@ async function sendPanelAvailabilityRequest() {
   saveState();
   if(GS_CONFIG.scriptUrl) {
     await settleSync([
-      syncPosToGS(pos),
-      ...advancedCandidates.map(c => syncCandToGS(c)),
+      () => syncPosToGS(pos),
+      ...advancedCandidates.map(c => () => syncCandToGS(c)),
     ], `${round} 면접 시작 동기화`);
   }
   await refreshPanelAvailabilityResponses(posId, stageIdx);
@@ -577,9 +579,9 @@ async function sendCollectSlots() {
       }
     });
     saveState();
-    const syncResult = await settleSync(targets.map(c => {
+    const syncResult = await settleSync(targets.map(c => () => {
       const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
-      return itv ? syncIntToGS(itv) : Promise.resolve(null);
+      return itv ? syncIntToGS(itv) : null;
     }), `${round} 면접 가능 시간대 저장`);
     if(syncResult.failed) return;
   } finally {
@@ -674,7 +676,7 @@ async function sendCollectCandidateRequest_(cur, q) {
   }
   itv.availabilityLink = issue.link;
   itv.availabilityExpiresAt = issue.tokenExpiresAt || '';
-  itv.availabilityStatus = 'SENT';
+  itv.availabilityStatus = 'READY';
   itv.availabilityOptions = q.options;
   itv.availabilitySelections = [];
   itv.availabilityResponseBy = headhunter ? 'headhunter' : 'candidate';
@@ -697,26 +699,45 @@ async function sendCollectCandidateRequest_(cur, q) {
   } else {
     body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜와 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
   }
-  const sent = await dispatchCandidateMail_(cand || cur, {
-    subject, purpose: `${q.roundLabel} 후보일정 협의`, directBody: body, logType: `${q.round}후보일정(업체경유)`,
-    headhunterTemplateData: {
-      responseInstruction: '후보자에게 가능한 일정을 확인한 뒤 아래 버튼에서 대신 입력해 주세요.',
-      responseNote: '제출 내용은 헤드헌터 대리 회신으로 기록됩니다.',
-      actionLink: issue.link,
-      actionLabel: '후보자 가능 일정 입력'
-    },
-    sendDirect: () => sendGeneralEmailViaGmail(target.to || cur.email, subject, body, `${q.round}후보일정안내`, cur.name, {
-      templateType: 'interview_slot_request',
-      candidateName: cur.name,
-      positionText: cur.pos,
-      interviewType: q.roundLabel,
-      slotOptions: q.slotText || '',
-      location: q.loc || '',
-      availabilityLink: issue.link,
-      responseDeadline: q.deadline
-    })
-  });
-  if(sent === false) throw new Error('메일 발송에 실패했습니다.');
+  let sent = false;
+  try {
+    sent = await dispatchCandidateMail_(cand || cur, {
+      subject, purpose: `${q.roundLabel} 후보일정 협의`, directBody: body, logType: `${q.round}후보일정(업체경유)`,
+      headhunterTemplateData: {
+        responseInstruction: '후보자에게 가능한 일정을 확인한 뒤 아래 버튼에서 대신 입력해 주세요.',
+        responseNote: '제출 내용은 헤드헌터 대리 회신으로 기록됩니다.',
+        actionLink: issue.link,
+        actionLabel: '후보자 가능 일정 입력'
+      },
+      sendDirect: () => sendGeneralEmailViaGmail(target.to || cur.email, subject, body, `${q.round}후보일정안내`, cur.name, {
+        templateType: 'interview_slot_request',
+        candidateName: cur.name,
+        positionText: cur.pos,
+        interviewType: q.roundLabel,
+        slotOptions: q.slotText || '',
+        location: q.loc || '',
+        availabilityLink: issue.link,
+        responseDeadline: q.deadline
+      })
+    });
+    if(sent === false) throw new Error('메일 발송에 실패했습니다.');
+  } catch(error) {
+    itv.availabilityStatus = 'SEND_FAILED';
+    try {
+      await gsFetch('setInterviewAvailabilityDeliveryStatus', '', { interviewId:itv.id, status:'SEND_FAILED' }, { allowQueue:false });
+    } catch(statusError) {
+      console.warn('면접 가능일정 메일 실패 상태 저장 오류:', statusError);
+    }
+    saveState();
+    throw error;
+  }
+  itv.availabilityStatus = 'SENT';
+  try {
+    const delivery = await gsFetch('setInterviewAvailabilityDeliveryStatus', '', { interviewId:itv.id, status:'SENT' }, { allowQueue:false });
+    if(!delivery?.ok) console.warn('면접 가능일정 메일 발송 상태 저장 실패:', delivery?.error || delivery);
+  } catch(statusError) {
+    console.warn('면접 가능일정 메일 발송 상태 저장 오류:', statusError);
+  }
   saveState();
   logNotify('Gmail', `${q.round}후보일정${cand&&isHeadhuntingCandidate(cand)?'업체경유':'안내'}`, cur.name, target.to || cur.email);
 }
@@ -1014,11 +1035,11 @@ async function applyBatchSchedule() {
 
     saveState();
     if(GS_CONFIG.scriptUrl) {
-      const syncTasks = slots.map(s => syncCandToGS(s.cand));
+      const syncTasks = slots.map(s => () => syncCandToGS(s.cand));
     // 이번 배치로 생성/갱신된 면접 동기화
       slots.forEach(s => {
         const itv = interviews.find(i => i.candId === s.cand.id && i.type === round);
-        if(itv) syncTasks.push(syncIntToGS(itv));
+        if(itv) syncTasks.push(() => syncIntToGS(itv));
       });
       const result = await settleSync(syncTasks, `${round} 면접 일정 동기화`);
       if(result.failed) return;

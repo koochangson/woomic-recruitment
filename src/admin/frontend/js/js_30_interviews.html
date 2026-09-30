@@ -81,8 +81,8 @@ async function applyInterviewConfirm() {
   saveState();
   if(GS_CONFIG.scriptUrl) {
     const result = await settleSync([
-      syncIntToGS(itv),
-      ...(c ? [syncCandToGS(c)] : []),
+      () => syncIntToGS(itv),
+      ...(c ? [() => syncCandToGS(c)] : []),
     ], `${itv.type} 면접 일정 저장`);
     if(result.failed) return;
   }
