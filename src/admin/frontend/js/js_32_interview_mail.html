@@ -61,6 +61,7 @@ function renderInterviewNoticeFlow() {
     <div style="display:flex;align-items:center;gap:7px">
       ${candDone?'<span class="b bgreen">발송 완료</span>':''}
       <button class="btn btn-sm ${candDone?'':'btn-primary'}" data-action="call" data-call="sendInterviewNoticeCandidates()" ${!schedule.length||interviewNoticeBusy.candidates?'disabled':''}>${interviewNoticeBusy.candidates?'처리 중...':candDone?'지원자 재발송':'지원자 메일 발송'}</button>
+      ${!candDone ? `<button class="btn btn-sm" title="채용사이트 등 다른 경로로 이미 안내한 경우" data-action="call" data-call="markInterviewNoticeCandidatesDone()" ${!schedule.length||interviewNoticeBusy.candidates?'disabled':''}>✓ 완료 처리</button>` : ''}
     </div>
   </div>`;
   const panelCard = !panelists.length ? `<div style="border:1px solid var(--border);border-radius:var(--r);padding:13px">
@@ -85,6 +86,32 @@ async function sendInterviewNoticeCandidates() {
   renderInterviewNoticeFlow();
   try {
     await sendAllCandSchedule(posId, stageIdx);
+  } finally {
+    interviewNoticeBusy.candidates = false;
+    renderInterviewNoticeFlow();
+  }
+}
+
+// 채용사이트 등 시스템 밖 경로로 이미 안내를 마친 경우, 메일 발송 없이 완료로만 기록한다.
+async function markInterviewNoticeCandidatesDone() {
+  if(interviewNoticeBusy.candidates) return;
+  const { posId, stageIdx } = interviewNoticeFlowCtx;
+  const schedule = getConfirmedPositionInterviews(posId, stageIdx);
+  if(!schedule.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  const confirmed = await confirmActionModal({
+    title:'지원자 안내 완료 처리',
+    message:`아래 ${schedule.length}명에게 채용사이트 등 다른 경로로 이미 면접 일정을 안내했습니까?\n메일은 발송하지 않고 완료 상태로만 기록합니다.`,
+    items:schedule.map(i => `${i.candName} · ${fmtItv(i.date)}`),
+    confirmLabel:'완료로 기록',
+  });
+  if(!confirmed) return;
+  interviewNoticeBusy.candidates = true;
+  renderInterviewNoticeFlow();
+  try {
+    schedule.forEach(itv => { itv.candidateNotified = true; itv.candNotified = true; });
+    saveState();
+    if(GS_CONFIG.scriptUrl) await settleSync(schedule.map(itv => syncIntToGS(itv)), '지원자 안내 완료 처리');
+    toast(`지원자 ${schedule.length}명을 안내 완료로 기록했습니다.`, 'tok');
   } finally {
     interviewNoticeBusy.candidates = false;
     renderInterviewNoticeFlow();
