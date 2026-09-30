@@ -7,7 +7,15 @@
 async function sendAllCandSchedule(posId, stageIdx, skipConfirm) {
   const confirmedItvs = getConfirmedPositionInterviews(posId, stageIdx);
   if(!confirmedItvs.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return 0; }
-  if(!skipConfirm && !confirm(`확정된 ${confirmedItvs.length}명에게 면접 일정 안내 메일을 발송합니다.\n진행할까요?`)) return 0;
+  if(!skipConfirm) {
+    const confirmed = await confirmActionModal({
+      title:'지원자 면접 안내 발송',
+      message:`확정된 지원자 ${confirmedItvs.length}명에게 면접 일정 안내 메일을 발송합니다.`,
+      items:confirmedItvs.map(i => `${i.candName} · ${fmtItv(i.date)}`),
+      confirmLabel:`${confirmedItvs.length}명에게 발송`,
+    });
+    if(!confirmed) return 0;
+  }
 
   showGlobalSyncProgress(`지원자 ${confirmedItvs.length}명에게 면접 안내 메일을 발송하고 있습니다.`);
   toast(`지원자 ${confirmedItvs.length}명에게 면접 안내 메일 발송 중입니다.`, 'toutlook');
@@ -461,7 +469,7 @@ function parsePanelists(str) {
 
 // ── 면접관 안내 발송 (이메일 + Teams) ───────────────────────
 // 면접관 참석 안내 — sendPanelSchedule로 통합 (round 1/2 → stageIdx 1/3 변환)
-function sendPanelNotice(posId, round, returnToPosition=true, attachments=[]) {
+async function sendPanelNotice(posId, round, returnToPosition=true, attachments=[]) {
   const stageIdx = round === 1 ? 1 : 3;
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return false;
@@ -479,7 +487,14 @@ function sendPanelNotice(posId, round, returnToPosition=true, attachments=[]) {
     return false;
   }
   if(confirmed.length < stageCands.length) {
-    if(!confirm(`${stageCands.length}명 중 ${confirmed.length}명만 일정이 확정됐습니다.\n확정된 ${confirmed.length}명 기준으로 면접관에게 안내하시겠습니까?`)) return false;
+    const accepted = await confirmActionModal({
+      title:'면접관 안내 대상 확인',
+      message:`전체 ${stageCands.length}명 중 일정이 확정된 ${confirmed.length}명 기준으로 면접관에게 안내합니다.`,
+      items:stageCands.filter(c => !confirmed.some(done => done.id === c.id)).map(c => `${c.name} · 일정 미확정`),
+      confirmLabel:'확정 인원만 안내',
+      danger:true,
+    });
+    if(!accepted) return false;
   }
   // 통합 함수 호출 (공문 양식 + 첨부 안내)
   return sendPanelSchedule(posId, stageIdx, returnToPosition, attachments);

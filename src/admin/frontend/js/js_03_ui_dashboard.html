@@ -172,6 +172,7 @@ function confirmActionModal(options={}) {
   title.textContent = String(options.title || '작업 확인');
   message.textContent = String(options.message || '이 작업을 계속하시겠습니까?');
   submit.textContent = String(options.confirmLabel || '확인');
+  submit.className = `btn ${options.danger ? 'btn-red' : 'btn-primary'}`;
   itemsBox.replaceChildren();
   const items = Array.isArray(options.items) ? options.items : [];
   items.forEach((item, index) => {
@@ -389,7 +390,7 @@ async function sendMailViaGmail(to, subject, body) {
 
 function openMailto(toEmail, subject, body, sequential) {
   if(!toEmail || !toEmail.includes('@')) {
-    alert('이메일 주소가 등록되지 않았습니다.\n지원자/대상 정보를 수정해 이메일을 입력해주세요.');
+    toast('이메일 주소가 없습니다. 지원자 또는 대상 정보를 수정해 주세요.', 'terr');
     return false;
   }
   const to = toEmail.replace(/;/g, ',');

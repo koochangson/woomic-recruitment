@@ -98,10 +98,16 @@ async function applyInterviewConfirm() {
   }
 }
 
-function markInterviewDone(intId) {
+async function markInterviewDone(intId) {
   const itv = interviews.find(i => i.id === intId);
   if(!itv) return;
-  if(!confirm(`${itv.candName} ${itv.type} 면접을 완료 처리하시겠습니까?`)) return;
+  const confirmed = await confirmActionModal({
+    title:'면접 완료 처리',
+    message:`${itv.candName}님의 ${itv.type} 면접을 완료 상태로 변경합니다.`,
+    items:[fmtItv(itv.date), itv.loc || '장소 미정'],
+    confirmLabel:'면접 완료',
+  });
+  if(!confirmed) return;
   itv.status = 'done';
   if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
   saveState();

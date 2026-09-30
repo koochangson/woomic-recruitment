@@ -1618,7 +1618,14 @@ async function importInterviewersFromEmployeeFile() {
       toast('반영할 직원 데이터가 없습니다.', 'terr');
       return;
     }
-    if(!confirm(`면접관 DB를 직원현황 파일 기준 ${rows.length}명으로 전체 대체할까요?`)) {
+    const confirmed = await confirmActionModal({
+      title:'면접관 DB 전체 대체',
+      message:'현재 면접관 DB를 업로드한 직원현황 파일 기준으로 전체 대체합니다.',
+      items:[`반영 대상 ${rows.length}명`, '기존 면접관 DB 전체 교체'],
+      confirmLabel:'전체 대체',
+      danger:true,
+    });
+    if(!confirmed) {
       if(status) status.textContent = '업로드가 취소되었습니다.';
       return;
     }
@@ -1743,12 +1750,24 @@ async function testGSConnection() {
     toast('Google Sheets 연결 성공!', 'tok');
     // 기존 데이터 업로드 여부 확인
     if(candidates.length > 0 && result.data?.length === 0) {
-      if(confirm('현재 대시보드의 지원자 ' + candidates.length + '명을 Google Sheets에 업로드할까요?')) {
+      const confirmed = await confirmActionModal({
+        title:'지원자 데이터 초기 업로드',
+        message:'현재 대시보드의 지원자 데이터를 비어 있는 Google Sheets에 업로드합니다.',
+        items:[`업로드 대상 ${candidates.length}명`],
+        confirmLabel:'Google Sheets에 업로드',
+      });
+      if(confirmed) {
         for(const cand of candidates) await syncCandToGS(cand);
         toast('업로드 완료!', 'tok');
       }
     } else if(result.data?.length > 0) {
-      if(confirm('Google Sheets에 ' + result.data.length + '명의 데이터가 있습니다. 불러올까요?')) {
+      const confirmed = await confirmActionModal({
+        title:'Google Sheets 데이터 불러오기',
+        message:'Google Sheets의 지원자 데이터로 현재 화면 상태를 새로 불러옵니다.',
+        items:[`Google Sheets 지원자 ${result.data.length}명`],
+        confirmLabel:'데이터 불러오기',
+      });
+      if(confirmed) {
         clearGsSyncCursors();
         clearGsChangeCursor();
         await syncCoreFromGS({forceFull:true});

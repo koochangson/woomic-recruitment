@@ -340,11 +340,20 @@ function saveNewTeam() {
   toast(`${name} 추가 완료`, 'tok');
 }
 
-function deleteTeam(idx) {
+async function deleteTeam(idx) {
   const team = teamMaster[Number(idx)];
-  if(!team || !confirm(`"${team.name}" 팀을 삭제하시겠습니까?\n기존 포지션에 저장된 팀명은 유지됩니다.`)) return;
+  if(!team) return;
+  const confirmed = await confirmActionModal({
+    title:'팀 삭제',
+    message:'팀 목록에서 삭제합니다. 기존 포지션에 저장된 팀명은 유지됩니다.',
+    items:[team.name],
+    confirmLabel:'팀 삭제',
+    danger:true,
+  });
+  if(!confirmed) return;
   teamMaster.splice(Number(idx),1);
   saveTeamMaster(); renderTeamMaster();
+  toast(`${team.name} 팀을 삭제했습니다.`, 'tok');
 }
 
 function toggleTeamVisibility(idx) {
@@ -912,12 +921,18 @@ function runCoreDiagnosticsUI() {
   }
 }
 
-function warnSeatOverflow(posId, extraPassed) {
+async function warnSeatOverflow(posId, extraPassed) {
   const info = getPosSeatInfo(posId);
   if(!info) return true;
   const wouldPass = info.passed + (extraPassed || 0);
   if(wouldPass > info.headcount) {
-    return confirm(`⚠ Seat 초과 경고\n\n모집인원 ${info.headcount}명 / 현재 최종합격 ${info.passed}명\n이번 처리 후 ${wouldPass}명이 됩니다.\n\n계속 진행할까요?`);
+    return confirmActionModal({
+      title:'모집인원 초과 확인',
+      message:'이번 처리 후 최종합격자가 목표 인원을 초과합니다.',
+      items:[`모집인원 ${info.headcount}명`, `현재 최종합격 ${info.passed}명`, `처리 후 ${wouldPass}명`],
+      confirmLabel:'초과 승인',
+      danger:true,
+    });
   }
   if(wouldPass === info.headcount && extraPassed > 0) {
     toast(`목표 인원(${info.headcount}명)에 도달합니다.`, 'tok');
@@ -1063,7 +1078,14 @@ async function executeNohireWizard() {
   const remain = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 6);
 
   if(action === 'reject' && remain.length) {
-    if(!confirm(`진행중 지원자 ${remain.length}명을 불합격 처리하고 안내 메일을 엽니다.\n계속할까요?`)) return;
+    const confirmed = await confirmActionModal({
+      title:'잔여 지원자 불합격 처리',
+      message:`진행 중인 지원자 ${remain.length}명을 불합격 처리하고 안내 메일을 발송합니다.`,
+      items:remain.map(c => `${c.name} · ${c.email || '이메일 없음'}`),
+      confirmLabel:`${remain.length}명 불합격 처리`,
+      danger:true,
+    });
+    if(!confirmed) return;
     for(const c of remain) {
       c.stage = 6; c.decision = '';
       recordRejection(c, '포지션취소', memo || reason);
@@ -1270,7 +1292,14 @@ function renderExpiredPii() {
 async function purgeExpiredPii() {
   const expired = expiredPII();
   if(!expired.length) return toast('파기 대상이 없습니다.','tok');
-  if(!confirm(`보존기한이 경과한 지원자 ${expired.length}명의 개인정보와 연결된 면접·레퍼런스·메일 기록을 파기할까요?\\n이 작업은 되돌릴 수 없습니다.`)) return;
+  const confirmed = await confirmActionModal({
+    title:'개인정보 영구 파기',
+    message:`보존기한이 경과한 지원자 ${expired.length}명의 개인정보와 연결 기록을 파기합니다. 이 작업은 되돌릴 수 없습니다.`,
+    items:expired.map(c => `${maskName(c.name)} · 보존기준일 ${fmtDate(candidateRetentionDate(c))}`),
+    confirmLabel:`${expired.length}명 영구 파기`,
+    danger:true,
+  });
+  if(!confirmed) return;
   const ids = new Set(expired.map(c => Number(c.id)));
   const emails = [...new Set(expired.map(c => c.email).filter(Boolean))];
   candidates = candidates.filter(c => !ids.has(Number(c.id)));

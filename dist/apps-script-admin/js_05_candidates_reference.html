@@ -164,7 +164,14 @@ async function confirmStageChange() {
     const hasSlot = [1,2,3].some(n => getSlotValue(n));
     const hasItv  = interviews.some(i => Number(i.candId)===Number(candId) && i.type===round && i.date);
     if(!hasSlot && !hasItv) {
-      if(!confirm(`포지션 공통 면접일정이 확정되지 않았습니다.\n특별한 사유로 이 지원자만 '${STAGES[newStage]}' 단계로 예외 이동할까요?\n\n일반적인 단계 이동은 포지션 상세의 '공통일정 확정 후 이동'을 사용하세요.`)) return;
+      const confirmed = await confirmActionModal({
+        title:'면접 단계 예외 이동',
+        message:`포지션 공통 면접일정 없이 이 지원자만 '${STAGES[newStage]}' 단계로 이동합니다.`,
+        items:[`${c.name} · ${round} 면접 일정 미확정`, '일반 이동은 포지션 상세의 공통일정 확정 후 진행'],
+        confirmLabel:'예외 이동',
+        danger:true,
+      });
+      if(!confirmed) return;
     }
   }
 
@@ -174,7 +181,14 @@ async function confirmStageChange() {
     const flowForRef = getFlowForCandidate(c);
     if(flowIndex(newStage, flowForRef) > flowIndex(2, flowForRef)) {
       const refLabel = c.ref === '진행중' ? `레퍼런스가 진행 중입니다 (${c.refD||0}/${c.refT||3}명 응답).` : '레퍼런스 체크가 아직 시작되지 않았습니다.';
-      if(!confirm(`${refLabel}\n완료하지 않고 '${STAGES[newStage]}' 단계로 건너뛸까요?\n건너뛰면 레퍼런스 상태가 '생략'으로 기록되고, 상단 진행현황도 함께 '완료'로 표시됩니다.`)) return;
+      const confirmed = await confirmActionModal({
+        title:'레퍼런스 단계 건너뛰기',
+        message:`${refLabel} 완료하지 않고 '${STAGES[newStage]}' 단계로 이동합니다.`,
+        items:[`${c.name} · 레퍼런스 상태를 '생략'으로 기록`],
+        confirmLabel:'생략 후 이동',
+        danger:true,
+      });
+      if(!confirmed) return;
       skipRef = true;
     }
   }
@@ -187,7 +201,7 @@ async function confirmStageChange() {
   const rejectionInfo = newStage === 6 ? await askRejectReason(1) : null;
   if(newStage === 6 && !rejectionInfo) return;
   if(newStage === 5 && c.posId != null) {
-    if(!warnSeatOverflow(c.posId, 1)) return;
+    if(!await warnSeatOverflow(c.posId, 1)) return;
   }
   const previousFlow = getFlowForCandidate(c);
   const movingForwardStage = (newStage === 6) || (flowIndex(newStage, previousFlow) > flowIndex(oldStage, previousFlow));
@@ -433,7 +447,7 @@ async function saveIntResult() {
   toast(`${itv.candName} 면접 결과 저장 완료`, 'tok');
 }
 
-function addCandidate() {
+async function addCandidate() {
   const name    = document.getElementById('nc-name').value.trim();
   const pos     = document.getElementById('nc-pos').value.trim();
   const email   = document.getElementById('nc-email').value.trim();
@@ -441,25 +455,40 @@ function addCandidate() {
   const source  = document.getElementById('nc-source')?.value || 'direct';
   const headhunterId = document.getElementById('nc-headhunter-id')?.value || '';
   const headhunter = getHeadhunterDb().find(x => x.id === headhunterId);
-  if(!name||!pos) { alert('성명, 직무는 필수입니다.'); return; }
-  if(source !== 'headhunting' && !email) { alert('입사지원자는 이메일이 필수입니다.'); return; }
-  if(source === 'headhunting' && !headhunter) { alert('헤드헌팅 업체를 선택해주세요.'); return; }
-  if(source === 'headhunting' && !headhunter.email) { alert('선택한 헤드헌팅 업체의 담당자 이메일을 설정 탭 DB에 입력해주세요.'); return; }
+  if(!name||!pos) { toast('성명과 직무를 입력하세요.', 'terr'); return; }
+  if(source !== 'headhunting' && !email) { toast('입사지원자는 이메일이 필수입니다.', 'terr'); return; }
+  if(source === 'headhunting' && !headhunter) { toast('헤드헌팅 업체를 선택하세요.', 'terr'); return; }
+  if(source === 'headhunting' && !headhunter.email) { toast('선택한 헤드헌팅 업체의 담당자 이메일을 설정 탭 DB에 입력하세요.', 'terr'); return; }
   const modal = document.getElementById('modal-add');
   const editId = modal.dataset.editId ? parseInt(modal.dataset.editId) : null;
   const posIdVal = parseInt(document.getElementById('nc-pos-id')?.value) || null;
   const fromPos = modal.dataset.returnPosId ? parseInt(modal.dataset.returnPosId) : null;
   const finalPosId = editId ? (parseInt(document.getElementById('nc-pos-id')?.value) || null) : (posIdVal || fromPos);
   if(!editId && !finalPosId) {
-    alert('포지션 연결이 필수입니다.\n포지션 상세에서 등록하거나, 드롭다운에서 포지션을 선택해주세요.');
+    toast('포지션 상세 또는 드롭다운에서 연결할 포지션을 선택하세요.', 'terr');
     return;
   }
   const seatInfo = finalPosId ? getPosSeatInfo(finalPosId) : null;
   if(seatInfo && seatInfo.isFull && !editId) {
-    if(!confirm(`⚠ 이 포지션은 목표 인원(${seatInfo.headcount}명)에 이미 도달했습니다.\n추가 등록을 계속할까요?`)) return;
+    const confirmed = await confirmActionModal({
+      title:'충원 완료 포지션에 지원자 추가',
+      message:'이 포지션은 이미 목표 인원에 도달했습니다.',
+      items:[`목표 ${seatInfo.headcount}명`, `현재 최종합격 ${seatInfo.passed}명`, `추가 지원자 ${name}`],
+      confirmLabel:'지원자 추가',
+    });
+    if(!confirmed) return;
   }
   const dupEmail = email ? candidates.find(c=>String(c.email||'').toLowerCase()===email.toLowerCase() && c.id !== editId) : null;
-  if(dupEmail) { if(!confirm(`${dupEmail.name}님과 동일한 이메일(${email})이 이미 등록되어 있습니다.\n계속 등록하시겠습니까?`)) return; }
+  if(dupEmail) {
+    const confirmed = await confirmActionModal({
+      title:'중복 이메일 확인',
+      message:'동일한 이메일을 사용하는 지원자가 이미 등록돼 있습니다.',
+      items:[`기존 지원자 ${dupEmail.name}`, email],
+      confirmLabel:'중복 등록 계속',
+      danger:true,
+    });
+    if(!confirmed) return;
+  }
 
   if(editId) {
     // 수정 모드
@@ -795,9 +824,9 @@ function updateIntPreview() {
 async function addInterview() {
   const cid  = parseInt(document.getElementById('int-cand').value);
   const cand = candidates.find(c=>c.id===cid);
-  if(!cand) { alert('지원자를 선택해주세요.'); return; }
+  if(!cand) { toast('지원자를 선택하세요.', 'terr'); return; }
   const dt = document.getElementById('int-dt').value;
-  if(!dt) { alert('면접 일시를 입력해주세요.'); return; }
+  if(!dt) { toast('면접 일시를 입력하세요.', 'terr'); return; }
   const type = document.getElementById('int-type').value;
   const itv = {
     id: nextId(), candId: cid, candName: cand.name, type,
@@ -891,9 +920,9 @@ function renderInterviewPositionCards() {
 async function sendIntNotify(ch) {
   const cid = parseInt(document.getElementById('int-cand').value);
   const cand = candidates.find(c=>c.id===cid);
-  if(!cand) { alert('지원자를 선택해주세요.'); return; }
+  if(!cand) { toast('지원자를 선택하세요.', 'terr'); return; }
   const itv = interviews.find(i=>i.candId===cid);
-  if(!itv) { alert('면접 일정을 먼저 등록해주세요.'); return; }
+  if(!itv) { toast('면접 일정을 먼저 등록하세요.', 'terr'); return; }
   if(ch === 'outlook') {
     const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
     const target = getCandidateMailTarget(cand);
@@ -1186,7 +1215,7 @@ function renderRefReport(candId) {
 function saveRefReport() {
   const id=Number(document.getElementById('ref-report-cand')?.value);
   const c=candidates.find(x=>Number(x.id)===id);
-  if(!c){alert('결과를 정리할 지원자를 선택해주세요.');return;}
+  if(!c){toast('결과를 정리할 지원자를 선택하세요.','terr');return;}
   const val=field=>document.getElementById(`ref-report-${field}`)?.value.trim()||'';
   const wrap=document.getElementById('ref-report-wrap');
   const previous=refReports[c.id] || {};
@@ -1452,7 +1481,7 @@ async function sendRefRequest(id){
 }
 async function startAllEligible(){
   const el=candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=2&&c.stage<=5&&c.ref==='미시작');
-  if(!el.length){alert('일괄 시작할 대상이 없습니다.');return;}
+  if(!el.length){toast('일괄 시작할 대상이 없습니다.','tw');return;}
   const confirmed = await confirmActionModal({
     title:'레퍼런스 안내 일괄 발송',
     message:`아래 ${el.length}명에게 추천인 등록 안내 메일을 순차 발송합니다. 수신 대상을 확인해 주세요.`,
@@ -1559,10 +1588,10 @@ function applyAIToRefReport() {
 async function generateAI(){
   const cid=parseInt(document.getElementById('ref-ai-cand')?.value);
   const c=candidates.find(x=>x.id===cid);
-  if(!c){alert('지원자를 선택해주세요.');return;}
-  if(c.ref==='미시작'){alert('레퍼런스 체크가 시작되지 않았습니다.');return;}
+  if(!c){toast('지원자를 선택하세요.','terr');return;}
+  if(c.ref==='미시작'){toast('레퍼런스 체크가 시작되지 않았습니다.','tw');return;}
   const syncedRefs=ensureRefDetails(c);
-  if(!syncedRefs.length){alert('접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.');return;}
+  if(!syncedRefs.length){toast('접수된 추천인 정보가 없습니다. Google Sheets 동기화를 먼저 실행하세요.','terr');return;}
   const prog=document.getElementById('ref-ai-progress');
   const bar=document.getElementById('ref-ai-bar');
   const label=document.getElementById('ref-ai-label');
@@ -1591,7 +1620,7 @@ ${refs.map((r,i)=>`[추천인 ${i+1} · ${r.name} · ${r.relation}]\n<referee_re
   if(!GS_CONFIG.scriptUrl){
     clearInterval(timer);
     if(prog)prog.style.display='none';
-    alert('AI 요약은 관리자 Google Sheets 연동 후 사용할 수 있습니다.');
+    toast('AI 요약은 관리자 Google Sheets 연동 후 사용할 수 있습니다.', 'terr');
     return;
   }
   try{

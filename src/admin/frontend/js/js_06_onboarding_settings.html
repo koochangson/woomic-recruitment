@@ -120,10 +120,18 @@ async function sendJoinNotice(obId) {
   const internal = getOnboardInternalRecipients(cand, ob);
   const { dept, leads, teams, recipients:toEmails } = internal;
   if(!toEmails) {
-    alert(`통보할 부서 이메일이 없습니다.\n\n• 배치 부서장: '${dept||'부서 미정'}'의 팀장/소장이 면접관 DB에 없습니다.\n• 설정 탭 "입사 안내 수신 팀 목록"도 비어있습니다.`);
+    toast(`통보할 부서 이메일이 없습니다. '${dept||'부서 미정'}'의 팀장/소장 또는 입사 안내 수신 팀을 설정하세요.`, 'terr');
     return;
   }
-  if(!leads.length && !confirm(`'${dept||'배치 부서 미정'}'의 팀장/소장 이메일을 찾지 못했습니다.\n고정 수신자에게만 발송하시겠습니까?`)) return;
+  if(!leads.length) {
+    const confirmed = await confirmActionModal({
+      title:'입사 안내 수신자 확인',
+      message:`'${dept||'배치 부서 미정'}'의 팀장 또는 소장 이메일을 찾지 못했습니다.`,
+      items:[`고정 수신자: ${toEmails}`],
+      confirmLabel:'고정 수신자에게 발송',
+    });
+    if(!confirmed) return;
+  }
   const subject = `[입사안내] ${ob.joinDate || '입사일 미정'} ${dept || ob.dept || '배치부서 미정'} ${cand.name} ${ob.rank || ''}`.trim();
   const body = buildInternalOnboardEmail({...ob,dept,pos:cand.pos||ob.pos,etype:ob.etype||cand.etype}, cand);
 
@@ -153,9 +161,9 @@ async function sendJoinNotice(obId) {
 function sendCurrentOnboardInternal() {
   const cid=Number(document.getElementById('ob-cand')?.value);
   const c=candidates.find(x=>Number(x.id)===cid);
-  if(!c){alert('지원자를 선택해주세요.');return;}
+  if(!c){toast('지원자를 선택하세요.','terr');return;}
   const ob=onboardings.find(o=>Number(o.candId)===cid);
-  if(!ob){alert('입사 정보를 먼저 등록해주세요.');return;}
+  if(!ob){toast('입사 정보를 먼저 등록하세요.','terr');return;}
   sendJoinNotice(ob.id);
 }
 
@@ -163,10 +171,10 @@ function sendCurrentOnboardInternal() {
 function addOnboarding(){
   const cid=parseInt(document.getElementById('ob-cand').value);
   const c=candidates.find(x=>x.id===cid);
-  if(!c){alert('지원자를 선택해주세요.');return;}
+  if(!c){toast('지원자를 선택하세요.','terr');return;}
   const jd=document.getElementById('ob-date').value;
-  if(!jd){alert('입사 예정일을 입력해주세요.');return;}
-  if(onboardings.find(o=>o.candId===cid)){alert('이미 등록된 입사 예정자입니다.');return;}
+  if(!jd){toast('입사 예정일을 입력하세요.','terr');return;}
+  if(onboardings.find(o=>o.candId===cid)){toast('이미 등록된 입사 예정자입니다.','tw');return;}
   onboardings.push({
     id:nextId(),candId:cid,candName:c.name,pos:c.pos,
     etype:document.getElementById('ob-etype').value,
@@ -189,9 +197,9 @@ function addOnboarding(){
 async function sendObNotify(ch){
   const cid=parseInt(document.getElementById('ob-cand').value);
   const c=candidates.find(x=>x.id===cid);
-  if(!c){alert('지원자를 선택해주세요.');return;}
+  if(!c){toast('지원자를 선택하세요.','terr');return;}
   const ob=onboardings.find(o=>o.candId===cid);
-  if(!ob){alert('입사 정보를 먼저 등록해주세요.');return;}
+  if(!ob){toast('입사 정보를 먼저 등록하세요.','terr');return;}
   if(ch==='outlook'){
     const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
@@ -321,7 +329,7 @@ async function sendBulk(){
   const si=parseInt(document.getElementById('bulk-stage').value);
   const ch=document.getElementById('bulk-channel').value;
   const targets=si===-1?candidates.filter(c=>c.stage!==6):candidates.filter(c=>c.stage===si&&c.stage!==6);
-  if(!targets.length){alert('발송 대상이 없습니다.');return;}
+  if(!targets.length){toast('발송 대상이 없습니다.','tw');return;}
   let outlookTargetCount=0;
 
   if(ch==='outlook'||ch==='both'){
@@ -330,7 +338,7 @@ async function sendBulk(){
       const target = getCandidateMailTarget(c);
       return target.to && target.to.includes('@');
     });
-    if(mailTargets.length===0){alert('이메일 주소가 등록된 지원자가 없습니다.');return;}
+    if(mailTargets.length===0){toast('이메일 주소가 등록된 지원자가 없습니다.','terr');return;}
     outlookTargetCount=mailTargets.length;
     const subjectFor = c => ({
       int1:`[우미건설] ${c.name}님 1차 면접 일정 안내`,

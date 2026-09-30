@@ -33,7 +33,7 @@ function openCollectSlots(posId, stageIdx) {
   const targetStages = stageIdx === 1 ? [0,1] : [2,3];
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage));
   if(!targets.length) {
-    alert(`${round} 면접 후보일정을 안내할 대상이 없습니다.\n\n대상: ${targetStages.map(s=>STAGES[s]).join(' 또는 ')} 단계 지원자\n먼저 지원자를 해당 단계로 이동시켜 주세요.`);
+    toast(`${round} 면접 일정요청 대상이 없습니다. 지원자를 ${targetStages.map(s=>STAGES[s]).join(' 또는 ')} 단계로 이동해 주세요.`, 'tw');
     return;
   }
 
@@ -958,7 +958,16 @@ async function applyBatchSchedule() {
   const { slots } = computeBatchSlots();
   if(!slots.length) { toast('배치할 지원자가 없습니다.', 'terr'); return; }
   const conflicts = slots.filter(slot => slot.availability !== 'available');
-  if(conflicts.length && !confirm(`선택한 날짜·시간대가 면접관 또는 지원자 응답과 일치하지 않는 대상이 ${conflicts.length}명 있습니다.\n\n${conflicts.map(slot => `${slot.cand.name}: ${slot.availability==='panel_conflict'?'면접관 불가':slot.availability==='conflict'?'지원자 불가':slot.availability==='unavailable'?'개별 조율 필요':'미응답'}`).join('\n')}\n\n그래도 일정을 확정할까요?`)) return;
+  if(conflicts.length) {
+    const confirmed = await confirmActionModal({
+      title:'가능 일정 불일치 확인',
+      message:'선택한 일정이 면접관 또는 지원자의 응답과 일치하지 않는 대상이 있습니다.',
+      items:conflicts.map(slot => `${slot.cand.name} · ${slot.availability==='panel_conflict'?'면접관 불가':slot.availability==='conflict'?'지원자 불가':slot.availability==='unavailable'?'개별 조율 필요':'미응답'}`),
+      confirmLabel:'일정 확정 계속',
+      danger:true,
+    });
+    if(!confirmed) return;
+  }
 
   setBatchScheduleBusy(true, '면접 일정을 저장하고 있습니다.');
   try {

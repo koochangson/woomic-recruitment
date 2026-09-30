@@ -481,7 +481,13 @@ async function completePositionInterviews(positionId, stageIdx) {
   const ids = new Set(candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===stageIdx).map(c=>Number(c.id)));
   const targets = interviews.filter(i=>ids.has(Number(i.candId))&&i.type===round&&i.status==='confirmed');
   if(!targets.length) { toast('완료 처리할 확정 면접이 없습니다.', 'terr'); return; }
-  if(!confirm(`${round} 면접 ${targets.length}건을 완료 처리하시겠습니까?`)) return;
+  const confirmed = await confirmActionModal({
+    title:`${round} 면접 완료 처리`,
+    message:`확정된 ${round} 면접 ${targets.length}건을 완료 상태로 변경합니다.`,
+    items:targets.map(i => `${i.candName} · ${fmtItv(i.date)}`),
+    confirmLabel:`${targets.length}건 완료 처리`,
+  });
+  if(!confirmed) return;
   targets.forEach(i=>{ i.status='done'; });
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
@@ -489,7 +495,7 @@ async function completePositionInterviews(positionId, stageIdx) {
   toast(`${round} 면접 ${targets.length}건 완료 처리`, 'tok');
 }
 
-function requestPositionReferences(positionId) {
+async function requestPositionReferences(positionId) {
   const targets = candidates.filter(c =>
     Number(c.posId) === Number(positionId) &&
     c.stage === 2 &&
@@ -497,7 +503,13 @@ function requestPositionReferences(positionId) {
   );
   if(!targets.length) { toast('레퍼런스 요청 대상자가 없습니다.', 'terr'); return; }
   const resendCount = targets.filter(c => c.ref === '진행중').length;
-  if(!confirm(`${targets.length}명에게 레퍼런스 체크 안내를 ${resendCount ? `발송합니다.\n이 중 재요청 ${resendCount}명은 기존 진행 상태를 유지합니다.` : '진행하시겠습니까?'}`)) return;
+  const confirmed = await confirmActionModal({
+    title:'레퍼런스 체크 안내 발송',
+    message:`지원자 ${targets.length}명에게 추천인 등록 안내를 발송합니다.`,
+    items:[...targets.map(c => `${c.name} · ${c.email || '이메일 없음'}`), ...(resendCount ? [`재요청 ${resendCount}명은 기존 진행 상태 유지`] : [])],
+    confirmLabel:`${targets.length}명에게 발송`,
+  });
+  if(!confirmed) return;
   targets.forEach((c,i)=>setTimeout(()=>startRef(c.id, c.ref === '진행중'),i*600));
   setTimeout(()=>refreshOpenPositionDetail(positionId),targets.length*600+200);
 }
@@ -507,7 +519,13 @@ async function completePositionReferences(positionId) {
   if(!targets.length) { toast('완료 처리할 레퍼런스 진행 건이 없습니다.', 'terr'); return; }
   const eligible = targets.filter(c => ensureRefDetails(c).length > 0);
   if(!eligible.length) { toast('실제 접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.', 'terr'); return; }
-  if(!confirm(`${eligible.length}명의 레퍼런스를 완료 처리하시겠습니까?`)) return;
+  const confirmed = await confirmActionModal({
+    title:'레퍼런스 완료 처리',
+    message:`지원자 ${eligible.length}명의 레퍼런스를 완료 상태로 변경합니다.`,
+    items:eligible.map(c => `${c.name} · 응답 ${c.refD || 0}/${c.refT || 3}명`),
+    confirmLabel:`${eligible.length}명 완료 처리`,
+  });
+  if(!confirmed) return;
   eligible.forEach(c=>{ c.ref='완료'; c.refD=c.refT; refDetails[c.id].forEach(r=>r.status='응답'); });
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(eligible.map(c=>syncCandToGS(c)), '레퍼런스 완료 동기화');
@@ -584,21 +602,21 @@ function openPosDetail(positionId) {
   window.scrollTo(0, 0);
 }
 
-function posdetailClosePos(positionId) {
+async function posdetailClosePos(positionId) {
   const pos = positions.find(p => Number(p.id) === Number(positionId));
   if(!pos) return;
   const prevStatus = pos.status;
   const prevClosedAt = pos.closedAt;
-  closePosition(positionId);
+  await closePosition(positionId);
   if(pos.status !== prevStatus || pos.closedAt !== prevClosedAt) nav('position');
 }
 
-function posdetailStopPos(positionId) {
+async function posdetailStopPos(positionId) {
   const pos = positions.find(p => Number(p.id) === Number(positionId));
   if(!pos) return;
   const prevStatus = pos.status;
   const prevClosedAt = pos.closedAt;
-  stopPosition(positionId);
+  await stopPosition(positionId);
   if(pos.status !== prevStatus || pos.closedAt !== prevClosedAt) nav('position');
 }
 
@@ -660,7 +678,14 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   if(stageIdx === 1 || stageIdx === 3) {
     const missing = posCands.filter(c => !hasConfirmedRoundSchedule(c.id, stageIdx));
     if(missing.length) {
-      if(!confirm(`면접 일정이 확정되지 않은 지원자가 ${missing.length}명 있습니다.\n\n일정 확정·안내 없이 판정을 확정하고 다음 단계로 이동할까요?\n단계를 지나간 뒤에는 일정 미확정 건이 '처리 필요'에서 자동 추적되지 않을 수 있습니다.`)) return;
+      const confirmed = await confirmActionModal({
+        title:'미확정 면접 일정 확인',
+        message:'일정 확정과 안내 없이 판정을 확정하면 해당 건이 처리 필요 목록에서 제외될 수 있습니다.',
+        items:missing.map(c => `${c.name} · 면접 일정 미확정`),
+        confirmLabel:'판정 계속',
+        danger:true,
+      });
+      if(!confirmed) return;
     }
   }
 
@@ -669,13 +694,21 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   const failers = posCands.filter(c => c.decision === 'fail');
 
   if(undecided.length && !skipConfirm) {
-    if(!confirm(isFinalDecision
-      ? `처우협의 중인 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n결과가 선택된 인원만 확정하고, 협의중인 지원자는 처우협의 단계에 남깁니다.\n계속할까요?`
-      : `아직 판정하지 않은 지원자가 ${undecided.length}명 있습니다.\n(${undecided.map(c=>c.name).join(', ')})\n\n판정된 인원만 이동시키고, 미판정자는 현재 단계에 남깁니다.\n계속할까요?`)) return;
+    const confirmed = await confirmActionModal({
+      title:isFinalDecision ? '처우협의 일부 확정' : '일부 지원자 판정 확정',
+      message:isFinalDecision ? '결과가 선택된 인원만 확정하고 협의 중인 지원자는 현재 단계에 남깁니다.' : '판정된 인원만 이동하고 미판정자는 현재 단계에 남깁니다.',
+      items:undecided.map(c => `${c.name} · ${isFinalDecision ? '협의 중' : '미판정'}`),
+      confirmLabel:'선택 인원만 확정',
+    });
+    if(!confirmed) return;
   } else if(!skipConfirm) {
-    if(!confirm(isFinalDecision
-      ? `처우협의 결과를 확정합니다.\n\n· 최종합격 ${passers.length}명 → 충원 seat 반영 후 입사 안내로 이동\n· 불합격 ${failers.length}명 → 전형 종료\n· 협의중 ${undecided.length}명 → 처우협의 유지\n\n진행할까요?`
-      : `'${round}' 단계 판정을 확정합니다.\n\n· 합격 ${passers.length}명 → 다음 단계 이동\n· 불합격 ${failers.length}명 → 전형 종료\n\n진행할까요?`)) return;
+    const confirmed = await confirmActionModal({
+      title:isFinalDecision ? '처우협의 결과 확정' : `${round} 판정 확정`,
+      message:isFinalDecision ? '최종 결과를 확정해 합격자는 입사 안내로, 불합격자는 전형 종료로 이동합니다.' : '면접 판정을 확정해 합격자는 다음 단계로, 불합격자는 전형 종료로 이동합니다.',
+      items:[`${isFinalDecision ? '최종합격' : '합격'} ${passers.length}명`, `불합격 ${failers.length}명`, ...(isFinalDecision ? [`협의 중 유지 ${undecided.length}명`] : [])],
+      confirmLabel:'판정 확정',
+    });
+    if(!confirmed) return;
   }
 
   const nx = nextFlowStage(stageIdx, posId);
@@ -684,7 +717,14 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
     if(posId != null) {
       const info = getPosSeatInfo(posId);
       if(info && info.passed + passers.length > info.headcount) {
-        if(!confirm(`⚠ Seat 초과 경고\n최종합격 ${info.passed}명 + 이번 합격 ${passers.length}명 = ${info.passed + passers.length}명\n목표 ${info.headcount}명\n\n계속할까요?`)) return;
+        const confirmed = await confirmActionModal({
+          title:'모집인원 초과 확인',
+          message:'이번 판정 확정 후 최종합격자가 목표 인원을 초과합니다.',
+          items:[`현재 최종합격 ${info.passed}명`, `이번 합격 ${passers.length}명`, `처리 후 ${info.passed + passers.length}명 / 목표 ${info.headcount}명`],
+          confirmLabel:'초과 승인',
+          danger:true,
+        });
+        if(!confirmed) return;
       }
     }
   }
@@ -797,7 +837,14 @@ async function batchStageChange(posId, fromStage, toStage) {
   if(toStage === 1 || toStage === 3) {
     const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, toStage));
     if(missing.length) {
-      if(!confirm(`${STAGES[toStage]} 공통일정이 확정되지 않았습니다.\n\n일정 요청·이메일 안내 없이 ${targets.length}명을 바로 이동할까요?\n미완료 항목은 대시보드 '처리 필요'에 표시됩니다.`)) return;
+      const confirmed = await confirmActionModal({
+        title:`${STAGES[toStage]} 일정 미확정`,
+        message:'공통일정 요청과 안내 없이 지원자를 바로 이동합니다. 미완료 항목은 처리 필요 목록에 남습니다.',
+        items:missing.map(c => `${c.name} · 일정 미확정`),
+        confirmLabel:'일정 없이 이동',
+        danger:true,
+      });
+      if(!confirmed) return;
     }
   }
 
@@ -805,11 +852,24 @@ async function batchStageChange(posId, fromStage, toStage) {
   if(fromStage === 1 || fromStage === 3) {
     const missing = targets.filter(c => !hasConfirmedRoundSchedule(c.id, fromStage));
     if(missing.length) {
-      if(!confirm(`면접 일정이 확정되지 않은 지원자가 ${missing.length}명 있습니다.\n\n일정 확정·안내 없이 다음 단계로 이동할까요?\n단계를 지나간 뒤에는 일정 미확정 건이 '처리 필요'에서 자동 추적되지 않을 수 있습니다.`)) return;
+      const confirmed = await confirmActionModal({
+        title:'미확정 면접 일정 확인',
+        message:'일정 확정과 안내 없이 다음 단계로 이동하면 해당 건이 처리 필요 목록에서 제외될 수 있습니다.',
+        items:missing.map(c => `${c.name} · 일정 미확정`),
+        confirmLabel:'다음 단계 이동',
+        danger:true,
+      });
+      if(!confirmed) return;
     }
   }
 
-  if(!confirm(`${targets.length}명을 ${STAGES[toStage]} 단계로 이동하시겠습니까?`)) return;
+  const confirmed = await confirmActionModal({
+    title:'지원자 일괄 단계 이동',
+    message:`지원자 ${targets.length}명을 ${STAGES[toStage]} 단계로 이동합니다.`,
+    items:targets.map(c => `${c.name} · ${stageLabel(fromStage)} → ${stageLabel(toStage)}`),
+    confirmLabel:`${targets.length}명 이동`,
+  });
+  if(!confirmed) return;
   const completedInterviews = [];
   const removedInterviewIds = [];
   const flow = positions.find(p => Number(p.id) === Number(posId)) ? getPositionFlow(positions.find(p => Number(p.id) === Number(posId))) : FLOW;
