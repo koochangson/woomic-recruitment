@@ -1296,12 +1296,12 @@ async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targe
 }
 
 // 레퍼런스체크 외 일반 안내 메일(면접·입사·불합격 등) — 디자인 있는 HTML 메일로 발송.
-async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetName, templateData={}) {
+async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetName, templateData={}, attachments=[]) {
   if(!hasGsBridge_()) {
     toast('메일 발송은 관리자 Apps Script 연결이 필요합니다.', 'terr');
     return false;
   }
-  const payload = { toEmail, subject, body, ...templateData };
+  const payload = { toEmail, subject, body, ...templateData, ...(attachments.length ? { attachments } : {}) };
   let result;
   try {
     result = isAppsScriptDashboard_()

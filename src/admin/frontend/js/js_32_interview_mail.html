@@ -23,22 +23,9 @@ async function sendAllCandSchedule(posId, stageIdx, skipConfirm) {
   return sentCount;
 }
 
-async function sendCandidateThenPanelNotices(posId, stageIdx, round, skipConfirm=false) {
-  const pos = positions.find(p=>Number(p.id)===Number(posId));
-  const confirmedItvs = getConfirmedPositionInterviews(posId, stageIdx);
-  if(!confirmedItvs.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return { candidateSent:0, candidateTotal:0, panelSent:false }; }
-  const panelists = parsePanelists(stageIdx===1 ? pos?.panel1 : pos?.panel2);
-  const panelText = panelists.length ? `면접관 ${panelists.length}명 안내는 면접조서를 첨부해야 하므로 자동 발송하지 않고 메일 작성 단계로 남깁니다.` : '등록된 면접관이 없어 지원자 안내만 진행됩니다.';
-  if(!skipConfirm && !confirm(`지원자 ${confirmedItvs.length}명에게 개인별 면접 일정 안내 메일을 발송합니다.\n${panelText}\n\n계속할까요?`)) return { candidateSent:0, candidateTotal:confirmedItvs.length, panelSent:false };
-  const sentCount = await sendAllCandSchedule(posId, stageIdx, true);
-  const allCandidatesSent = sentCount === confirmedItvs.length;
-  toast(`지원자 면접 안내 ${sentCount}/${confirmedItvs.length}명 발송 ${allCandidatesSent?'완료':'결과 확인 필요'}${panelists.length?' · 면접관 메일은 면접조서 첨부 후 별도 발송':''}`, allCandidatesSent ? 'tok' : 'tw');
-  return { candidateSent:sentCount, candidateTotal:confirmedItvs.length, panelSent:false, panelPending:panelists.length > 0 };
-}
-
 let interviewNoticeFlowCtx = { posId:null, stageIdx:null, round:null };
 let interviewNoticeBusy = { candidates:false, panel:false };
-let interviewNoticePanelDraftOpened = false;
+const MAIL_ATTACHMENT_MAX_TOTAL_BYTES_ = 15 * 1024 * 1024;
 
 function openInterviewNoticeFlow(posId, stageIdx, round) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
@@ -46,14 +33,13 @@ function openInterviewNoticeFlow(posId, stageIdx, round) {
   const confirmed = getConfirmedPositionInterviews(posId, stageIdx);
   if(!confirmed.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
   interviewNoticeFlowCtx = { posId:Number(posId), stageIdx:Number(stageIdx), round:Number(round) };
-  interviewNoticePanelDraftOpened = false;
   document.getElementById('inf-title').textContent = `${round}차 면접 안내 — ${pos.title}`;
   renderInterviewNoticeFlow();
   openModal('modal-interview-notice-flow');
 }
 
 function renderInterviewNoticeFlow() {
-  const { posId, stageIdx, round } = interviewNoticeFlowCtx;
+  const { posId, stageIdx } = interviewNoticeFlowCtx;
   const pos = positions.find(p => Number(p.id) === Number(posId));
   const schedule = getConfirmedPositionInterviews(posId, stageIdx);
   const panelists = parsePanelists(stageIdx === 1 ? pos?.panel1 : pos?.panel2).filter(p => p.email && p.email.includes('@'));
@@ -61,17 +47,27 @@ function renderInterviewNoticeFlow() {
   const panelDone = schedule.length > 0 && schedule.every(i => i.panelNotified || i.notified);
   const el = document.getElementById('inf-status');
   if(!el) return;
-  const card = (title, desc, done, busy, action, label, resendLabel, disabled) => `<div style="border:1px solid ${done?'var(--gbd)':'var(--border)'};border-radius:var(--r);padding:13px;background:${done?'var(--gbg)':'var(--surface)'}">
-    <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">${title}</div>
-    <div style="font-size:11px;color:var(--t3);min-height:34px;margin-bottom:10px">${desc}</div>
+  const candCard = `<div style="border:1px solid ${candDone?'var(--gbd)':'var(--border)'};border-radius:var(--r);padding:13px;background:${candDone?'var(--gbg)':'var(--surface)'}">
+    <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">지원자 개인 안내</div>
+    <div style="font-size:11px;color:var(--t3);min-height:34px;margin-bottom:10px">확정 일정 지원자 ${schedule.length}명에게 개인별 메일 발송</div>
     <div style="display:flex;align-items:center;gap:7px">
-      ${done?'<span class="b bgreen">발송 완료</span>':''}
-      <button class="btn btn-sm ${done?'':'btn-primary'}" data-action="call" data-call="${action}" ${disabled||busy?'disabled':''}>${busy?'처리 중...':done?resendLabel:label}</button>
+      ${candDone?'<span class="b bgreen">발송 완료</span>':''}
+      <button class="btn btn-sm ${candDone?'':'btn-primary'}" data-action="call" data-call="sendInterviewNoticeCandidates()" ${!schedule.length||interviewNoticeBusy.candidates?'disabled':''}>${interviewNoticeBusy.candidates?'처리 중...':candDone?'지원자 재발송':'지원자 메일 발송'}</button>
     </div>
   </div>`;
-  el.innerHTML =
-    card('지원자 개인 안내', `확정 일정 지원자 ${schedule.length}명에게 개인별 메일 발송`, candDone, interviewNoticeBusy.candidates, `sendInterviewNoticeCandidates()`, '지원자 메일 발송', '지원자 재발송', !schedule.length) +
-    card('면접관 단체 안내', panelists.length ? `면접관 ${panelists.length}명에게 보낼 메일을 작성합니다. 면접조서를 첨부해 직접 발송하세요.` : '포지션에 면접관 이메일이 등록되지 않았습니다.', panelDone, interviewNoticeBusy.panel, `sendInterviewNoticePanel()`, interviewNoticePanelDraftOpened?'발송 완료 표시':'면접관 메일 작성', '면접관 재발송 메일 작성', !panelists.length || !schedule.length);
+  const panelCard = !panelists.length ? `<div style="border:1px solid var(--border);border-radius:var(--r);padding:13px">
+      <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">면접관 단체 안내</div>
+      <div style="font-size:11px;color:var(--t3)">포지션에 면접관 이메일이 등록되지 않았습니다.</div>
+    </div>` : `<div style="border:1px solid ${panelDone?'var(--gbd)':'var(--border)'};border-radius:var(--r);padding:13px;background:${panelDone?'var(--gbg)':'var(--surface)'}">
+      <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">면접관 단체 안내</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:8px">면접관 ${panelists.length}명에게 정해진 양식으로 메일을 발송합니다. 면접조서 등 파일을 첨부한 뒤 발송하세요.</div>
+      <input type="file" id="inf-panel-files" multiple accept=".pdf,.doc,.docx,.hwp,.hwpx,.xls,.xlsx" style="font-size:11px;margin-bottom:8px;width:100%">
+      <div style="display:flex;align-items:center;gap:7px">
+        ${panelDone?'<span class="b bgreen">발송 완료</span>':''}
+        <button class="btn btn-sm ${panelDone?'':'btn-primary'}" data-action="call" data-call="sendInterviewNoticePanel()" ${!schedule.length||interviewNoticeBusy.panel?'disabled':''}>${interviewNoticeBusy.panel?'처리 중...':panelDone?'면접관 재발송':'면접관 메일 발송'}</button>
+      </div>
+    </div>`;
+  el.innerHTML = candCard + panelCard;
 }
 
 async function sendInterviewNoticeCandidates() {
@@ -87,29 +83,32 @@ async function sendInterviewNoticeCandidates() {
   }
 }
 
+// 파일 입력(File)을 메일 첨부 payload({name, mimeType, base64})로 변환
+function readFileAsMailAttachment_(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', base64: result.slice(result.indexOf(',') + 1) });
+    };
+    reader.onerror = () => reject(reader.error || new Error('file_read_failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function sendInterviewNoticePanel() {
   if(interviewNoticeBusy.panel) return;
-  const { posId, stageIdx, round } = interviewNoticeFlowCtx;
-  const schedule = getConfirmedPositionInterviews(posId, stageIdx);
-  const alreadyDone = schedule.length > 0 && schedule.every(itv => itv.panelNotified || itv.notified);
-  if(interviewNoticePanelDraftOpened && !alreadyDone) {
-    if(!confirm('면접조서를 첨부하여 면접관 안내 메일을 직접 발송했습니까?\n확인하면 시스템에 발송 완료로 기록합니다.')) return;
-    schedule.forEach(itv => { itv.notified = true; itv.panelNotified = true; });
-    saveState();
-    if(GS_CONFIG.scriptUrl) {
-      const result = await settleSync(schedule.map(itv => syncIntToGS(itv)), `${round}차 면접관 안내 완료 저장`);
-      if(result.failed) return;
-    }
-    interviewNoticePanelDraftOpened = false;
-    toast('면접관 안내 메일 발송 완료로 기록했습니다.', 'tok');
-    renderInterviewNoticeFlow();
-    return;
-  }
+  const { posId, round } = interviewNoticeFlowCtx;
+  const fileInput = document.getElementById('inf-panel-files');
+  const files = fileInput?.files ? [...fileInput.files] : [];
+  if(!files.length) { toast('면접조서 등 첨부할 파일을 선택하세요.', 'terr'); return; }
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  if(totalBytes > MAIL_ATTACHMENT_MAX_TOTAL_BYTES_) { toast('첨부파일 용량이 너무 큽니다. 전체 15MB 이하로 선택하세요.', 'terr'); return; }
   interviewNoticeBusy.panel = true;
   renderInterviewNoticeFlow();
   try {
-    const result = await sendPanelNotice(posId, round, false, true);
-    if(result === 'draft') interviewNoticePanelDraftOpened = !alreadyDone;
+    const attachments = await Promise.all(files.map(readFileAsMailAttachment_));
+    await sendPanelNotice(posId, round, false, attachments);
   } finally {
     interviewNoticeBusy.panel = false;
     renderInterviewNoticeFlow();
@@ -149,7 +148,7 @@ async function sendCandSchedule(intId, sequential) {
   return true;
 }
 
-async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, draftOnly=true) {
+async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, attachments=[]) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return false;
   const round = stageIdx === 1 ? '1차' : '2차';
@@ -211,17 +210,6 @@ async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, draftOn
 
   const emails = groupMailRecipients(panelists.map(p => p.email));
   const targetList = schedule.map(i => `${i.candName} (${pos.title})`).join('\n');
-  if(draftOnly) {
-    const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emails)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    const opened = window.open(composeUrl, '_blank');
-    if(!opened) {
-      toast('Gmail 작성창을 열지 못했습니다. 브라우저의 팝업 차단을 확인하세요.', 'terr');
-      return false;
-    }
-    try { opened.opener = null; } catch(_) {}
-    toast('면접관 메일 작성창을 열었습니다. 면접조서를 첨부해 직접 발송한 뒤 발송 완료로 표시하세요.', 'toutlook');
-    return 'draft';
-  }
   const sent = await sendGeneralEmailViaGmail(emails, subject, body, `${round}면접관일정안내`, pos.title, {
     templateType: 'panel_schedule',
     dept: pos.dept || pos.title || '',
@@ -232,7 +220,7 @@ async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, draftOn
     targetCount: schedule.length,
     panelNames,
     targetList
-  });
+  }, attachments);
   if(sent === false) return false;
 
   schedule.forEach(i => { i.notified = true; i.panelNotified = true; });
@@ -472,7 +460,7 @@ function parsePanelists(str) {
 
 // ── 면접관 안내 발송 (이메일 + Teams) ───────────────────────
 // 면접관 참석 안내 — sendPanelSchedule로 통합 (round 1/2 → stageIdx 1/3 변환)
-function sendPanelNotice(posId, round, returnToPosition=true, draftOnly=true) {
+function sendPanelNotice(posId, round, returnToPosition=true, attachments=[]) {
   const stageIdx = round === 1 ? 1 : 3;
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return false;
@@ -493,5 +481,5 @@ function sendPanelNotice(posId, round, returnToPosition=true, draftOnly=true) {
     if(!confirm(`${stageCands.length}명 중 ${confirmed.length}명만 일정이 확정됐습니다.\n확정된 ${confirmed.length}명 기준으로 면접관에게 안내하시겠습니까?`)) return false;
   }
   // 통합 함수 호출 (공문 양식 + 첨부 안내)
-  return sendPanelSchedule(posId, stageIdx, returnToPosition, draftOnly);
+  return sendPanelSchedule(posId, stageIdx, returnToPosition, attachments);
 }
