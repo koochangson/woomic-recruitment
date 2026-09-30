@@ -15,9 +15,9 @@ function fail(message) {
   process.exit(1);
 }
 
-// Public bundle only ever contains Code.gs + appsscript.json (see dist/apps-script-public/README.md).
+// Public bundle contains deployment-specific Code.gs plus the shared runtime and manifest.
 // Unlike the admin bundle it has no UPLOAD_FILES.txt / module list, so the source set is fixed here.
-const sourceNames = ['Code.gs', 'appsscript.json'];
+const sourceNames = ['Code.gs', 'shared_00_runtime.gs', 'appsscript.json'];
 
 function targetName(sourceName) {
   return sourceName.endsWith('.gs') ? sourceName.replace(/\.gs$/, '.js') : sourceName;

@@ -71,7 +71,7 @@ const SHEET_SCHEMAS = {
   Interviewers: ['email','name','empNo','dept','rank','status','updatedAt'],
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
-  MailLog: ['id','to','subject','status','error','sentAt'],
+  MailLog: ['id','eventKey','to','subject','status','error','sentAt'],
   ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
   ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','link','verifiedAt','submittedAt','status',
     'q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
@@ -173,7 +173,7 @@ function buildMailAttachments_(list) {
   return blobs;
 }
 
-function sendMailViaGmail_(to, subject, body, htmlBody, attachments) {
+function sendMailViaGmail_(to, subject, body, htmlBody, attachments, eventKey) {
   const recipients = String(to || '').split(/[;,]/).map(function(addr) { return addr.trim(); }).filter(Boolean);
   const cleanSubject = String(subject || '');
   try {
@@ -189,11 +189,11 @@ function sendMailViaGmail_(to, subject, body, htmlBody, attachments) {
     if (Array.isArray(attachments) && attachments.length) options.attachments = attachments;
 
     MailApp.sendEmail(options);
-    logMailSend_(recipients.join(','), cleanSubject, 'sent', '');
+    logMailSend_(recipients.join(','), cleanSubject, 'sent', '', eventKey);
     return { ok: true, to: recipients.join(',') };
   } catch (err) {
     const errorText = String(err && err.message || err);
-    logMailSend_(recipients.join(','), cleanSubject, 'failed', errorText);
+    logMailSend_(recipients.join(','), cleanSubject, 'failed', errorText, eventKey);
     return { ok: false, error: errorText };
   }
 }
@@ -205,12 +205,13 @@ function handleSendMail_(payload) {
   return json_(result);
 }
 
-function logMailSend_(to, subject, status, error) {
+function logMailSend_(to, subject, status, error, eventKey) {
   try {
     const sheet = ensureSheet_('MailLog');
     const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.MailLog);
     const row = {
       id: 'ML-' + Utilities.getUuid(),
+      eventKey: String(eventKey || ''),
       to: String(to || ''),
       subject: String(subject || ''),
       status: String(status || ''),
@@ -462,10 +463,7 @@ function deleteRowsWhere_(sheetName, predicate) {
   return removed;
 }
 
-// 보존기한이 지난 지원자의 개인정보를 연결된 시트 전체에서 삭제한다(Candidates/Interviews 외
-// ReferenceCandidates/ReferenceResponses/MailLog). purgeExpiredPii()가 예전에는 Candidates·Interviews만
-// 지우고 나머지는 그대로 남겨 "파기 완료" 표시와 실제 데이터 상태가 어긋나던 문제를 해결한다.
-// _Changes 보존·압축 정책은 별도 설계가 필요해 이번 범위에서는 다루지 않는다.
+// 보존기한이 지난 지원자의 개인정보를 연결된 시트와 변경 로그 전체에서 삭제한다.
 function purgeCandidatePii_(payload) {
   if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
@@ -475,18 +473,74 @@ function purgeCandidatePii_(payload) {
   const emails = Array.isArray(body.candidateEmails)
     ? body.candidateEmails.map(v => normalizeEmail_(v)).filter(Boolean)
     : [];
+  const emailSet = new Set(emails);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const removed = {
+      candidates: deleteRowsWhere_('Candidates', row => idSet.has(String(row.id))),
+      interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
+      referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
+      referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
+      mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>
+        String(row.to || '').split(/[;,]/).some(addr => emailSet.has(normalizeEmail_(addr)))
+      ) : 0
+    };
+    removed.changeLog = deleteCandidateChangeRows_(CHANGE_LOG_SHEET, idSet, emailSet);
+    removed.changeArchive = deleteCandidateChangeRows_(CHANGE_ARCHIVE_SHEET, idSet, emailSet);
 
-  const removed = {
-    candidates: deleteRowsWhere_('Candidates', row => idSet.has(String(row.id))),
-    interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
-    referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
-    referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
-    mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>
-      String(row.to || '').split(/[;,]/).some(addr => emails.includes(normalizeEmail_(addr)))
-    ) : 0
-  };
+    return json_({ ok: true, removed, cursor: getChangeCursor_(), serverTime: nowIso_() });
+  } finally {
+    lock.releaseLock();
+  }
+}
 
-  return json_({ ok: true, removed, cursor: getChangeCursor_(), serverTime: nowIso_() });
+function deleteCandidateChangeRows_(sheetName, candidateIds, candidateEmails) {
+  const sheet = getMainSpreadsheet_().getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  const values = sheet.getRange(1, 1, sheet.getLastRow(), Math.max(sheet.getLastColumn(), 8)).getValues();
+  const headers = values[0].map(value => String(value || '').trim());
+  const sheetIndex = headers.indexOf('sheet');
+  const idIndex = headers.indexOf('id');
+  const dataIndex = headers.indexOf('data');
+  if (sheetIndex < 0 || idIndex < 0 || dataIndex < 0) return 0;
+
+  const kept = [];
+  let removed = 0;
+  values.slice(1).forEach(row => {
+    if (changeRowContainsCandidatePii_(row, sheetIndex, idIndex, dataIndex, candidateIds, candidateEmails)) {
+      removed++;
+    } else {
+      kept.push(row);
+    }
+  });
+  if (!removed) return 0;
+
+  const bodyRange = sheet.getRange(2, 1, values.length - 1, values[0].length);
+  bodyRange.clearContent();
+  if (kept.length) sheet.getRange(2, 1, kept.length, values[0].length).setValues(kept);
+  return removed;
+}
+
+function changeRowContainsCandidatePii_(row, sheetIndex, idIndex, dataIndex, candidateIds, candidateEmails) {
+  const changedSheet = String(row[sheetIndex] || '');
+  const changedId = String(row[idIndex] || '');
+  if (changedSheet === 'Candidates' && candidateIds.has(changedId)) return true;
+
+  let data = {};
+  try {
+    data = JSON.parse(String(row[dataIndex] || '{}')) || {};
+  } catch (err) {
+    data = {};
+  }
+  const idKeys = ['candId', 'candidateId', 'pipelineCandId'];
+  if (idKeys.some(key => data[key] != null && candidateIds.has(String(data[key])))) return true;
+
+  const emailKeys = ['email', 'candEmail', 'candidateEmail', 'to'];
+  return emailKeys.some(key => {
+    if (data[key] == null) return false;
+    return String(data[key]).split(/[;,]/).some(value => candidateEmails.has(normalizeEmail_(value)));
+  });
 }
 
 function getChanges_(query) {
@@ -2419,6 +2473,227 @@ function weeklyOps() {
   return { ok: true, changeArchive: archiveResult };
 }
 
+// 트리거 등록은 운영자가 별도로 수행한다. 이 함수는 매일 09:00 실행을 전제로 하며,
+// eventKey가 이미 성공 기록된 메일은 다시 보내지 않는다.
+function dailyOps() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return { ok: false, error: 'ops_already_running' };
+  try {
+    const today = opsDateKey_(new Date());
+    const results = {
+      referenceCandidateReminders: 0,
+      referenceResponseReminders: 0,
+      candidateInterviewReminders: 0,
+      internalNotices: 0,
+      skipped: 0,
+      failed: []
+    };
+
+    readRowsIfSheetExists_('ReferenceCandidates').forEach(row => {
+      if (!row.candEmail || row.refereesSubmittedAt || referenceLinkExpired_(row)) return;
+      const reminder = referenceReminderKind_(row.createdAt || row.updatedAt, row.tokenExpiresAt, today);
+      if (!reminder) return;
+      const eventKey = ['daily', 'reference-candidate', row.id, reminder, today].join(':');
+      const message = [
+        row.candName + '님, 안녕하세요.', '',
+        '레퍼런스 체크를 위한 추천인 등록이 아직 완료되지 않아 안내드립니다.',
+        reminder === 'expiry-d3' ? '등록 링크가 3일 후 만료됩니다.' : '아래 링크에서 추천인 3명을 등록해 주세요.',
+        '', '추천인 등록 링크', row.link || buildReferenceCandidateLinkUrl_(row.token), '',
+        '감사합니다.', '우미건설 피플팀 드림'
+      ].join('\n');
+      const send = sendOpsMailOnce_(eventKey, row.candEmail,
+        '[우미건설] 레퍼런스 체크 추천인 등록 재안내', message,
+        referenceMailHtml_(message, {
+          templateType: 'candidate_reminder', candidateName: row.candName,
+          positionText: row.positionText || '', link: row.link || buildReferenceCandidateLinkUrl_(row.token),
+          deadline: row.tokenExpiresAt
+        }));
+      countOpsResult_(results, send, 'referenceCandidateReminders', eventKey);
+    });
+
+    readRowsIfSheetExists_('ReferenceResponses').forEach(row => {
+      if (!row.refereeEmail || row.submittedAt || referenceLinkExpired_(row)) return;
+      const reminder = referenceReminderKind_(row.updatedAt, row.tokenExpiresAt, today);
+      if (!reminder) return;
+      const eventKey = ['daily', 'reference-referee', row.id, reminder, today].join(':');
+      const link = row.link || buildReferenceResponseLinkUrl_(row.token);
+      const message = [
+        row.refereeName + '님, 안녕하세요.', '',
+        row.candName + '님에 대한 레퍼런스 체크 설문이 아직 접수되지 않아 재안내드립니다.',
+        reminder === 'expiry-d3' ? '응답 링크가 3일 후 만료됩니다.' : '아래 링크에서 설문을 작성해 주세요.',
+        '', '설문 참여 링크', link, '',
+        '감사합니다.', '우미건설 피플팀 드림'
+      ].join('\n');
+      const send = sendOpsMailOnce_(eventKey, row.refereeEmail,
+        '[우미건설] ' + row.candName + '님 레퍼런스 체크 응답 재안내', message,
+        referenceMailHtml_(message, {
+          templateType: 'referee_reminder', candidateName: row.candName,
+          refereeName: row.refereeName, positionText: '', link, deadline: row.tokenExpiresAt
+        }));
+      countOpsResult_(results, send, 'referenceResponseReminders', eventKey);
+    });
+
+    const candidates = readRowsIfSheetExists_('Candidates');
+    const candidateMap = new Map(candidates.map(row => [String(row.id), row]));
+    const tomorrow = opsDateKey_(new Date(Date.now() + 24 * 60 * 60 * 1000));
+    const tomorrowInterviews = readRowsIfSheetExists_('Interviews').filter(row =>
+      row.status === 'confirmed' && !row.result && isSheetTrue_(row.candidateNotified) && opsDateKey_(row.date) === tomorrow
+    );
+    tomorrowInterviews.forEach(row => {
+      const candidate = candidateMap.get(String(row.candId));
+      if (!candidate) return;
+      const viaHeadhunter = String(candidate.source || '') === '헤드헌팅' && candidate.headhunterEmail;
+      const to = viaHeadhunter ? candidate.headhunterEmail : candidate.email;
+      if (!to) return;
+      const eventKey = ['daily', 'interview-candidate', row.id, tomorrow].join(':');
+      const place = row.candidateLoc || row.loc || '';
+      const message = [
+        (viaHeadhunter ? (candidate.headhunterManager || candidate.headhunterName || '담당자') : candidate.name) + '님, 안녕하세요.', '',
+        candidate.name + '님의 ' + row.type + ' 면접이 내일 예정되어 있어 안내드립니다.',
+        '일시: ' + formatOpsDateTime_(row.date),
+        '장소: ' + place,
+        viaHeadhunter ? '후보자에게 위 일정을 전달해 주세요.' : '안내된 시간에 맞춰 도착해 주세요.',
+        '', '감사합니다.', '우미건설 피플팀 드림'
+      ].join('\n');
+      const send = sendOpsMailOnce_(eventKey, to,
+        '[우미건설] ' + candidate.name + '님 면접 전날 안내', message, opsPlainHtml_(message));
+      countOpsResult_(results, send, 'candidateInterviewReminders', eventKey);
+    });
+
+    const notifyEmail = getNotifyEmail_();
+    if (notifyEmail && tomorrowInterviews.length) {
+      const eventKey = ['daily', 'panel-preparation', tomorrow].join(':');
+      const lines = tomorrowInterviews.map(row => {
+        const candidate = candidateMap.get(String(row.candId));
+        return '- ' + formatOpsDateTime_(row.date) + ' · ' + (candidate && candidate.name || row.candName || '-') +
+          ' · 면접관 ' + (row.panel || '-') + ' · ' + (row.panelLoc || row.loc || '-');
+      });
+      const message = ['내일 예정된 면접입니다.', '면접관 안내는 면접조서 첨부 후 대시보드에서 수동 발송해 주세요.', '', lines.join('\n')].join('\n');
+      const send = sendOpsMailOnce_(eventKey, notifyEmail, '[채용시스템] 내일 면접 준비 확인', message, opsPlainHtml_(message));
+      countOpsResult_(results, send, 'internalNotices', eventKey);
+    }
+
+    const dueRewards = readRowsIfSheetExists_('Rewards').filter(row => {
+      if (!row.dueDate || ['PAID', 'CANCELLED'].includes(String(row.status || '').toUpperCase())) return false;
+      const days = opsDaysBetween_(today, opsDateKey_(row.dueDate));
+      return days >= 0 && days <= 7;
+    });
+    if (notifyEmail && dueRewards.length) {
+      const eventKey = ['daily', 'reward-due', today].join(':');
+      const lines = dueRewards.map(row => '- ' + row.dueDate + ' · ' + (row.milestone || '-') + ' · ' +
+        (row.refEmail || '-') + ' · ' + Number(row.amount || 0).toLocaleString('ko-KR') + '원');
+      const message = ['7일 이내 도래하는 사내추천 보상 확인 대상입니다.', '', lines.join('\n')].join('\n');
+      const send = sendOpsMailOnce_(eventKey, notifyEmail, '[채용시스템] 추천 보상 만기 확인', message, opsPlainHtml_(message));
+      countOpsResult_(results, send, 'internalNotices', eventKey);
+    }
+
+    console.log('dailyOps: ' + JSON.stringify(results));
+    return Object.assign({ ok: results.failed.length === 0, date: today }, results);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 매월 1일 실행을 전제로 한다. 파기는 수행하지 않고 승인 대상만 피플팀에 보낸다.
+function monthlyRetention() {
+  const notifyEmail = getNotifyEmail_();
+  if (!notifyEmail) return { ok: false, error: 'notify_email_not_configured' };
+  const today = opsDateKey_(new Date());
+  const retentionMonths = Math.max(1, Number(getFirstSettingValue_(['retentionMonths'])) || 6);
+  const cutoff = new Date(today + 'T00:00:00+09:00');
+  cutoff.setMonth(cutoff.getMonth() - retentionMonths);
+  const positions = readRowsIfSheetExists_('Positions');
+  const positionMap = new Map(positions.map(row => [String(row.id), row]));
+  const targets = readRowsIfSheetExists_('Candidates').filter(candidate => {
+    const position = positionMap.get(String(candidate.posId));
+    const retentionDate = candidate.rejectedAt || (position && position.status !== 'active' ? position.closedAt : '');
+    const time = new Date(retentionDate).getTime();
+    return Number.isFinite(time) && time < cutoff.getTime();
+  });
+  if (!targets.length) return { ok: true, targets: 0, sent: false };
+
+  const eventKey = ['monthly', 'retention-approval', today].join(':');
+  const lines = targets.map(candidate => '- ID ' + candidate.id + ' · ' + maskOpsName_(candidate.name) +
+    ' · 기준일 ' + opsDateKey_(candidate.rejectedAt || (positionMap.get(String(candidate.posId)) || {}).closedAt));
+  const message = [
+    '개인정보 보존기간 ' + retentionMonths + '개월이 경과한 지원자 ' + targets.length + '명입니다.',
+    '자동 파기는 수행하지 않았습니다. 대시보드에서 대상을 검토하고 승인 후 파기해 주세요.', '',
+    lines.join('\n')
+  ].join('\n');
+  const send = sendOpsMailOnce_(eventKey, notifyEmail,
+    '[채용시스템] 개인정보 파기 승인 대상 ' + targets.length + '명', message, opsPlainHtml_(message));
+  return { ok: send.ok || send.skipped, targets: targets.length, sent: !!send.ok, skipped: !!send.skipped, error: send.error || '' };
+}
+
+function sendOpsMailOnce_(eventKey, to, subject, body, htmlBody) {
+  if (mailEventAlreadySent_(eventKey)) return { ok: false, skipped: true };
+  return sendMailViaGmail_(to, subject, body, htmlBody, [], eventKey);
+}
+
+function mailEventAlreadySent_(eventKey) {
+  return readRowsIfSheetExists_('MailLog').some(row =>
+    String(row.eventKey || '') === String(eventKey || '') && String(row.status || '').toLowerCase() === 'sent'
+  );
+}
+
+function countOpsResult_(results, send, field, eventKey) {
+  if (send && send.ok) results[field]++;
+  else if (send && send.skipped) results.skipped++;
+  else results.failed.push({ eventKey, error: send && send.error || 'mail_send_failed' });
+}
+
+function referenceReminderKind_(createdAt, expiresAt, today) {
+  const untilExpiry = opsDaysBetween_(today, opsDateKey_(expiresAt));
+  if (untilExpiry === 3) return 'expiry-d3';
+  const elapsed = opsDaysBetween_(opsDateKey_(createdAt), today);
+  return elapsed === 3 || elapsed === 7 ? 'reminder-d' + elapsed : '';
+}
+
+function opsDateKey_(value) {
+  const date = parseOpsDate_(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd');
+}
+
+function opsDaysBetween_(fromKey, toKey) {
+  if (!fromKey || !toKey) return NaN;
+  const from = new Date(fromKey + 'T00:00:00+09:00').getTime();
+  const to = new Date(toKey + 'T00:00:00+09:00').getTime();
+  return Math.round((to - from) / (24 * 60 * 60 * 1000));
+}
+
+function formatOpsDateTime_(value) {
+  const date = parseOpsDate_(value);
+  if (!Number.isFinite(date.getTime())) return String(value || '');
+  return Utilities.formatDate(date, 'Asia/Seoul', 'yyyy년 M월 d일 HH:mm');
+}
+
+function parseOpsDate_(value) {
+  if (value instanceof Date) return value;
+  const text = String(value || '').trim();
+  if (!text) return new Date(NaN);
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(text)) {
+    return new Date(text.replace(' ', 'T') + ':00+09:00');
+  }
+  return new Date(text);
+}
+
+function isSheetTrue_(value) {
+  return value === true || ['y', 'yes', 'true', '1'].includes(String(value || '').trim().toLowerCase());
+}
+
+function opsPlainHtml_(message) {
+  return '<div style="font-family:Arial,sans-serif;line-height:1.7;white-space:pre-line">' +
+    escapeMailHtml_(message) + '</div>';
+}
+
+function maskOpsName_(name) {
+  const text = String(name || '').trim();
+  if (text.length <= 1) return '*';
+  if (text.length === 2) return text.charAt(0) + '*';
+  return text.charAt(0) + '*'.repeat(text.length - 2) + text.charAt(text.length - 1);
+}
+
 function getChangeCursor_() {
   return getStoredChangeCursor_(ensureChangeLogSheet_());
 }
@@ -2468,60 +2743,6 @@ function readChangesAfter_(cursor, limit) {
     result: String(row[6] || ''),
     data: parseJsonObject_(row[7])
   }));
-}
-
-function parseJsonObject_(value) {
-  if (!value) return {};
-  if (typeof value === 'object') return value;
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch (err) {
-    return {};
-  }
-}
-
-function primaryKey_(sheetName) {
-  return ['Employees', 'Interviewers'].includes(sheetName) ? 'email' : 'id';
-}
-
-function assertKnownSheet_(sheetName) {
-  if (!SHEET_SCHEMAS[sheetName]) throw new Error('unknown_sheet: ' + sheetName);
-}
-
-function normalizeEmail_(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function normalizeEmpNo_(value) {
-  return String(value || '').trim();
-}
-
-function normalizePhone_(value) {
-  return String(value || '').replace(/[^\d]/g, '');
-}
-
-function normalizeCell_(value) {
-  if (value instanceof Date) return Utilities.formatDate(value, 'UTC', "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-  return value == null ? '' : value;
-}
-
-function pickFirst_(row, keys) {
-  for (let i = 0; i < keys.length; i++) {
-    const value = row[keys[i]];
-    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
-  }
-  return '';
-}
-
-function getFirstSettingValue_(keys) {
-  const settings = readRowsIfSheetExists_('Settings');
-  for (let i = 0; i < keys.length; i++) {
-    const target = String(keys[i] || '');
-    const row = settings.find(item => String(item.id || '').trim() === target);
-    if (row && String(row.value || '').trim()) return String(row.value).trim();
-  }
-  return '';
 }
 
 function referralCodeKey_(email) {
@@ -2581,22 +2802,10 @@ function referralTokenKey_(token) {
   return 'referral_token:' + String(token || '');
 }
 
-function nowIso_() {
-  return new Date().toISOString();
-}
-
 function isAdminRequest_(payload) {
   const token = String(payload.adminToken || payload.query && payload.query.adminToken || payload.data && payload.data.adminToken || '').trim();
   const configuredToken = getScriptProperty_(ADMIN_TOKEN_PROPERTY);
   return !!configuredToken && token === configuredToken;
-}
-
-function isPublicDeployment_() {
-  return getScriptProperty_(DEPLOYMENT_ROLE_PROPERTY).toLowerCase() === 'public';
-}
-
-function getScriptProperty_(key) {
-  return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
 }
 
 function getDeploymentConfigStatus_() {
@@ -2633,14 +2842,6 @@ function getDeploymentConfigStatus() {
   return getDeploymentConfigStatus_();
 }
 
-function getActiveUserEmail_() {
-  try {
-    return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
-  } catch (err) {
-    return '';
-  }
-}
-
 function compactReferralStatus_(status) {
   const map = {
     SUBMITTED: '접수',
@@ -2654,24 +2855,6 @@ function compactReferralStatus_(status) {
     CANCELLED: '종료'
   };
   return map[String(status || '').toUpperCase()] || '접수';
-}
-
-function compactRewardStatus_(status) {
-  const map = {
-    SCHEDULED: '예정',
-    RETENTION_OK: '재직확인',
-    REQUESTED: '지급요청',
-    PAID: '지급완료',
-    CANCELLED: '취소'
-  };
-  return map[String(status || '').toUpperCase()] || '예정';
-}
-
-function maskName_(value) {
-  const text = String(value || '').trim();
-  if (!text) return '후보자';
-  if (text.length <= 1) return text + '*';
-  return text.slice(0, 1) + '*'.repeat(Math.min(2, text.length - 1));
 }
 
 function sendReferralReceipt_(row) {

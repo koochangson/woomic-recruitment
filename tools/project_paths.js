@@ -26,6 +26,7 @@ export const adminJsFiles = [
 ];
 export const adminGsSource = path.join(root, 'src', 'admin', 'backend', 'Code.gs');
 export const publicGsSource = path.join(root, 'src', 'public', 'backend', 'Code.gs');
+export const sharedBackendSource = path.join(root, 'src', 'shared', 'backend', 'shared_00_runtime.gs');
 export const publicPagesDir = path.join(root, 'src', 'public', 'pages');
 export const mailTemplatesDir = path.join(root, 'templates', 'mail');
 export const configDir = path.join(root, 'config');

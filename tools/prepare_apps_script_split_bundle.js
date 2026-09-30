@@ -7,12 +7,14 @@ import {
   configDir,
   mailTemplateFiles,
   mailTemplatePath,
+  sharedBackendSource,
 } from './project_paths.js';
 
 const outDir = adminDistDir;
 
 const files = [
   [path.join(configDir, 'appsscript.admin.json'), 'appsscript.json'],
+  [sharedBackendSource, 'shared_00_runtime.gs'],
   ...[
     'admin_00_core.gs',
     'admin_01_mail_base.gs',

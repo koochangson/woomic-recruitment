@@ -71,7 +71,7 @@ const SHEET_SCHEMAS = {
   Interviewers: ['email','name','empNo','dept','rank','status','updatedAt'],
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
-  MailLog: ['id','to','subject','status','error','sentAt'],
+  MailLog: ['id','eventKey','to','subject','status','error','sentAt'],
   ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
   ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','link','verifiedAt','submittedAt','status',
     'q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',

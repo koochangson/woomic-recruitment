@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { adminDistDir, adminJsFiles } from './project_paths.js';
+import { adminDistDir, adminJsFiles, sharedBackendSource } from './project_paths.js';
 
 const bundleDir = adminDistDir;
 
@@ -45,6 +45,20 @@ const gs = files
   .map(name => fs.readFileSync(path.join(bundleDir, name), 'utf8'))
   .join('\n');
 new Function(gs);
+
+const sharedNames = [...fs.readFileSync(sharedBackendSource, 'utf8').matchAll(/^function\s+([A-Za-z0-9_]+)\s*\(/gm)]
+  .map(match => match[1]);
+const deploymentSpecificGs = files
+  .filter(name => name.endsWith('.gs') && name !== 'shared_00_runtime.gs')
+  .map(name => fs.readFileSync(path.join(bundleDir, name), 'utf8'))
+  .join('\n');
+const duplicateSharedNames = sharedNames.filter(name =>
+  new RegExp(`^function\\s+${name}\\s*\\(`, 'm').test(deploymentSpecificGs)
+);
+if (duplicateSharedNames.length) {
+  console.error(`Shared backend functions redeclared in deployment files: ${duplicateSharedNames.join(', ')}`);
+  process.exit(1);
+}
 
 const js = adminJsFiles
   .map(name => {

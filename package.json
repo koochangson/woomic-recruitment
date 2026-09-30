@@ -8,6 +8,7 @@
     "apps-script:check": "node tools/check_apps_script_split_bundle.js",
     "build:drift": "node scripts/check-source-dist-drift.mjs",
     "security:scan": "node scripts/security-scan.mjs",
+    "accessibility:check": "node scripts/accessibility-check.mjs",
     "syntax:check": "node scripts/syntax-check.mjs",
     "deployment:ready": "node scripts/deployment-readiness.mjs",
     "clasp:sync-admin": "node tools/sync_admin_clasp.js",
@@ -16,6 +17,6 @@
     "clasp:sync-public": "node tools/sync_public_clasp.js",
     "clasp:push-public": "node tools/deploy_public_clasp.js",
     "clasp:dry-run-public": "node tools/deploy_public_clasp.js --dry-run",
-    "check": "npm run security:scan && npm run syntax:check && npm run deployment:ready"
+    "check": "npm run security:scan && npm run accessibility:check && npm run syntax:check && npm run deployment:ready"
   }
 }

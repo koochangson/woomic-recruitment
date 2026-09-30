@@ -12,7 +12,19 @@ const htmlFiles = [
 const scriptFiles = [
   'src/admin/backend/Code.gs',
   'src/public/backend/Code.gs',
+  'src/shared/backend/shared_00_runtime.gs',
   'src/integrations/interviewer-directory/Code.gs',
+];
+
+const appsScriptProjects = [
+  {
+    name: 'Admin backend project',
+    files: ['src/shared/backend/shared_00_runtime.gs', 'src/admin/backend/Code.gs'],
+  },
+  {
+    name: 'Public backend project',
+    files: ['src/shared/backend/shared_00_runtime.gs', 'src/public/backend/Code.gs'],
+  },
 ];
 
 const adminModuleFiles = [
@@ -45,6 +57,12 @@ for (const file of scriptFiles) {
   if (!fs.existsSync(file)) continue;
   new Function(fs.readFileSync(file, 'utf8'));
   console.log(`${file} syntax OK`);
+}
+
+for (const project of appsScriptProjects) {
+  const source = project.files.map(file => fs.readFileSync(file, 'utf8')).join('\n');
+  new Function(source);
+  console.log(`${project.name} combined syntax OK (${project.files.length} files)`);
 }
 
 const adminModuleSources = adminModuleFiles.map(file => {

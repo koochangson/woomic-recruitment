@@ -19,7 +19,7 @@ const sections = [
   ['admin_05_general_mail.gs', /^function generateReferenceSummary_/m],
   ['admin_06_ai_referral_directory.gs', /^function ensureSheet_/m],
   ['admin_07_sheet_utils.gs', /^function referralCodeKey_/m],
-  ['admin_08_referral_tokens.gs', /^function nowIso_/m],
+  ['admin_08_referral_tokens.gs', /^function isAdminRequest_/m],
   ['admin_09_auth.gs', /^function adminApi/m],
   ['admin_99_admin_api.gs', /^$/m],
 ];

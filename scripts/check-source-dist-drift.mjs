@@ -16,6 +16,7 @@ import {
   publicPagesDir,
   referenceDistDir,
   referralDistDir,
+  sharedBackendSource,
 } from '../tools/project_paths.js';
 
 const read = file => fs.readFileSync(file, 'utf8');
@@ -56,12 +57,14 @@ new Function(adminJsFiles.map(name => read(path.join(adminJsDir, name))).join(''
 for (const name of ['Dashboard.html', 'app_css.html', ...adminJsFiles, ...adminParts]) {
   expectSame(path.join(adminIntermediateDir, name), path.join(adminDistDir, name));
 }
+expectSame(sharedBackendSource, path.join(adminDistDir, 'shared_00_runtime.gs'));
 expectSame(path.join(configDir, 'appsscript.admin.json'), path.join(adminDistDir, 'appsscript.json'));
 for (const [group, name] of mailTemplateFiles) {
   expectSame(mailTemplatePath(group, name), path.join(adminDistDir, name));
 }
 
 expectSame(publicGsSource, path.join(publicDistDir, 'Code.gs'));
+expectSame(sharedBackendSource, path.join(publicDistDir, 'shared_00_runtime.gs'));
 expectSame(path.join(configDir, 'appsscript.public.json'), path.join(publicDistDir, 'appsscript.json'));
 expectSame(path.join(publicPagesDir, 'referral', 'index.html'), path.join(referralDistDir, 'index.html'));
 for (const name of ['reference_candidate_intake.html', 'reference_check_intake.html', 'interview_availability.html']) {

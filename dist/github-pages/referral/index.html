@@ -429,6 +429,8 @@
       display: grid;
       gap: 8px;
     }
+    .choice-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+    .choice-fieldset > legend { display: block; width: 100%; margin: 0 0 8px; color: var(--text); font-size: 14px; font-weight: 700; }
     .choice-card {
       display: flex;
       gap: 10px;
@@ -1126,11 +1128,11 @@
       <main class="panel">
         <div class="head">
           <div>
-            <h1>인재 추천·소개 접수</h1>
+            <h1 id="referralFormTitle">인재 추천·소개 접수</h1>
             <p class="lead">임직원의 경험과 네트워크를 통해 좋은 인재를 추천하는 제도입니다.<br>직접 경험하거나 알고 있는 내용을 바탕으로 작성해 주세요.</p>
           </div>
           <div class="stepper" aria-label="접수 단계">
-            <div id="stepVerify" class="step on"><span class="step-num">1</span><span>본인 인증</span></div>
+            <div id="stepVerify" class="step on" aria-current="step"><span class="step-num">1</span><span>본인 인증</span></div>
             <div id="stepWrite" class="step"><span class="step-num">2</span><span>정보 작성</span></div>
             <div id="stepDone" class="step"><span class="step-num">3</span><span>접수 완료</span></div>
           </div>
@@ -1165,7 +1167,7 @@
                   </div>
                 </div>
               </div>
-              <div id="verifyMessage" class="message" aria-live="polite"></div>
+              <div id="verifyMessage" class="message" role="status" aria-live="polite" aria-atomic="true"></div>
               <div id="verifiedSummary" class="verified-summary">
                 <span id="verifiedText"></span>
                 <button id="resetVerifyBtn" class="btn ghost compact" type="button">사번 변경</button>
@@ -1179,10 +1181,10 @@
             <span>내 접수 확인</span>
             <button id="refreshMyReferralsBtn" class="btn secondary icon" type="button" title="접수 내역 새로고침" aria-label="접수 내역 새로고침">↻</button>
           </h2>
-          <div id="myReferralsList" class="my-referral-list"></div>
+          <div id="myReferralsList" class="my-referral-list" aria-live="polite" aria-atomic="false"></div>
         </section>
 
-        <form id="referral-form" novalidate>
+        <form id="referral-form" aria-labelledby="referralFormTitle" novalidate>
           <input id="verificationToken" type="hidden">
           <input id="refName" name="refName" type="hidden" required>
           <input id="refEmail" name="refEmail" type="hidden" required>
@@ -1232,25 +1234,29 @@
             <h2>추천인과 대상자의 관계</h2>
             <div class="grid">
               <div class="field full">
-                <label class="required"><span class="candidate-label">대상자</span>을 어떻게 알게 되셨나요</label>
-                <div class="choice-group" id="workTypeGroup">
+                <fieldset class="choice-fieldset">
+                  <legend class="required"><span class="candidate-label">대상자</span>을 어떻게 알게 되셨나요</legend>
+                  <div class="choice-group" id="workTypeGroup">
                   <label class="choice-card"><input type="radio" name="workTypes" value="같은 회사·조직에서 함께 근무한 적이 있습니다"><span class="choice-card-body"><span class="choice-card-title">같은 회사·조직에서 근무</span></span></label>
                   <label class="choice-card"><input type="radio" name="workTypes" value="프로젝트나 업무를 직접 함께한 적이 있습니다"><span class="choice-card-body"><span class="choice-card-title">프로젝트·업무를 함께 수행</span><small class="choice-card-desc">다른 부서·협력사·발주처 포함</small></span></label>
                   <label class="choice-card"><input type="radio" name="workTypes" value="학교·동아리·군 복무·봉사활동 등에서 같은 일을 했습니다"><span class="choice-card-body"><span class="choice-card-title">학교·동아리 등에서 함께 활동</span><small class="choice-card-desc">군 복무·봉사활동 등 포함</small></span></label>
                   <label class="choice-card"><input type="radio" name="workTypes" value="업무를 함께한 적은 없지만 개인적으로 잘 알고 지내는 사이입니다"><span class="choice-card-body"><span class="choice-card-title">개인적으로 잘 아는 사이</span><small class="choice-card-desc">업무를 함께한 경험은 없음</small></span></label>
                   <label class="choice-card"><input type="radio" name="workTypes" value="지인이나 업계 네트워크를 통해 알게 되었습니다"><span class="choice-card-body"><span class="choice-card-title">지인·업계 네트워크로 알게 됨</span></span></label>
                   <label class="choice-card"><input type="radio" name="workTypes" value="직접 잘 알지는 못하지만 검토할 만하다고 생각해 소개합니다"><span class="choice-card-body"><span class="choice-card-title">직접 알지는 않지만 인재로 소개</span></span></label>
-                </div>
+                  </div>
+                </fieldset>
                 <input id="relation" name="relation" type="hidden">
                 <p class="hint">관계에 따라 이후 질문이 달라집니다.</p>
               </div>
 
               <div class="field full">
-                <label class="required">추천 대상자와 가족·친족 관계이신가요</label>
-                <div class="choice-group compact-check-grid">
+                <fieldset class="choice-fieldset">
+                  <legend class="required">추천 대상자와 가족·친족 관계이신가요</legend>
+                  <div class="choice-group compact-check-grid">
                   <label class="choice-card"><input type="radio" name="conflictTypes" value="친족 아님" required><span>아니요</span></label>
                   <label class="choice-card"><input type="radio" name="conflictTypes" value="친족"><span>예</span></label>
-                </div>
+                  </div>
+                </fieldset>
                 <p class="hint">친족이어도 추천이 제한되지 않습니다. 채용 후 배치 및 평가의 공정성을 확인하기 위한 항목입니다.</p>
               </div>
 
@@ -1309,11 +1315,13 @@
                 </select>
               </div>
               <div class="field full personal-only">
-                <label class="required">최근에도 연락하거나 만나고 계신가요</label>
-                <div class="choice-group compact-check-grid">
+                <fieldset class="choice-fieldset">
+                  <legend class="required">최근에도 연락하거나 만나고 계신가요</legend>
+                  <div class="choice-group compact-check-grid">
                   <label class="choice-card"><input type="radio" name="recentContact" value="예"><span>예</span></label>
                   <label class="choice-card"><input type="radio" name="recentContact" value="아니요"><span>아니요</span></label>
-                </div>
+                  </div>
+                </fieldset>
                 <p class="hint">기간은 참고 정보이며, 최근에도 교류하고 있는지가 더 중요합니다.</p>
               </div>
 
@@ -1338,20 +1346,24 @@
             <h2>회사·직무 안내 확인</h2>
             <div class="grid">
               <div class="field full">
-                <label class="required">회사와 모집 직무를 안내하셨나요</label>
-                <div class="choice-group">
+                <fieldset class="choice-fieldset">
+                  <legend class="required">회사와 모집 직무를 안내하셨나요</legend>
+                  <div class="choice-group">
                   <label class="choice-card"><input type="radio" name="companyGuideStatus" value="안내자료를 전달하고 충분히 설명했습니다"><span>안내자료를 전달하고 충분히 설명했습니다.</span></label>
                   <label class="choice-card"><input type="radio" name="companyGuideStatus" value="기본적인 내용만 말씀드렸습니다"><span>기본적인 내용만 말씀드렸습니다.</span></label>
                   <label class="choice-card"><input type="radio" name="companyGuideStatus" value="아직 안내하지 못했습니다"><span>아직 안내하지 못했습니다.</span></label>
-                </div>
+                  </div>
+                </fieldset>
               </div>
               <div class="field full">
-                <label class="required">지원 의향을 확인하셨나요</label>
-                <div class="choice-group">
+                <fieldset class="choice-fieldset">
+                  <legend class="required">지원 의향을 확인하셨나요</legend>
+                  <div class="choice-group">
                   <label class="choice-card"><input type="radio" name="candidateIntentStatus" value="지원하시겠다는 의사를 확인했습니다"><span>지원하시겠다는 의사를 확인했습니다.</span></label>
                   <label class="choice-card"><input type="radio" name="candidateIntentStatus" value="관심은 있다고 하셨습니다"><span>관심은 있다고 하셨습니다.</span></label>
                   <label class="choice-card"><input type="radio" name="candidateIntentStatus" value="아직 여쭤보지 못했습니다"><span>아직 여쭤보지 못했습니다.</span></label>
-                </div>
+                  </div>
+                </fieldset>
               </div>
             </div>
           </section>
@@ -1460,7 +1472,7 @@
           </section>
 
           <div class="actions">
-            <div id="message" class="message" aria-live="polite"></div>
+            <div id="message" class="message" role="status" aria-live="polite" aria-atomic="true"></div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
               <button id="draftBtn" class="btn ghost" type="button">임시 저장</button>
               <button id="submitBtn" class="btn" type="submit">최종 제출</button>
@@ -1468,10 +1480,10 @@
           </div>
         </form>
 
-        <section id="completePanel" class="complete-panel">
+        <section id="completePanel" class="complete-panel" role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
           <h2 class="complete-title">접수가 완료되었습니다.</h2>
           <p id="completeMeta" class="complete-meta"></p>
-          <div id="completeMessage" class="message" aria-live="polite"></div>
+          <div id="completeMessage" class="message" role="status" aria-live="polite" aria-atomic="true"></div>
           <div class="complete-actions">
             <button id="copyReceiptBtn" class="btn secondary" type="button">접수번호 복사</button>
             <button id="showMyReferralsBtn" class="btn secondary" type="button">내 접수 확인</button>
@@ -1578,6 +1590,8 @@
     function setMessage(text, type) {
       message.textContent = text || '';
       message.className = `message ${type || ''}`.trim();
+      message.setAttribute('role', type === 'err' ? 'alert' : 'status');
+      message.setAttribute('aria-live', type === 'err' ? 'assertive' : 'polite');
     }
     function focusField(el) {
       if (!el) return;
@@ -1680,6 +1694,8 @@
       ['stepVerify','stepWrite','stepDone'].forEach((id, index) => {
         const el = document.getElementById(id);
         el.className = `step ${map[index]}`.trim();
+        if (map[index] === 'on') el.setAttribute('aria-current', 'step');
+        else el.removeAttribute('aria-current');
       });
     }
     function getValue(id) {
@@ -2578,6 +2594,7 @@
       setCompleteMessage('', '');
       setStep('done');
       completePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      completePanel.focus({ preventScroll: true });
     }
     async function copyReceiptId() {
       if (!lastReceiptId) return;

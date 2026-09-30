@@ -1,19 +1,7 @@
-function nowIso_() {
-  return new Date().toISOString();
-}
-
 function isAdminRequest_(payload) {
   const token = String(payload.adminToken || payload.query && payload.query.adminToken || payload.data && payload.data.adminToken || '').trim();
   const configuredToken = getScriptProperty_(ADMIN_TOKEN_PROPERTY);
   return !!configuredToken && token === configuredToken;
-}
-
-function isPublicDeployment_() {
-  return getScriptProperty_(DEPLOYMENT_ROLE_PROPERTY).toLowerCase() === 'public';
-}
-
-function getScriptProperty_(key) {
-  return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
 }
 
 function getDeploymentConfigStatus_() {
@@ -50,14 +38,6 @@ function getDeploymentConfigStatus() {
   return getDeploymentConfigStatus_();
 }
 
-function getActiveUserEmail_() {
-  try {
-    return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
-  } catch (err) {
-    return '';
-  }
-}
-
 function compactReferralStatus_(status) {
   const map = {
     SUBMITTED: '접수',
@@ -71,24 +51,6 @@ function compactReferralStatus_(status) {
     CANCELLED: '종료'
   };
   return map[String(status || '').toUpperCase()] || '접수';
-}
-
-function compactRewardStatus_(status) {
-  const map = {
-    SCHEDULED: '예정',
-    RETENTION_OK: '재직확인',
-    REQUESTED: '지급요청',
-    PAID: '지급완료',
-    CANCELLED: '취소'
-  };
-  return map[String(status || '').toUpperCase()] || '예정';
-}
-
-function maskName_(value) {
-  const text = String(value || '').trim();
-  if (!text) return '후보자';
-  if (text.length <= 1) return text + '*';
-  return text.slice(0, 1) + '*'.repeat(Math.min(2, text.length - 1));
 }
 
 function sendReferralReceipt_(row) {

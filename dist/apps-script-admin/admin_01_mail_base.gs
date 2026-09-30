@@ -1,4 +1,4 @@
-function sendMailViaGmail_(to, subject, body, htmlBody, attachments) {
+function sendMailViaGmail_(to, subject, body, htmlBody, attachments, eventKey) {
   const recipients = String(to || '').split(/[;,]/).map(function(addr) { return addr.trim(); }).filter(Boolean);
   const cleanSubject = String(subject || '');
   try {
@@ -14,11 +14,11 @@ function sendMailViaGmail_(to, subject, body, htmlBody, attachments) {
     if (Array.isArray(attachments) && attachments.length) options.attachments = attachments;
 
     MailApp.sendEmail(options);
-    logMailSend_(recipients.join(','), cleanSubject, 'sent', '');
+    logMailSend_(recipients.join(','), cleanSubject, 'sent', '', eventKey);
     return { ok: true, to: recipients.join(',') };
   } catch (err) {
     const errorText = String(err && err.message || err);
-    logMailSend_(recipients.join(','), cleanSubject, 'failed', errorText);
+    logMailSend_(recipients.join(','), cleanSubject, 'failed', errorText, eventKey);
     return { ok: false, error: errorText };
   }
 }
@@ -30,12 +30,13 @@ function handleSendMail_(payload) {
   return json_(result);
 }
 
-function logMailSend_(to, subject, status, error) {
+function logMailSend_(to, subject, status, error, eventKey) {
   try {
     const sheet = ensureSheet_('MailLog');
     const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.MailLog);
     const row = {
       id: 'ML-' + Utilities.getUuid(),
+      eventKey: String(eventKey || ''),
       to: String(to || ''),
       subject: String(subject || ''),
       status: String(status || ''),

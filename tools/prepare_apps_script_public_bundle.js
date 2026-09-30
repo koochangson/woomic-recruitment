@@ -8,6 +8,7 @@ import {
   referenceDistDir,
   referralDistDir,
   root,
+  sharedBackendSource,
 } from './project_paths.js';
 
 for (const dir of [publicDistDir, referralDistDir, referenceDistDir]) {
@@ -15,11 +16,12 @@ for (const dir of [publicDistDir, referralDistDir, referenceDistDir]) {
 }
 
 fs.copyFileSync(publicGsSource, path.join(publicDistDir, 'Code.gs'));
+fs.copyFileSync(sharedBackendSource, path.join(publicDistDir, 'shared_00_runtime.gs'));
 fs.copyFileSync(path.join(configDir, 'appsscript.public.json'), path.join(publicDistDir, 'appsscript.json'));
 
 const readme = `# Public Apps Script Upload Set
 
-공개 접수용 Apps Script 프로젝트의 Code.gs와 appsscript.json을 이 폴더의 파일로 교체합니다.
+공개 접수용 Apps Script 프로젝트의 Code.gs, shared_00_runtime.gs와 appsscript.json을 이 폴더의 파일로 교체합니다.
 관리자용 파일은 이 프로젝트에 넣지 않습니다.
 `;
 fs.writeFileSync(path.join(publicDistDir, 'README.md'), readme, 'utf8');

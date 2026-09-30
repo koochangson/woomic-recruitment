@@ -28,7 +28,8 @@ Script Properties:
 
 ## 2. 공개 추천 접수 Apps Script
 
-공개 접수 전용 Apps Script 프로젝트에는 `dist/apps-script-public/` 파일을 반영합니다.
+공개 접수 전용 Apps Script 프로젝트에는 `dist/apps-script-public/`의 `Code.gs`,
+`shared_00_runtime.gs`, `appsscript.json`을 함께 반영합니다.
 원본 설정은 `config/appsscript.public.json`에서 관리합니다.
 
 Script Properties:
@@ -47,7 +48,8 @@ GitHub Pages에 배포되는 `index.html`도 같은 공개 추천 접수 배포 
 
 ## 3. 관리자 Apps Script
 
-관리자 전용 Apps Script 프로젝트에는 `dist/apps-script-admin/` 파일을 반영합니다.
+관리자 전용 Apps Script 프로젝트에는 `dist/apps-script-admin/UPLOAD_FILES.txt`에 적힌 파일을 모두 반영합니다.
+`shared_00_runtime.gs`는 관리자·공개 백엔드가 함께 사용하는 공통 런타임이므로 누락하면 안 됩니다.
 원본 설정은 `config/appsscript.admin.json`에서 관리합니다.
 
 Script Properties:
@@ -70,6 +72,21 @@ Google 로그인 없이 관리자 로그인 화면까지 접근할 수 있지만
 
 배포 후 `recruitment_dashboard_v4.html`의 관리자용 Google Sheets URL을 관리자 배포 URL로 교체합니다.
 관리자 URL은 공개 저장소에 하드코딩하지 않고 설정 탭 또는 사내 전용 배포 설정으로 주입합니다.
+
+### 운영 자동화 설정
+
+관리자 대시보드의 Settings 시트에서 아래 값을 먼저 확인합니다.
+
+- `notifyEmail`: 면접 준비, 추천 보상 만기, 개인정보 파기 승인 대상 알림 수신 주소
+- `retentionMonths`: 개인정보 보존기간(개월, 기본값 6)
+
+트리거는 운영 계정에서 추후 수동 등록합니다. 코드를 배포하는 것만으로 트리거가 생성되지는 않습니다.
+
+- `dailyOps`: 매일 09:00. 추천인 미응답·만료 임박, 지원자 면접 전날 안내, 면접관 수동 발송 준비, 보상 만기 확인
+- `weeklyOps`: 매주 월요일 08:00. 90일 이전 `_Changes` 기록을 아카이브로 이관
+- `monthlyRetention`: 매월 1일. 보존기간 경과 대상을 관리자에게 알리며 자동 파기는 하지 않음
+
+면접관 메일은 면접조서 첨부가 필요하므로 `dailyOps`가 자동 발송하지 않습니다. `notifyEmail`로 준비 알림을 받은 뒤 대시보드에서 수동 발송합니다.
 
 ## 4. GitHub Pages
 

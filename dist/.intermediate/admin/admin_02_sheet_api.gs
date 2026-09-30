@@ -237,10 +237,7 @@ function deleteRowsWhere_(sheetName, predicate) {
   return removed;
 }
 
-// 보존기한이 지난 지원자의 개인정보를 연결된 시트 전체에서 삭제한다(Candidates/Interviews 외
-// ReferenceCandidates/ReferenceResponses/MailLog). purgeExpiredPii()가 예전에는 Candidates·Interviews만
-// 지우고 나머지는 그대로 남겨 "파기 완료" 표시와 실제 데이터 상태가 어긋나던 문제를 해결한다.
-// _Changes 보존·압축 정책은 별도 설계가 필요해 이번 범위에서는 다루지 않는다.
+// 보존기한이 지난 지원자의 개인정보를 연결된 시트와 변경 로그 전체에서 삭제한다.
 function purgeCandidatePii_(payload) {
   if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
@@ -250,18 +247,74 @@ function purgeCandidatePii_(payload) {
   const emails = Array.isArray(body.candidateEmails)
     ? body.candidateEmails.map(v => normalizeEmail_(v)).filter(Boolean)
     : [];
+  const emailSet = new Set(emails);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const removed = {
+      candidates: deleteRowsWhere_('Candidates', row => idSet.has(String(row.id))),
+      interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
+      referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
+      referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
+      mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>
+        String(row.to || '').split(/[;,]/).some(addr => emailSet.has(normalizeEmail_(addr)))
+      ) : 0
+    };
+    removed.changeLog = deleteCandidateChangeRows_(CHANGE_LOG_SHEET, idSet, emailSet);
+    removed.changeArchive = deleteCandidateChangeRows_(CHANGE_ARCHIVE_SHEET, idSet, emailSet);
 
-  const removed = {
-    candidates: deleteRowsWhere_('Candidates', row => idSet.has(String(row.id))),
-    interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
-    referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
-    referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
-    mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>
-      String(row.to || '').split(/[;,]/).some(addr => emails.includes(normalizeEmail_(addr)))
-    ) : 0
-  };
+    return json_({ ok: true, removed, cursor: getChangeCursor_(), serverTime: nowIso_() });
+  } finally {
+    lock.releaseLock();
+  }
+}
 
-  return json_({ ok: true, removed, cursor: getChangeCursor_(), serverTime: nowIso_() });
+function deleteCandidateChangeRows_(sheetName, candidateIds, candidateEmails) {
+  const sheet = getMainSpreadsheet_().getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  const values = sheet.getRange(1, 1, sheet.getLastRow(), Math.max(sheet.getLastColumn(), 8)).getValues();
+  const headers = values[0].map(value => String(value || '').trim());
+  const sheetIndex = headers.indexOf('sheet');
+  const idIndex = headers.indexOf('id');
+  const dataIndex = headers.indexOf('data');
+  if (sheetIndex < 0 || idIndex < 0 || dataIndex < 0) return 0;
+
+  const kept = [];
+  let removed = 0;
+  values.slice(1).forEach(row => {
+    if (changeRowContainsCandidatePii_(row, sheetIndex, idIndex, dataIndex, candidateIds, candidateEmails)) {
+      removed++;
+    } else {
+      kept.push(row);
+    }
+  });
+  if (!removed) return 0;
+
+  const bodyRange = sheet.getRange(2, 1, values.length - 1, values[0].length);
+  bodyRange.clearContent();
+  if (kept.length) sheet.getRange(2, 1, kept.length, values[0].length).setValues(kept);
+  return removed;
+}
+
+function changeRowContainsCandidatePii_(row, sheetIndex, idIndex, dataIndex, candidateIds, candidateEmails) {
+  const changedSheet = String(row[sheetIndex] || '');
+  const changedId = String(row[idIndex] || '');
+  if (changedSheet === 'Candidates' && candidateIds.has(changedId)) return true;
+
+  let data = {};
+  try {
+    data = JSON.parse(String(row[dataIndex] || '{}')) || {};
+  } catch (err) {
+    data = {};
+  }
+  const idKeys = ['candId', 'candidateId', 'pipelineCandId'];
+  if (idKeys.some(key => data[key] != null && candidateIds.has(String(data[key])))) return true;
+
+  const emailKeys = ['email', 'candEmail', 'candidateEmail', 'to'];
+  return emailKeys.some(key => {
+    if (data[key] == null) return false;
+    return String(data[key]).split(/[;,]/).some(value => candidateEmails.has(normalizeEmail_(value)));
+  });
 }
 
 function getChanges_(query) {

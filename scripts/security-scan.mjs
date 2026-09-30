@@ -145,6 +145,24 @@ const requiredPatterns = [
     message: 'Weekly operations must invoke the bounded change-log archive handler.',
   },
   {
+    id: 'admin-purge-removes-change-log-pii',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function purgeCandidatePii_\([\s\S]{0,1800}deleteCandidateChangeRows_\(CHANGE_LOG_SHEET[\s\S]{0,300}deleteCandidateChangeRows_\(CHANGE_ARCHIVE_SHEET/,
+    message: 'Candidate PII purge must remove matching records from both active and archived change logs.',
+  },
+  {
+    id: 'admin-daily-ops-is-idempotent',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function dailyOps\(\)[\s\S]{0,9000}function sendOpsMailOnce_\([\s\S]{0,500}mailEventAlreadySent_\(eventKey\)/,
+    message: 'Daily operations must use MailLog event keys to avoid duplicate sends.',
+  },
+  {
+    id: 'admin-monthly-retention-requires-review',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function monthlyRetention\(\)[\s\S]{0,2200}자동 파기는 수행하지 않았습니다/,
+    message: 'Monthly retention operations must notify for review rather than automatically purging candidates.',
+  },
+  {
     id: 'admin-deployment-config-status-is-redacted',
     file: 'src/admin/backend/Code.gs',
     pattern: /function getDeploymentConfigStatus_\(\)[\s\S]{0,2200}checks:\s*\{[\s\S]{0,500}adminAuthConfigured:[\s\S]{0,400}mainSpreadsheetConfigured:/,
@@ -355,16 +373,10 @@ const requiredPatterns = [
     message: 'General notice mail must use explicit recipient, position, and notice placeholders.',
   },
   {
-    id: 'admin-date-normalization-utc',
-    file: 'src/admin/backend/Code.gs',
+    id: 'shared-date-normalization-utc',
+    file: 'src/shared/backend/shared_00_runtime.gs',
     pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
-    message: 'Admin Apps Script Date values must be normalized as real UTC timestamps.',
-  },
-  {
-    id: 'public-date-normalization-utc',
-    file: 'src/public/backend/Code.gs',
-    pattern: /Utilities\.formatDate\(value,\s*['"]UTC['"],\s*"yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'"\)/,
-    message: 'Public Apps Script Date values must be normalized as real UTC timestamps.',
+    message: 'Shared Apps Script Date values must be normalized as real UTC timestamps.',
   },
   {
     id: 'public-clasp-target-required',
@@ -405,7 +417,7 @@ const requiredPatterns = [
   {
     id: 'reference-survey-restores-draft-step',
     file: 'src/public/pages/reference-check/reference_check_intake.html',
-    pattern: /step: referenceFormStep[\s\S]*setReferenceFormStep\(Number\(draft\.step\) \|\| 1, \{ persist: false, scroll: false \}\)/,
+    pattern: /step: referenceFormStep[\s\S]*setReferenceFormStep\(Number\(draft\.step\) \|\| 1, \{ persist: false, scroll: false, focus: false \}\)/,
     message: 'Reference survey draft restoration must return respondents to their saved step.',
   },
 ];
