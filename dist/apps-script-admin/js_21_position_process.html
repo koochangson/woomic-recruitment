@@ -73,7 +73,7 @@ function getPositionActionItems(positionId) {
   else if(firstWaiting.length) add('first_schedule_wait','medium','1차 가능 시간대 응답 대기',`응답완료 ${firstResponded.length}명 · 대기 ${firstWaiting.length}명`,'응답 현황','openCollectSlots',`openCollectSlots(${positionId},1)`);
   else if(r1.pending.length) add('first_schedule','high','1차 공동일정 확정 필요',`미확정 일정 ${r1.pending.length}건이 있습니다.`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},1)`);
 
-  if(r1.confirmed.length && r1.panelNotified.length < r1.confirmed.length) add('first_panel_notice','medium','1차 면접관 안내 미발송',`확정 ${r1.confirmed.length}건 중 면접관 안내 미완료`,'면접관 안내','sendPanelNotice',`sendPanelNotice(${positionId},1)`);
+  if(r1.confirmed.length && r1.panelNotified.length < r1.confirmed.length) add('first_panel_notice','medium','1차 면접관 안내 미발송',`확정 ${r1.confirmed.length}건 중 면접관 안내 미완료`,'면접관 안내','openInterviewNoticeFlow',`openInterviewNoticeFlow(${positionId},1,1)`);
   if(r1.confirmed.length && r1.candidateNotified.length < r1.confirmed.length) add('first_candidate_notice','medium',`1차 면접 ${routeNoticeText} 미발송`,`확정 ${r1.confirmed.length}건 중 ${routeNoticeText} 미완료`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},1)`);
 
   if(r1.confirmed.length > r1.done.length) add('first_interview_done','medium','1차 면접 실시 후 완료 처리 필요',`일정 확정 ${r1.confirmed.length}건 · 완료 ${r1.done.length}건`,'면접 완료 처리','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
@@ -99,7 +99,7 @@ function getPositionActionItems(positionId) {
     if(secondResponded.length && !secondWaiting.length) add('second_schedule','high','2차 면접시간·순서 확정 필요',`가능 시간대 응답 ${secondResponded.length}건 취합 완료`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
     else if(secondWaiting.length) add('second_schedule_wait','medium','2차 가능 시간대 응답 대기',`응답완료 ${secondResponded.length}명 · 대기 ${secondWaiting.length}명`,'응답 현황','openCollectSlots',`openCollectSlots(${positionId},3)`);
     else if(r2.pending.length) add('second_schedule','high','2차 공동일정 확정 필요',`미확정 ${r2.pending.length}건`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
-    if(r2.confirmed.length && r2.panelNotified.length < r2.confirmed.length) add('second_panel_notice','medium','2차 면접관 안내 미발송','확정된 2차 공동일정을 면접관에게 안내','면접관 안내','sendPanelNotice',`sendPanelNotice(${positionId},2)`);
+    if(r2.confirmed.length && r2.panelNotified.length < r2.confirmed.length) add('second_panel_notice','medium','2차 면접관 안내 미발송','확정된 2차 공동일정을 면접관에게 안내','면접관 안내','openInterviewNoticeFlow',`openInterviewNoticeFlow(${positionId},3,2)`);
     if(r2.confirmed.length && r2.candidateNotified.length < r2.confirmed.length) add('second_candidate_notice','medium',`2차 면접 ${routeNoticeText} 미발송`,`확정된 2차 면접일정을 ${hasHeadhunting?'업체 경유로':'지원자에게'} 안내`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
     const secondResult = list.filter(c => c.stage === 3 && !c.decision);
     if(r2.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
@@ -549,10 +549,39 @@ function scrollPositionDetail(id) {
 
 let currentPosDetailId = null;
 
+function alignCandidateStagesWithStartedInterview_(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return [];
+  const moved = [];
+  const rules = [
+    { started:!!pos.panel1AvailabilityRequestedAt, from:0, to:1 },
+    { started:!!pos.panel2AvailabilityRequestedAt, from:2, to:3, eligible:c => c.ref === '완료' || c.ref === '생략' },
+  ];
+  rules.forEach(rule => {
+    if(!rule.started) return;
+    candidates
+      .filter(c => Number(c.posId) === Number(positionId) && Number(c.stage) === rule.from && (!rule.eligible || rule.eligible(c)))
+      .forEach(c => {
+        preserveCompletedStage(c, rule.from);
+        c.stage = rule.to;
+        c.decision = '';
+        syncReferralFromCandidate(c);
+        moved.push(c);
+      });
+  });
+  if(moved.length) saveState();
+  return moved;
+}
+
 function openPosDetail(positionId) {
   currentPosDetailId = Number(positionId);
+  const aligned = alignCandidateStagesWithStartedInterview_(currentPosDetailId);
   nav('posdetail');
   renderPosDetailSection(currentPosDetailId);
+  if(aligned.length && GS_CONFIG.scriptUrl) {
+    settleSync(aligned.map(c => syncCandToGS(c)), '면접 진행단계 동기화')
+      .then(() => refreshOpenPositionDetail(currentPosDetailId));
+  }
   window.scrollTo(0, 0);
 }
 

@@ -157,3 +157,19 @@ function routeRequest_(payload) {
   return json_({ error: 'unknown_action' });
 }
 
+const MAIL_ATTACHMENT_MAX_TOTAL_BYTES = 15 * 1024 * 1024;
+
+function buildMailAttachments_(list) {
+  if (!Array.isArray(list) || !list.length) return [];
+  let totalBytes = 0;
+  const blobs = [];
+  list.forEach(function(item) {
+    if (!item || !item.base64) return;
+    const bytes = Utilities.base64Decode(String(item.base64));
+    totalBytes += bytes.length;
+    if (totalBytes > MAIL_ATTACHMENT_MAX_TOTAL_BYTES) throw new Error('attachment_too_large');
+    blobs.push(Utilities.newBlob(bytes, item.mimeType || 'application/octet-stream', item.name || 'attachment'));
+  });
+  return blobs;
+}
+

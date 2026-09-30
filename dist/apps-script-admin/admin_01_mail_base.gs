@@ -1,4 +1,4 @@
-function sendMailViaGmail_(to, subject, body, htmlBody) {
+function sendMailViaGmail_(to, subject, body, htmlBody, attachments) {
   const recipients = String(to || '').split(/[;,]/).map(function(addr) { return addr.trim(); }).filter(Boolean);
   const cleanSubject = String(subject || '');
   try {
@@ -11,6 +11,7 @@ function sendMailViaGmail_(to, subject, body, htmlBody) {
       name: '피플팀'
     };
     if (hasHtml) options.htmlBody = String(htmlBody);
+    if (Array.isArray(attachments) && attachments.length) options.attachments = attachments;
 
     MailApp.sendEmail(options);
     logMailSend_(recipients.join(','), cleanSubject, 'sent', '');

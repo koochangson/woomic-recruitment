@@ -192,6 +192,7 @@ function submitPanelAvailability_(payload) {
     sheet.getRange(rowIndex, 1, 1, headers.length)
       .setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('PanelAvailability', 'upsert', row.id, normalized);
+    notifyIfPanelAvailabilityCohortComplete_(normalized);
     return json_({ ok: true, status: normalized.status, respondedAt: normalized.respondedAt });
   } finally {
     lock.releaseLock();
@@ -432,7 +433,8 @@ function handleSendGeneralMail_(payload) {
   try {
     const html = generalMailHtml_(body.templateType, body);
     if (!html) throw new Error('mail_template_render_failed');
-    const result = sendMailViaGmail_(to, subject, message, html);
+    const attachments = buildMailAttachments_(body.attachments);
+    const result = sendMailViaGmail_(to, subject, message, html, attachments);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
     return json_({ ok: true, to: to });
   } catch (err) {

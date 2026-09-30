@@ -710,8 +710,56 @@ function submitInterviewAvailability_(payload) {
     const normalized = schemaRow_('Interviews', next);
     sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('Interviews', 'upsert', row.id, normalized);
+    notifyIfInterviewAvailabilityCohortComplete_(normalized);
     return json_({ ok:true, status:normalized.availabilityStatus, respondedAt:normalized.availabilityRespondedAt });
   } finally { lock.releaseLock(); }
+}
+
+// 담당자 알림을 받을 주소 — 설정(Settings 시트) 'notifyEmail' 값을 사용한다.
+function getNotifyEmail_() {
+  return getFirstSettingValue_(['notifyEmail']);
+}
+
+function sendCohortCompleteNotice_(subject, message) {
+  const to = getNotifyEmail_();
+  if (!to) return;
+  try {
+    sendLoggedMail_({ to: to, subject: subject, body: message, name: '피플팀' });
+  } catch (err) {
+    console.warn('sendCohortCompleteNotice_ failed: ' + (err && err.message || err));
+  }
+}
+
+// 지원자 전원(해당 포지션·회차 발송 대상)이 가능일정 응답을 마치면 담당자에게 1회 알림을 보낸다.
+function notifyIfInterviewAvailabilityCohortComplete_(justUpdatedRow) {
+  const cand = readRows_('Candidates').find(c => String(c.id) === String(justUpdatedRow.candId));
+  if (!cand || !cand.posId) return;
+  const cohortCandIds = readRows_('Candidates')
+    .filter(c => String(c.posId) === String(cand.posId))
+    .map(c => String(c.id));
+  const cohort = readRows_('Interviews').filter(i =>
+    i.type === justUpdatedRow.type &&
+    cohortCandIds.includes(String(i.candId)) &&
+    i.availabilityStatus
+  );
+  if (!cohort.length || !cohort.every(i => i.availabilityStatus === 'RESPONDED' || i.availabilityStatus === 'UNAVAILABLE')) return;
+  sendCohortCompleteNotice_(
+    `[우미건설] ${cand.pos || '포지션'} ${justUpdatedRow.type} 지원자 전원 일정 응답 완료`,
+    `${cand.pos || '포지션'} ${justUpdatedRow.type} 대상 지원자 ${cohort.length}명 전원이 가능 일정 응답을 마쳤습니다.\n대시보드에서 공통 일정을 확정해 주세요.`
+  );
+}
+
+// 면접관 전원이 가능일정 응답을 마치면 담당자에게 1회 알림을 보낸다.
+function notifyIfPanelAvailabilityCohortComplete_(justUpdatedRow) {
+  const cohort = readRows_('PanelAvailability').filter(r =>
+    String(r.positionId) === String(justUpdatedRow.positionId) &&
+    String(r.round) === String(justUpdatedRow.round)
+  );
+  if (!cohort.length || !cohort.every(r => r.status === 'RESPONDED' || r.status === 'UNAVAILABLE')) return;
+  sendCohortCompleteNotice_(
+    `[우미건설] ${justUpdatedRow.positionTitle || '포지션'} ${justUpdatedRow.round} 면접관 전원 일정 응답 완료`,
+    `${justUpdatedRow.positionTitle || '포지션'} ${justUpdatedRow.round} 면접관 ${cohort.length}명 전원이 참석 가능 일정 응답을 마쳤습니다.\n대시보드에서 공통 일정을 확정해 주세요.`
+  );
 }
 
 function panelAvailabilityId_(positionId, round, email) {
@@ -815,6 +863,7 @@ function submitPanelAvailability_(payload) {
       status:unavailable ? 'UNAVAILABLE' : 'RESPONDED', respondedAt:nowIso_(), note, updatedAt:nowIso_() }));
     sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('PanelAvailability', 'upsert', row.id, normalized);
+    notifyIfPanelAvailabilityCohortComplete_(normalized);
     return json_({ ok:true, status:normalized.status, respondedAt:normalized.respondedAt });
   } finally { lock.releaseLock(); }
 }

@@ -418,6 +418,7 @@ async function loadSettingsWithGS() {
       set('cfg-ref-days',        gsCfg.refDays);
       set('cfg-remind-days',     gsCfg.remindDays);
       set('cfg-hr-email',        gsCfg.hrEmail);
+      set('cfg-notify-email',    gsCfg.notifyEmail);
       set('cfg-headhunter-db',    gsCfg.headhunterDb);
       set('cfg-gs-url',          gsCfg.gsUrl);
       set('cfg-referral-data-url', gsCfg.referralDataUrl);
@@ -463,6 +464,7 @@ function saveSettings() {
     refDays: document.getElementById('cfg-ref-days')?.value || '7',
     remindDays: document.getElementById('cfg-remind-days')?.value || '3',
     hrEmail: document.getElementById('cfg-hr-email')?.value || '',
+    notifyEmail: document.getElementById('cfg-notify-email')?.value || '',
     headhunterDb: document.getElementById('cfg-headhunter-db')?.value || '',
     gsUrl:        document.getElementById('cfg-gs-url')?.value        || '',
     referralDataUrl: document.getElementById('cfg-referral-data-url')?.value || '',
@@ -515,6 +517,7 @@ function loadSettings() {
     set('cfg-ref-days',         cfg.refDays);
     set('cfg-remind-days',      cfg.remindDays);
     set('cfg-hr-email',         cfg.hrEmail);
+    set('cfg-notify-email',     cfg.notifyEmail);
     set('cfg-headhunter-db',    cfg.headhunterDb);
     set('cfg-gs-url', cfg.gsUrl);
     if(cfg.gsUrl) GS_CONFIG.scriptUrl = cfg.gsUrl; // GS 연동 복원
