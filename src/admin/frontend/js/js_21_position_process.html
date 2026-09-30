@@ -433,8 +433,8 @@ function openPositionResultModal(positionId, stageIdx) {
         ${isFinal?`<label style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--t2);font-weight:700">입사예정일 <input class="pr-join-date" data-cand-id="${c.id}" type="date" value="${esc(getCandidateJoinDate(c))}" style="height:28px;width:132px;border:1px solid var(--border2);border-radius:6px;padding:0 7px;font-size:11px"></label>`:''}
       </div>
       <div style="display:flex;gap:5px">
-        <label class="btn btn-sm ${c.decision==='pass'?'btn-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
-        <label class="btn btn-sm ${c.decision==='fail'?'btn-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">불합격</label>
+        <label class="btn btn-sm ${c.decision==='pass'?'btn-fill-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
+        <label class="btn btn-sm ${c.decision==='fail'?'btn-fill-red':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="fail" ${c.decision==='fail'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">불합격</label>
         <label class="btn btn-sm ${!c.decision?'btn-primary':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="" ${!c.decision?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'협의중':'미정'}</label>
       </div>
     </div>`).join('');
@@ -445,8 +445,8 @@ function selectPositionResult(input) {
   document.querySelectorAll(`input[name="${input.name}"]`).forEach(r=>{
     const label = r.closest('label');
     if(!label) return;
-    label.classList.remove('btn-green','btn-red','btn-primary');
-    if(r.checked) label.classList.add(r.value==='pass'?'btn-green':r.value==='fail'?'btn-red':'btn-primary');
+    label.classList.remove('btn-fill-green','btn-fill-red','btn-primary');
+    if(r.checked) label.classList.add(r.value==='pass'?'btn-fill-green':r.value==='fail'?'btn-fill-red':'btn-primary');
   });
 }
 
