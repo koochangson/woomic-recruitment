@@ -548,10 +548,39 @@ function scrollPositionDetail(id) {
 
 let currentPosDetailId = null;
 
+function alignCandidateStagesWithStartedInterview_(positionId) {
+  const pos = positions.find(p => Number(p.id) === Number(positionId));
+  if(!pos) return [];
+  const moved = [];
+  const rules = [
+    { started:!!pos.panel1AvailabilityRequestedAt, from:0, to:1 },
+    { started:!!pos.panel2AvailabilityRequestedAt, from:2, to:3, eligible:c => c.ref === '완료' || c.ref === '생략' },
+  ];
+  rules.forEach(rule => {
+    if(!rule.started) return;
+    candidates
+      .filter(c => Number(c.posId) === Number(positionId) && Number(c.stage) === rule.from && (!rule.eligible || rule.eligible(c)))
+      .forEach(c => {
+        preserveCompletedStage(c, rule.from);
+        c.stage = rule.to;
+        c.decision = '';
+        syncReferralFromCandidate(c);
+        moved.push(c);
+      });
+  });
+  if(moved.length) saveState();
+  return moved;
+}
+
 function openPosDetail(positionId) {
   currentPosDetailId = Number(positionId);
+  const aligned = alignCandidateStagesWithStartedInterview_(currentPosDetailId);
   nav('posdetail');
   renderPosDetailSection(currentPosDetailId);
+  if(aligned.length && GS_CONFIG.scriptUrl) {
+    settleSync(aligned.map(c => syncCandToGS(c)), '면접 진행단계 동기화')
+      .then(() => refreshOpenPositionDetail(currentPosDetailId));
+  }
   window.scrollTo(0, 0);
 }
 
