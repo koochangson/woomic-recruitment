@@ -149,7 +149,6 @@ function getPositionProcessStatus(positionId) {
     { key:'onboard', title:'입사안내', done:final.some(c => c.notified) || final.some(c => onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
   ];
   const actions = getPositionActionItems(positionId);
-  const actionKeys = new Set(actions.map(a => a.type));
   const keyMap = {
     candidate_register:'register',
     first_panel_availability:'int1_panel', first_slots:'int1_slots', first_schedule:'int1_notice', first_schedule_reply:'int1_notice',
@@ -168,9 +167,6 @@ function getPositionProcessStatus(positionId) {
   return checks.map((x, i) => {
     if(x.skip) return { number:i + 1, title:x.title, status:'skipped', label:'생략', key:x.key };
     let status = x.done ? 'complete' : (i === firstOpen ? 'current' : 'upcoming');
-    const mapped = Object.entries(keyMap).find(([t,k]) => k === x.key && actionKeys.has(t));
-    if(status === 'current' && mapped && actions.find(a => a.type === mapped[0] && a.priority === 'high')) status = 'delayed';
-    else if(!x.done && actions.some(a => keyMap[a.type] === x.key && a.priority === 'high')) status = 'delayed';
     const action = actions.find(a => keyMap[a.type] === x.key);
     return {
       number:i + 1, title:x.title, status,
