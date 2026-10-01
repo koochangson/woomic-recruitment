@@ -703,7 +703,19 @@ function renderStageKanban() {
         ${list.length ? list.map(c => {
           const nextStage = nextFlowStage(c.stage, c.posId);
           const hasNext = nextStage !== c.stage;
-          const refWarn = c.ref === '진행중' && Number(c.refD || 0) === 0;
+          // 레퍼런스는 2차면접·처우협의와 병행 진행되므로, 그 구간에서는 미시작/진행 상황을
+          // 색상과 응답 수로 항상 보여준다 — "진행중인데 0명 응답"일 때만 보이던 이전 경고보다
+          // 넓게, 지금 어느 상태인지 한눈에 보이게 한다.
+          const refTrackActive = requiresReferenceCheck(c) && [3,4].includes(Number(c.stage));
+          let refBadge = '';
+          if(refTrackActive) {
+            if(c.ref === '완료') refBadge = '<span class="b bgreen" style="font-size:10px">레퍼런스 완료</span>';
+            else if(c.ref === '생략') refBadge = '<span class="b bgray" style="font-size:10px">레퍼런스 생략</span>';
+            else if(c.ref === '진행중') {
+              const d = Number(c.refD || 0), t = Number(c.refT || 0) || 3;
+              refBadge = `<span class="b ${d===0?'bred':'bamber'}" style="font-size:10px">레퍼런스 ${d}/${t}</span>`;
+            } else refBadge = '<span class="b bred" style="font-size:10px">레퍼런스 미시작</span>';
+          }
           const intWarn = intWarnSet.has(Number(c.id));
           const joinInfo = Number(c.stage) === 5 ? `<span class="b ${getCandidateJoinDate(c)?'bgreen':'bamber'}" style="font-size:10px">${esc(getCandidateJoinDateLabel(c))}</span>` : '';
           return `<div class="stage-card"
@@ -716,7 +728,7 @@ function renderStageKanban() {
             <div class="stage-card-tags">
               ${c.role ? `<span class="role ${ROLE_CLS[c.role] || ''}">${esc(c.role)}</span>` : ''}
               ${joinInfo}
-              ${refWarn ? '<span class="b bred" style="font-size:10px">레퍼런스 확인</span>' : ''}
+              ${refBadge}
               ${intWarn ? '<span class="b bamber" style="font-size:10px">면접안내 미발송</span>' : ''}
             </div>
             <div class="stage-card-actions">
@@ -943,14 +955,27 @@ function getPositionKanbanStatus(pos, cands, cur) {
     const confirmed=list.filter(i=>i.status==='confirmed').length;
     const pending=list.filter(i=>(i.status||'pending')==='pending').length;
     const decided=current.filter(c=>c.decision).length;
-    if(done && decided<current.length) return `결과대기 ${current.length-decided}명`;
-    if(decided) return `판정완료 ${decided}/${current.length}`;
-    if(confirmed) {
+    let base;
+    if(done && decided<current.length) base = `결과대기 ${current.length-decided}명`;
+    else if(decided) base = `판정완료 ${decided}/${current.length}`;
+    else if(confirmed) {
       const dates=[...new Set(list.filter(i=>i.status==='confirmed'&&i.date).map(i=>i.date))].sort();
-      return dates.length ? `면접예정 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}` : `일정확정 ${confirmed}명`;
+      base = dates.length ? `면접예정 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}` : `일정확정 ${confirmed}명`;
     }
-    if(pending) return `회신대기 ${pending}명`;
-    return `일정미등록 ${current.length}명`;
+    else if(pending) base = `회신대기 ${pending}명`;
+    else base = `일정미등록 ${current.length}명`;
+
+    // 2차면접은 레퍼런스와 병행 진행되므로 면접 일정 상태 옆에 레퍼런스 진행도를 같이 보여준다.
+    if(cur===3) {
+      const refEligible = current.filter(requiresReferenceCheck);
+      if(refEligible.length) {
+        const refTotal = refEligible.reduce((n,c)=>n+(Number(c.refT)||3),0);
+        const refDone = refEligible.reduce((n,c)=>n+(Number(c.refD)||0),0);
+        const allSettled = refEligible.every(c => c.ref==='완료' || c.ref==='생략');
+        base += allSettled ? ' · 레퍼런스 완료' : ` · 레퍼런스 ${refDone}/${refTotal}`;
+      }
+    }
+    return base;
   }
   if(cur===2) {
     const total=current.reduce((n,c)=>n+(Number(c.refT)||3),0);
