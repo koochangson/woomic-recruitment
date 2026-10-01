@@ -852,7 +852,7 @@ function renderStageKanban() {
           // 넓게, 지금 어느 상태인지 한눈에 보이게 한다.
           const refTrackActive = requiresReferenceCheck(c) && [3,4].includes(Number(c.stage));
           let refBadge = '';
-          if(isGradeBandUnspecified(c) && [1,3,4].includes(Number(c.stage))) {
+          if(isGradeBandUnspecified(c) && [0,1,3,4].includes(Number(c.stage))) {
             refBadge = '<span class="b bamber" style="font-size:10px" title="포지션 또는 지원자 수정에서 채용예정 직급군을 지정하세요">직급군 미지정</span>';
           }
           if(refTrackActive) {
@@ -1091,11 +1091,17 @@ function renderUrgent() {
 // 대시보드
 // ══════════════════════════════════════════════════════════════
 // 포지션별 단계 칸반보드
+// 직급군은 2차면접(1→3) 이동 전에 지정돼야 하므로, 2차면접 열뿐 아니라 그 전 단계 카드에도 미지정 수를 보여준다.
+function gradeBandUnspecifiedSuffix_(current) {
+  const n = current.filter(isGradeBandUnspecified).length;
+  return n ? ` · 직급군 미지정 ${n}명` : '';
+}
+
 function getPositionKanbanStatus(pos, cands, cur) {
   const current = cands.filter(c=>c.stage===cur);
   if(cur===0) {
     const scheduled=current.filter(c=>interviews.some(i=>Number(i.candId)===Number(c.id)&&i.type==='1차')).length;
-    return scheduled ? `일정수립 ${scheduled}/${current.length}` : `일정수립대기 ${current.length}명`;
+    return (scheduled ? `일정수립 ${scheduled}/${current.length}` : `일정수립대기 ${current.length}명`) + gradeBandUnspecifiedSuffix_(current);
   }
   if(cur===1 || cur===3) {
     const round=cur===1?'1차':'2차';
@@ -1130,10 +1136,8 @@ function getPositionKanbanStatus(pos, cands, cur) {
         const riskCount = refEligible.filter(c => getReferenceInterviewRisk(c)).length;
         if(riskCount) base += ` · 면접 임박 미완료 ${riskCount}명`;
       }
-      const unspecified = current.filter(isGradeBandUnspecified).length;
-      if(unspecified) base += ` · 직급군 미지정 ${unspecified}명`;
     }
-    return base;
+    return base + gradeBandUnspecifiedSuffix_(current);
   }
   if(cur===2) {
     const total=current.reduce((n,c)=>n+(Number(c.refT)||3),0);
@@ -1145,7 +1149,7 @@ function getPositionKanbanStatus(pos, cands, cur) {
   }
   if(cur===4) {
     const decided=current.filter(c=>c.decision).length;
-    return decided ? `결과입력 ${decided}/${current.length}` : `협의중 ${current.length}명`;
+    return (decided ? `결과입력 ${decided}/${current.length}` : `협의중 ${current.length}명`) + gradeBandUnspecifiedSuffix_(current);
   }
   if(cur===5) {
     const sent=current.filter(c=>c.notified||onboardings.some(o=>Number(o.candId)===Number(c.id)&&o.notified)).length;
