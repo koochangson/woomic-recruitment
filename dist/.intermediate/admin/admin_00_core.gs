@@ -143,6 +143,10 @@ function routeRequest_(payload) {
   if (action === 'getChanges') return getChanges_(query);
   if (action === 'configStatus') return json_(getDeploymentConfigStatus_());
   if (action === 'legacyReferenceStageMigrationPreview') return json_(getLegacyReferenceStageMigrationPreview_());
+  if (action === 'migrateLegacyReferenceStage') {
+    if (!data || data.confirm !== true) return json_({ error: 'confirmation_required' });
+    return json_(migrateLegacyReferenceStageToSecondInterview_());
+  }
   if (action === 'archiveChanges') return json_(archiveOldChanges_());
   if (action === 'purgeCandidatePii') return purgeCandidatePii_(payload);
 

@@ -124,6 +124,63 @@ function getLegacyReferenceStageMigrationPreview() {
   return result;
 }
 
+// 레퍼런스(구) 단계 레코드를 2차면접으로 이관한다 — stage 필드만 바꾸고, 메일 발송이나
+// 다른 부수효과는 전혀 일으키지 않는다. 일정·레퍼런스 응답·보고서 등 다른 데이터는
+// 그대로 둔다(preserveCompletedStage와 달리 면접 레코드를 만들거나 건드리지 않는다).
+// 이미 2차면접으로 넘어간 레코드는 대상에서 빠지므로 여러 번 실행해도 안전하다(멱등).
+function migrateLegacyReferenceStageToSecondInterview_() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const candidates = readRows_('Candidates');
+    const legacy = candidates.filter(c => String(c.stage) === '레퍼런스');
+    const migrated = [];
+    const failed = [];
+
+    legacy.forEach(c => {
+      const next = Object.assign({}, c);
+      next.stage = '2차면접';
+      // 레퍼런스 단계에 있었다면 1차는 완료된 것이 정상이다. 비어 있을 때만 채우고,
+      // 이미 다른 값이 있으면(과거 되돌리기 등) 건드리지 않는다.
+      if (next.lastCompletedStage === '' || next.lastCompletedStage == null) {
+        next.lastCompletedStage = 1;
+      }
+      let parsed = null;
+      try {
+        const output = upsertUnlocked_('Candidates', next, true);
+        parsed = JSON.parse(output.getContent());
+      } catch (err) {
+        parsed = { error: String(err && err.message || err) };
+      }
+      if (parsed && parsed.status === 'ok') {
+        migrated.push({ id: c.id, name: c.name });
+      } else {
+        failed.push({ id: c.id, name: c.name, error: (parsed && parsed.error) || 'unknown_error' });
+      }
+    });
+
+    return {
+      ok: failed.length === 0,
+      generatedAt: nowIso_(),
+      migratedCount: migrated.length,
+      failedCount: failed.length,
+      migrated: migrated,
+      failed: failed,
+      note: '레퍼런스(구) 단계였던 지원자의 stage만 2차면접으로 변경했습니다. 일정·레퍼런스 응답·보고서는 그대로입니다.'
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Apps Script 편집기용 공개 래퍼. 실행 전 반드시 getLegacyReferenceStageMigrationPreview()로
+// 대상을 먼저 확인할 것.
+function migrateLegacyReferenceStageToSecondInterview() {
+  const result = migrateLegacyReferenceStageToSecondInterview_();
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
 function compactReferralStatus_(status) {
   const map = {
     SUBMITTED: '접수',
