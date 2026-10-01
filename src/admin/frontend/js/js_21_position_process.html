@@ -260,7 +260,7 @@ function renderPositionProcessChecklist(positionId) {
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
       const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" data-action="call" data-call="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
       return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" data-action="call" data-call="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel}</span>${moveButton}</div>
-        <div class="pp-group-tasks">${tasks.map(s=>`<div class="pp-task ${s.status}${s.status!=='skipped'?' actionable':''}" ${s.status!=='skipped'?`data-action="call" data-call="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`).join('')}</div>
+        <div class="pp-group-tasks">${tasks.map(s=>{ const clickable = s.status!=='skipped' && s.status!=='complete'; return `<div class="pp-task ${s.status}${clickable?' actionable':''}" ${clickable?`data-action="call" data-call="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`; }).join('')}</div>
       </div>`;
     }).join('')}</div>
   </section>`;
