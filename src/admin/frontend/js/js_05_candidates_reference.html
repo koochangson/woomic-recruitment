@@ -13,21 +13,6 @@ function initSlotDropdowns() {
   return;
 }
 
-function updateCsPreview(c, newStage) {
-  const previewEl = document.getElementById('cs-preview-msg');
-  if(!previewEl) return;
-  let msg = buildStageNotifyMsg(c, newStage);
-  // buildStageNotifyMsg가 1차/2차 면접 일정을 이미 포함 (중복 추가 안 함)
-  previewEl.textContent = msg;
-}
-
-// 지원자 알림 발송 체크박스를 끄면 보낼 메일이 없으므로 미리보기도 같이 숨긴다.
-function toggleCsNotifyPreview(checkbox) {
-  const area = document.getElementById('cs-preview-area');
-  const optsVisible = document.getElementById('cs-notify-opts')?.style.display !== 'none';
-  if(area) area.style.display = (optsVisible && checkbox.checked) ? '' : 'none';
-}
-
 function updateReferenceStageMailChoiceUI() {
   const choice = pendingStageChange?.referenceMailChoice;
   const yes = document.getElementById('cs-ref-mail-yes');
@@ -79,10 +64,6 @@ function requestStageChange(candId, newStage) {
   const notifySend = document.getElementById('cs-notify-send');
   if(notifySend) notifySend.checked = true;
 
-  // 미리보기 메시지 생성
-  const preview = buildStageNotifyMsg(c, newStage);
-  updateCsPreview(c, newStage);
-
   // 면접 일정과 안내 발송은 포지션 상세 프로세스에서만 처리한다.
   const intSched = document.getElementById('cs-int-schedule');
   if(intSched) {
@@ -92,8 +73,6 @@ function requestStageChange(candId, newStage) {
       const dtEl=document.getElementById(`cs-slot${n}-dt`); if(dtEl) dtEl.value='';
     });
   }
-  const previewArea = document.getElementById('cs-preview-area');
-  if(previewArea) previewArea.style.display = guide.notify && newStage !== 2 ? '' : 'none';
   openModal('modal-confirm-stage');
 }
 
@@ -645,6 +624,7 @@ const CANDIDATE_STAGE_ACTION_TYPES = {
 function getCandidateNextAction(cand) {
   if(!cand) return null;
   if(cand.stage === 6 || cand.stage === 7) return null; // 불합격·입사 완료 — 다음 액션 없음
+  if(cand.held) return null; // 보류 처리됨 — 포지션 중단/완료 등으로 더 이상 진행하지 않음
   if(cand.stage === 5) {
     const onboarded = cand.notified || onboardings.some(o => Number(o.candId) === Number(cand.id) && o.notified);
     if(onboarded) return null;
@@ -663,6 +643,9 @@ function renderTracker() {
   const showRejected = document.getElementById('show-rejected')?.checked || false;
   const sortBy = document.getElementById('sort-by')?.value || 'stage-desc';
   let list = candidates.filter(c => {
+    // 포지션 중단/충원완료 등으로 보류(held) 처리된 지원자는 상단 단계 카드 집계에서도
+    // 제외되므로, 목록에서도 함께 제외해 집계·목록이 어긋나지 않게 한다.
+    if(c.held) return false;
     // 기본 목록(전체 보기)에서는 최종합격(5)·입사(7)·불합격(6) 제외
     // 단, 해당 단계 카드를 직접 선택한 경우(stageFilter가 5, 7, 6)는 조회 허용
     if(stageFilter === -1) {

@@ -1065,18 +1065,12 @@
           지원자 알림 발송 (선택)
         </div>
         <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;margin-bottom:8px;cursor:pointer">
-          <input type="checkbox" id="cs-notify-send" checked style="width:auto" data-onchange="toggleCsNotifyPreview(this)">
+          <input type="checkbox" id="cs-notify-send" checked style="width:auto">
           지원자에게 안내 메일 발송
         </label>
         <div id="cs-external-notice" style="font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
-          지원자 안내는 등록된 발신 계정으로 이메일 발송됩니다.
+          지원자 안내는 등록된 발신 계정으로 이메일 발송됩니다. 실제 발송되는 메일은 설정의 메일 템플릿을 따릅니다.
         </div>
-      </div>
-
-      <!-- 알림 미리보기 -->
-      <div id="cs-preview-area" style="margin-top:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">알림 메시지 미리보기</div>
-        <div class="nc-body" id="cs-preview-msg" style="border-radius:var(--rsm);border:1px solid var(--border);font-size:11.5px;max-height:120px;overflow-y:auto"></div>
       </div>
     </div>
     <div class="modal-ft">

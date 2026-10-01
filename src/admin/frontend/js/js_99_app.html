@@ -21,7 +21,7 @@ const DELEGATED_CALLS = Object.freeze({
   confirmMailPendingAt, confirmPendingMail, confirmStageChange, confirmStageDecisions, delInt, dismissPendingMail,
   deletePosition, doCollectSendCurrent, editCandidate, editPosition, executeBulkAdd, executeNohireWizard, executePositionProcessTask,
   addRecruitPlanTarget, applyAIToRefReport, clearPositionOrgFilter, dashDropStage, exportRecruitStatus, fillOnboardingDefaults, filterInterviewers, filterPosToTeam, focusStageGateBlockers, generateAI, generateDashboardBrief, kbActivate, linkCandFromUnlinked, loadInterviewers, lockPrivacyScreen, markInterviewDone, markOneResponse,
-  markRefRegistered, markRefResponse, moveBatchCandidate, moveRecruitPlanDraft, nav, navBtn, nohirePosition, onPosLocationChange, openAddCand, openAddPosition, openAddTeam, openBulkAddCand, openRecruitPlanModal,
+  markRefRegistered, markRefResponse, moveBatchCandidate, moveRecruitPlanDraft, nav, navBtn, nohirePosition, onPosLocationChange, openAddCand, openAddPosition, openAddTeam, openBulkAddCand, openOnboardingFromPosition, openRecruitPlanModal,
   openCollectSlots, openIntResult, openInterviewNoticeFlow, openPosDetail, openPositionResultModal, openPositionRoundSchedule, openReferralDraft, quickNotify, rejectCandidate,
   remindOneRef, remindRef, removeCandidateDateRow, removePanelist, removeRecruitPlanDraft, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
   posdetailClosePos, posdetailDeletePos, posdetailStopPos, printReferralInterviewSheet, purgeExpiredPii, renderExpiredPii, renderReferralSection, renderTeamMaster, requestStageChange, resetIdleLock, saveIntResult, saveNewTeam, savePosition, savePositionResults, saveRecruitPlanModal, saveRefReport, saveReferralDraft, saveReferralEmployee, saveReferralStatus, selectBatchSharedAvailability, selectPositionResult, selectReferral, setInterviewPositionFilter, setPrivacyMaskFromControl, setReferralView, setRpLocation, setRpYear, setRsYear, setTrackerPage, snapTo10,
@@ -29,7 +29,7 @@ const DELEGATED_CALLS = Object.freeze({
   refreshOnboardingDeptRecipients, saveSettings, searchRecruitPlanTargets, selectRefCand, selectRefPosition, selectTemplateEditor, insertTemplateSnippet, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendAllCandSchedule, sendInterviewNoticeCandidates, markInterviewNoticeCandidatesDone, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelAvailabilityRequest, refreshCurrentPanelAvailability, sendPanelNotice, sendRefRequest, setDashPipeFilter, confirmPanelAvailabilityAndContinue, setRefFilter, showUnlinkedList, scrollPositionDetail,
   closeAddTeam, createCandidateFromReferral, deleteTeam, editReferralEmployee, importInterviewersFromEmployeeFile, refreshEmployeesFromGS, refreshReferralsFromGS, skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, syncTeamMasterFromInterviewers, testGSConnection, testInterviewerConnection,
-  setReferenceStageMailChoice, testRefAutoConnection, toggleCsNotifyPreview, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateHeadhunterHint, updateIntPreview, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
+  setReferenceStageMailChoice, testRefAutoConnection, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateHeadhunterHint, updateIntPreview, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
   populateHeadhunterSelect, renderHeadhunterDbPreview,
 });
 const delegatedCallFailureNotices_ = new Set();
@@ -239,23 +239,6 @@ try {
       else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
   });
-  // 면접 후보 일정 변경 시 미리보기 업데이트
-  [1,2,3].forEach(n => {
-    [`cs-slot${n}-dt`].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.addEventListener('change', () => {
-        if(pendingStageChange) {
-          const c = candidates.find(x => x.id === pendingStageChange.candId);
-          if(c) {
-            const preview = buildStageNotifyMsg(c, pendingStageChange.newStage);
-            const previewEl = document.getElementById('cs-preview-msg');
-            if(previewEl) previewEl.textContent = preview;
-          }
-        }
-      });
-    });
-  });
-
   // 고정 URL을 설정 입력창에 표시 (회사 PC 데이터 삭제 대비)
   const showFixed = (id, val) => { const el=document.getElementById(id); if(el && val && !el.value) el.value = val; };
   showFixed('cfg-gs-url',          FIXED_URLS.scriptUrl);
