@@ -142,6 +142,7 @@ function routeRequest_(payload) {
   if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
   if (action === 'getChanges') return getChanges_(query);
   if (action === 'configStatus') return json_(getDeploymentConfigStatus_());
+  if (action === 'legacyReferenceStageMigrationPreview') return json_(getLegacyReferenceStageMigrationPreview_());
   if (action === 'archiveChanges') return json_(archiveOldChanges_());
   if (action === 'purgeCandidatePii') return purgeCandidatePii_(payload);
 
@@ -2873,6 +2874,92 @@ function getDeploymentConfigStatus_() {
 
 function getDeploymentConfigStatus() {
   return getDeploymentConfigStatus_();
+}
+
+// 읽기 전용 점검: 과거(순차 전형) 로직에서 저장된 레퍼런스(구) 단계 레코드가 몇 건
+// 남아 있는지, 2차면접이 이미 진행된 건은 몇 건인지 등을 집계한다. 아무 것도 쓰지
+// 않으며, 새 병행 전형 코드 배포 전에 실행해 이관 대상을 확인하는 용도다.
+function getLegacyReferenceStageMigrationPreview_() {
+  const candidates = readRows_('Candidates');
+  const interviews = readRows_('Interviews');
+  const positions = readRows_('Positions');
+  const posById = {};
+  positions.forEach(p => { posById[String(p.id)] = p; });
+
+  const legacy = candidates.filter(c => String(c.stage) === '레퍼런스');
+  const hasInterviewOfType = (candId, type) =>
+    interviews.some(i => String(i.candId) === String(candId) && i.type === type);
+  const hasDoneFirstInterview = candId =>
+    interviews.some(i => String(i.candId) === String(candId) && i.type === '1차' && i.status === 'done');
+
+  const refStatusBreakdown = {};
+  const byPositionStatus = {};
+  let withSecondInterviewRecord = 0;
+  let withoutSecondInterviewRecord = 0;
+  let missingFirstInterviewCompletion = 0;
+  let lastCompletedStageMismatch = 0;
+  let heldCount = 0;
+
+  const details = legacy.map(c => {
+    const ref = c.ref || '미시작';
+    refStatusBreakdown[ref] = (refStatusBreakdown[ref] || 0) + 1;
+
+    const pos = posById[String(c.posId)];
+    const posStatus = pos ? (pos.status || '(미지정)') : '(포지션 없음)';
+    byPositionStatus[posStatus] = (byPositionStatus[posStatus] || 0) + 1;
+
+    const hasSecond = hasInterviewOfType(c.id, '2차');
+    if (hasSecond) withSecondInterviewRecord++; else withoutSecondInterviewRecord++;
+
+    const firstDone = hasDoneFirstInterview(c.id);
+    if (!firstDone) missingFirstInterviewCompletion++;
+
+    // 레퍼런스(2) 단계에 있다면 1차(1)를 완료하고 넘어온 것이 정상이다.
+    // lastCompletedStage가 1이 아니면 과거 되돌리기 등으로 생긴 불일치일 수 있다.
+    const lastCompletedRaw = c.lastCompletedStage;
+    const lastCompleted = (lastCompletedRaw === '' || lastCompletedRaw == null) ? null : Number(lastCompletedRaw);
+    if (lastCompleted !== 1) lastCompletedStageMismatch++;
+
+    const isHeld = String(c.held) === 'Y';
+    if (isHeld) heldCount++;
+
+    return {
+      id: c.id,
+      name: c.name,
+      posId: c.posId,
+      positionTitle: pos ? pos.title : '(알 수 없음)',
+      positionStatus: posStatus,
+      held: isHeld,
+      ref: ref,
+      refProgress: `${Number(c.refD) || 0}/${Number(c.refT) || 0}`,
+      hasSecondInterviewRecord: hasSecond,
+      firstInterviewDone: firstDone,
+      lastCompletedStage: lastCompleted,
+    };
+  });
+
+  return {
+    ok: true,
+    generatedAt: nowIso_(),
+    totalLegacyReferenceCandidates: legacy.length,
+    withSecondInterviewRecord: withSecondInterviewRecord,
+    withoutSecondInterviewRecord: withoutSecondInterviewRecord,
+    refStatusBreakdown: refStatusBreakdown,
+    missingFirstInterviewCompletion: missingFirstInterviewCompletion,
+    lastCompletedStageMismatch: lastCompletedStageMismatch,
+    heldCount: heldCount,
+    byPositionStatus: byPositionStatus,
+    candidates: details,
+    note: '읽기 전용 미리보기입니다. 아무 것도 쓰지 않았습니다 — 실제 이관(stage를 2차면접으로 변경)은 별도로 실행하세요.'
+  };
+}
+
+// Apps Script 편집기에서 함수를 직접 선택해 실행할 때 쓰는 공개 래퍼. 실행 로그(보기
+// > 로그)에서 결과를 확인할 수 있다.
+function getLegacyReferenceStageMigrationPreview() {
+  const result = getLegacyReferenceStageMigrationPreview_();
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
 }
 
 function compactReferralStatus_(status) {
