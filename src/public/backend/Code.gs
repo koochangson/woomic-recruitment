@@ -1202,6 +1202,8 @@ function verifyRefereeIdentity_(payload) {
   if (!row) return json_({ ok: false, error: 'invalid_token' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
+
+  // 이메일·전화번호 중 하나만 일치해도 통과(둘 다 일치해야 하는 건 너무 엄격함). 의도된 동작.
   if (normalizeEmail_(row.refereeEmail) !== email && normalizePhone_(row.refereePhone) !== phone) {
     recordRefereeVerifyFailure_(token);
     return json_({ ok: false, error: 'identity_mismatch' });
