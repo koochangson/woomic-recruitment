@@ -71,9 +71,12 @@
     .q-text { font-size: 16px; font-weight: 700; line-height: 1.5; margin: 8px 0 14px; letter-spacing: -0.01em; }
     .q-sub { font-size: 14px; font-weight: 700; margin: 18px 0 10px; color: var(--text); }
     .q-note { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.55; }
+    .q-guide { font-size: 12.5px; color: var(--muted); margin: 2px 0 8px; line-height: 1.5; }
 
     .period-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-bottom: 16px; }
     .period-row span { color: var(--muted); font-size: 13px; text-align: center; }
+    .period-select-group { display: flex; gap: 6px; }
+    .period-select-group select { min-width: 0; }
     input[type="month"], input[type="text"], textarea, select {
       width: 100%;
       border: 1px solid var(--line);
@@ -216,9 +219,17 @@
 
           <div class="q-sub">함께 근무한 기간</div>
           <div class="period-row">
-            <input type="month" id="q1_periodStart" required>
+            <span class="period-select-group">
+              <select id="q1_periodStart_y" aria-label="시작 연도" required></select>
+              <select id="q1_periodStart_m" aria-label="시작 월" required></select>
+            </span>
             <span>~</span>
-            <input type="month" id="q1_periodEnd" required>
+            <span class="period-select-group">
+              <select id="q1_periodEnd_y" aria-label="종료 연도" required></select>
+              <select id="q1_periodEnd_m" aria-label="종료 월" required></select>
+            </span>
+            <input type="hidden" id="q1_periodStart">
+            <input type="hidden" id="q1_periodEnd">
           </div>
 
           <div class="q-sub">당시 관계</div>
@@ -252,12 +263,14 @@
           <p class="q-text">당시 <span class="cand-name">OOO</span> 님이 맡았던 업무의 범위를 알려 주세요.</p>
 
           <div class="q-sub">주로 맡으신 업무<span class="req-mark">*</span></div>
+          <p class="q-guide" data-guide-for="q1_2_mainTask"><span class="cand-name">OOO</span> 님이 주로 맡았던 업무를 적어 주세요.</p>
           <input type="text" id="q1_2_mainTask" required>
 
           <div class="q-sub">함께 진행한 프로젝트나 현장의 성격·규모<span class="req-mark">*</span></div>
           <input type="text" id="q1_2_projectScale" required>
 
-          <div class="q-sub">직접 맡아 처리하신 부분과 다른 분과 함께 진행하신 부분<span class="req-mark">*</span></div>
+          <div class="q-sub">직접 함께 진행하거나 협업한 업무<span class="req-mark">*</span></div>
+          <p class="q-guide" data-guide-for="q1_2_soloVsShared">응답자님께서 <span class="cand-name">OOO</span> 님과 직접 함께 진행하거나 협업하신 업무를 적어 주세요.</p>
           <input type="text" id="q1_2_soloVsShared" required>
 
           <p class="q-note">정확히 알기 어려운 부분은 그대로 적어 주세요.</p>
@@ -484,6 +497,48 @@
 
     function clean(v) { return String(v == null ? '' : v).trim(); }
     function getValue(id) { const el = document.getElementById(id); return el ? clean(el.value) : ''; }
+
+    // 브라우저 기본 월(month) picker 대신 연도·월 드롭다운으로 "함께 근무한 기간"을 입력받는다.
+    function populatePeriodSelects() {
+      const nowYear = new Date().getFullYear();
+      const years = [];
+      for (let y = nowYear; y >= nowYear - 45; y--) years.push(y);
+      const yearOptions = '<option value="">연도</option>' + years.map(y => `<option value="${y}">${y}년</option>`).join('');
+      const monthOptions = '<option value="">월</option>' + Array.from({ length: 12 }, (_, i) => i + 1).map(m => `<option value="${m}">${m}월</option>`).join('');
+      ['q1_periodStart', 'q1_periodEnd'].forEach(prefix => {
+        const ySel = document.getElementById(`${prefix}_y`);
+        const mSel = document.getElementById(`${prefix}_m`);
+        const hidden = document.getElementById(prefix);
+        if (!ySel || !mSel || !hidden) return;
+        ySel.innerHTML = yearOptions;
+        mSel.innerHTML = monthOptions;
+        const sync = () => {
+          const y = ySel.value, m = mSel.value;
+          hidden.value = (y && m) ? `${y}-${String(m).padStart(2, '0')}` : '';
+        };
+        ySel.addEventListener('change', sync);
+        mSel.addEventListener('change', sync);
+      });
+    }
+    populatePeriodSelects();
+
+    // 답변 작성 안내문 — 해당 입력란에 값이 있으면 숨기고, 비어 있으면 다시 보여준다.
+    function updateFieldGuide(guide) {
+      const field = document.getElementById(guide.dataset.guideFor);
+      if (field) guide.hidden = !!clean(field.value);
+    }
+    function refreshAllFieldGuides() {
+      document.querySelectorAll('[data-guide-for]').forEach(updateFieldGuide);
+    }
+    function initFieldGuides() {
+      document.querySelectorAll('[data-guide-for]').forEach(guide => {
+        const field = document.getElementById(guide.dataset.guideFor);
+        if (!field) return;
+        field.addEventListener('input', () => updateFieldGuide(guide));
+        updateFieldGuide(guide);
+      });
+    }
+    initFieldGuides();
     function getRadioValue(name) {
       const el = document.querySelector(`input[name="${name}"]:checked`);
       return el ? el.value : '';
@@ -643,6 +698,7 @@
         if (field && field.closest('#refCheckForm')) field.checked = !!checked;
       });
       updateOtherInputs();
+      refreshAllFieldGuides();
       setReferenceFormStep(Number(draft.step) || 1, { persist: false, scroll: false, focus: false });
       setDraftStatus('이 브라우저에 임시 저장된 작성 내용을 불러왔습니다.');
     }
@@ -874,7 +930,7 @@
 
     function validateForm() {
       if (!getValue('q1_periodStart') || !getValue('q1_periodEnd')) {
-        showRequiredAlert(document.getElementById('q1_periodStart'), '함께 근무한 기간을 입력해 주세요.');
+        showRequiredAlert(document.getElementById('q1_periodStart_y'), '함께 근무한 기간을 입력해 주세요.');
         return false;
       }
       if (!getRadioValue('q1_relation')) {
