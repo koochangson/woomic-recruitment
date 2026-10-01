@@ -1047,10 +1047,12 @@ function confirmPendingMail() {
 
 function getMailPendingItems() {
   const items = [];
-  interviews.filter(i => i.mailPending && !i.notified).forEach(i => {
+  // 포지션 중단/충원완료 등으로 보류(held) 처리된 지원자는 더 이상 메일 발송이 필요하지 않다.
+  const heldIds = new Set(candidates.filter(c => c.held).map(c => Number(c.id)));
+  interviews.filter(i => i.mailPending && !i.notified && !heldIds.has(Number(i.candId))).forEach(i => {
     items.push({ type:'int', id:i.id, label:`${i.candName} ${i.type} 면접 안내` });
   });
-  candidates.filter(c => c.mailPending && !c.notified && c.stage < 6).forEach(c => {
+  candidates.filter(c => c.mailPending && !c.notified && c.stage < 6 && !c.held).forEach(c => {
     if(!interviews.some(i => Number(i.candId)===Number(c.id) && i.mailPending)) {
       items.push({ type:'cand', id:c.id, candId:c.id, label: c.mailPendingLabel || `${c.name} 안내` });
     }
