@@ -297,6 +297,7 @@ function issueReferenceCandidateLink_(payload) {
     id: 'RC-' + Utilities.getUuid(),
     pipelineCandId, candName, candEmail, positionText, token,
     tokenExpiresAt: new Date(Date.now() + REFERENCE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+    deadlineAt: addReferenceDays_(new Date(), REFERENCE_CANDIDATE_DEADLINE_DAYS).toISOString(),
     link,
     refereesSubmittedAt: '',
     status: 'SENT',
@@ -315,7 +316,7 @@ function issueReferenceCandidateLink_(payload) {
     lock.releaseLock();
   }
 
-  return json_({ ok: true, id: row.id, link, candName, candEmail, tokenExpiresAt: row.tokenExpiresAt });
+  return json_({ ok: true, id: row.id, link, candName, candEmail, tokenExpiresAt: row.tokenExpiresAt, deadlineAt: row.deadlineAt });
 }
 
 // 후보자가 등록 링크를 열었을 때 화면에 본인 이름을 띄우기 위한 토큰 검증.
@@ -398,6 +399,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
       refereeName, refereeEmail, refereePhone, refereeRelation, refereeCompany,
       token: refToken,
       tokenExpiresAt: new Date(Date.now() + REFERENCE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      deadlineAt: addReferenceDays_(new Date(), REFERENCE_RESPONSE_DEADLINE_DAYS).toISOString(),
       link: refLink,
       verifiedAt: '',
       submittedAt: '',
@@ -423,6 +425,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
         '',
         '설문 응답에는 약 10분 정도 소요됩니다.',
         '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+        '응답 기한: ' + formatReferenceDateTime_(row.deadlineAt, true),
         `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
         '',
         '감사합니다.',
@@ -438,7 +441,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
           refereeName,
           positionText: candRow.positionText || '',
           link: refLink,
-          deadline: row.tokenExpiresAt
+          deadline: row.deadlineAt
         })
       );
       if (!result.ok) throw new Error(result.error || 'mail_send_failed');
@@ -643,6 +646,7 @@ function resendReferenceRefereeLink_(payload) {
       '',
       '설문 응답에는 약 10분 정도 소요됩니다.',
       '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+      '응답 기한: ' + formatReferenceDateTime_(referenceDisplayDeadline_(row), true),
       `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
       '',
       '감사합니다.',
@@ -658,7 +662,7 @@ function resendReferenceRefereeLink_(payload) {
         refereeName: row.refereeName,
         positionText: '',
         link: buildReferenceResponseLinkUrl_(row.token),
-        deadline: row.tokenExpiresAt
+        deadline: referenceDisplayDeadline_(row)
       })
     );
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');

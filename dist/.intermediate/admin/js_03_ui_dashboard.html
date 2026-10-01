@@ -193,6 +193,7 @@ function openModal(id) {
 }
 
 let actionConfirmResolver_ = null;
+let actionConfirmInput_ = null; // options.input이 있으면 확인 시 입력값(문자열)으로 resolve한다
 
 function confirmActionModal(options={}) {
   const title = document.getElementById('action-confirm-title');
@@ -216,15 +217,49 @@ function confirmActionModal(options={}) {
   });
   if(itemsBox.lastElementChild) itemsBox.lastElementChild.style.borderBottom = '0';
   itemsBox.style.display = items.length ? 'block' : 'none';
+  renderActionConfirmInput_(itemsBox, options.input || null);
   openModal('modal-action-confirm');
   return new Promise(resolve => { actionConfirmResolver_ = resolve; });
 }
 
+function renderActionConfirmInput_(itemsBox, inputOptions) {
+  let inputWrap = document.getElementById('action-confirm-input-wrap');
+  if(!inputWrap) {
+    inputWrap = document.createElement('div');
+    inputWrap.id = 'action-confirm-input-wrap';
+    inputWrap.className = 'fg';
+    inputWrap.style.marginTop = '14px';
+    itemsBox.after(inputWrap);
+  }
+  actionConfirmInput_ = inputOptions;
+  inputWrap.replaceChildren();
+  inputWrap.style.display = inputOptions ? '' : 'none';
+  if(!inputOptions) return;
+  const label = document.createElement('label');
+  label.htmlFor = 'action-confirm-input';
+  label.textContent = String(inputOptions.label || '내용') + (inputOptions.required ? ' *' : '');
+  const input = document.createElement('textarea');
+  input.id = 'action-confirm-input';
+  input.style.minHeight = '60px';
+  input.placeholder = String(inputOptions.placeholder || '');
+  inputWrap.append(label, input);
+}
+
 function finishActionConfirm(confirmed) {
+  let result = !!confirmed;
+  if(confirmed && actionConfirmInput_) {
+    const text = document.getElementById('action-confirm-input')?.value.trim() || '';
+    if(actionConfirmInput_.required && !text) {
+      toast(`${actionConfirmInput_.label || '내용'}을(를) 입력하세요.`, 'terr');
+      return;
+    }
+    result = text || true;
+  }
+  actionConfirmInput_ = null;
   const resolve = actionConfirmResolver_;
   actionConfirmResolver_ = null;
   closeModal('modal-action-confirm');
-  if(resolve) resolve(!!confirmed);
+  if(resolve) resolve(result);
 }
 
 function closeModal(id) {
@@ -259,6 +294,7 @@ function addCandToPos(posId) {
   const roleEl = document.getElementById('nc-role'); if(roleEl) roleEl.value = pos.role || roleEl.value;
   const etypeEl = document.getElementById('nc-etype'); if(etypeEl) etypeEl.value = pos.etype || etypeEl.value;
   populatePosSelect(posId);            // 이 포지션 선택 고정
+  setv('nc-grade-band', '');
   populateHeadhunterSelect();
   toggleHeadhunterFields();
   updateAddCandSeatHint();
@@ -280,6 +316,7 @@ function openAddCand() {
   const dateEl = document.getElementById('nc-date');
   if(dateEl) dateEl.value = today();
   populatePosSelect();
+  const gradeEl = document.getElementById('nc-grade-band'); if(gradeEl) gradeEl.value = '';
   populateHeadhunterSelect();
   toggleHeadhunterFields();
   updateAddCandSeatHint();
@@ -543,12 +580,112 @@ function buildRefRequestEmail(cand, link) {
   return `안녕하세요, ${cand.name}님.\n\n우미건설 ${cand.pos} 포지션 채용 절차와 관련하여 레퍼런스 체크를 진행하고자 합니다.\n\n아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.\n\n추천인 등록 링크\n${formUrl}\n\n등록 정보\n- 성함\n- 이메일\n- 휴대폰 번호\n- 지원자와의 관계\n\n등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.\n추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
 }
 
-// 레퍼런스 대상 여부 — FLOW가 더 이상 2를 포함하지 않으므로(병행 트랙으로 분리) FLOW
-// 멤버십이 아니라 고용형태로 직접 판정한다. 전문직·파견직(FLOW_SHORT 대상)만 제외하는
-// 기존 동작은 그대로 유지한다.
+// ── 레퍼런스 기한 (Apps Script의 REFERENCE_* 상수와 같은 값을 유지) ──────────
+const REF_LINK_TTL_DAYS = 14;          // 링크 유효기간
+const REF_CANDIDATE_DEADLINE_DAYS = 3; // 지원자 추천인 등록 기한
+const REF_RESPONSE_DEADLINE_DAYS = 7;  // 추천인 설문 응답 기한
+const REF_INTERVIEW_WARN_DAYS = 3;     // 2차면접 N일 전부터 레퍼런스 미완료 경고
+
+// ── 채용예정 직급군 ─────────────────────────────────────────
+// 포지션은 targetGradeBand(STAFF/MANAGER/MIXED), 지원자는 gradeBandOverride(STAFF/MANAGER)로
+// 덮어쓴다. 최종 입사 CL(hireCL)은 처우·추천보상용이라 레퍼런스 판정에 쓰지 않는다.
+const GRADE_BAND_LABELS = { STAFF:'사원급 (CL1~2)', MANAGER:'간부급 (CL3~5)', MIXED:'혼합' };
+function normalizeGradeBand(value, allowMixed) {
+  const v = String(value || '').trim().toUpperCase();
+  if(v === 'STAFF' || v === 'MANAGER') return v;
+  return allowMixed && v === 'MIXED' ? v : '';
+}
+function gradeBandLabel(band) { return GRADE_BAND_LABELS[band] ? GRADE_BAND_LABELS[band].split(' ')[0] : '미지정'; }
+function getCandidatePosition(c) {
+  return c && c.posId != null ? positions.find(p => Number(p.id) === Number(c.posId)) : null;
+}
+function getEffectiveGradeBand(c) {
+  const override = normalizeGradeBand(c && c.gradeBandOverride, false);
+  if(override) return override;
+  return normalizeGradeBand(getCandidatePosition(c)?.targetGradeBand, false); // MIXED·미지정 → ''
+}
+
+// 레퍼런스 대상 판정 — 'required' | 'not_required' | 'unspecified'.
+// 채용형태는 지원자에 복사된 값이 아니라 포지션 값을 기준으로 한다(포지션 수정 시 지원자 값은 갱신되지 않음).
+// 직급군을 알 수 없으면 비대상으로 넘기지 않고 'unspecified'로 돌려 단계 이동 시 담당자가 지정하게 한다.
+function getReferenceRequirement(c) {
+  const etype = getCandidatePosition(c)?.etype || (c && c.etype) || '';
+  if(isShortProcessEtype(etype)) return 'not_required';
+  if(etype && etype !== '정규직') return 'not_required';
+  const band = getEffectiveGradeBand(c);
+  if(band === 'MANAGER') return 'required';
+  if(band === 'STAFF') return 'not_required';
+  return 'unspecified';
+}
+function isGradeBandUnspecified(c) { return getReferenceRequirement(c) === 'unspecified'; }
+
+// 레퍼런스 화면·지표·단계 확인에서 쓰는 대상 여부. 직급군 미지정이라도 이미 레퍼런스를
+// 시작·완료한 지원자는 진행 이력이 사라지지 않도록 계속 추적한다(직급군은 담당자가 지정).
 function requiresReferenceCheck(c) {
-  const pos = c && c.posId != null ? positions.find(p => Number(p.id) === Number(c.posId)) : null;
-  return !(pos && isShortProcessEtype(pos.etype));
+  const req = getReferenceRequirement(c);
+  if(req === 'required') return true;
+  return req === 'unspecified' && (c.ref === '진행중' || c.ref === '완료');
+}
+
+// ── 레퍼런스 기한 / 2차면접 경고 ───────────────────────────────
+function parseRefDate_(value) {
+  if(!value) return null;
+  const text = String(value).trim();
+  const d = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(text) ? new Date(text.replace(' ', 'T') + ':00+09:00') : new Date(text);
+  return isNaN(d.getTime()) ? null : d;
+}
+// 안내 기한 — 기한이 남아 있으면 그 기한, 지났거나 기한 도입 전 행이면 링크 만료일.
+function refDisplayDeadline(row) {
+  const deadline = parseRefDate_(row && row.deadlineAt);
+  if(deadline && deadline.getTime() > Date.now()) return row.deadlineAt;
+  return (row && (row.tokenExpiresAt || row.deadline)) || '';
+}
+// 현재 기다리는 단계의 기한: 추천인 등록 전이면 '등록기한', 등록 후면 미응답 추천인의 가장 늦은 '응답기한'.
+function getReferenceDeadlineInfo(c) {
+  if(!c || c.ref !== '진행중') return null;
+  const refs = (refDetails[c.id] || []).filter(r => r.status !== '응답');
+  if(refs.length) {
+    const dates = refs.map(r => r.deadlineAt || r.tokenExpiresAt || r.deadline || '').filter(Boolean).sort();
+    return dates.length ? { label:'응답기한', at:dates[dates.length - 1] } : null;
+  }
+  if((refDetails[c.id] || []).length) return null;
+  const rc = (referenceCandidates || []).filter(x => Number(x.pipelineCandId) === Number(c.id) && !x.refereesSubmittedAt)
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0];
+  const at = rc && (rc.deadlineAt || rc.tokenExpiresAt);
+  return at ? { label:'등록기한', at } : null;
+}
+function getSecondInterviewDate(c) {
+  const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === '2차' && i.date && i.status !== 'cancelled');
+  return itv ? itv.date : '';
+}
+// 레퍼런스는 2차면접일 전까지 완료·면접관 전달돼야 한다. 막지는 않고 경고만 한다.
+// 반환: null(문제 없음) 또는 { days, date, reason }
+function getReferenceInterviewRisk(c, warnDays = REF_INTERVIEW_WARN_DAYS) {
+  if(!c || !requiresReferenceCheck(c) || c.ref === '생략') return null;
+  if(![3, 4].includes(Number(c.stage))) return null;
+  const date = getSecondInterviewDate(c);
+  const at = parseRefDate_(date);
+  if(!at) return null;
+  const reason = c.ref !== '완료' ? '레퍼런스 미완료' : (!c.refReportSentAt ? '보고서 미전달' : '');
+  if(!reason) return null;
+  const days = Math.ceil((at.getTime() - Date.now()) / 86400000);
+  if(days > warnDays) return null;
+  return { days, date, reason };
+}
+function refInterviewRiskText(risk) {
+  if(!risk) return '';
+  const when = risk.days < 0 ? '2차면접 지남' : risk.days === 0 ? '2차면접 오늘' : `2차면접 D-${risk.days}`;
+  return `${when} · ${risk.reason}`;
+}
+// 2차면접 일정을 확정한 직후 호출 — 레퍼런스가 면접일 전에 끝나지 않을 수 있는 지원자를 알린다.
+function warnReferenceBeforeSecondInterview(cands) {
+  const risky = (cands || []).filter(c => {
+    if(!c || !requiresReferenceCheck(c) || c.ref === '생략') return false;
+    return c.ref !== '완료' || !c.refReportSentAt;
+  });
+  if(!risky.length) return;
+  const names = risky.slice(0, 3).map(c => c.name).join(', ') + (risky.length > 3 ? ` 외 ${risky.length - 3}명` : '');
+  toast(`레퍼런스는 2차면접일 전까지 완료·면접관 전달돼야 합니다. 미완료: ${names}`, 'tw');
 }
 
 
@@ -708,14 +845,19 @@ function renderStageKanban() {
           // 넓게, 지금 어느 상태인지 한눈에 보이게 한다.
           const refTrackActive = requiresReferenceCheck(c) && [3,4].includes(Number(c.stage));
           let refBadge = '';
+          if(isGradeBandUnspecified(c) && [1,3,4].includes(Number(c.stage))) {
+            refBadge = '<span class="b bamber" style="font-size:10px" title="포지션 또는 지원자 수정에서 채용예정 직급군을 지정하세요">직급군 미지정</span>';
+          }
           if(refTrackActive) {
-            if(c.ref === '완료') refBadge = '<span class="b bgreen" style="font-size:10px">레퍼런스 완료</span>';
-            else if(c.ref === '생략') refBadge = '<span class="b bgray" style="font-size:10px">레퍼런스 생략</span>';
+            if(c.ref === '완료') refBadge += '<span class="b bgreen" style="font-size:10px">레퍼런스 완료</span>';
+            else if(c.ref === '생략') refBadge += '<span class="b bgray" style="font-size:10px">레퍼런스 생략</span>';
             else if(c.ref === '진행중') {
               const d = Number(c.refD || 0), t = Number(c.refT || 0) || 3;
-              const expected = getReferenceExpectedDate(c);
-              refBadge = `<span class="b ${d===0?'bred':'bamber'}" style="font-size:10px">레퍼런스 ${d}/${t}${expected?` · 완료예상 ${fmtItv(expected).split(' ')[0]}`:''}</span>`;
-            } else refBadge = '<span class="b bred" style="font-size:10px">레퍼런스 미시작</span>';
+              const dl = getReferenceDeadlineInfo(c);
+              refBadge += `<span class="b ${d===0?'bred':'bamber'}" style="font-size:10px">레퍼런스 ${d}/${t}${dl?` · ${dl.label} ${fmtItv(dl.at).split(' ')[0]}`:''}</span>`;
+            } else refBadge += '<span class="b bred" style="font-size:10px">레퍼런스 미시작</span>';
+            const risk = getReferenceInterviewRisk(c);
+            if(risk) refBadge += ` <span class="b bred" style="font-size:10px" title="레퍼런스는 2차면접일 전까지 완료·면접관 전달돼야 합니다">${esc(refInterviewRiskText(risk))}</span>`;
           }
           const intWarn = intWarnSet.has(Number(c.id));
           const joinInfo = Number(c.stage) === 5 ? `<span class="b ${getCandidateJoinDate(c)?'bgreen':'bamber'}" style="font-size:10px">${esc(getCandidateJoinDateLabel(c))}</span>` : '';
@@ -974,7 +1116,11 @@ function getPositionKanbanStatus(pos, cands, cur) {
         const refDone = refEligible.reduce((n,c)=>n+(Number(c.refD)||0),0);
         const allSettled = refEligible.every(c => c.ref==='완료' || c.ref==='생략');
         base += allSettled ? ' · 레퍼런스 완료' : ` · 레퍼런스 ${refDone}/${refTotal}`;
+        const riskCount = refEligible.filter(c => getReferenceInterviewRisk(c)).length;
+        if(riskCount) base += ` · 면접 임박 미완료 ${riskCount}명`;
       }
+      const unspecified = current.filter(isGradeBandUnspecified).length;
+      if(unspecified) base += ` · 직급군 미지정 ${unspecified}명`;
     }
     return base;
   }

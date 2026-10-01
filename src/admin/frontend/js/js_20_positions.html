@@ -253,6 +253,7 @@ function openAddPosition() {
       if(el) el.value = '';
     });
     document.getElementById('pos-etype').value = '정규직';
+    const gradeBand = document.getElementById('pos-grade-band'); if(gradeBand) gradeBand.value = '';
     document.getElementById('pos-headcount').value = '1';
     document.getElementById('pos-hire-reason').value = '충원';
     document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked=false; });
@@ -281,6 +282,7 @@ function editPosition(posId) {
   document.getElementById('pos-modal-title').textContent = '포지션 수정';
   document.getElementById('pos-title').value  = pos.title || '';
   document.getElementById('pos-etype').value  = pos.etype || '정규직';
+  const gradeBand = document.getElementById('pos-grade-band'); if(gradeBand) gradeBand.value = normalizeGradeBand(pos.targetGradeBand, true);
   document.getElementById('pos-headcount').value = pos.headcount || 1;
   document.getElementById('pos-hire-reason').value = pos.hireReason || '충원';
   document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked = r.value === (pos.location||''); });
@@ -308,12 +310,17 @@ function savePosition() {
     if(!validTeams.includes(team)) { toast('검색 목록에서 팀을 선택하세요.', 'terr'); return; }
   }
   if(location==='현장' && !jobType) { toast('현장 직종을 선택하세요.', 'terr'); return; }
+  const etype = document.getElementById('pos-etype')?.value || '정규직';
+  const targetGradeBand = normalizeGradeBand(document.getElementById('pos-grade-band')?.value, true);
+  // 신규 정규직 포지션은 채용 대상 직급을 반드시 고른다. 기존 포지션은 담당자가 수정할 때 지정한다.
+  if(!editingPosId && etype === '정규직' && !targetGradeBand) { toast('채용 대상 직급(사원급/간부급/혼합)을 선택하세요.', 'terr'); return; }
   const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
 
   const posData = {
     id:        editingPosId || nextId(),
     title,
-    etype:     document.getElementById('pos-etype')?.value   || '정규직',
+    etype,
+    targetGradeBand,
     role:      existingPos.role || '',
     headcount: parseInt(document.getElementById('pos-headcount')?.value) || 1,
     hireReason: document.getElementById('pos-hire-reason')?.value || '충원',

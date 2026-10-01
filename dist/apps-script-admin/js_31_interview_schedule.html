@@ -1057,6 +1057,7 @@ async function applyBatchSchedule() {
     renderDashboard(); renderTracker(); renderPositions();
     if(typeof renderIntTable === 'function') renderIntTable();
     toast(`${round} 면접 일정 확정 완료 · ${slots.length}명. 안내 메일은 아래 화면에서 발송하세요.`, 'tok');
+    if(round === '2차') warnReferenceBeforeSecondInterview(slots.map(s => s.cand));
     closeModal('modal-batch-schedule');
     refreshOpenPositionDetail(posId);
     openInterviewNoticeFlow(posId, stageIdx, round === '1차' ? 1 : 2);

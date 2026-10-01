@@ -50,7 +50,11 @@ const EMPLOYEE_DIRECTORY_CACHE_CHUNK_SIZE = 50000;
 // 레퍼런스체크 후보자/추천인 링크는 최소 며칠~몇 주 동안 유효해야 하는데
 // CacheService는 최대 보관 시간이 6시간으로 제한돼 있어 쓸 수 없다(referralToken류와의 핵심 차이).
 // 그래서 토큰을 캐시가 아니라 시트의 컬럼 값으로 저장하고, 매 요청마다 시트에서 대조한다.
-const REFERENCE_LINK_TTL_DAYS = 21;
+// 링크 유효기간과 안내하는 기한은 분리한다. 기한이 지나도 링크가 살아 있는 동안은 늦은
+// 등록·응답을 받을 수 있고, 기한을 넘긴 건은 dailyOps가 리마인드한다(referenceReminderKind_).
+const REFERENCE_LINK_TTL_DAYS = 14;
+const REFERENCE_CANDIDATE_DEADLINE_DAYS = 3; // 지원자 추천인 등록 기한
+const REFERENCE_RESPONSE_DEADLINE_DAYS = 7;  // 추천인 설문 응답 기한
 const REFERENCE_REQUIRED_REFEREES = 3;
 const REFERENCE_CANDIDATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_candidate_intake.html';
 const REFERENCE_RESPONSE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_check_intake.html';
@@ -60,10 +64,10 @@ const REFEREE_VERIFY_ATTEMPT_LIMIT = 5;
 const REFEREE_VERIFY_LOCK_SECONDS = 10 * 60;
 
 const SHEET_SCHEMAS = {
-  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','refReportSentAt','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
+  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','refReportSentAt','refSkipReason','gradeBandOverride','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
   PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','loc','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
-  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','targetGradeBand','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
   Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
@@ -72,8 +76,8 @@ const SHEET_SCHEMAS = {
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
   MailLog: ['id','eventKey','to','subject','status','error','sentAt'],
-  ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
-  ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','link','verifiedAt','submittedAt','status',
+  ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','deadlineAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
+  ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','deadlineAt','link','verifiedAt','submittedAt','status',
     'q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
     'q1_2_mainTask','q1_2_projectScale','q1_2_soloVsShared',
     'q2_startStyle',
@@ -1041,6 +1045,7 @@ function issueReferenceCandidateLink_(payload) {
     id: 'RC-' + Utilities.getUuid(),
     pipelineCandId, candName, candEmail, positionText, token,
     tokenExpiresAt: new Date(Date.now() + REFERENCE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+    deadlineAt: addReferenceDays_(new Date(), REFERENCE_CANDIDATE_DEADLINE_DAYS).toISOString(),
     link,
     refereesSubmittedAt: '',
     status: 'SENT',
@@ -1059,7 +1064,7 @@ function issueReferenceCandidateLink_(payload) {
     lock.releaseLock();
   }
 
-  return json_({ ok: true, id: row.id, link, candName, candEmail, tokenExpiresAt: row.tokenExpiresAt });
+  return json_({ ok: true, id: row.id, link, candName, candEmail, tokenExpiresAt: row.tokenExpiresAt, deadlineAt: row.deadlineAt });
 }
 
 // 후보자가 등록 링크를 열었을 때 화면에 본인 이름을 띄우기 위한 토큰 검증.
@@ -1142,6 +1147,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
       refereeName, refereeEmail, refereePhone, refereeRelation, refereeCompany,
       token: refToken,
       tokenExpiresAt: new Date(Date.now() + REFERENCE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      deadlineAt: addReferenceDays_(new Date(), REFERENCE_RESPONSE_DEADLINE_DAYS).toISOString(),
       link: refLink,
       verifiedAt: '',
       submittedAt: '',
@@ -1167,6 +1173,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
         '',
         '설문 응답에는 약 10분 정도 소요됩니다.',
         '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+        '응답 기한: ' + formatReferenceDateTime_(row.deadlineAt, true),
         `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
         '',
         '감사합니다.',
@@ -1182,7 +1189,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
           refereeName,
           positionText: candRow.positionText || '',
           link: refLink,
-          deadline: row.tokenExpiresAt
+          deadline: row.deadlineAt
         })
       );
       if (!result.ok) throw new Error(result.error || 'mail_send_failed');
@@ -1387,6 +1394,7 @@ function resendReferenceRefereeLink_(payload) {
       '',
       '설문 응답에는 약 10분 정도 소요됩니다.',
       '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+      '응답 기한: ' + formatReferenceDateTime_(referenceDisplayDeadline_(row), true),
       `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
       '',
       '감사합니다.',
@@ -1402,7 +1410,7 @@ function resendReferenceRefereeLink_(payload) {
         refereeName: row.refereeName,
         positionText: '',
         link: buildReferenceResponseLinkUrl_(row.token),
-        deadline: row.tokenExpiresAt
+        deadline: referenceDisplayDeadline_(row)
       })
     );
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
@@ -2529,13 +2537,15 @@ function dailyOps() {
 
     readRowsIfSheetExists_('ReferenceCandidates').forEach(row => {
       if (!row.candEmail || row.refereesSubmittedAt || referenceLinkExpired_(row)) return;
-      const reminder = referenceReminderKind_(row.createdAt || row.updatedAt, row.tokenExpiresAt, today);
+      const reminder = referenceReminderKind_(row, today, false);
       if (!reminder) return;
-      const eventKey = ['daily', 'reference-candidate', row.id, reminder, today].join(':');
+      const eventKey = referenceReminderEventKey_('reference-candidate', row.id, reminder, today);
       const message = [
         row.candName + '님, 안녕하세요.', '',
         '레퍼런스 체크를 위한 추천인 등록이 아직 완료되지 않아 안내드립니다.',
-        reminder === 'expiry-d3' ? '등록 링크가 3일 후 만료됩니다.' : '아래 링크에서 추천인 3명을 등록해 주세요.',
+        reminder === 'expiry-d3' ? '등록 링크가 3일 후 만료됩니다.'
+          : reminder === 'overdue' ? '등록 기한이 지났습니다. 링크가 만료되기 전에 아래 링크에서 추천인 3명을 등록해 주세요.'
+          : '아래 링크에서 추천인 3명을 등록해 주세요.',
         '', '추천인 등록 링크', row.link || buildReferenceCandidateLinkUrl_(row.token), '',
         '감사합니다.', '우미건설 피플팀 드림'
       ].join('\n');
@@ -2544,21 +2554,23 @@ function dailyOps() {
         referenceMailHtml_(message, {
           templateType: 'candidate_reminder', candidateName: row.candName,
           positionText: row.positionText || '', link: row.link || buildReferenceCandidateLinkUrl_(row.token),
-          deadline: row.tokenExpiresAt
+          deadline: referenceDisplayDeadline_(row)
         }));
       countOpsResult_(results, send, 'referenceCandidateReminders', eventKey);
     });
 
     readRowsIfSheetExists_('ReferenceResponses').forEach(row => {
       if (!row.refereeEmail || row.submittedAt || referenceLinkExpired_(row)) return;
-      const reminder = referenceReminderKind_(row.updatedAt, row.tokenExpiresAt, today);
+      const reminder = referenceReminderKind_(row, today, true);
       if (!reminder) return;
-      const eventKey = ['daily', 'reference-referee', row.id, reminder, today].join(':');
+      const eventKey = referenceReminderEventKey_('reference-referee', row.id, reminder, today);
       const link = row.link || buildReferenceResponseLinkUrl_(row.token);
       const message = [
         row.refereeName + '님, 안녕하세요.', '',
         row.candName + '님에 대한 레퍼런스 체크 설문이 아직 접수되지 않아 재안내드립니다.',
-        reminder === 'expiry-d3' ? '응답 링크가 3일 후 만료됩니다.' : '아래 링크에서 설문을 작성해 주세요.',
+        reminder === 'expiry-d3' ? '응답 링크가 3일 후 만료됩니다.'
+          : reminder === 'overdue' ? '응답 기한이 지났습니다. 링크가 만료되기 전에 아래 링크에서 설문을 작성해 주세요.'
+          : '아래 링크에서 설문을 작성해 주세요.',
         '', '설문 참여 링크', link, '',
         '감사합니다.', '우미건설 피플팀 드림'
       ].join('\n');
@@ -2566,7 +2578,7 @@ function dailyOps() {
         '[우미건설] ' + row.candName + '님 레퍼런스 체크 응답 재안내', message,
         referenceMailHtml_(message, {
           templateType: 'referee_reminder', candidateName: row.candName,
-          refereeName: row.refereeName, positionText: '', link, deadline: row.tokenExpiresAt
+          refereeName: row.refereeName, positionText: '', link, deadline: referenceDisplayDeadline_(row)
         }));
       countOpsResult_(results, send, 'referenceResponseReminders', eventKey);
     });
@@ -2680,11 +2692,34 @@ function countOpsResult_(results, send, field, eventKey) {
   else results.failed.push({ eventKey, error: send && send.error || 'mail_send_failed' });
 }
 
-function referenceReminderKind_(createdAt, expiresAt, today) {
-  const untilExpiry = opsDaysBetween_(today, opsDateKey_(expiresAt));
-  if (untilExpiry === 3) return 'expiry-d3';
-  const elapsed = opsDaysBetween_(opsDateKey_(createdAt), today);
-  return elapsed === 3 || elapsed === 7 ? 'reminder-d' + elapsed : '';
+// 리마인드 판정(dailyOps가 하루 한 번 호출):
+// - overdue: 기한(지원자 등록 3일 / 추천인 응답 7일)이 지났는데 미완료 → 한 번만 발송
+// - reminder-d3: 추천인은 응답 기한(7일) 중간인 발송 3일째에 미응답이면 중간 안내
+// - expiry-d3: 링크 만료 3일 전 최종 안내
+// deadlineAt이 없는 행(기한 도입 전 발급분)은 기한 기준이 없으므로 만료 3일 전 안내만 보낸다 —
+// 배포 직후 기존 행 전체에 기한 초과 메일이 한꺼번에 나가지 않도록 하기 위함이다.
+function referenceReminderKind_(row, today, isReferee) {
+  if (opsDaysBetween_(today, opsDateKey_(row.tokenExpiresAt)) === 3) return 'expiry-d3';
+  if (!row.deadlineAt) return '';
+  const deadline = parseOpsDate_(row.deadlineAt);
+  if (!Number.isFinite(deadline.getTime())) return '';
+  if (deadline.getTime() <= Date.now()) return 'overdue';
+  if (isReferee) {
+    const issuedKey = opsDateKey_(addReferenceDays_(deadline, -REFERENCE_RESPONSE_DEADLINE_DAYS));
+    if (opsDaysBetween_(issuedKey, today) === 3) return 'reminder-d3';
+  }
+  return '';
+}
+
+// overdue는 기한이 지난 뒤 매일 판정되므로 날짜 없는 키로 한 번만 발송되게 한다.
+function referenceReminderEventKey_(scope, id, reminder, today) {
+  return ['daily', scope, id, reminder].concat(reminder === 'overdue' ? [] : [today]).join(':');
+}
+
+// 메일에 안내할 기한 — 기한이 남아 있으면 그 기한, 이미 지났거나 기한 도입 전 행이면 링크 만료일.
+function referenceDisplayDeadline_(row) {
+  const deadline = row && row.deadlineAt ? parseOpsDate_(row.deadlineAt) : null;
+  return deadline && deadline.getTime() > Date.now() ? row.deadlineAt : row.tokenExpiresAt;
 }
 
 function opsDateKey_(value) {

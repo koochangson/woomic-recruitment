@@ -46,7 +46,11 @@ const EMPLOYEE_DIRECTORY_CACHE_CHUNK_SIZE = 50000;
 // 레퍼런스체크 후보자/추천인 링크는 최소 며칠~몇 주 동안 유효해야 하는데
 // CacheService는 최대 보관 시간이 6시간으로 제한돼 있어 쓸 수 없다(referralToken류와의 핵심 차이).
 // 그래서 토큰을 캐시가 아니라 시트의 컬럼 값으로 저장하고, 매 요청마다 시트에서 대조한다.
-const REFERENCE_LINK_TTL_DAYS = 21;
+// 링크 유효기간과 안내하는 기한은 분리한다(관리자 Code.gs와 같은 값을 유지해야 한다).
+// 기한 초과 리마인드는 관리자 프로젝트의 dailyOps가 deadlineAt을 기준으로 보낸다.
+const REFERENCE_LINK_TTL_DAYS = 14;
+const REFERENCE_CANDIDATE_DEADLINE_DAYS = 3; // 지원자 추천인 등록 기한
+const REFERENCE_RESPONSE_DEADLINE_DAYS = 7;  // 추천인 설문 응답 기한
 const REFERENCE_REQUIRED_REFEREES = 3;
 const REFERENCE_CANDIDATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_candidate_intake.html';
 const REFERENCE_RESPONSE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/reference_check_intake.html';
@@ -76,8 +80,8 @@ const SHEET_SCHEMAS = {
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
   MailLog: ['id','eventKey','to','subject','status','error','sentAt'],
-  ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
-  ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','link','verifiedAt','submittedAt','status',
+  ReferenceCandidates: ['id','pipelineCandId','candName','candEmail','positionText','token','tokenExpiresAt','deadlineAt','link','refereesSubmittedAt','status','createdAt','updatedAt'],
+  ReferenceResponses: ['id','referenceCandidateId','pipelineCandId','candName','refereeName','refereeEmail','refereePhone','refereeRelation','refereeCompany','token','tokenExpiresAt','deadlineAt','link','verifiedAt','submittedAt','status',
     'q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
     'q1_2_mainTask','q1_2_projectScale','q1_2_soloVsShared',
     'q2_startStyle',
@@ -895,6 +899,12 @@ function submitPanelAvailability_(payload) {
   } finally { lock.releaseLock(); }
 }
 
+function referenceDeadlineText_(value) {
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return '';
+  return Utilities.formatDate(date, 'Asia/Seoul', 'yyyy년 M월 d일 HH:mm') + '까지';
+}
+
 function referenceLinkExpired_(row) {
   return !!(row.tokenExpiresAt && new Date(row.tokenExpiresAt).getTime() < Date.now());
 }
@@ -954,6 +964,7 @@ function issueReferenceCandidateLink_(payload) {
     id: 'RC-' + Utilities.getUuid(),
     pipelineCandId, candName, candEmail, positionText, token,
     tokenExpiresAt: new Date(Date.now() + REFERENCE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+    deadlineAt: new Date(Date.now() + REFERENCE_CANDIDATE_DEADLINE_DAYS * 24 * 60 * 60 * 1000).toISOString(),
     link,
     refereesSubmittedAt: '',
     status: 'SENT',
@@ -992,6 +1003,7 @@ function issueReferenceCandidateLink_(payload) {
       '등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.',
       '추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.',
       '',
+      '등록 기한: ' + referenceDeadlineText_(row.deadlineAt),
       `링크는 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
       '',
       '감사합니다.',
@@ -1009,7 +1021,7 @@ function issueReferenceCandidateLink_(payload) {
     return json_({ error: 'mail_send_failed' });
   }
 
-  return json_({ ok: true, id: row.id, link, candName, candEmail, tokenExpiresAt: row.tokenExpiresAt });
+  return json_({ ok: true, id: row.id, link, candName, candEmail, tokenExpiresAt: row.tokenExpiresAt, deadlineAt: row.deadlineAt });
 }
 
 // 후보자가 등록 링크를 열었을 때 화면에 본인 이름을 띄우기 위한 토큰 검증.
@@ -1089,6 +1101,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
       refereeName, refereeEmail, refereePhone, refereeRelation, refereeCompany,
       token: refToken,
       tokenExpiresAt: new Date(Date.now() + REFERENCE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      deadlineAt: new Date(Date.now() + REFERENCE_RESPONSE_DEADLINE_DAYS * 24 * 60 * 60 * 1000).toISOString(),
       link: refLink,
       verifiedAt: '',
       submittedAt: '',
@@ -1112,6 +1125,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
         '',
         '설문 응답에는 약 10분 정도 소요됩니다.',
         '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+        '응답 기한: ' + referenceDeadlineText_(row.deadlineAt),
         `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
         '',
         '감사합니다.',

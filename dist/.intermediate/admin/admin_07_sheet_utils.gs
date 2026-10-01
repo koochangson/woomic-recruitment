@@ -233,13 +233,15 @@ function dailyOps() {
 
     readRowsIfSheetExists_('ReferenceCandidates').forEach(row => {
       if (!row.candEmail || row.refereesSubmittedAt || referenceLinkExpired_(row)) return;
-      const reminder = referenceReminderKind_(row.createdAt || row.updatedAt, row.tokenExpiresAt, today);
+      const reminder = referenceReminderKind_(row, today, false);
       if (!reminder) return;
-      const eventKey = ['daily', 'reference-candidate', row.id, reminder, today].join(':');
+      const eventKey = referenceReminderEventKey_('reference-candidate', row.id, reminder, today);
       const message = [
         row.candName + '님, 안녕하세요.', '',
         '레퍼런스 체크를 위한 추천인 등록이 아직 완료되지 않아 안내드립니다.',
-        reminder === 'expiry-d3' ? '등록 링크가 3일 후 만료됩니다.' : '아래 링크에서 추천인 3명을 등록해 주세요.',
+        reminder === 'expiry-d3' ? '등록 링크가 3일 후 만료됩니다.'
+          : reminder === 'overdue' ? '등록 기한이 지났습니다. 링크가 만료되기 전에 아래 링크에서 추천인 3명을 등록해 주세요.'
+          : '아래 링크에서 추천인 3명을 등록해 주세요.',
         '', '추천인 등록 링크', row.link || buildReferenceCandidateLinkUrl_(row.token), '',
         '감사합니다.', '우미건설 피플팀 드림'
       ].join('\n');
@@ -248,21 +250,23 @@ function dailyOps() {
         referenceMailHtml_(message, {
           templateType: 'candidate_reminder', candidateName: row.candName,
           positionText: row.positionText || '', link: row.link || buildReferenceCandidateLinkUrl_(row.token),
-          deadline: row.tokenExpiresAt
+          deadline: referenceDisplayDeadline_(row)
         }));
       countOpsResult_(results, send, 'referenceCandidateReminders', eventKey);
     });
 
     readRowsIfSheetExists_('ReferenceResponses').forEach(row => {
       if (!row.refereeEmail || row.submittedAt || referenceLinkExpired_(row)) return;
-      const reminder = referenceReminderKind_(row.updatedAt, row.tokenExpiresAt, today);
+      const reminder = referenceReminderKind_(row, today, true);
       if (!reminder) return;
-      const eventKey = ['daily', 'reference-referee', row.id, reminder, today].join(':');
+      const eventKey = referenceReminderEventKey_('reference-referee', row.id, reminder, today);
       const link = row.link || buildReferenceResponseLinkUrl_(row.token);
       const message = [
         row.refereeName + '님, 안녕하세요.', '',
         row.candName + '님에 대한 레퍼런스 체크 설문이 아직 접수되지 않아 재안내드립니다.',
-        reminder === 'expiry-d3' ? '응답 링크가 3일 후 만료됩니다.' : '아래 링크에서 설문을 작성해 주세요.',
+        reminder === 'expiry-d3' ? '응답 링크가 3일 후 만료됩니다.'
+          : reminder === 'overdue' ? '응답 기한이 지났습니다. 링크가 만료되기 전에 아래 링크에서 설문을 작성해 주세요.'
+          : '아래 링크에서 설문을 작성해 주세요.',
         '', '설문 참여 링크', link, '',
         '감사합니다.', '우미건설 피플팀 드림'
       ].join('\n');
@@ -270,7 +274,7 @@ function dailyOps() {
         '[우미건설] ' + row.candName + '님 레퍼런스 체크 응답 재안내', message,
         referenceMailHtml_(message, {
           templateType: 'referee_reminder', candidateName: row.candName,
-          refereeName: row.refereeName, positionText: '', link, deadline: row.tokenExpiresAt
+          refereeName: row.refereeName, positionText: '', link, deadline: referenceDisplayDeadline_(row)
         }));
       countOpsResult_(results, send, 'referenceResponseReminders', eventKey);
     });
@@ -384,11 +388,34 @@ function countOpsResult_(results, send, field, eventKey) {
   else results.failed.push({ eventKey, error: send && send.error || 'mail_send_failed' });
 }
 
-function referenceReminderKind_(createdAt, expiresAt, today) {
-  const untilExpiry = opsDaysBetween_(today, opsDateKey_(expiresAt));
-  if (untilExpiry === 3) return 'expiry-d3';
-  const elapsed = opsDaysBetween_(opsDateKey_(createdAt), today);
-  return elapsed === 3 || elapsed === 7 ? 'reminder-d' + elapsed : '';
+// 리마인드 판정(dailyOps가 하루 한 번 호출):
+// - overdue: 기한(지원자 등록 3일 / 추천인 응답 7일)이 지났는데 미완료 → 한 번만 발송
+// - reminder-d3: 추천인은 응답 기한(7일) 중간인 발송 3일째에 미응답이면 중간 안내
+// - expiry-d3: 링크 만료 3일 전 최종 안내
+// deadlineAt이 없는 행(기한 도입 전 발급분)은 기한 기준이 없으므로 만료 3일 전 안내만 보낸다 —
+// 배포 직후 기존 행 전체에 기한 초과 메일이 한꺼번에 나가지 않도록 하기 위함이다.
+function referenceReminderKind_(row, today, isReferee) {
+  if (opsDaysBetween_(today, opsDateKey_(row.tokenExpiresAt)) === 3) return 'expiry-d3';
+  if (!row.deadlineAt) return '';
+  const deadline = parseOpsDate_(row.deadlineAt);
+  if (!Number.isFinite(deadline.getTime())) return '';
+  if (deadline.getTime() <= Date.now()) return 'overdue';
+  if (isReferee) {
+    const issuedKey = opsDateKey_(addReferenceDays_(deadline, -REFERENCE_RESPONSE_DEADLINE_DAYS));
+    if (opsDaysBetween_(issuedKey, today) === 3) return 'reminder-d3';
+  }
+  return '';
+}
+
+// overdue는 기한이 지난 뒤 매일 판정되므로 날짜 없는 키로 한 번만 발송되게 한다.
+function referenceReminderEventKey_(scope, id, reminder, today) {
+  return ['daily', scope, id, reminder].concat(reminder === 'overdue' ? [] : [today]).join(':');
+}
+
+// 메일에 안내할 기한 — 기한이 남아 있으면 그 기한, 이미 지났거나 기한 도입 전 행이면 링크 만료일.
+function referenceDisplayDeadline_(row) {
+  const deadline = row && row.deadlineAt ? parseOpsDate_(row.deadlineAt) : null;
+  return deadline && deadline.getTime() > Date.now() ? row.deadlineAt : row.tokenExpiresAt;
 }
 
 function opsDateKey_(value) {

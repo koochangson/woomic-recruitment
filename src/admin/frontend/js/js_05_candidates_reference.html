@@ -31,6 +31,7 @@ function requestStageChange(candId, newStage) {
   const c = candidates.find(x => x.id === candId);
   if(!c || newStage < 0 || newStage > 7) return;
   if(c.stage === newStage) { toast('이미 해당 단계입니다.'); return; }
+  if(!passesGradeBandGate(c, newStage)) { openGradeBandRequiredNotice(c, newStage); return; }
 
   // 레퍼런스는 더 이상 별도 단계가 아니라 2차면접(3) 진입과 함께 병행 시작된다.
   const needsReferenceMailChoice = newStage === 3
@@ -75,6 +76,28 @@ function requestStageChange(candId, newStage) {
     });
   }
   openModal('modal-confirm-stage');
+}
+
+// 직급군 미지정 지원자는 레퍼런스 대상 여부를 정할 수 없으므로, 레퍼런스가 시작되는 2차면접과
+// 레퍼런스 완료를 확인하는 처우협의로 보내기 전에 담당자가 직급군을 지정하게 한다.
+function passesGradeBandGate(c, newStage) {
+  if(![3,4].includes(Number(newStage)) || Number(c.stage) >= Number(newStage)) return true;
+  return !isGradeBandUnspecified(c);
+}
+async function openGradeBandRequiredNotice(c, newStage) {
+  const pos = getCandidatePosition(c);
+  const posBand = pos ? normalizeGradeBand(pos.targetGradeBand, true) : '';
+  const open = await confirmActionModal({
+    title:'채용예정 직급군 미지정',
+    message:`레퍼런스 대상 여부를 판정할 수 없어 '${STAGES[newStage]}' 단계로 이동할 수 없습니다. 직급군을 먼저 지정하세요.`,
+    items:[
+      `${c.name} · 포지션 직급군: ${pos ? gradeBandLabel(posBand) : '포지션 미연결'}`,
+      posBand === 'MIXED' ? '혼합 포지션은 지원자 수정에서 직급군을 선택합니다.' : '포지션 수정에서 직급군을 지정하거나, 지원자 수정에서 개별 지정합니다.',
+      '간부급(CL3~5) 정규직만 레퍼런스 대상입니다.',
+    ],
+    confirmLabel:'지원자 수정 열기',
+  });
+  if(open) editCandidate(c.id);
 }
 
 function buildStageNotifyMsg(c, newStage) {
@@ -164,6 +187,7 @@ async function confirmStageChange() {
   // ── B. 소프트 경고: 레퍼런스 미완료 상태로 처우협의(4) 이상으로 넘어가면 확인 ──
   // (2차면접(3)까지는 레퍼런스와 무관하게 병행 진행 가능 — requiresReferenceCheck 참고)
   let skipRef = false;
+  let skipRefReason = '';
   if(newStage !== 6 && requiresReferenceCheck(c) && c.ref !== '완료' && c.ref !== '생략') {
     const flowForRef = getFlowForCandidate(c);
     if(flowIndex(newStage, flowForRef) > flowIndex(3, flowForRef)) {
@@ -172,11 +196,13 @@ async function confirmStageChange() {
         title:'레퍼런스 미완료',
         message:`${refLabel} 완료하지 않고 '${STAGES[newStage]}' 단계로 이동합니다.`,
         items:[`${c.name} · 레퍼런스 상태를 '생략'으로 기록`],
+        input:{ label:'생략 사유', placeholder:'예: 추천인 확보 불가(지원자 사정), 내부 평판 확인으로 대체', required:true },
         confirmLabel:'생략 후 이동',
         danger:true,
       });
       if(!confirmed) return;
       skipRef = true;
+      skipRefReason = typeof confirmed === 'string' ? confirmed : '';
     }
   }
 
@@ -226,7 +252,7 @@ async function confirmStageChange() {
       if(refDetails[c.id]) refDetails[c.id] = refDetails[c.id].filter(r => r.status === '응답' || r.status === '등록');
     }
     // 5) 레퍼런스 미완료 상태로 건너뛰기를 확인받았으면 '생략'으로 기록 → 프로세스 진행현황도 지원자현황과 일치하게 됨
-    if(skipRef) c.ref = '생략';
+    if(skipRef) { c.ref = '생략'; c.refSkipReason = skipRefReason; }
     // GS에서도 정리된 면접 반영 (남은 면접만 동기화, 삭제분은 표시상 정리)
     if(GS_CONFIG.scriptUrl && typeof deleteIntFromGS === 'function') {
       // 삭제된 면접은 화면 기준이므로 별도 처리 없이 다음 동기화에서 정리됨
@@ -413,6 +439,8 @@ function editCandidate(id) {
   document.querySelector('#modal-add .modal-title').textContent = '지원자 정보 수정';
   // 포지션 드롭다운 채우기
   populatePosSelect(c.posId);
+  const gradeEl = document.getElementById('nc-grade-band'); if(gradeEl) gradeEl.value = normalizeGradeBand(c.gradeBandOverride, false);
+  updateAddCandSeatHint();
   const sourceEl = document.getElementById('nc-source'); if(sourceEl) sourceEl.value = c.source || 'direct';
   populateHeadhunterSelect(c.headhunterId || '');
   toggleHeadhunterFields();
@@ -483,6 +511,13 @@ async function addCandidate() {
     toast('포지션 상세 또는 드롭다운에서 연결할 포지션을 선택하세요.', 'terr');
     return;
   }
+  const gradeBandOverride = normalizeGradeBand(document.getElementById('nc-grade-band')?.value, false);
+  const finalPos = finalPosId ? positions.find(p => Number(p.id) === Number(finalPosId)) : null;
+  if(!editId && !gradeBandOverride && finalPos && (finalPos.etype || '정규직') === '정규직'
+     && normalizeGradeBand(finalPos.targetGradeBand, true) === 'MIXED') {
+    toast('혼합 포지션은 지원자의 채용예정 직급군을 선택해야 합니다.', 'terr');
+    return;
+  }
   const seatInfo = finalPosId ? getPosSeatInfo(finalPosId) : null;
   if(seatInfo && seatInfo.isFull && !editId) {
     const confirmed = await confirmActionModal({
@@ -518,6 +553,7 @@ async function addCandidate() {
       existing.career = document.getElementById('nc-career').value;
       existing.memo   = document.getElementById('nc-memo').value;
       existing.posId  = finalPosId;
+      existing.gradeBandOverride = gradeBandOverride;
       existing.source = source;
       existing.headhunterId = source === 'headhunting' ? headhunter.id : '';
       existing.headhunterName = source === 'headhunting' ? headhunter.name : '';
@@ -556,6 +592,7 @@ async function addCandidate() {
       docPassedAt: receivedAt,
       memo:      document.getElementById('nc-memo').value,
       posId:     finalPosId,
+      gradeBandOverride,
       intDate:   '', notified: false,
     };
     candidates.push(newCand);
@@ -865,6 +902,7 @@ async function addInterview() {
   }
   renderIntTable(); updateMetrics(); populateSel('int-cand');
   toast(`${cand.name}님 ${type} 면접 등록 완료`, 'tok');
+  if(type === '2차') warnReferenceBeforeSecondInterview([cand]);
 }
 
 const INTERVIEW_ACTION_TYPES = new Set([
@@ -1020,18 +1058,6 @@ function ensureRefDetails(c) {
   return refDetails[c.id];
 }
 
-// 레퍼런스 완료 예상일 — 별도 입력란을 만들지 않고, 이미 추적 중인 추천인 응답
-// 링크 만료일(tokenExpiresAt) 중 아직 응답하지 않은 추천인의 가장 늦은 기한을 쓴다.
-// 전원 응답했거나 추천인이 없으면(완료/생략/대기) 빈 문자열을 반환한다.
-function getReferenceExpectedDate(c) {
-  const refs = refDetails[c?.id] || [];
-  const dates = refs
-    .filter(r => r.status !== '응답')
-    .map(r => r.tokenExpiresAt || r.deadline || '')
-    .filter(Boolean);
-  return dates.length ? dates.sort().slice(-1)[0] : '';
-}
-
 function isLegacyPlaceholderRef(ref) {
   const email = String(ref?.email || '').toLowerCase();
   const name = String(ref?.name || '');
@@ -1174,14 +1200,15 @@ function renderReference() {
         <td><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.email)}</div></td>
         <td>${etypePill(c.etype)}</td>
         <td>${badge(c.stage)}</td>
-        <td><span class="b ${rb}">${c.ref==='진행중'&&c.refD===0?'⚠ 전무응답':c.ref}</span></td>
+        <td><span class="b ${rb}"${c.ref==='생략'&&c.refSkipReason?` title="생략 사유: ${esc(c.refSkipReason)}"`:''}>${c.ref==='진행중'&&c.refD===0?'⚠ 전무응답':c.ref}</span></td>
         <td style="min-width:110px">${regBadge}
           <div class="prog" style="height:3px;margin-top:4px"><div class="pf-bar pfa" style="width:${regPct}%"></div></div>
         </td>
         <td style="min-width:110px">
           <div style="font-size:11px;color:var(--t3);margin-bottom:3px">${c.refD}/${c.refT} 응답 · ${pct3}%</div>
           <div class="prog"><div class="pf-bar ${c.ref==='완료'?'pfg':c.refD===0?'pfr':'pfa'}" style="width:${pct3}%"></div></div>
-          ${c.ref==='진행중'&&getReferenceExpectedDate(c)?`<div style="font-size:10px;color:var(--t3);margin-top:3px">완료예상 ${esc(fmtItv(getReferenceExpectedDate(c)).split(' ')[0])}</div>`:''}
+          ${(()=>{const dl=getReferenceDeadlineInfo(c);return dl?`<div style="font-size:10px;color:var(--t3);margin-top:3px">${dl.label} ${esc(fmtItv(dl.at).split(' ')[0])}</div>`:'';})()}
+          ${(()=>{const risk=getReferenceInterviewRisk(c);return risk?`<div style="font-size:10px;color:var(--red);font-weight:700;margin-top:3px">${esc(refInterviewRiskText(risk))}</div>`:'';})()}
         </td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">시작</button>`:''}
@@ -1403,14 +1430,14 @@ async function remindOneRef(candId,ri){
   if(!r){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
   const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
-  const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 21일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+  const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 ${REF_LINK_TTL_DAYS}일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
   const sent=await sendReferenceEmailViaGmail(r.email,subject,body,'추천인리마인드',`${esc(c.name)}-${esc(r.name)}`,{
     templateType:'referee_reminder',
     candidateName:c.name,
     refereeName:r.name,
     positionText:c.pos,
     link:refLink,
-    deadline:r.tokenExpiresAt||r.deadline||''
+    deadline:refDisplayDeadline(r)
   });
   if(!sent)return;
   r.remindCnt=(r.remindCnt||0)+1;
@@ -1452,14 +1479,14 @@ async function markRefRegistered(id){
   const refFormUrl=document.getElementById('cfg-ref-url')?.value||'';
   if(pend.email && refFormUrl){
     const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 요청`;
-    const body=`${esc(pend.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(pend.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 21일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+    const body=`${esc(pend.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(pend.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 ${REF_LINK_TTL_DAYS}일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
     const sent=await sendReferenceEmailViaGmail(pend.email,subject,body,'추천인설문발송',`${esc(c.name)}-${esc(pend.name)}`,{
       templateType:'referee_request',
       candidateName:c.name,
       refereeName:pend.name,
       positionText:c.pos,
       link:refFormUrl,
-      deadline:pend.tokenExpiresAt||pend.deadline||''
+      deadline:refDisplayDeadline(pend)
     });
     if(sent){
       toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT}) · ${esc(pend.name)}님 설문 메일 발송 완료`,'tok');
@@ -1490,7 +1517,7 @@ async function startRef(id, resend=false){
       candidateName:c.name,
       positionText:c.pos,
       link:linkResult.link,
-      deadline:linkResult.tokenExpiresAt||''
+      deadline:linkResult.deadlineAt||linkResult.tokenExpiresAt||''
     })
   });
   if(!sent)return false;
@@ -1543,14 +1570,14 @@ async function remindRef(id){
     r.remindCnt=(r.remindCnt||0)+1;
     const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
     const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
-    const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 21일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
+    const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 ${REF_LINK_TTL_DAYS}일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
     const sent = await sendReferenceEmailViaGmail(r.email,subject,body,'리마인드',`${esc(c.name)}-${esc(r.name)}`,{
       templateType:'referee_reminder',
       candidateName:c.name,
       refereeName:r.name,
       positionText:c.pos,
       link:refLink,
-      deadline:r.tokenExpiresAt||r.deadline||''
+      deadline:refDisplayDeadline(r)
     });
     if(sent) sentCount++;
   }

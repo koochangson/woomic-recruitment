@@ -638,11 +638,8 @@
             </select>
             <div class="field-hint">지원자는 외부인이므로 이메일로만 발송됩니다 · Apps Script MailApp으로 발송</div>
           </div>
-          <div class="fg"><label>레퍼런스 응답 기한 (일)</label>
-            <select id="cfg-ref-days"><option value="5">5일</option><option value="7" selected>7일</option><option value="10">10일</option></select>
-          </div>
-          <div class="fg"><label>리마인드 기준 (기한 N일 전)</label>
-            <select id="cfg-remind-days"><option value="2">2일 전</option><option value="3" selected>3일 전</option><option value="5">5일 전</option></select>
+          <div class="fg" style="grid-column:1/-1"><label>레퍼런스 기한·리마인드</label>
+            <div class="field-hint">추천인 등록 3일 · 추천인 응답 7일 · 링크 유효 14일. 기한이 지나도 완료되지 않으면 다음 일일 점검(09시)에 리마인드 메일을 자동 발송하고, 추천인에게는 발송 3일째 중간 안내도 보냅니다. 링크 만료 3일 전에는 최종 안내를 보냅니다. 레퍼런스는 2차면접일 전까지 완료·면접관 전달해야 합니다.</div>
           </div>
           <div class="fg"><label>발신자 서명</label><input id="cfg-sign" value="우미건설 피플팀"/></div>
           <div class="fg"><label>피플팀 담당자 이메일 *</label><input id="cfg-hr-email" placeholder="people@company.co.kr" type="email"/></div>
@@ -1013,6 +1010,15 @@
           </select>
           <div id="nc-seat-hint" class="field-hint"></div>
         </div>
+        <div class="fg full">
+          <label for="nc-grade-band">채용예정 직급군</label>
+          <select id="nc-grade-band">
+            <option value="">포지션 기본값 사용</option>
+            <option value="STAFF">사원급 (CL1~2)</option>
+            <option value="MANAGER">간부급 (CL3~5)</option>
+          </select>
+          <div id="nc-grade-band-hint" class="field-hint"></div>
+        </div>
         <div class="fg full"><label>메모</label><textarea id="nc-memo" style="min-height:48px"></textarea></div>
       </div>
     </div>
@@ -1236,6 +1242,16 @@
           <option value="전문직">전문직</option>
           <option value="파견직">파견직</option>
         </select>
+      </div>
+      <div class="fg">
+        <label for="pos-grade-band">채용 대상 직급</label>
+        <select id="pos-grade-band">
+          <option value="">직급군 미지정</option>
+          <option value="STAFF">사원급 (CL1~2)</option>
+          <option value="MANAGER">간부급 (CL3~5)</option>
+          <option value="MIXED">혼합 (사원급·간부급 모두 채용)</option>
+        </select>
+        <div class="field-hint">간부급 정규직만 레퍼런스 대상 · 혼합은 지원자별로 선택</div>
       </div>
       <div class="fg">
         <label>모집인원</label>
