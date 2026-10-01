@@ -479,6 +479,18 @@ function saveReferralStatus(id) {
   else cancelRewardsForReferral(ref.id, status==='PASSED' ? '입사 전 합격 상태' : referralStatusLabel(status));
   saveState();
   syncReferralToGS(ref);
+  // 상태 변경으로 현재 탭(진행중/완료)의 목록에서 빠지면 getReferralList()가
+  // selectedReferralId를 다른 건으로 바꿔버려 "저장이 초기화됐다"로 오인하기 쉽다 —
+  // 저장한 건이 속한 탭으로 같이 전환해 계속 선택 상태를 유지한다.
+  selectedReferralId = ref.id;
+  const targetView = REFERRAL_COMPLETED_STATUSES.includes(ref.status) ? 'completed' : 'inbox';
+  if((referralView === 'inbox' || referralView === 'completed') && referralView !== targetView) {
+    referralView = targetView;
+    ['inbox','completed','rewards','history','employees'].forEach(v=>{
+      const btn = document.getElementById(`rf-tab-${v}`);
+      if(btn) btn.className = `btn btn-sm ${v===referralView?'btn-primary':'btn-ghost'}`;
+    });
+  }
   renderReferralSection();
   updateMetrics();
   toast('추천 상태를 저장했습니다.','tok');
