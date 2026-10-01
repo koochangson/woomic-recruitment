@@ -1176,6 +1176,8 @@ function renderReference() {
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs" data-action="call" data-call="markRefRegistered(${c.id})">+접수</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markOneResponse(${c.id})">+응답</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="completeRef(${c.id})">완료</button>`:''}
+          ${c.ref==='완료'&&!c.refReportSentAt?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="markReferenceReportSent(${c.id})" title="면접조서 등과 함께 직접 발송한 뒤 눌러 기록만 남깁니다">면접관 전달 표시</button>`:''}
+          ${c.ref==='완료'&&c.refReportSentAt?`<span class="b bgreen" style="font-size:10px" title="${esc(fmtItv(c.refReportSentAt))} 전달">전달완료</span><button class="btn btn-xs btn-ghost" data-action="call" data-call="unmarkReferenceReportSent(${c.id})">취소</button>`:''}
         </td>
       </tr>`;
     }).join('')}</tbody>
@@ -1551,6 +1553,21 @@ function completeRef(id){
   refs.forEach(r=>r.status='응답');
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   toast(`${esc(c.name)}님 완료 처리`,'tok');
+}
+// 완료된 레퍼런스 보고서를 면접관에게 전달했음을 수동으로 표시한다. 보고서 자체는
+// 담당자가 면접조서 등과 함께 직접 첨부해 보내므로(sendPanelNotice는 자동 첨부하지
+// 않는다), 이 함수는 메일을 보내지 않고 전달 여부만 기록한다.
+function markReferenceReportSent(id){
+  const c=candidates.find(x=>x.id===id);if(!c)return;
+  c.refReportSentAt=new Date().toISOString();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();
+  toast(`${esc(c.name)}님 레퍼런스 보고서 면접관 전달로 표시했습니다.`,'tok');
+}
+function unmarkReferenceReportSent(id){
+  const c=candidates.find(x=>x.id===id);if(!c)return;
+  c.refReportSentAt='';
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();
+  toast(`${esc(c.name)}님 전달 표시를 취소했습니다.`,'tw');
 }
 function parseAIRefSections(rawText) {
   const result = { overall:'', expertise:'', character:'', leadership:'', reason:'' };

@@ -41,7 +41,7 @@ function gsBaseUrlForSheet_(sheet) {
 
 // GS에 저장하는 필드를 한 곳에서 관리한다. 새 필드는 시트 헤더에도 추가해야 한다.
 const GS_SCHEMA = {
-  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
+  Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','refReportSentAt','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
@@ -703,6 +703,7 @@ async function syncCandToGS(cand) {
     ref:        cand.ref,
     refD:       cand.refD,
     refT:       cand.refT,
+    refReportSentAt: cand.refReportSentAt || '',
     receivedAt: cand.receivedAt,
     docPassedAt: cand.docPassedAt || '',
     memo:       cand.memo||'',
@@ -880,7 +881,7 @@ function normalizeGsCandidate(row) {
     dept:row.dept, career:row.career, source:row.source || 'direct',
     headhunterId:row.headhunterId||'', headhunterName:row.headhunterName||'', headhunterManager:row.headhunterManager||'', headhunterEmail:row.headhunterEmail||'', headhunterPhone:row.headhunterPhone||'',
     stage:STAGES.indexOf(row.stage)>=0?STAGES.indexOf(row.stage):0,
-    ref:row.ref||'미시작', refD:Number(row.refD)||0, refT:Number(row.refT)||0,
+    ref:row.ref||'미시작', refD:Number(row.refD)||0, refT:Number(row.refT)||0, refReportSentAt:row.refReportSentAt||'',
     receivedAt:formatDate(row.receivedAt), docPassedAt:formatDate(row.docPassedAt||row.receivedAt), memo:row.memo,
     rejectedAt:row.rejectedAt||'', rejectReason:row.rejectReason||'', rejectMemo:row.rejectMemo||'',
     finalAt:row.finalAt||'', joinDate:row.joinDate||'', decision:row.decision||'', notified:row.notified==='Y',
@@ -1705,6 +1706,7 @@ async function loadFromGS(options={}) {
     ref:        row.ref || '미시작',
     refD:       Number(row.refD)||0,
     refT:       Number(row.refT)||0,
+    refReportSentAt: row.refReportSentAt || '',
     receivedAt: formatDate(row.receivedAt),
     docPassedAt: formatDate(row.docPassedAt || row.receivedAt),
     memo:       row.memo,
