@@ -41,11 +41,13 @@ async function syncAuxStateToGS() {
   if(!GS_CONFIG.scriptUrl || auxSyncSuspended) return;
   const json = JSON.stringify(getAuxStateSnapshot());
   const chunks = chunkText(json);
-  const tasks = [
-    () => gsUpsert('Settings', {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})}),
-    ...chunks.map((value,i)=>()=>gsUpsert('Settings',{id:`auxState:${i}`,value})),
+  // 청크마다 개별 upsert를 동시에 쏘면 전부 같은 LockService 락을 두고 경합하다가
+  // 대기시간(10초)을 넘겨 여러 건이 한꺼번에 실패한다 — 배치 upsert 한 번으로 묶어서 보낸다.
+  const rows = [
+    {id:'auxState:meta', value:JSON.stringify({count:chunks.length,updatedAt:auxUpdatedAt})},
+    ...chunks.map((value,i)=>({id:`auxState:${i}`,value})),
   ];
-  await settleSync(tasks, '보조 데이터 동기화');
+  await settleSync([() => gsBatchUpsert('Settings', rows)], '보조 데이터 동기화');
 }
 
 function scheduleAuxStateSync() {
