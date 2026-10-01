@@ -380,15 +380,22 @@ function populatePosSelect(selectedId) {
 // ══════════════════════════════════════════════════════════════
 // 토스트
 // ══════════════════════════════════════════════════════════════
-function toast(msg, type='') {
+// options.sticky: 클릭할 때까지 유지 / options.onClick: 클릭 시 동작(이후 닫힘)
+function toast(msg, type='', options={}) {
   const w = document.getElementById('toast-wrap');
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   const s = document.createElement('span');
   s.textContent = msg;
   t.appendChild(s);
+  if(options.sticky || options.onClick) {
+    t.style.cursor = 'pointer';
+    t.setAttribute('role', 'button');
+    t.title = options.onClick ? '클릭하면 이동합니다' : '클릭하면 닫힙니다';
+    t.addEventListener('click', () => { t.remove(); if(options.onClick) options.onClick(); });
+  }
   w.appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+  if(!options.sticky) setTimeout(() => t.remove(), 3200);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1104,7 +1111,11 @@ function getPositionKanbanStatus(pos, cands, cur) {
       const dates=[...new Set(list.filter(i=>i.status==='confirmed'&&i.date).map(i=>i.date))].sort();
       base = dates.length ? `면접예정 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}` : `일정확정 ${confirmed}명`;
     }
-    else if(pending) base = `회신대기 ${pending}명`;
+    else if(pending) {
+      // 가능일정 응답이 들어와도 면접 status는 pending이라 '회신대기'로 남던 문제 — 응답 수를 보여준다.
+      const replied = list.filter(i=>(i.status||'pending')==='pending'&&['RESPONDED','UNAVAILABLE'].includes(i.availabilityStatus)).length;
+      base = replied >= pending ? `응답완료 ${replied}명 · 일정확정 필요` : replied ? `회신 ${replied}/${pending}명` : `회신대기 ${pending}명`;
+    }
     else base = `일정미등록 ${current.length}명`;
 
     // 2차면접은 레퍼런스와 병행 진행되므로 면접 일정 상태 옆에 레퍼런스 진행도를 같이 보여준다.

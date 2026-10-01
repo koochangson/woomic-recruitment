@@ -564,12 +564,13 @@ async function addCandidate() {
     }
     delete modal.dataset.editId;
     document.querySelector('#modal-add .modal-title').textContent = '서류합격자 등록';
+    const editAligned = alignStartedInterviewStagesAfterCandidateSave_(existing);
     logActivity('합격자 수정', name, 'candidate', editId);
     saveState();
     closeModal('modal-add');
     renderDashboard(); renderTracker();
     populateSel('int-cand'); populateSel('ob-cand');
-    toast(`${name}님 정보 수정 완료`, 'tok');
+    toast(`${name}님 정보 수정 완료${editAligned ? ` · 면접이 시작된 포지션이라 '${stageLabel(existing.stage)}' 단계로 이동` : ''}`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(existing);
     saveState();
   } else {
@@ -596,12 +597,13 @@ async function addCandidate() {
       intDate:   '', notified: false,
     };
     candidates.push(newCand);
+    const newAligned = alignStartedInterviewStagesAfterCandidateSave_(newCand);
     logActivity('합격자 등록', `${name} → ${pos}`, 'candidate', newCand.id);
     saveState();
     closeModal('modal-add');
     renderDashboard(); renderTracker(); renderPositions();
     populateSel('int-cand'); populateSel('ob-cand');
-    toast(`${name}님 등록 완료`, 'tok');
+    toast(`${name}님 등록 완료${newAligned ? ` · 면접이 시작된 포지션이라 '${stageLabel(newCand.stage)}' 단계로 등록` : ''}`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(newCand);
     saveState();
     // 포지션 상세에서 추가한 경우 → 포지션 상세로 복귀
@@ -1387,6 +1389,7 @@ async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targe
 }
 
 // 레퍼런스체크 외 일반 안내 메일(면접·입사·불합격 등) — 디자인 있는 HTML 메일로 발송.
+let lastMailSendError_ = ''; // 마지막 메일 발송 실패 사유 — 발송 화면 카드에 표시용
 async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetName, templateData={}, attachments=[]) {
   if(!hasGsBridge_()) {
     toast('메일 발송은 관리자 Apps Script 연결이 필요합니다.', 'terr');
@@ -1402,7 +1405,8 @@ async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetN
     result = { ok:false, error:error?.message || 'mail_send_failed' };
   }
   if(!result || !result.ok) {
-    toast(`메일 발송 실패: ${result?.error || 'Apps Script/Gmail 권한을 확인하세요.'}`, 'terr');
+    lastMailSendError_ = result?.error || 'Apps Script/Gmail 권한을 확인하세요.';
+    toast(`메일 발송 실패: ${lastMailSendError_}`, 'terr');
     return false;
   }
   logNotify('Gmail', logType || '안내메일', targetName || '', toEmail);

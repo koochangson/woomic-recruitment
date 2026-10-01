@@ -637,6 +637,26 @@ function alignCandidateStagesWithStartedInterview_(positionId) {
   return moved;
 }
 
+// 포지션 상세를 열 때만 단계를 맞추면 대시보드 칸반에는 상세를 열기 전까지 이전 단계로
+// 보인다. 그래서 데이터 로드 직후에도 진행중 포지션 전체에 대해 한 번 맞추고 동기화한다.
+function alignStartedInterviewStagesForActivePositions_() {
+  const moved = positions
+    .filter(p => ['active','partial'].includes(posStatus(p)))
+    .flatMap(p => alignCandidateStagesWithStartedInterview_(p.id));
+  if(moved.length && GS_CONFIG.scriptUrl) settleSync(moved.map(c => () => syncCandToGS(c)), '면접 진행단계 동기화');
+  return moved;
+}
+
+// 지원자를 등록·수정한 직후 호출 — 이미 면접이 시작된 포지션이면 그 지원자도 바로 해당 단계로 맞춘다.
+// 대상 지원자는 호출한 쪽에서 동기화하므로, 함께 맞춰진 다른 지원자만 여기서 동기화한다.
+function alignStartedInterviewStagesAfterCandidateSave_(cand) {
+  if(!cand || cand.posId == null) return false;
+  const before = Number(cand.stage);
+  const others = alignCandidateStagesWithStartedInterview_(cand.posId).filter(c => c !== cand);
+  if(others.length && GS_CONFIG.scriptUrl) settleSync(others.map(c => () => syncCandToGS(c)), '면접 진행단계 동기화');
+  return Number(cand.stage) !== before;
+}
+
 function openPosDetail(positionId) {
   currentPosDetailId = Number(positionId);
   const aligned = alignCandidateStagesWithStartedInterview_(currentPosDetailId);

@@ -401,6 +401,7 @@ async function reloadAdminDataAfterLogin_() {
   if(hasGsBridge_()) {
     try {
       const loaded = await syncCoreFromGS({forceFull:true});
+      if(loaded) alignStartedInterviewStagesForActivePositions_();
       showSyncStatus(loaded ? 'Google Sheets 기준으로 로드됨' : '⚠ GS 응답 없음 — 로컬 캐시로 표시 중', loaded ? 'ok' : 'warn');
     } catch(e) {
       showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
@@ -409,6 +410,7 @@ async function reloadAdminDataAfterLogin_() {
       await loadAuxStateFromGS();
       renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog();
     } catch(e) {}
+    finally { auxSyncSuspended = false; }
     try {
       const loadedRef = await syncReferralCoreFromGS();
       if(loadedRef) renderReferralSection();
@@ -422,6 +424,9 @@ async function reloadAdminDataAfterLogin_() {
   renderIntTable();
   renderReferralSection();
   startGsChangePolling_();
+  // 로그인 전 시작 단계에서 건너뛴 작업
+  if(hasGsBridge_()) setTimeout(flushGsRetryQueue, 1500);
+  checkAdminDeploymentConfig_();
 }
 
 function adminApiRun_(payload, options={}) {
@@ -1045,6 +1050,26 @@ function normalizeGsReferenceResponse(row) {
 
 const REFERRAL_STRING_ID_SHEETS = ['Referrals','Rewards','RefRules','Employees','ReferenceCandidates','ReferenceResponses'];
 
+// 다른 경로(지원자 응답 페이지 등)에서 들어온 면접 가능일정 회신 — 화면에 알린 뒤 비운다.
+let pendingAvailabilityReplies_ = [];
+function isAvailabilityReplied_(status) { return status === 'RESPONDED' || status === 'UNAVAILABLE'; }
+function flushAvailabilityReplyNotices_() {
+  const replies = pendingAvailabilityReplies_;
+  pendingAvailabilityReplies_ = [];
+  const byPos = new Map();
+  replies.forEach(r => {
+    const key = `${r.posId ?? ''}|${r.type}`;
+    byPos.set(key, [...(byPos.get(key) || []), r]);
+  });
+  byPos.forEach(list => {
+    const first = list[0];
+    const pos = positions.find(p => Number(p.id) === Number(first.posId));
+    const names = list.slice(0, 3).map(r => r.name).join(', ') + (list.length > 3 ? ` 외 ${list.length - 3}명` : '');
+    const msg = `📅 ${pos ? pos.title + ' · ' : ''}${names}님이 ${first.type} 면접 가능일정을 회신했습니다. 클릭해서 확인하세요.`;
+    toast(msg, 'tok', { sticky:true, onClick: pos ? () => openPosDetail(Number(pos.id)) : null });
+  });
+}
+
 function applyGsChanges(changes) {
   let applied = 0;
   let referenceCheckTouched = false;
@@ -1079,7 +1104,14 @@ function applyGsChanges(changes) {
       : sheet==='ReferenceCandidates' ? normalizeGsReferenceCandidate(row)
       : normalizeGsReferenceResponse(row);
     if(sheet==='Candidates') candidates = mergeGsDeltaRecords(sheet,[normalized],candidates);
-    if(sheet==='Interviews') interviews = uniqueInterviewRecords(mergeGsDeltaRecords(sheet,[normalized],interviews));
+    if(sheet==='Interviews') {
+      const prev = interviews.find(x => Number(x.id) === Number(normalized.id));
+      if(prev && isAvailabilityReplied_(normalized.availabilityStatus) && !isAvailabilityReplied_(prev.availabilityStatus)) {
+        const cand = candidates.find(c => Number(c.id) === Number(normalized.candId));
+        pendingAvailabilityReplies_.push({ name: cand?.name || normalized.candName || '지원자', posId: cand?.posId, type: normalized.type || '' });
+      }
+      interviews = uniqueInterviewRecords(mergeGsDeltaRecords(sheet,[normalized],interviews));
+    }
     if(sheet==='Positions') positions = mergeGsDeltaRecords(sheet,[normalized],positions);
     if(sheet==='Referrals') referrals = mergeGsDeltaRecords(sheet,[normalized],referrals);
     if(sheet==='Rewards') rewards = mergeGsDeltaRecords(sheet,[normalized],rewards);
@@ -1094,7 +1126,10 @@ function applyGsChanges(changes) {
   return applied;
 }
 
+// options.background: 화면이 이미 로컬 캐시로 그려져 있을 때(시작 시·주기 확인) 전체 로딩창 없이
+// 상단 상태 표시만 갱신한다. 로그인 직후 로드·수동 동기화·저장은 기존처럼 로딩창으로 조작을 막는다.
 async function syncCoreFromGS(options={}) {
+  if(options.background) return syncCoreFromGSInternal(options);
   return withGlobalSyncProgress('Google Sheets 데이터를 동기화하고 있습니다.', () => syncCoreFromGSInternal(options));
 }
 
@@ -1108,10 +1143,11 @@ async function syncCoreFromGSInternal(options={}) {
       if(delta.resyncRequired) {
         clearGsChangeCursor();
         showSyncStatus('변경 이력이 압축되어 전체 데이터를 다시 동기화합니다.', 'warn');
-        return syncCoreFromGS({forceFull:true});
+        return syncCoreFromGS({forceFull:true, background:!!options.background});
       }
       const applied = applyGsChanges(delta.changes);
       setGsChangeCursor(delta.cursor);
+      flushAvailabilityReplyNotices_();
       showSyncStatus(applied ? `GS 변경 ${applied}건 반영` : 'GS 동기화 완료 (변경 없음)', 'ok');
       return true;
     }
@@ -1203,7 +1239,7 @@ async function pollGsChanges_() {
       const delta = await gsGetChanges(coreCursor);
       if(delta?.resyncRequired) {
         clearGsChangeCursor();
-        await syncCoreFromGS({forceFull:true});
+        await syncCoreFromGS({forceFull:true, background:true});
         renderGsPolledChanges_();
         return true;
       }
@@ -1229,6 +1265,7 @@ async function pollGsChanges_() {
       }
     }
 
+    flushAvailabilityReplyNotices_();
     if(applied) {
       renderGsPolledChanges_();
       showSyncStatus('GS 변경 ' + applied + '건 자동 반영', 'ok');

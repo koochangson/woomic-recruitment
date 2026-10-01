@@ -33,6 +33,8 @@ async function sendAllCandSchedule(posId, stageIdx, skipConfirm) {
 
 let interviewNoticeFlowCtx = { posId:null, stageIdx:null, round:null };
 let interviewNoticeBusy = { candidates:false, panel:false };
+// 이번 창에서 마지막으로 시도한 면접관 발송 결과 — 카드에 발송 완료/실패를 바로 보여준다.
+let interviewNoticePanelResult = null; // { ok, at, count, attachments, error }
 const MAIL_ATTACHMENT_MAX_TOTAL_BYTES_ = 15 * 1024 * 1024;
 
 function openInterviewNoticeFlow(posId, stageIdx, round) {
@@ -41,6 +43,7 @@ function openInterviewNoticeFlow(posId, stageIdx, round) {
   const confirmed = getConfirmedPositionInterviews(posId, stageIdx);
   if(!confirmed.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
   interviewNoticeFlowCtx = { posId:Number(posId), stageIdx:Number(stageIdx), round:Number(round) };
+  interviewNoticePanelResult = null;
   document.getElementById('inf-title').textContent = `${round}차 면접 안내 — ${pos.title}`;
   renderInterviewNoticeFlow();
   openModal('modal-interview-notice-flow');
@@ -72,11 +75,23 @@ function renderInterviewNoticeFlow() {
       <div style="font-size:11px;color:var(--t3);margin-bottom:8px">면접관 ${panelists.length}명에게 정해진 양식으로 메일을 발송합니다. 면접조서 등 파일을 첨부한 뒤 발송하세요.</div>
       <input type="file" id="inf-panel-files" multiple accept=".pdf,.doc,.docx,.hwp,.hwpx,.xls,.xlsx" style="font-size:11px;margin-bottom:8px;width:100%">
       <div style="display:flex;align-items:center;gap:7px">
-        ${panelDone?'<span class="b bgreen">발송 완료</span>':''}
-        <button class="btn btn-sm ${panelDone?'':'btn-primary'}" data-action="call" data-call="sendInterviewNoticePanel()" ${!schedule.length||interviewNoticeBusy.panel?'disabled':''}>${interviewNoticeBusy.panel?'처리 중...':panelDone?'면접관 재발송':'면접관 메일 발송'}</button>
+        ${panelDone&&!interviewNoticeBusy.panel?'<span class="b bgreen">발송 완료</span>':''}
+        <button class="btn btn-sm ${panelDone?'':'btn-primary'}" data-action="call" data-call="sendInterviewNoticePanel()" ${!schedule.length||interviewNoticeBusy.panel?'disabled':''}>${interviewNoticeBusy.panel?'<span class="spin" aria-hidden="true">⏳</span> 발송 중...':panelDone?'면접관 재발송':'면접관 메일 발송'}</button>
       </div>
+      ${renderInterviewNoticePanelResult_()}
     </div>`;
   el.innerHTML = candCard + panelCard;
+}
+
+function renderInterviewNoticePanelResult_() {
+  const r = interviewNoticePanelResult;
+  if(interviewNoticeBusy.panel) return '<div style="font-size:11px;color:var(--t2);margin-top:8px">면접관에게 메일을 보내고 있습니다. 첨부파일이 크면 시간이 걸릴 수 있습니다.</div>';
+  if(!r) return '';
+  if(r.ok) {
+    const at = new Date(r.at).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+    return `<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:8px">✓ 면접관 ${r.count}명에게 ${at} 발송 완료${r.attachments ? ` · 첨부 ${r.attachments}개` : ' · 첨부 없음'}</div>`;
+  }
+  return `<div style="font-size:11px;color:var(--red);font-weight:700;margin-top:8px">발송되지 않았습니다${r.error ? `: ${esc(r.error)}` : ''}</div>`;
 }
 
 async function sendInterviewNoticeCandidates() {
@@ -136,14 +151,31 @@ async function sendInterviewNoticePanel() {
   const { posId, round } = interviewNoticeFlowCtx;
   const fileInput = document.getElementById('inf-panel-files');
   const files = fileInput?.files ? [...fileInput.files] : [];
-  if(!files.length) { toast('면접조서 등 첨부할 파일을 선택하세요.', 'terr'); return; }
+  // 첨부 없이 누르면 아무 반응 없이 짧은 안내만 떠서 '발송이 안 된다'로 보였다 — 확인을 받고 진행한다.
+  if(!files.length) {
+    const proceed = await confirmActionModal({
+      title:'첨부파일 없음',
+      message:'면접조서 등 첨부파일 없이 면접관 안내 메일을 발송할까요? 첨부하려면 취소 후 파일을 선택하세요.',
+      confirmLabel:'첨부 없이 발송',
+    });
+    if(!proceed) return;
+  }
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
   if(totalBytes > MAIL_ATTACHMENT_MAX_TOTAL_BYTES_) { toast('첨부파일 용량이 너무 큽니다. 전체 15MB 이하로 선택하세요.', 'terr'); return; }
   interviewNoticeBusy.panel = true;
+  interviewNoticePanelResult = null;
   renderInterviewNoticeFlow();
   try {
     const attachments = await Promise.all(files.map(readFileAsMailAttachment_));
-    await sendPanelNotice(posId, round, false, attachments);
+    lastMailSendError_ = '';
+    const ok = await sendPanelNotice(posId, round, false, attachments);
+    const pos = positions.find(p => Number(p.id) === Number(posId));
+    const count = parsePanelists(round === 1 ? pos?.panel1 : pos?.panel2).filter(p => p.email && p.email.includes('@')).length;
+    // 사용자가 확인창에서 취소한 경우(false, 오류 없음)는 실패로 표시하지 않는다.
+    interviewNoticePanelResult = ok ? { ok:true, at:Date.now(), count, attachments:attachments.length }
+      : (lastMailSendError_ ? { ok:false, error:lastMailSendError_ } : null);
+  } catch(error) {
+    interviewNoticePanelResult = { ok:false, error:error?.message || String(error) };
   } finally {
     interviewNoticeBusy.panel = false;
     renderInterviewNoticeFlow();
@@ -527,7 +559,7 @@ async function sendPanelNotice(posId, round, returnToPosition=true, attachments=
     // 실제 면접 전까지는 레퍼런스가 완료·보고되어야 하므로, 안내 발송 시점에 확인한다.
     // (레퍼런스 체크 요약 자료는 자동 첨부하지 않는다 — 별도로 작성한 파일을
     // 면접조서 등과 함께 수동으로 첨부해 발송한다.)
-    const refIncomplete = confirmed.filter(c => c.ref !== '완료' && c.ref !== '생략');
+    const refIncomplete = confirmed.filter(c => requiresReferenceCheck(c) && c.ref !== '완료' && c.ref !== '생략');
     if(refIncomplete.length) {
       const proceed = await confirmActionModal({
         title:'레퍼런스 체크 미완료',

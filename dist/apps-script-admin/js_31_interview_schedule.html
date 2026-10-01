@@ -548,13 +548,27 @@ async function sendCollectSlots() {
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage));
   if(!targets.length) { toast('대상이 없습니다.', 'terr'); return; }
 
-  showGlobalSyncProgress('지원자 일정 요청을 준비하고 있습니다.');
+  // 클릭 즉시 발송 진행창을 띄우고, 면접 정보 저장(준비) 단계부터 그 안에서 보여준다.
+  // (예전에는 전체 로딩창 뒤에서 저장을 마친 다음에야 진행창이 떠서 한참 멈춘 것처럼 보였다)
+  collectSendQueue = {
+    posId, round, roundLabel, slotText, loc, options, deadline, preparing:true,
+    list: targets.map(c => ({ id: c.id, name: c.name, email: c.email, pos: c.pos, sendStatus:'preparing', error:'' })),
+  };
+  closeModal('modal-collect-slots');
+  openModal('modal-collect-send');
+  renderCollectSendStep();
+  const failPrepare = message => {
+    collectSendQueue.preparing = false;
+    collectSendQueue.prepareFailed = true;
+    collectSendQueue.list.forEach(item => { item.sendStatus = 'failed'; item.error = message; });
+    renderCollectSendStep();
+  };
   try {
     await waitForUiPaint_();
     saveState();
     if(GS_CONFIG.scriptUrl) {
       const positionSync = await syncPosToGS(pos);
-      if(positionSync == null) return;
+      if(positionSync == null) { failPrepare('포지션 정보 저장에 실패했습니다. 닫고 다시 시도하세요.'); return; }
     }
 
     // 각 지원자 pending 면접 생성/갱신 (가능 시간대 응답 전)
@@ -579,22 +593,24 @@ async function sendCollectSlots() {
       }
     });
     saveState();
-    const syncResult = await settleSync(targets.map(c => () => {
-      const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
-      return itv ? syncIntToGS(itv) : null;
-    }), `${round} 면접 가능 시간대 저장`);
-    if(syncResult.failed) return;
-  } finally {
-    hideGlobalSyncProgress();
+    // 진행창이 이미 떠 있으므로 전체 로딩창(settleSync) 대신 직접 저장하고 결과만 확인한다.
+    if(GS_CONFIG.scriptUrl) {
+      const results = await Promise.allSettled(targets.map(c => {
+        const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
+        return itv ? syncIntToGS(itv) : Promise.resolve(null);
+      }));
+      const failed = results.filter(r => r.status === 'rejected' || r.value == null || r.value?.error).length;
+      if(failed) { failPrepare(`면접 가능 시간대 저장 실패 ${failed}건 — 닫고 다시 시도하세요.`); return; }
+    }
+  } catch(error) {
+    console.error('[sendCollectSlots] prepare failed', error);
+    failPrepare(`준비 중 오류: ${error?.message || error}`);
+    return;
   }
 
   // 후보별 고유 응답 링크를 발급한 뒤 제한된 동시 처리로 자동 발송한다.
-  collectSendQueue = {
-    posId, round, roundLabel, slotText, loc, options, deadline,
-    list: targets.map(c => ({ id: c.id, name: c.name, email: c.email, pos: c.pos, sendStatus:'waiting', error:'' })),
-  };
-  closeModal('modal-collect-slots');
-  openModal('modal-collect-send');
+  collectSendQueue.preparing = false;
+  collectSendQueue.list.forEach(item => { item.sendStatus = 'waiting'; });
   doCollectSendCurrent();
 }
 
@@ -609,7 +625,7 @@ function renderCollectSendStep() {
   const total = q.list.length;
   const completed = q.list.filter(item => item.sendStatus === 'done').length;
   const failed = q.list.filter(item => item.sendStatus === 'failed').length;
-  const sending = q.list.filter(item => item.sendStatus === 'sending').length;
+  const sending = q.list.filter(item => item.sendStatus === 'sending' || item.sendStatus === 'preparing').length;
   const finished = completed + failed;
   const body = document.getElementById('csend-body');
   const footer = document.getElementById('csend-footer');
@@ -618,7 +634,7 @@ function renderCollectSendStep() {
   body.innerHTML = `
     <div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-bottom:4px">
-        <span>${collectSendBusy ? `발송 중 ${sending}명 · ` : ''}완료 ${completed}명${failed ? ` · 실패 ${failed}명` : ''}</span>
+        <span>${q.preparing ? `준비 중 ${sending}명 · ` : collectSendBusy ? `발송 중 ${sending}명 · ` : ''}완료 ${completed}명${failed ? ` · 실패 ${failed}명` : ''}</span>
         <span>${finished}/${total}</span>
       </div>
       <div class="prog" style="height:6px"><div class="pf-bar" style="width:${total ? finished/total*100 : 0}%;background:var(--outlook)"></div></div>
@@ -633,6 +649,8 @@ function renderCollectSendStep() {
             ? '<span class="b bred">발송 실패</span>'
             : item.sendStatus === 'sending'
               ? '<span class="b bblue"><span class="spin" aria-hidden="true">⏳</span> 발송 중</span>'
+              : item.sendStatus === 'preparing'
+                ? '<span class="b bblue"><span class="spin" aria-hidden="true">⏳</span> 준비 중</span>'
               : '<span class="b bgray">대기</span>';
         return `<div style="padding:10px 11px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s1)">
           <div style="display:flex;align-items:center;gap:8px"><b style="flex:1">${esc(item.name)}</b>${status}</div>
@@ -643,7 +661,11 @@ function renderCollectSendStep() {
     </div>`;
 
   if(!footer) return;
-  if(collectSendBusy) {
+  if(q.preparing) {
+    footer.innerHTML = `<span style="font-size:11.5px;color:var(--t2);align-self:center;display:flex;align-items:center;gap:6px"><span class="spin" aria-hidden="true">⏳</span> 면접 정보를 저장하고 있습니다. 곧 발송을 시작합니다.</span>`;
+  } else if(q.prepareFailed) {
+    footer.innerHTML = `<button class="btn" data-action="call" data-call="closeCollectSend()">닫기</button>`;
+  } else if(collectSendBusy) {
     footer.innerHTML = `<span style="font-size:11.5px;color:var(--t2);align-self:center;display:flex;align-items:center;gap:6px"><span class="spin" aria-hidden="true">⏳</span> 지원자 일정요청 메일을 발송하고 있습니다.</span>`;
   } else if(failed) {
     footer.innerHTML = `<button class="btn" data-action="call" data-call="closeCollectSend()">닫기</button><button class="btn btn-primary" data-action="call" data-call="doCollectSendCurrent()">실패 ${failed}명 재발송</button>`;
@@ -785,6 +807,10 @@ async function doCollectSendCurrent() {
 function skipCollectSend() { return; }
 
 function closeCollectSend() {
+  if(collectSendQueue?.preparing) {
+    toast('면접 정보 저장이 끝난 뒤 닫을 수 있습니다.', 'tw');
+    return;
+  }
   if(collectSendBusy) {
     toast('메일 발송이 끝난 뒤 닫을 수 있습니다.', 'tw');
     return;

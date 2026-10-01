@@ -145,6 +145,43 @@ function handleDelegatedFormEvent(eventName, target, delegatedEvent) {
 // ══════════════════════════════════════════════════════════════
 // 초기화
 // ══════════════════════════════════════════════════════════════
+// 고정 URL은 GS 설정 로드 후에도 유지한다(빈 값으로 덮어쓰지 않도록 재적용).
+function applyFixedUrls_() {
+  if(FIXED_URLS.scriptUrl)      GS_CONFIG.scriptUrl      = FIXED_URLS.scriptUrl;
+  if(FIXED_URLS.referralDataUrl) GS_CONFIG.referralDataUrl = FIXED_URLS.referralDataUrl;
+  if(FIXED_URLS.interviewerUrl) GS_CONFIG.interviewerUrl = FIXED_URLS.interviewerUrl;
+  if(FIXED_URLS.refAutoUrl)     GS_CONFIG.refAutoUrl     = FIXED_URLS.refAutoUrl;
+  if(FIXED_URLS.referralScriptUrl) GS_CONFIG.referralScriptUrl = FIXED_URLS.referralScriptUrl;
+}
+
+// 시작 시 데이터 동기화 — 화면은 로컬 캐시로 이미 그려져 있으므로 전체 로딩창 없이(background)
+// 진행하고 상단 상태 표시만 갱신한다. 면접관 DB와 외부 레퍼런스 상태는 관련 화면에 처음 진입할 때 불러온다.
+function startStartupDataSync_() {
+  if(!GS_CONFIG.scriptUrl) {
+    auxSyncSuspended = false;
+    showSyncStatus('⚠ 관리자 URL 미설정 — 설정 탭에서 관리자 Apps Script URL을 입력하세요.', 'warn');
+    return;
+  }
+  loadAuxStateFromGS().then(loaded => {
+    if(loaded) { renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog(); }
+  }).finally(() => { auxSyncSuspended = false; });
+  syncCoreFromGS({background:true}).then(loaded => {
+    if(loaded) {
+      alignStartedInterviewStagesForActivePositions_();
+      renderDashboard(); renderRecruitStatus(); renderTracker(); renderPositions(); renderIntTable();
+      showSyncStatus('Google Sheets 기준으로 로드됨', 'ok');
+    } else {
+      showSyncStatus('⚠ GS 응답 없음 — 로컬 캐시로 표시 중', 'warn');
+    }
+  }).catch(() => {
+    showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
+  });
+  // 사내추천은 별도 스프레드시트라 위 syncCoreFromGS 커서 폴링에 안 잡힘 — 따로 동기화
+  syncReferralCoreFromGS().then(loaded => {
+    if(loaded) { renderReferralSection(); updateMetrics(); }
+  }).catch(() => {});
+}
+
 window.addEventListener('DOMContentLoaded', () => {
 try {
   bindAdminLogin_();
@@ -249,45 +286,31 @@ try {
 
   scrubLegacyBrowserSecrets();
 
-  // 설정 로드 (localStorage + GS 동기화)
-  loadSettingsWithGS().then(() => {
-    // 고정 URL은 GS 설정 로드 후에도 유지 (빈 값으로 덮어쓰지 않도록 재적용)
-    if(FIXED_URLS.scriptUrl)      GS_CONFIG.scriptUrl      = FIXED_URLS.scriptUrl;
-    if(FIXED_URLS.referralDataUrl) GS_CONFIG.referralDataUrl = FIXED_URLS.referralDataUrl;
-    if(FIXED_URLS.interviewerUrl) GS_CONFIG.interviewerUrl = FIXED_URLS.interviewerUrl;
-    if(FIXED_URLS.refAutoUrl)     GS_CONFIG.refAutoUrl     = FIXED_URLS.refAutoUrl;
-    if(FIXED_URLS.referralScriptUrl) GS_CONFIG.referralScriptUrl = FIXED_URLS.referralScriptUrl;
-    // 지원자 데이터 로드 (GS 우선, 실패 시 localStorage 캐시 유지)
-    if(GS_CONFIG.scriptUrl) {
-      loadAuxStateFromGS().then(loaded => {
-        if(loaded) { renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog(); }
-      }).finally(() => { auxSyncSuspended = false; });
-      syncCoreFromGS().then(loaded => {
-        if(loaded) {
-          renderDashboard(); renderRecruitStatus(); renderTracker(); renderPositions(); renderIntTable();
-          showSyncStatus('Google Sheets 기준으로 로드됨', 'ok');
-        } else {
-          showSyncStatus('⚠ GS 응답 없음 — 로컬 캐시로 표시 중', 'warn');
+  // 설정·데이터 로드 — 화면은 아래에서 로컬 캐시로 먼저 그려진다.
+  // Apps Script 화면에 로그인 세션이 없으면 원격 호출을 시작하지 않는다(모두 로그인 요구로 실패한다).
+  // 로그인하면 reloadAdminDataAfterLogin_()이 설정과 데이터를 다시 읽는다.
+  loadSettings();
+  applyFixedUrls_();
+  if(isAppsScriptDashboard_() && !getAdminSessionToken_()) {
+    showSyncStatus('관리자 로그인 후 Google Sheets 데이터를 불러옵니다.', 'warn');
+  } else {
+    // 로컬 설정에 관리자 URL이 이미 있으면 원격 설정과 핵심 데이터를 동시에 읽는다. 없으면(회사 PC의
+    // 브라우저 데이터 삭제 등) 원격 설정이 scriptUrl을 채워야 동기화·저장이 동작하므로 설정 로드를 기다린다.
+    const startDataNow = !!GS_CONFIG.scriptUrl;
+    if(startDataNow) startStartupDataSync_();
+    loadSettingsWithGS()
+      .catch(e => console.warn('[startup] 원격 설정 로드 실패:', e?.message || e))
+      .then(() => {
+        applyFixedUrls_();
+        if(!startDataNow) startStartupDataSync_();
+        // 이전 세션에서 실패한 GS 저장 요청 재시도
+        if(hasGsBridge_()) {
+          setTimeout(flushGsRetryQueue, 1500);
+          startGsChangePolling_();
         }
-      }).catch(() => {
-        showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
+        checkAdminDeploymentConfig_();
       });
-      // 사내추천은 별도 스프레드시트라 위 syncCoreFromGS 커서 폴링에 안 잡힘 — 따로 동기화
-      syncReferralCoreFromGS().then(loaded => {
-        if(loaded) { renderReferralSection(); updateMetrics(); }
-      }).catch(() => {});
-    } else {
-      auxSyncSuspended = false;
-      showSyncStatus('⚠ 관리자 URL 미설정 — 설정 탭에서 관리자 Apps Script URL을 입력하세요.', 'warn');
-    }
-    // 면접관 DB와 외부 레퍼런스 상태는 관련 화면에 처음 진입할 때 불러온다.
-    // 이전 세션에서 실패한 GS 저장 요청 재시도
-    if(hasGsBridge_()) {
-      setTimeout(flushGsRetryQueue, 1500);
-      startGsChangePolling_();
-    }
-    checkAdminDeploymentConfig_();
-  });
+  }
   document.getElementById('tb-date').textContent = new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   renderDashboard();
   renderPositions();
