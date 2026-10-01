@@ -567,7 +567,7 @@ async function sendCollectSlots() {
     saveState();
     if(GS_CONFIG.scriptUrl) {
       const positionSync = await syncPosToGS(pos);
-      if(positionSync == null) { failPrepare('포지션 정보 저장에 실패했습니다. 닫고 다시 시도하세요.'); return; }
+      if(positionSync == null || positionSync?.error) { failPrepare('포지션 정보 저장에 실패했습니다. 닫고 다시 시도하세요.'); return; }
     }
 
     // 각 지원자 pending 면접 생성/갱신 (가능 시간대 응답 전)

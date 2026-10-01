@@ -156,7 +156,7 @@ function applyFixedUrls_() {
 // 시작 시 데이터 동기화 — 화면은 로컬 캐시로 이미 그려져 있으므로 전체 로딩창 없이(background)
 // 진행하고 상단 상태 표시만 갱신한다. 면접관 DB와 외부 레퍼런스 상태는 관련 화면에 처음 진입할 때 불러온다.
 function startStartupDataSync_() {
-  if(!GS_CONFIG.scriptUrl) {
+  if(!hasGsBridge_()) {
     auxSyncSuspended = false;
     showSyncStatus('⚠ 관리자 URL 미설정 — 설정 탭에서 관리자 Apps Script URL을 입력하세요.', 'warn');
     return;
@@ -295,7 +295,7 @@ try {
   } else {
     // 로컬 설정에 관리자 URL이 이미 있으면 원격 설정과 핵심 데이터를 동시에 읽는다. 없으면(회사 PC의
     // 브라우저 데이터 삭제 등) 원격 설정이 scriptUrl을 채워야 동기화·저장이 동작하므로 설정 로드를 기다린다.
-    const startDataNow = !!GS_CONFIG.scriptUrl;
+    const startDataNow = hasGsBridge_();
     if(startDataNow) startStartupDataSync_();
     loadSettingsWithGS()
       .catch(e => console.warn('[startup] 원격 설정 로드 실패:', e?.message || e))
