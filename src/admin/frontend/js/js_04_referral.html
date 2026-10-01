@@ -462,12 +462,18 @@ function selectReferral(id) { selectedReferralId = id; renderReferralSection(); 
 function saveReferralStatus(id) {
   const ref = referrals.find(r=>String(r.id)===String(id));
   if(!ref) return;
-  const status = document.getElementById('rf-edit-status')?.value || ref.status;
+  let status = document.getElementById('rf-edit-status')?.value || ref.status;
   const candId = document.getElementById('rf-edit-cand')?.value || '';
   const posId = document.getElementById('rf-edit-pos')?.value || '';
   const reason = document.getElementById('rf-edit-reason')?.value?.trim() || '';
   const hireDate = document.getElementById('rf-edit-hire-date')?.value || '';
   const hireCL = document.getElementById('rf-edit-cl')?.value || '';
+  // 입사일과 CL을 모두 입력해 저장하면, 상태를 '입사'로 바꾸는 걸 깜빡해도
+  // 포상금 스케줄이 생성되지 않는 일이 없도록 자동으로 '입사' 상태로 전환한다.
+  // 이미 불합격/불인정/취소/만료로 명시적으로 종료 처리된 건은 건드리지 않는다.
+  if(hireDate && hireCL && !['HIRED','FAILED','REJECTED','WITHDRAWN','EXPIRED'].includes(status)) {
+    status = 'HIRED';
+  }
   if(['FAILED','REJECTED'].includes(status) && !reason) { toast(status==='FAILED'?'불합격 사유를 입력하세요.':'불인정 사유를 입력하세요.','terr'); return; }
   if(status==='HIRED' && (!hireDate || !hireCL)) { toast('입사 상태는 입사일과 CL이 필요합니다.','terr'); return; }
   if(status==='HIRED' && ref.validUntil && formatDate(hireDate) > formatDate(ref.validUntil)) { toast('추천 유효기간 경과 후 입사 건은 포상금 대상 처리할 수 없습니다.','terr'); return; }
