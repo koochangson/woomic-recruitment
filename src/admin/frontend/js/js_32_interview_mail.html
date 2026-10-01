@@ -72,7 +72,7 @@ function renderInterviewNoticeFlow() {
       <div style="font-size:11px;color:var(--t3)">포지션에 면접관 이메일이 등록되지 않았습니다.</div>
     </div>` : `<div style="border:1px solid ${panelDone?'var(--gbd)':'var(--border)'};border-radius:var(--r);padding:13px;background:${panelDone?'var(--gbg)':'var(--surface)'}">
       <div style="font-size:12.5px;font-weight:700;margin-bottom:4px">면접관 단체 안내</div>
-      <div style="font-size:11px;color:var(--t3);margin-bottom:8px">면접관 ${panelists.length}명에게 정해진 양식으로 메일을 발송합니다. 면접조서 등 파일을 첨부한 뒤 발송하세요.</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:8px">면접관 ${panelists.length}명에게 정해진 양식으로 메일을 발송합니다. ${stageIdx === 3 ? '면접조서와 <b>레퍼런스 보고서</b>를 첨부한 뒤 발송하세요.' : '면접조서 등 파일을 첨부한 뒤 발송하세요.'}</div>
       <input type="file" id="inf-panel-files" multiple accept=".pdf,.doc,.docx,.hwp,.hwpx,.xls,.xlsx" style="font-size:11px;margin-bottom:8px;width:100%">
       <div style="display:flex;align-items:center;gap:7px">
         ${panelDone&&!interviewNoticeBusy.panel?'<span class="b bgreen">발송 완료</span>':''}
@@ -563,7 +563,7 @@ async function sendPanelNotice(posId, round, returnToPosition=true, attachments=
     if(refIncomplete.length) {
       const proceed = await confirmActionModal({
         title:'레퍼런스 체크 미완료',
-        message:'2차 면접 전까지 레퍼런스 체크가 완료·보고되어야 합니다. 완료되지 않은 지원자가 있는 상태로 면접관 안내를 계속 진행할까요?',
+        message:'2차 면접 전까지 레퍼런스 체크가 완료되어야 하고, 보고서는 이 면접관 안내 메일에 첨부합니다. 완료되지 않은 지원자가 있는 상태로 면접관 안내를 계속 진행할까요?',
         items:refIncomplete.map(c => `${c.name} · 레퍼런스 ${c.ref || '미시작'}`),
         confirmLabel:'그대로 안내 발송',
         danger:true,

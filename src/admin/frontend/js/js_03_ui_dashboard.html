@@ -664,7 +664,7 @@ function getSecondInterviewDate(c) {
   const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === '2차' && i.date && i.status !== 'cancelled');
   return itv ? itv.date : '';
 }
-// 레퍼런스는 2차면접일 전까지 완료·면접관 전달돼야 한다. 막지는 않고 경고만 한다.
+// 레퍼런스는 2차면접일 전까지 완료돼야 한다. 막지는 않고 경고만 한다(보고서는 2차 면접관 안내 메일에 첨부).
 // 반환: null(문제 없음) 또는 { days, date, reason }
 function getReferenceInterviewRisk(c, warnDays = REF_INTERVIEW_WARN_DAYS) {
   if(!c || !requiresReferenceCheck(c) || c.ref === '생략') return null;
@@ -672,8 +672,8 @@ function getReferenceInterviewRisk(c, warnDays = REF_INTERVIEW_WARN_DAYS) {
   const date = getSecondInterviewDate(c);
   const at = parseRefDate_(date);
   if(!at) return null;
-  const reason = c.ref !== '완료' ? '레퍼런스 미완료' : (!c.refReportSentAt ? '보고서 미전달' : '');
-  if(!reason) return null;
+  if(c.ref === '완료') return null;
+  const reason = '레퍼런스 미완료';
   const days = Math.ceil((at.getTime() - Date.now()) / 86400000);
   if(days > warnDays) return null;
   return { days, date, reason };
@@ -687,11 +687,11 @@ function refInterviewRiskText(risk) {
 function warnReferenceBeforeSecondInterview(cands) {
   const risky = (cands || []).filter(c => {
     if(!c || !requiresReferenceCheck(c) || c.ref === '생략') return false;
-    return c.ref !== '완료' || !c.refReportSentAt;
+    return c.ref !== '완료';
   });
   if(!risky.length) return;
   const names = risky.slice(0, 3).map(c => c.name).join(', ') + (risky.length > 3 ? ` 외 ${risky.length - 3}명` : '');
-  toast(`레퍼런스는 2차면접일 전까지 완료·면접관 전달돼야 합니다. 미완료: ${names}`, 'tw');
+  toast(`레퍼런스는 2차면접일 전까지 완료돼야 합니다. 미완료: ${names}`, 'tw');
 }
 
 
@@ -863,7 +863,7 @@ function renderStageKanban() {
               refBadge += `<span class="b ${d===0?'bred':'bamber'}" style="font-size:10px">레퍼런스 ${d}/${t}${dl?` · ${dl.label} ${fmtItv(dl.at).split(' ')[0]}`:''}</span>`;
             } else refBadge += '<span class="b bred" style="font-size:10px">레퍼런스 미시작</span>';
             const risk = getReferenceInterviewRisk(c);
-            if(risk) refBadge += ` <span class="b bred" style="font-size:10px" title="레퍼런스는 2차면접일 전까지 완료·면접관 전달돼야 합니다">${esc(refInterviewRiskText(risk))}</span>`;
+            if(risk) refBadge += ` <span class="b bred" style="font-size:10px" title="레퍼런스는 2차면접일 전까지 완료돼야 합니다">${esc(refInterviewRiskText(risk))}</span>`;
           }
           const intWarn = intWarnSet.has(Number(c.id));
           const joinInfo = Number(c.stage) === 5 ? `<span class="b ${getCandidateJoinDate(c)?'bgreen':'bamber'}" style="font-size:10px">${esc(getCandidateJoinDateLabel(c))}</span>` : '';
@@ -988,14 +988,14 @@ function dashboardActionCategory(item) {
   const label = String(item?.label || '');
   if(/referral|reward/.test(type) || /사내추천|포상금/.test(title)) return '사내추천';
   if(/reference|ref_/.test(type) || /레퍼런스/.test(title) || /레퍼런스/.test(label)) return '레퍼런스';
-  if(/mail|notice/.test(type) || /메일|발송|안내 확인|면접안내/.test(title) || label === '완료') return '메일 확인';
+  if(/mail|notice/.test(type) || /메일|발송|안내 확인|면접안내/.test(title) || label === '완료') return '메일 발송';
   if(/interview|schedule|slots|first_|second_/.test(type) || /면접|일정|후보일정/.test(title)) return '면접 운영';
   if(/candidate|fill|offer|residual|unlinked|onboard/.test(type) || /충원|지원자 등록|지원자 미배정|미연결|처우협의|잔여|입사 안내/.test(title)) return '포지션 관리';
   return '기타';
 }
 
 function renderDashboardActionList(items) {
-  const order = ['포지션 관리','면접 운영','레퍼런스','사내추천','메일 확인','기타'];
+  const order = ['포지션 관리','면접 운영','레퍼런스','사내추천','메일 발송','기타'];
   return order.map(category => {
     const group = items.filter(item => item.category === category);
     if(!group.length) return '';
@@ -1056,12 +1056,12 @@ function getDashboardActionItems() {
     // 그 작업을 수행하는 화면(포지션 상세 또는 지원자 상세)으로 바로 이동할 수 있어야 한다.
     const navCall = m.posId != null ? `openPosDetail(${m.posId});scrollPositionDetail('pp-position-candidates')`
       : (m.candId != null ? `editCandidate(${m.candId})` : null);
-    items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'기존 수동 발송 대기 · 발송 완료 확인',label:'완료',call:`confirmMailPendingAt(${index})`,navCall,navLabel:'이동',danger:false});
+    items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'발송 실패 · 재발송 필요 (다른 경로로 이미 보냈다면 완료)',label:'완료',call:`confirmMailPendingAt(${index})`,navCall,navLabel:'이동',danger:false});
   });
   return items.map(item => ({...item, category:dashboardActionCategory(item)}));
 }
 
-// ── 처리 필요 업무: 포지션 우선 업무 + 전역 누락/메일 확인 항목 ──
+// ── 처리 필요 업무: 포지션 우선 업무 + 전역 누락/메일 발송 항목 ──
 function renderUrgent() {
   const el = document.getElementById('dash-urgent');
   if(!el) return;

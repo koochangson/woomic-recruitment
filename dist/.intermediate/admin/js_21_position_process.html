@@ -40,6 +40,13 @@ function positionRoundData(positionId, stageIdx) {
   };
 }
 
+// 확정된 면접이 있고, 그 전원에게 지원자 안내와 면접관 안내가 모두 발송됐는지
+function isRoundNoticeComplete_(roundData) {
+  const confirmed = roundData?.confirmed || [];
+  if(!confirmed.length) return false;
+  return confirmed.every(i => (i.candidateNotified || i.candNotified) && (i.panelNotified || i.notified));
+}
+
 function isRoundAvailabilityComplete(roundData) {
   if(!roundData?.candidates?.length) return false;
   return roundData.candidates.every(c => {
@@ -120,11 +127,9 @@ function getPositionActionItems(positionId) {
       if(r2.confirmed.length && r2.candidateNotified.length < r2.confirmed.length) add('second_candidate_notice','medium',`2차 면접 ${routeNoticeText} 미발송`,`확정된 2차 면접일정을 ${hasHeadhunting?'업체 경유로':'지원자에게'} 안내`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
       // 면접관 안내는 이미 나갔는데(최초 안내), 그 뒤에 레퍼런스가 완료된 경우 — 보고서를
       // 면접관에게 별도로 전달해야 한다(자동 첨부하지 않으므로 수동 전달 여부만 추적).
-      const refFollowupNeeded = list.filter(c => [3,4].includes(c.stage) && requiresReferenceCheck(c) && c.ref === '완료' && !c.refReportSentAt);
-      // 레퍼런스는 2차면접일 전까지 완료·면접관 전달돼야 한다(차단하지 않고 경고만).
+      // 레퍼런스는 2차면접일 전까지 완료돼야 한다(차단하지 않고 경고만). 보고서는 2차 면접관 안내 메일에 첨부한다.
       const refInterviewRisk = list.filter(c => getReferenceInterviewRisk(c));
-      if(refInterviewRisk.length) add('reference_before_interview','high','2차면접 전 레퍼런스 완료 필요',`2차면접 ${REF_INTERVIEW_WARN_DAYS}일 이내 · 레퍼런스 미완료/보고서 미전달 ${refInterviewRisk.length}명 (${refInterviewRisk.slice(0,3).map(c=>c.name).join(', ')})`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
-      if(r2.panelNotified.length && refFollowupNeeded.length) add('reference_followup','medium','레퍼런스 보고서 면접관 전달 필요',`완료된 레퍼런스 보고서를 아직 전달 표시하지 않은 지원자 ${refFollowupNeeded.length}명`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+      if(refInterviewRisk.length) add('reference_before_interview','high','2차면접 전 레퍼런스 완료 필요',`2차면접 ${REF_INTERVIEW_WARN_DAYS}일 이내 · 레퍼런스 미완료 ${refInterviewRisk.length}명 (${refInterviewRisk.slice(0,3).map(c=>c.name).join(', ')})`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
       const secondResult = list.filter(c => c.stage === 3 && !c.decision);
       if(r2.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
     }
@@ -158,6 +163,11 @@ function getPositionProcessStatus(positionId) {
   const r1 = positionRoundData(positionId, 1);
   const r2 = positionRoundData(positionId, 3);
   const refCands = list.filter(c => c.stage >= 2 && c.stage !== 6);
+  // 레퍼런스 단계는 대상자(간부급 정규직) 기준으로 판정한다. 대상자가 없으면 '완료'가 아니라 판정 보류다.
+  // 2차면접 이상 지원자가 있는데 대상자가 한 명도 없으면(전원 사원급 등) 레퍼런스 단계를 생략으로 표시한다.
+  const refEligible = refCands.filter(requiresReferenceCheck);
+  const refSkip = short || (refCands.length > 0 && refEligible.length === 0);
+  const refAll = test => refEligible.length > 0 && refEligible.every(test);
   const flow = getPositionFlow(pos);
   const activeOrPassed = list.filter(c => c.stage !== 6);
   const allPast = stage => activeOrPassed.length > 0 && activeOrPassed.every(c =>
@@ -169,17 +179,17 @@ function getPositionProcessStatus(positionId) {
     { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
     { key:'int1_panel', title:'1차 면접관 일정 확인', done:!!pos.panel1AvailabilityConfirmedAt || pastInt1, skip:false },
     { key:'int1_slots', title:'1차 지원자 가능일 확인', done:isRoundAvailabilityComplete(r1) || pastInt1, skip:false },
-    { key:'int1_notice', title:'1차 면접안내', done:r1.confirmed.length > 0 || pastInt1, skip:false },
+    // 일정 확정만으로 완료 처리하던 문제 — 확정된 면접 전원에게 지원자·면접관 안내가 모두 나가야 완료다.
+    { key:'int1_notice', title:'1차 면접안내', done:isRoundNoticeComplete_(r1) || pastInt1, skip:false },
     { key:'int1_result', title:'1차 면접결과', done:pastInt1, skip:false },
-    { key:'ref_req', title:'레퍼런스 체크 요청', done:refCands.some(c => c.ref !== '미시작'), skip:short },
+    { key:'ref_req', title:'레퍼런스 체크 요청', done:refAll(c => c.ref !== '미시작'), skip:refSkip },
     // 2차면접이 레퍼런스와 병행 진행되므로 "stage가 2차면접 이상"이라는 사실만으로는
     // 더 이상 레퍼런스 완료를 의미하지 않는다 — 실제 ref 상태로만 판정한다.
-    { key:'ref_done', title:'레퍼런스 완료', done:refCands.some(c => c.ref === '완료' || c.ref === '생략'), skip:short },
+    { key:'ref_done', title:'레퍼런스 완료', done:refAll(c => c.ref === '완료' || c.ref === '생략'), skip:refSkip },
     // 완료된 레퍼런스 보고서를 면접관에게 전달했는지(수동 전달 — 자동 첨부하지 않음).
-    { key:'ref_followup', title:'레퍼런스 보고서 면접관 전달', done:refCands.every(c => c.ref !== '완료' || !!c.refReportSentAt), skip:short },
     { key:'int2_panel', title:'2차 면접관 일정 확인', done:!!pos.panel2AvailabilityConfirmedAt || pastInt2, skip:short },
     { key:'int2_slots', title:'2차 지원자 가능일 확인', done:isRoundAvailabilityComplete(r2) || pastInt2, skip:short },
-    { key:'int2_notice', title:'2차 면접안내', done:r2.confirmed.length > 0 || pastInt2, skip:short },
+    { key:'int2_notice', title:'2차 면접안내', done:isRoundNoticeComplete_(r2) || pastInt2, skip:short },
     { key:'int2_result', title:'2차 면접결과', done:pastInt2, skip:short },
     { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
     { key:'final', title:'최종합격', done:final.length > 0 && !list.some(c => c.stage === 4), skip:false },
@@ -191,7 +201,7 @@ function getPositionProcessStatus(positionId) {
     first_panel_availability:'int1_panel', first_slots:'int1_slots', first_schedule:'int1_notice', first_schedule_reply:'int1_notice',
     first_panel_notice:'int1_notice', first_candidate_notice:'int1_notice',
     first_interview_done:'int1_result', first_result:'int1_result',
-    reference_request:'ref_req', reference_resend:'ref_req', reference_remind:'ref_done', reference_complete:'ref_done', reference_followup:'ref_followup',
+    reference_request:'ref_req', reference_resend:'ref_req', reference_remind:'ref_done', reference_complete:'ref_done',
     second_panel_availability:'int2_panel', second_slots:'int2_slots', second_schedule:'int2_notice',
     second_panel_notice:'int2_notice', second_candidate_notice:'int2_notice',
     second_result:'int2_result', offer_negotiation:'offer', fill_complete:'final', onboard_pending:'onboard'
@@ -258,7 +268,7 @@ function renderPositionProcessChecklist(positionId) {
   const groups = [
     { title:'서류합격', stage:0, tasks:[mergeTask('지원자 등록',['register'],'candidate_register')] },
     { title:'1차 면접', stage:1, tasks:[mergeTask('면접관 일정 확인',['int1_panel'],'int1_panel'),mergeTask('지원자 가능일 확인',['int1_slots'],'int1_slots'),mergeTask('면접안내',['int1_notice'],'int1_notice'),mergeTask('면접결과',['int1_result'],'int1_result')] },
-    { title:'2차 면접', stage:3, tasks:[mergeTask('면접관 일정 확인',['int2_panel'],'int2_panel'),mergeTask('지원자 가능일 확인',['int2_slots'],'int2_slots'),mergeTask('면접안내',['int2_notice'],'int2_notice'),mergeTask(refRequestTitle,['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete'),mergeTask('면접관 후속 전달',['ref_followup'],'ref_followup'),mergeTask('면접결과',['int2_result'],'int2_result')] },
+    { title:'2차 면접', stage:3, tasks:[mergeTask('면접관 일정 확인',['int2_panel'],'int2_panel'),mergeTask('지원자 가능일 확인',['int2_slots'],'int2_slots'),mergeTask('면접안내',['int2_notice'],'int2_notice'),mergeTask(refRequestTitle,['ref_req'],'ref_request'),mergeTask('레퍼런스 완료',['ref_done'],'ref_complete'),mergeTask('면접결과',['int2_result'],'int2_result')] },
     { title:'처우협의', stage:4, tasks:[mergeTask('처우협의 및 결과 판단',['offer','final'],'offer_decision'),mergeTask('입사안내',['onboard'],'onboard')] },
   ];
   const flow = d ? getPositionFlow(d.pos) : FLOW;
@@ -445,7 +455,6 @@ async function executePositionProcessTask(positionId, actionKey) {
   if(actionKey === 'int1_result' || actionKey === 'int2_result') return openPositionResultModal(positionId, stageIdx);
   if(actionKey === 'ref_request') return requestPositionReferences(positionId);
   if(actionKey === 'ref_complete') return completePositionReferences(positionId);
-  if(actionKey === 'ref_followup') return scrollPositionDetail('pp-position-candidates');
   if(actionKey === 'offer') return changePositionProcessStage(positionId, 4);
   if(actionKey === 'offer_decision') {
     if(d.list.some(c=>c.stage===4)) return openPositionResultModal(positionId,4);
