@@ -33,8 +33,9 @@ function requestStageChange(candId, newStage) {
   if(!c || newStage < 0 || newStage > 7) return;
   if(c.stage === newStage) { toast('이미 해당 단계입니다.'); return; }
 
-  const needsReferenceMailChoice = newStage === 2
-    && c.stage !== 2
+  // 레퍼런스는 더 이상 별도 단계가 아니라 2차면접(3) 진입과 함께 병행 시작된다.
+  const needsReferenceMailChoice = newStage === 3
+    && c.stage !== 3
     && requiresReferenceCheck(c)
     && c.ref === '미시작';
   pendingStageChange = { candId, newStage, referenceMailChoice: needsReferenceMailChoice ? null : false };
@@ -110,7 +111,7 @@ function buildStageNotifyMsg(c, newStage) {
       const scheduleText = slots.length
         ? `\n\n아래 면접 후보 일정 중 가능한 일시를 회신해 주세요.\n${slots.join('\n')}\n\n※ 모두 어려우시면 가능한 일정을 말씀해 주세요.`
         : '\n\n2차 임원면접 일정을 곧 안내드리겠습니다.';
-      return `📋 [2차 면접 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n레퍼런스 체크가 완료되었습니다. 감사합니다!${scheduleText}\n\n우미건설 피플팀 드림`;
+      return `📋 [2차 면접 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n1차 면접 결과를 바탕으로 2차 임원면접을 진행하고자 합니다.${scheduleText}\n\n우미건설 피플팀 드림`;
     })(),
     4: `💼 [처우 협의 안내 - 우미건설]\n안녕하세요 ${esc(c.name)}님,\n채용 절차가 순조롭게 진행되고 있습니다.\n\n처우 협의를 위해 연락드리겠습니다.\n우미건설 피플팀 드림`,
     5: `🎉 [최종 합격 안내 - 우미건설]\n${esc(c.name)}님, 진심으로 축하드립니다!\n\n우미건설 ${esc(c.pos)} 포지션 최종 합격을 알려드립니다.\n\n입사 예정일: ${getCandidateJoinDate(c) || '입사안내 화면에서 확정 예정'}\n\n입사 준비 사항은 별도 안내드리겠습니다.\n\n우미건설 피플팀 드림`,
@@ -135,8 +136,8 @@ async function confirmStageChange() {
   const c = candidates.find(x => x.id === candId);
   if(!c) return;
 
-  const needsReferenceMailChoice = newStage === 2
-    && c.stage !== 2
+  const needsReferenceMailChoice = newStage === 3
+    && c.stage !== 3
     && requiresReferenceCheck(c)
     && c.ref === '미시작';
   if(needsReferenceMailChoice && referenceMailChoice === null) {
@@ -161,14 +162,15 @@ async function confirmStageChange() {
     }
   }
 
-  // ── B. 소프트 경고: 레퍼런스를 완료하지 않고 레퍼런스 단계를 지나치면 확인 ──
+  // ── B. 소프트 경고: 레퍼런스 미완료 상태로 처우협의(4) 이상으로 넘어가면 확인 ──
+  // (2차면접(3)까지는 레퍼런스와 무관하게 병행 진행 가능 — requiresReferenceCheck 참고)
   let skipRef = false;
   if(newStage !== 6 && requiresReferenceCheck(c) && c.ref !== '완료' && c.ref !== '생략') {
     const flowForRef = getFlowForCandidate(c);
-    if(flowIndex(newStage, flowForRef) > flowIndex(2, flowForRef)) {
+    if(flowIndex(newStage, flowForRef) > flowIndex(3, flowForRef)) {
       const refLabel = c.ref === '진행중' ? `레퍼런스가 진행 중입니다 (${c.refD||0}/${c.refT||3}명 응답).` : '레퍼런스 체크가 아직 시작되지 않았습니다.';
       const confirmed = await confirmActionModal({
-        title:'레퍼런스 단계 건너뛰기',
+        title:'레퍼런스 미완료',
         message:`${refLabel} 완료하지 않고 '${STAGES[newStage]}' 단계로 이동합니다.`,
         items:[`${c.name} · 레퍼런스 상태를 '생략'으로 기록`],
         confirmLabel:'생략 후 이동',
@@ -180,8 +182,9 @@ async function confirmStageChange() {
   }
 
   const oldStage = c.stage;
-  const shouldPromptReferenceStart = newStage === 2
-    && oldStage !== 2
+  // 레퍼런스는 2차면접(3) 진입과 함께 병행 시작된다.
+  const shouldPromptReferenceStart = newStage === 3
+    && oldStage !== 3
     && requiresReferenceCheck(c)
     && c.ref === '미시작';
   const rejectionInfo = newStage === 6 ? await askRejectReason(1) : null;
@@ -230,8 +233,8 @@ async function confirmStageChange() {
       // 삭제된 면접은 화면 기준이므로 별도 처리 없이 다음 동기화에서 정리됨
     }
   }
-  // 레퍼런스 단계 진입 시에는 추천인 등록 안내 메일 발송 여부를 별도로 확인한다.
-  if(newStage === 2 && c.ref === '진행중') ensureRefDetails(c);
+  // 레퍼런스는 2차면접 진입 시 병행 시작되며, 추천인 등록 안내 메일 발송 여부는 별도로 확인한다.
+  if(newStage === 3 && c.ref === '진행중') ensureRefDetails(c);
   syncReferralFromCandidate(c);
 
   // 알림 발송 (지원자는 외부인 → 이메일만)
@@ -303,7 +306,7 @@ async function confirmStageChange() {
       const sent = await startRef(c.id, false);
       if(!sent) toast('단계 이동은 완료됐지만 추천인 등록 안내 메일은 발송되지 않았습니다.', 'tw');
     } else {
-      toast('레퍼런스 단계로 이동했습니다. 추천인 등록 안내 메일은 발송하지 않았습니다.', 'tw');
+      toast('2차면접 단계로 이동했습니다. 추천인 등록 안내 메일은 발송하지 않았습니다.', 'tw');
     }
   }
 

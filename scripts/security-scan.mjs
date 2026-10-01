@@ -50,7 +50,9 @@ const requiredPatterns = [
   },
   {
     id: 'legacy-browser-secret-scrub',
-    file: 'recruitment_dashboard_v4.html',
+    // recruitment_dashboard_v4.html(레거시 단일 파일)은 삭제됐다 — 분할 구조에서는
+    // 이 함수가 js_06_onboarding_settings.html에 있다.
+    file: 'src/admin/frontend/js/js_06_onboarding_settings.html',
     pattern: /function\s+scrubLegacyBrowserSecrets\(/,
     message: 'Dashboard must scrub legacy browser-stored secrets.',
   },

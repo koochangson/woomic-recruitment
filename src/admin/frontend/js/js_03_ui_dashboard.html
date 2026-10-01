@@ -542,8 +542,12 @@ function buildRefRequestEmail(cand, link) {
   return `안녕하세요, ${cand.name}님.\n\n우미건설 ${cand.pos} 포지션 채용 절차와 관련하여 레퍼런스 체크를 진행하고자 합니다.\n\n아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.\n\n추천인 등록 링크\n${formUrl}\n\n등록 정보\n- 성함\n- 이메일\n- 휴대폰 번호\n- 지원자와의 관계\n\n등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.\n추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
 }
 
+// 레퍼런스 대상 여부 — FLOW가 더 이상 2를 포함하지 않으므로(병행 트랙으로 분리) FLOW
+// 멤버십이 아니라 고용형태로 직접 판정한다. 전문직·파견직(FLOW_SHORT 대상)만 제외하는
+// 기존 동작은 그대로 유지한다.
 function requiresReferenceCheck(c) {
-  return getFlowForCandidate(c).includes(2);
+  const pos = c && c.posId != null ? positions.find(p => Number(p.id) === Number(c.posId)) : null;
+  return !(pos && isShortProcessEtype(pos.etype));
 }
 
 

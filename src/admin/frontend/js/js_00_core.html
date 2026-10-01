@@ -641,6 +641,9 @@ const TITLES = {
 };
 
 const STAGES = ['서류합격','1차면접','레퍼런스','2차면접','처우협의','최종합격','불합격','입사'];
+// 번호 그대로 쓰면서 가독성만 더하는 명명 상수. 2(LEGACY_REFERENCE)는 FLOW에서 빠졌으므로
+// 새 지원자는 더 이상 이 값을 거치지 않는다 — 과거 데이터 호환을 위해 배열 자체는 유지한다.
+const STAGE = { DOCUMENT_PASSED:0, FIRST_INTERVIEW:1, LEGACY_REFERENCE:2, SECOND_INTERVIEW:3, OFFER:4, FINAL:5, REJECTED:6, HIRED:7 };
 const STAGE_DISPLAY = { 0:'서류합격' };
 function stageLabel(stageIdx){ return STAGE_DISPLAY[stageIdx] || STAGES[stageIdx] || ''; }
 const SBG    = ['bgray','bblue','bblue','bblue','bamber','bgreen','bred','bgreen'];
@@ -648,7 +651,7 @@ const STAGE_GUIDES = {
   0: { msg:'서류 검토 단계로 이동합니다.', notify:false },
   1: { msg:'1차 실무면접 단계로 이동합니다.\n면접 일정 확인과 안내 발송은 포지션 상세 프로세스에서 진행합니다.', notify:false },
   2: { msg:'레퍼런스 체크 단계로 이동합니다.\n지원자에게 추천인 등록 안내를 발송하고 체크를 시작합니다.', notify:true, tpl:'ref' },
-  3: { msg:'2차 임원면접 단계로 이동합니다.\n면접 일정 확인과 안내 발송은 포지션 상세 프로세스에서 진행합니다.', notify:false },
+  3: { msg:'2차 임원면접 단계로 이동합니다.\n면접 일정 확인과 안내 발송은 포지션 상세 프로세스에서 진행합니다.\n레퍼런스 체크도 이 시점부터 병행 진행되며, 처우협의 이동 전까지 완료·보고되어야 합니다.', notify:false },
   4: { msg:'처우협의 단계로 이동합니다.\n연봉·직급·입사일 등 조건 협의 후 최종 판정을 진행하세요.', notify:false },
   5: { msg:'🎉 처우협의가 완료되어 최종합격으로 확정됩니다.\n확정 후 입사 안내 화면으로 자동 이동합니다.', notify:false },
   6: { msg:'불합격 처리합니다.\n지원자에게 불합격 안내 메시지를 발송하시겠습니까?', notify:true, tpl:'reject' },
@@ -661,7 +664,10 @@ const STAGE_COLORS = ['var(--t3)','var(--blue)','var(--blue)','var(--blue)','var
 // 진행 단계 순서 (불합격 6 제외) — 정규직: 전체 / 전문직·파견직: 1차면접까지만
 // 7(입사)이 빠져 있으면 최종합격(5)→입사(7) 이동이 flowIndex(7)=-1<flowIndex(5)=5로
 // "뒤로 이동"으로 오판되어 resetCandidateProgressForRollback이 합격 결정·확정일을 지운다.
-const FLOW = [0,1,2,3,4,5,7];
+// 레퍼런스(2)는 메인 플로우에서 제외한다 — 1차합격 후 2차면접(3)으로 바로 이동하고,
+// 레퍼런스는 c.ref/refD/refT로 병행 추적한다(requiresReferenceCheck 참고). 번호 자체는
+// 과거 데이터(시트의 lastCompletedStage, 레거시 stage=2 레코드) 호환을 위해 그대로 둔다.
+const FLOW = [0,1,3,4,5,7];
 const FLOW_SHORT = [0,1,4,5,7]; // 레퍼런스·2차면접 생략
 // 대시보드 칸반 보드 전용 — 입사(7)는 별도 테이블(입사 탭)·지원자 관리 필터로 확인하므로
 // 칸반 컬럼에서는 제외한다. FLOW/FLOW_SHORT 자체는 되돌리기 판정에 쓰이므로 그대로 둔다.
@@ -880,20 +886,26 @@ function runCoreRegressionTests() {
   refDetails = {23:[{name:'추천인1',email:'ref1@co.com',status:'대기'}]};
   assert(cleanupLegacyPlaceholderRefs()===1 && refDetails[23].length===0, '레퍼런스 테스트 추천인 자동 제거');
   positions = [{id:12,etype:'정규직',status:'active'}];
+  // 레퍼런스 게이트는 더 이상 레퍼런스(2)→2차면접(3) 이동을 막지 않는다 — 2차면접(3)→
+  // 처우협의(4) 이동 직전에 레퍼런스 완료·생략 여부를 확인한다(병행 진행 허용).
   candidates = [
-    {id:31,name:'완료자',posId:12,stage:2,ref:'완료',refD:3,refT:3},
-    {id:32,name:'미완료자',posId:12,stage:2,ref:'진행중',refD:1,refT:3}
+    {id:31,name:'완료자',posId:12,stage:3,ref:'완료',refD:3,refT:3,decision:'pass'},
+    {id:32,name:'미완료자',posId:12,stage:3,ref:'진행중',refD:1,refT:3,decision:'pass'}
   ];
-  let moveCheck = getPositionStageMoveBlockers(12,2,3);
-  assert(!moveCheck.ok && moveCheck.blockers[0].count===1, '레퍼런스 일부 미완료 시 전체 이동 차단');
+  interviews = [
+    {id:41,candId:31,type:'2차',date:'2026-06-12 10:00',status:'confirmed',candidateNotified:true,panelNotified:true,result:'pass'},
+    {id:42,candId:32,type:'2차',date:'2026-06-12 10:00',status:'confirmed',candidateNotified:true,panelNotified:true,result:'pass'}
+  ];
+  let moveCheck = getPositionStageMoveBlockers(12,3,4);
+  assert(!moveCheck.ok && moveCheck.blockers.some(x=>x.label==='레퍼런스 미완료' && x.count===1), '레퍼런스 일부 미완료 시 처우협의 이동 차단');
   candidates[1].ref='완료'; candidates[1].refD=3;
-  assert(getPositionStageMoveBlockers(12,2,3).ok, '레퍼런스 전원 완료 시 전체 이동 허용');
+  assert(getPositionStageMoveBlockers(12,3,4).ok, '레퍼런스 전원 완료 시 처우협의 이동 허용');
   candidates = [{id:33,name:'면접자',posId:12,stage:1,decision:'pass'}];
-  interviews = [{id:41,candId:33,type:'1차',date:'2026-06-12 10:00',status:'confirmed',candidateNotified:true,panelNotified:false,result:'pass'}];
-  moveCheck = getPositionStageMoveBlockers(12,1,2);
+  interviews = [{id:43,candId:33,type:'1차',date:'2026-06-12 10:00',status:'confirmed',candidateNotified:true,panelNotified:false,result:'pass'}];
+  moveCheck = getPositionStageMoveBlockers(12,1,3);
   assert(!moveCheck.ok && moveCheck.blockers.some(x=>x.label==='면접관 안내 미완료'), '면접 안내 일부 미완료 시 전체 이동 차단');
   interviews[0].panelNotified=true;
-  assert(getPositionStageMoveBlockers(12,1,2).ok, '면접 필수 업무 전원 완료 시 전체 이동 허용');
+  assert(getPositionStageMoveBlockers(12,1,3).ok, '면접 필수 업무 전원 완료 시 전체 이동 허용');
   positions = oldPositions; candidates = oldCandidates; interviews = oldInterviews; refDetails = oldRefDetails; refReports = oldRefReports;
   console.info('[core test] 26개 회귀 테스트 통과');
   return true;
