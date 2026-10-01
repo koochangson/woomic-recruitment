@@ -713,7 +713,8 @@ function renderStageKanban() {
             else if(c.ref === '생략') refBadge = '<span class="b bgray" style="font-size:10px">레퍼런스 생략</span>';
             else if(c.ref === '진행중') {
               const d = Number(c.refD || 0), t = Number(c.refT || 0) || 3;
-              refBadge = `<span class="b ${d===0?'bred':'bamber'}" style="font-size:10px">레퍼런스 ${d}/${t}</span>`;
+              const expected = getReferenceExpectedDate(c);
+              refBadge = `<span class="b ${d===0?'bred':'bamber'}" style="font-size:10px">레퍼런스 ${d}/${t}${expected?` · 완료예상 ${fmtItv(expected).split(' ')[0]}`:''}</span>`;
             } else refBadge = '<span class="b bred" style="font-size:10px">레퍼런스 미시작</span>';
           }
           const intWarn = intWarnSet.has(Number(c.id));

@@ -1020,6 +1020,18 @@ function ensureRefDetails(c) {
   return refDetails[c.id];
 }
 
+// 레퍼런스 완료 예상일 — 별도 입력란을 만들지 않고, 이미 추적 중인 추천인 응답
+// 링크 만료일(tokenExpiresAt) 중 아직 응답하지 않은 추천인의 가장 늦은 기한을 쓴다.
+// 전원 응답했거나 추천인이 없으면(완료/생략/대기) 빈 문자열을 반환한다.
+function getReferenceExpectedDate(c) {
+  const refs = refDetails[c?.id] || [];
+  const dates = refs
+    .filter(r => r.status !== '응답')
+    .map(r => r.tokenExpiresAt || r.deadline || '')
+    .filter(Boolean);
+  return dates.length ? dates.sort().slice(-1)[0] : '';
+}
+
 function isLegacyPlaceholderRef(ref) {
   const email = String(ref?.email || '').toLowerCase();
   const name = String(ref?.name || '');
@@ -1169,6 +1181,7 @@ function renderReference() {
         <td style="min-width:110px">
           <div style="font-size:11px;color:var(--t3);margin-bottom:3px">${c.refD}/${c.refT} 응답 · ${pct3}%</div>
           <div class="prog"><div class="pf-bar ${c.ref==='완료'?'pfg':c.refD===0?'pfr':'pfa'}" style="width:${pct3}%"></div></div>
+          ${c.ref==='진행중'&&getReferenceExpectedDate(c)?`<div style="font-size:10px;color:var(--t3);margin-top:3px">완료예상 ${esc(fmtItv(getReferenceExpectedDate(c)).split(' ')[0])}</div>`:''}
         </td>
         <td style="display:flex;gap:4px;flex-wrap:wrap">
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">시작</button>`:''}
