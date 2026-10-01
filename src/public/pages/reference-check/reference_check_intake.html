@@ -297,9 +297,9 @@
           <p class="q-note">여러 모습이 있었다면 가장 자주 보셨던 모습을 선택해 주세요.</p>
         </div>
 
-        <!-- Q3 -->
+        <!-- Q3-1 -->
         <div class="q-card">
-          <div class="q-head"><span class="q-num">3</span><span class="q-title">판단·확인 방식</span></div>
+          <div class="q-head"><span class="q-num">3-1</span><span class="q-title">판단·확인 방식</span></div>
           <p class="q-text"><span class="cand-name">OOO</span> 님이 맡은 업무를 진행할 때, 평소 모습과 가장 가까운 것을 선택해 주세요.</p>
           <fieldset class="opt-list option-fieldset" data-radio-group="q3_judgeStyle">
             <legend class="sr-only">업무 판단과 확인 방식</legend>
@@ -311,8 +311,12 @@
             <label class="opt-row"><input type="radio" name="q3_judgeStyle" value="직접 확인할 기회가 많지 않았음">직접 확인할 기회가 많지 않았음</label>
           </fieldset>
           <input type="text" id="q3_judgeStyle_other" class="opt-other-input" placeholder="상황에 따라 달랐다면 어떻게 달랐는지 간단히 적어 주세요">
+        </div>
 
-          <p class="q-text" style="font-size:14.5px;margin-top:18px"><b>3-보조.</b> <span class="cand-name">OOO</span> 님이 일을 하면서 처음 맡았던 범위보다 역할이 달라지거나 넓어진 일, 또는 새롭게 하거나 익혀야 했던 일이 있었나요?</p>
+        <!-- Q3-2 -->
+        <div class="q-card">
+          <div class="q-head"><span class="q-num">3-2</span><span class="q-title">역할의 확장</span></div>
+          <p class="q-text"><span class="cand-name">OOO</span> 님이 일을 하면서 처음 맡았던 범위보다 역할이 달라지거나 넓어진 일, 또는 새롭게 하거나 익혀야 했던 일이 있었나요?</p>
           <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 있었다면 그 일이 어떻게 시작되고 이후 어떻게 진행되었는지 간단히 적어 주세요.</p>
           <textarea id="q3_initiative" class="compact" required></textarea>
           <p class="q-note">그런 모습을 보신 적이 없으면 「본 적이 없습니다」처럼 그대로 적어 주세요.</p>
@@ -958,15 +962,15 @@
         return false;
       }
       if (!getRadioValue('q3_judgeStyle')) {
-        showRequiredAlert(document.querySelector('[data-radio-group="q3_judgeStyle"]'), '3번 문항의 선택지를 골라 주세요.');
+        showRequiredAlert(document.querySelector('[data-radio-group="q3_judgeStyle"]'), '3-1번 문항의 선택지를 골라 주세요.');
         return false;
       }
       if (getRadioValue('q3_judgeStyle') === '기타' && !getValue('q3_judgeStyle_other')) {
-        showRequiredAlert(document.getElementById('q3_judgeStyle_other'), '3번 문항 내용을 직접 입력해 주세요.');
+        showRequiredAlert(document.getElementById('q3_judgeStyle_other'), '3-1번 문항 내용을 직접 입력해 주세요.');
         return false;
       }
       if (!getValue('q3_initiative')) {
-        showRequiredAlert(document.getElementById('q3_initiative'), '3-보조 문항을 적어 주세요. 본 적이 없으시면 「본 적이 없습니다」처럼 적어 주세요.');
+        showRequiredAlert(document.getElementById('q3_initiative'), '3-2번 문항을 적어 주세요. 본 적이 없으시면 「본 적이 없습니다」처럼 적어 주세요.');
         return false;
       }
       if (!getValue('q4_successNarrative')) {
