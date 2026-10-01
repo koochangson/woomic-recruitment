@@ -21,6 +21,13 @@ function updateCsPreview(c, newStage) {
   previewEl.textContent = msg;
 }
 
+// 지원자 알림 발송 체크박스를 끄면 보낼 메일이 없으므로 미리보기도 같이 숨긴다.
+function toggleCsNotifyPreview(checkbox) {
+  const area = document.getElementById('cs-preview-area');
+  const optsVisible = document.getElementById('cs-notify-opts')?.style.display !== 'none';
+  if(area) area.style.display = (optsVisible && checkbox.checked) ? '' : 'none';
+}
+
 function updateReferenceStageMailChoiceUI() {
   const choice = pendingStageChange?.referenceMailChoice;
   const yes = document.getElementById('cs-ref-mail-yes');
@@ -68,9 +75,9 @@ function requestStageChange(candId, newStage) {
   const no = document.getElementById('cs-notify-opts');
   no.style.display = guide.notify && newStage !== 2 ? '' : 'none';
 
-  // 지원자 안내는 항상 이메일
-  const outlookCheck = document.getElementById('cs-notify-outlook');
-  if(outlookCheck) outlookCheck.checked = true;
+  // 알림 발송 여부 체크박스 — 모달을 열 때마다 기본값(발송)으로 리셋
+  const notifySend = document.getElementById('cs-notify-send');
+  if(notifySend) notifySend.checked = true;
 
   // 미리보기 메시지 생성
   const preview = buildStageNotifyMsg(c, newStage);
@@ -250,7 +257,8 @@ async function confirmStageChange() {
   // 알림 발송 (지원자는 외부인 → 이메일만)
   const guide = STAGE_GUIDES[newStage];
 
-  if(guide && guide.notify && newStage !== 2) {
+  const notifySendChecked = document.getElementById('cs-notify-send')?.checked !== false;
+  if(guide && guide.notify && newStage !== 2 && notifySendChecked) {
     const target = getCandidateMailTarget(c);
     let subject = `[우미건설] ${esc(c.name)}님 채용 진행 안내`;
     let body = buildStageNotifyMsg(c, newStage);
@@ -304,6 +312,8 @@ async function confirmStageChange() {
       c.mailPending = false;
       c.mailPendingLabel = '';
     }
+  } else if(guide && guide.notify && newStage !== 2 && !notifySendChecked) {
+    toast('안내 메일 없이 단계만 변경했습니다.', 'tok');
   }
 
   if(shouldPromptReferenceStart) {
