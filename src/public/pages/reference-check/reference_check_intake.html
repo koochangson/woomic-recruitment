@@ -525,6 +525,18 @@
     }
     populatePeriodSelects();
 
+    function restorePeriodSelectsFromHidden() {
+      ['q1_periodStart', 'q1_periodEnd'].forEach(prefix => {
+        const value = getValue(prefix);
+        if (!/^\d{4}-\d{2}$/.test(value)) return;
+        const [year, month] = value.split('-');
+        const yearSelect = document.getElementById(`${prefix}_y`);
+        const monthSelect = document.getElementById(`${prefix}_m`);
+        if (yearSelect) yearSelect.value = year;
+        if (monthSelect) monthSelect.value = String(Number(month));
+      });
+    }
+
     // 답변 작성 안내문 — 해당 입력란에 값이 있으면 숨기고, 비어 있으면 다시 보여준다.
     function updateFieldGuide(guide) {
       const field = document.getElementById(guide.dataset.guideFor);
@@ -700,6 +712,9 @@
         const field = document.getElementById(id);
         if (field && field.closest('#refCheckForm')) field.checked = !!checked;
       });
+      // 이전 UI에서 저장한 임시 데이터에는 숨은 YYYY-MM 값만 있으므로
+      // 새 연도·월 선택 컨트롤에도 같은 값을 복원한다.
+      restorePeriodSelectsFromHidden();
       updateOtherInputs();
       refreshAllFieldGuides();
       setReferenceFormStep(Number(draft.step) || 1, { persist: false, scroll: false, focus: false });

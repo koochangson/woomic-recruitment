@@ -292,6 +292,8 @@ async function confirmStageChange() {
       c.mailPendingLabel = '';
     }
   } else if(guide && guide.notify && newStage !== 2 && !notifySendChecked) {
+    c.mailPending = false;
+    c.mailPendingLabel = '';
     toast('안내 메일 없이 단계만 변경했습니다.', 'tok');
   }
 

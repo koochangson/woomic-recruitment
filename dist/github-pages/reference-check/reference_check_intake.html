@@ -71,9 +71,12 @@
     .q-text { font-size: 16px; font-weight: 700; line-height: 1.5; margin: 8px 0 14px; letter-spacing: -0.01em; }
     .q-sub { font-size: 14px; font-weight: 700; margin: 18px 0 10px; color: var(--text); }
     .q-note { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.55; }
+    .q-guide { font-size: 12.5px; color: var(--muted); margin: 2px 0 8px; line-height: 1.5; }
 
     .period-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-bottom: 16px; }
     .period-row span { color: var(--muted); font-size: 13px; text-align: center; }
+    .period-select-group { display: flex; gap: 6px; }
+    .period-select-group select { min-width: 0; }
     input[type="month"], input[type="text"], textarea, select {
       width: 100%;
       border: 1px solid var(--line);
@@ -192,7 +195,7 @@
         <p><span class="cand-name">OOO</span> 님이 우미건설 채용에 지원하시면서 귀하를 함께 일하셨던 분으로 알려 주셨습니다.</p>
         <p>본 설문은 함께 일했던 경험을 통해 <b><span class="cand-name">OOO</span> 님이 실제로 어떤 사람이고 어떤 방식으로 일했는지를 이해하기 위한 것</b>입니다.</p>
         <p>정답은 없으며, 직접 함께 일하며 보신 범위에서 편하게 답변해 주세요. 직접 확인하기 어려운 내용은 그렇게 표시해 주셔도 됩니다.</p>
-        <p class="muted-line">· 12문항, 20분 정도 걸립니다. 대부분 1~2문장이면 충분합니다.</p>
+        <p class="muted-line">· 12문항, 20분 정도 걸립니다.</p>
         <p class="muted-line">· 직접 보실 기회가 없었던 내용은 추측해서 작성하지 마시고 「직접 확인할 기회가 많지 않았습니다」처럼 그대로 적어 주세요. 그렇게 적어 주시는 것이 <span class="cand-name">OOO</span> 님을 더 정확하게 이해하는 데 도움이 됩니다.</p>
         <p class="muted-line">· 작성해 주신 내용은 채용 목적의 제한된 내부자료로 관리되며 <span class="cand-name">OOO</span> 님께 일반적으로 제공되지 않습니다. 다만 법령에 따른 열람 등 권리행사 요청이 있으면 개인정보 담당부서의 검토와 절차에 따라 처리될 수 있습니다.</p>
       </div>
@@ -216,9 +219,17 @@
 
           <div class="q-sub">함께 근무한 기간</div>
           <div class="period-row">
-            <input type="month" id="q1_periodStart" required>
+            <span class="period-select-group">
+              <select id="q1_periodStart_y" aria-label="시작 연도" required></select>
+              <select id="q1_periodStart_m" aria-label="시작 월" required></select>
+            </span>
             <span>~</span>
-            <input type="month" id="q1_periodEnd" required>
+            <span class="period-select-group">
+              <select id="q1_periodEnd_y" aria-label="종료 연도" required></select>
+              <select id="q1_periodEnd_m" aria-label="종료 월" required></select>
+            </span>
+            <input type="hidden" id="q1_periodStart">
+            <input type="hidden" id="q1_periodEnd">
           </div>
 
           <div class="q-sub">당시 관계</div>
@@ -252,12 +263,14 @@
           <p class="q-text">당시 <span class="cand-name">OOO</span> 님이 맡았던 업무의 범위를 알려 주세요.</p>
 
           <div class="q-sub">주로 맡으신 업무<span class="req-mark">*</span></div>
+          <p class="q-guide" data-guide-for="q1_2_mainTask"><span class="cand-name">OOO</span> 님이 주로 맡았던 업무를 적어 주세요.</p>
           <input type="text" id="q1_2_mainTask" required>
 
           <div class="q-sub">함께 진행한 프로젝트나 현장의 성격·규모<span class="req-mark">*</span></div>
           <input type="text" id="q1_2_projectScale" required>
 
-          <div class="q-sub">직접 맡아 처리하신 부분과 다른 분과 함께 진행하신 부분<span class="req-mark">*</span></div>
+          <div class="q-sub">직접 함께 진행하거나 협업한 업무<span class="req-mark">*</span></div>
+          <p class="q-guide" data-guide-for="q1_2_soloVsShared">응답자님께서 <span class="cand-name">OOO</span> 님과 직접 함께 진행하거나 협업하신 업무를 적어 주세요.</p>
           <input type="text" id="q1_2_soloVsShared" required>
 
           <p class="q-note">정확히 알기 어려운 부분은 그대로 적어 주세요.</p>
@@ -284,9 +297,9 @@
           <p class="q-note">여러 모습이 있었다면 가장 자주 보셨던 모습을 선택해 주세요.</p>
         </div>
 
-        <!-- Q3 -->
+        <!-- Q3-1 -->
         <div class="q-card">
-          <div class="q-head"><span class="q-num">3</span><span class="q-title">판단·확인 방식</span></div>
+          <div class="q-head"><span class="q-num">3-1</span><span class="q-title">판단·확인 방식</span></div>
           <p class="q-text"><span class="cand-name">OOO</span> 님이 맡은 업무를 진행할 때, 평소 모습과 가장 가까운 것을 선택해 주세요.</p>
           <fieldset class="opt-list option-fieldset" data-radio-group="q3_judgeStyle">
             <legend class="sr-only">업무 판단과 확인 방식</legend>
@@ -298,8 +311,12 @@
             <label class="opt-row"><input type="radio" name="q3_judgeStyle" value="직접 확인할 기회가 많지 않았음">직접 확인할 기회가 많지 않았음</label>
           </fieldset>
           <input type="text" id="q3_judgeStyle_other" class="opt-other-input" placeholder="상황에 따라 달랐다면 어떻게 달랐는지 간단히 적어 주세요">
+        </div>
 
-          <p class="q-text" style="font-size:14.5px;margin-top:18px"><b>3-보조.</b> <span class="cand-name">OOO</span> 님이 일을 하면서 처음 맡았던 범위보다 역할이 달라지거나 넓어진 일, 또는 새롭게 하거나 익혀야 했던 일이 있었나요?</p>
+        <!-- Q3-2 -->
+        <div class="q-card">
+          <div class="q-head"><span class="q-num">3-2</span><span class="q-title">역할의 확장</span></div>
+          <p class="q-text"><span class="cand-name">OOO</span> 님이 일을 하면서 처음 맡았던 범위보다 역할이 달라지거나 넓어진 일, 또는 새롭게 하거나 익혀야 했던 일이 있었나요?</p>
           <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 있었다면 그 일이 어떻게 시작되고 이후 어떻게 진행되었는지 간단히 적어 주세요.</p>
           <textarea id="q3_initiative" class="compact" required></textarea>
           <p class="q-note">그런 모습을 보신 적이 없으면 「본 적이 없습니다」처럼 그대로 적어 주세요.</p>
@@ -310,11 +327,10 @@
           <div class="q-head"><span class="q-num">4</span><span class="q-title">성과와 문제가 생겼을 때 바라보는 방식</span></div>
 
           <p class="q-text" style="font-size:14.5px"><b>4-1.</b> 성과가 좋았을 때 <span class="cand-name">OOO</span> 님은 그 결과가 나온 이유나 과정에 대해 보통 어떻게 이야기하는 편이었나요?</p>
-          <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 평가보다는 실제로 들으셨던 표현이나 기억나는 내용을 1~2문장으로 적어 주세요.</p>
+          <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 평가보다는 실제로 들으셨던 표현이나 기억나는 내용을 적어 주세요.</p>
           <textarea id="q4_successNarrative" required></textarea>
 
           <p class="q-text" style="font-size:14.5px;margin-top:18px"><b>4-2.</b> 반대로 일이 계획대로 되지 않았을 때는 무엇이 원인이었다고 이야기하는 편이었나요?</p>
-          <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 1~2문장으로 적어 주세요.</p>
           <textarea id="q4_failureNarrative" required></textarea>
         </div>
 
@@ -322,7 +338,7 @@
         <div class="q-card">
           <div class="q-head"><span class="q-num">5</span><span class="q-title">다른 의견·피드백을 받는 방식</span></div>
           <p class="q-text"><span class="cand-name">OOO</span> 님이 본인의 생각과 다른 의견이나 피드백을 받았을 때 실제로 어떻게 반응하는 편이었나요?</p>
-          <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 평가보다는 직접 보신 행동이나 말하는 방식을 1~2문장으로 적어 주세요.</p>
+          <p class="q-note" style="margin-top:-6px;margin-bottom:8px">→ 평가보다는 직접 보신 행동이나 말하는 방식을 적어 주세요.</p>
           <textarea id="q5_feedbackResponse" required></textarea>
         </div>
         </section>
@@ -484,6 +500,60 @@
 
     function clean(v) { return String(v == null ? '' : v).trim(); }
     function getValue(id) { const el = document.getElementById(id); return el ? clean(el.value) : ''; }
+
+    // 브라우저 기본 월(month) picker 대신 연도·월 드롭다운으로 "함께 근무한 기간"을 입력받는다.
+    function populatePeriodSelects() {
+      const nowYear = new Date().getFullYear();
+      const years = [];
+      for (let y = nowYear; y >= nowYear - 45; y--) years.push(y);
+      const yearOptions = '<option value="">연도</option>' + years.map(y => `<option value="${y}">${y}년</option>`).join('');
+      const monthOptions = '<option value="">월</option>' + Array.from({ length: 12 }, (_, i) => i + 1).map(m => `<option value="${m}">${m}월</option>`).join('');
+      ['q1_periodStart', 'q1_periodEnd'].forEach(prefix => {
+        const ySel = document.getElementById(`${prefix}_y`);
+        const mSel = document.getElementById(`${prefix}_m`);
+        const hidden = document.getElementById(prefix);
+        if (!ySel || !mSel || !hidden) return;
+        ySel.innerHTML = yearOptions;
+        mSel.innerHTML = monthOptions;
+        const sync = () => {
+          const y = ySel.value, m = mSel.value;
+          hidden.value = (y && m) ? `${y}-${String(m).padStart(2, '0')}` : '';
+        };
+        ySel.addEventListener('change', sync);
+        mSel.addEventListener('change', sync);
+      });
+    }
+    populatePeriodSelects();
+
+    function restorePeriodSelectsFromHidden() {
+      ['q1_periodStart', 'q1_periodEnd'].forEach(prefix => {
+        const value = getValue(prefix);
+        if (!/^\d{4}-\d{2}$/.test(value)) return;
+        const [year, month] = value.split('-');
+        const yearSelect = document.getElementById(`${prefix}_y`);
+        const monthSelect = document.getElementById(`${prefix}_m`);
+        if (yearSelect) yearSelect.value = year;
+        if (monthSelect) monthSelect.value = String(Number(month));
+      });
+    }
+
+    // 답변 작성 안내문 — 해당 입력란에 값이 있으면 숨기고, 비어 있으면 다시 보여준다.
+    function updateFieldGuide(guide) {
+      const field = document.getElementById(guide.dataset.guideFor);
+      if (field) guide.hidden = !!clean(field.value);
+    }
+    function refreshAllFieldGuides() {
+      document.querySelectorAll('[data-guide-for]').forEach(updateFieldGuide);
+    }
+    function initFieldGuides() {
+      document.querySelectorAll('[data-guide-for]').forEach(guide => {
+        const field = document.getElementById(guide.dataset.guideFor);
+        if (!field) return;
+        field.addEventListener('input', () => updateFieldGuide(guide));
+        updateFieldGuide(guide);
+      });
+    }
+    initFieldGuides();
     function getRadioValue(name) {
       const el = document.querySelector(`input[name="${name}"]:checked`);
       return el ? el.value : '';
@@ -642,7 +712,11 @@
         const field = document.getElementById(id);
         if (field && field.closest('#refCheckForm')) field.checked = !!checked;
       });
+      // 이전 UI에서 저장한 임시 데이터에는 숨은 YYYY-MM 값만 있으므로
+      // 새 연도·월 선택 컨트롤에도 같은 값을 복원한다.
+      restorePeriodSelectsFromHidden();
       updateOtherInputs();
+      refreshAllFieldGuides();
       setReferenceFormStep(Number(draft.step) || 1, { persist: false, scroll: false, focus: false });
       setDraftStatus('이 브라우저에 임시 저장된 작성 내용을 불러왔습니다.');
     }
@@ -874,7 +948,7 @@
 
     function validateForm() {
       if (!getValue('q1_periodStart') || !getValue('q1_periodEnd')) {
-        showRequiredAlert(document.getElementById('q1_periodStart'), '함께 근무한 기간을 입력해 주세요.');
+        showRequiredAlert(document.getElementById('q1_periodStart_y'), '함께 근무한 기간을 입력해 주세요.');
         return false;
       }
       if (!getRadioValue('q1_relation')) {
@@ -902,15 +976,15 @@
         return false;
       }
       if (!getRadioValue('q3_judgeStyle')) {
-        showRequiredAlert(document.querySelector('[data-radio-group="q3_judgeStyle"]'), '3번 문항의 선택지를 골라 주세요.');
+        showRequiredAlert(document.querySelector('[data-radio-group="q3_judgeStyle"]'), '3-1번 문항의 선택지를 골라 주세요.');
         return false;
       }
       if (getRadioValue('q3_judgeStyle') === '기타' && !getValue('q3_judgeStyle_other')) {
-        showRequiredAlert(document.getElementById('q3_judgeStyle_other'), '3번 문항 내용을 직접 입력해 주세요.');
+        showRequiredAlert(document.getElementById('q3_judgeStyle_other'), '3-1번 문항 내용을 직접 입력해 주세요.');
         return false;
       }
       if (!getValue('q3_initiative')) {
-        showRequiredAlert(document.getElementById('q3_initiative'), '3-보조 문항을 적어 주세요. 본 적이 없으시면 「본 적이 없습니다」처럼 적어 주세요.');
+        showRequiredAlert(document.getElementById('q3_initiative'), '3-2번 문항을 적어 주세요. 본 적이 없으시면 「본 적이 없습니다」처럼 적어 주세요.');
         return false;
       }
       if (!getValue('q4_successNarrative')) {

@@ -646,8 +646,8 @@
           </div>
           <div class="fg"><label>발신자 서명</label><input id="cfg-sign" value="우미건설 피플팀"/></div>
           <div class="fg"><label>피플팀 담당자 이메일 *</label><input id="cfg-hr-email" placeholder="people@company.co.kr" type="email"/></div>
-          <div class="fg"><label>일정 응답 완료 알림 받을 이메일</label><input id="cfg-notify-email" placeholder="people@company.co.kr" type="email"/>
-            <div class="field-hint">지원자 또는 면접관 전원이 일정 응답을 마치면 이 주소로 완료 안내 메일을 보냅니다. 비워두면 발송하지 않습니다.</div>
+          <div class="fg"><label>일정 응답 완료 알림 받을 이메일</label><input id="cfg-notify-email" placeholder="people@company.co.kr, hr2@company.co.kr" type="email" multiple/>
+            <div class="field-hint">지원자 또는 면접관 전원이 일정 응답을 마치면 이 주소로 완료 안내 메일을 보냅니다. 여러 명이면 쉼표(,)로 구분해 입력하세요. 비워두면 발송하지 않습니다.</div>
           </div>
           <div class="fg full" style="margin-top:12px;padding-top:16px;border-top:2px solid #8A5A12">
             <label style="color:#8A5A12;font-weight:700">헤드헌팅 업체 DB</label>
@@ -1064,15 +1064,13 @@
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13"><path d="M8 1v6M8 9v.5"/><circle cx="8" cy="8" r="7"/></svg>
           지원자 알림 발송 (선택)
         </div>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;margin-bottom:8px;cursor:pointer">
+          <input type="checkbox" id="cs-notify-send" checked style="width:auto">
+          지원자에게 안내 메일 발송
+        </label>
         <div id="cs-external-notice" style="font-size:11px;color:var(--outlook);background:var(--s2);border-radius:var(--rsm);padding:6px 8px;margin-bottom:8px">
-          지원자 안내는 등록된 발신 계정으로 이메일 발송됩니다.
+          지원자 안내는 등록된 발신 계정으로 이메일 발송됩니다. 실제 발송되는 메일은 설정의 메일 템플릿을 따릅니다.
         </div>
-      </div>
-
-      <!-- 알림 미리보기 -->
-      <div id="cs-preview-area" style="margin-top:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.35px;margin-bottom:6px">알림 메시지 미리보기</div>
-        <div class="nc-body" id="cs-preview-msg" style="border-radius:var(--rsm);border:1px solid var(--border);font-size:11.5px;max-height:120px;overflow-y:auto"></div>
       </div>
     </div>
     <div class="modal-ft">

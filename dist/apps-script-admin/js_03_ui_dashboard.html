@@ -804,6 +804,7 @@ function compactDashboardActionDesc(action, pos) {
   const title = String(action?.title || '');
   const desc = String(action?.desc || '');
   if(/충원완료 처리 필요/.test(title)) return '최종합격자 있음 · 충원완료 처리 필요';
+  if(/입사 안내 발송 필요/.test(title)) return '최종합격자 있음 · 입사 안내 발송 필요';
   if(/지원자 등록 필요|지원자 미배정/.test(title)) return '등록된 지원자 없음 · 지원자 등록 필요';
   if(/후보일정 안내 필요/.test(title)) return '면접전형 대기 · 후보일정 안내 필요';
   if(/공동일정 확정 필요|면접일정 확정 필요/.test(title)) return '회신 또는 일정 미확정 · 일정 확정 필요';
@@ -824,7 +825,7 @@ function dashboardActionCategory(item) {
   if(/reference|ref_/.test(type) || /레퍼런스/.test(title) || /레퍼런스/.test(label)) return '레퍼런스';
   if(/mail|notice/.test(type) || /메일|발송|안내 확인|면접안내/.test(title) || label === '완료') return '메일 확인';
   if(/interview|schedule|slots|first_|second_/.test(type) || /면접|일정|후보일정/.test(title)) return '면접 운영';
-  if(/candidate|fill|offer|residual|unlinked/.test(type) || /충원|지원자 등록|지원자 미배정|미연결|처우협의|잔여/.test(title)) return '포지션 관리';
+  if(/candidate|fill|offer|residual|unlinked|onboard/.test(type) || /충원|지원자 등록|지원자 미배정|미연결|처우협의|잔여|입사 안내/.test(title)) return '포지션 관리';
   return '기타';
 }
 
@@ -838,7 +839,10 @@ function renderDashboardActionList(items) {
       <div class="dash-ac-main">
         <div class="dash-ac-top">
           <div class="dash-ac-name">${esc(item.title)}</div>
-          <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            ${item.navCall ? `<button class="btn btn-xs" data-action="call" data-call="${esc(item.navCall)}">${esc(item.navLabel || '이동')}</button>` : ''}
+            <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
+          </div>
         </div>
         <div class="dash-ac-lines">${formatDashboardActionLines(item.desc)}</div>
       </div>
@@ -882,7 +886,13 @@ function getDashboardActionItems() {
     if(rfSubmitted) items.push({type:'referral',title:`사내추천 ${rfSubmitted}건`,desc:'접수 후 미처리 · 검토 필요',label:'사내추천',call:"navBtn('referral')",danger:true});
     if(rfReward) items.push({type:'reward',title:`포상금 ${rfReward}건`,desc:'마감 임박 · 재직확인/지급요청 필요',label:'포상금',call:"navBtn('referral');setReferralView('rewards')",danger:true});
   }
-  mailPending.forEach((m,index) => items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'기존 수동 발송 대기 · 발송 완료 확인',label:'완료',call:`confirmMailPendingAt(${index})`,danger:false}));
+  mailPending.forEach((m,index) => {
+    // "완료"는 발송을 이미 다른 경로로 마쳤다는 기록일 뿐, 실제로 안내를 보내야 한다면
+    // 그 작업을 수행하는 화면(포지션 상세 또는 지원자 상세)으로 바로 이동할 수 있어야 한다.
+    const navCall = m.posId != null ? `openPosDetail(${m.posId});scrollPositionDetail('pp-position-candidates')`
+      : (m.candId != null ? `editCandidate(${m.candId})` : null);
+    items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'기존 수동 발송 대기 · 발송 완료 확인',label:'완료',call:`confirmMailPendingAt(${index})`,navCall,navLabel:'이동',danger:false});
+  });
   return items.map(item => ({...item, category:dashboardActionCategory(item)}));
 }
 

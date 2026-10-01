@@ -62,6 +62,7 @@ function renderInterviewNoticeFlow() {
     <div style="display:flex;align-items:center;gap:7px">
       ${candDone?'<span class="b bgreen">발송 완료</span>':''}
       <button class="btn btn-sm ${candDone?'':'btn-primary'}" data-action="call" data-call="sendInterviewNoticeCandidates()" ${!schedule.length||interviewNoticeBusy.candidates?'disabled':''}>${interviewNoticeBusy.candidates?'처리 중...':candDone?'지원자 재발송':'지원자 메일 발송'}</button>
+      ${!candDone ? `<button class="btn btn-sm" title="채용사이트 등 다른 경로로 이미 안내한 경우" data-action="call" data-call="markInterviewNoticeCandidatesDone()" ${!schedule.length||interviewNoticeBusy.candidates?'disabled':''}>✓ 완료 처리</button>` : ''}
     </div>
   </div>`;
   const panelCard = !panelists.length ? `<div style="border:1px solid var(--border);border-radius:var(--r);padding:13px">
@@ -86,6 +87,32 @@ async function sendInterviewNoticeCandidates() {
   renderInterviewNoticeFlow();
   try {
     await sendAllCandSchedule(posId, stageIdx);
+  } finally {
+    interviewNoticeBusy.candidates = false;
+    renderInterviewNoticeFlow();
+  }
+}
+
+// 채용사이트 등 시스템 밖 경로로 이미 안내를 마친 경우, 메일 발송 없이 완료로만 기록한다.
+async function markInterviewNoticeCandidatesDone() {
+  if(interviewNoticeBusy.candidates) return;
+  const { posId, stageIdx } = interviewNoticeFlowCtx;
+  const schedule = getConfirmedPositionInterviews(posId, stageIdx);
+  if(!schedule.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  const confirmed = await confirmActionModal({
+    title:'지원자 안내 완료 처리',
+    message:`아래 ${schedule.length}명에게 채용사이트 등 다른 경로로 이미 면접 일정을 안내했습니까?\n메일은 발송하지 않고 완료 상태로만 기록합니다.`,
+    items:schedule.map(i => `${i.candName} · ${fmtItv(i.date)}`),
+    confirmLabel:'완료로 기록',
+  });
+  if(!confirmed) return;
+  interviewNoticeBusy.candidates = true;
+  renderInterviewNoticeFlow();
+  try {
+    schedule.forEach(itv => { itv.candidateNotified = true; itv.candNotified = true; });
+    saveState();
+    if(GS_CONFIG.scriptUrl) await settleSync(schedule.map(itv => syncIntToGS(itv)), '지원자 안내 완료 처리');
+    toast(`지원자 ${schedule.length}명을 안내 완료로 기록했습니다.`, 'tok');
   } finally {
     interviewNoticeBusy.candidates = false;
     renderInterviewNoticeFlow();
@@ -495,6 +522,23 @@ async function sendPanelNotice(posId, round, returnToPosition=true, attachments=
       danger:true,
     });
     if(!accepted) return false;
+  }
+  if(round === 2) {
+    // 2차 면접은 레퍼런스 완료를 기다리지 않고 일정부터 확정하는 경우가 많다 — 다만
+    // 실제 면접 전까지는 레퍼런스가 완료·보고되어야 하므로, 안내 발송 시점에 확인한다.
+    // (레퍼런스 체크 요약 자료는 자동 첨부하지 않는다 — 별도로 작성한 파일을
+    // 면접조서 등과 함께 수동으로 첨부해 발송한다.)
+    const refIncomplete = confirmed.filter(c => c.ref !== '완료' && c.ref !== '생략');
+    if(refIncomplete.length) {
+      const proceed = await confirmActionModal({
+        title:'레퍼런스 체크 미완료',
+        message:'2차 면접 전까지 레퍼런스 체크가 완료·보고되어야 합니다. 완료되지 않은 지원자가 있는 상태로 면접관 안내를 계속 진행할까요?',
+        items:refIncomplete.map(c => `${c.name} · 레퍼런스 ${c.ref || '미시작'}`),
+        confirmLabel:'그대로 안내 발송',
+        danger:true,
+      });
+      if(!proceed) return false;
+    }
   }
   // 통합 함수 호출 (공문 양식 + 첨부 안내)
   return sendPanelSchedule(posId, stageIdx, returnToPosition, attachments);
