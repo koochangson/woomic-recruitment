@@ -1157,14 +1157,24 @@ async function syncCoreFromGSInternal(options={}) {
   showSyncStatus('Google Sheets 전체 데이터 로드 중...', '');
   // 전체 로드 도중 발생한 변경을 놓치지 않도록 로드 시작 전 cursor를 기준점으로 저장한다.
   const baseline = await gsFetch('getCursor','Candidates');
-  const loaded = await Promise.all([
-    loadFromGS({forceFull:true,force:true}),
-    loadPositionsFromGS({forceFull:true,force:true}),
-    loadInterviewsFromGS({forceFull:true,force:true}),
-    loadRecruitPlansFromGS({forceFull:true,force:true}),
-    loadReferralsFromGS({forceFull:true,force:true}),
-    loadEmployeesFromGS({forceFull:true,force:true}),
-  ]);
+  const fullLoaders = [
+    () => loadFromGS({forceFull:true,force:true}),
+    () => loadPositionsFromGS({forceFull:true,force:true}),
+    () => loadInterviewsFromGS({forceFull:true,force:true}),
+    () => loadRecruitPlansFromGS({forceFull:true,force:true}),
+    () => loadReferralsFromGS({forceFull:true,force:true}),
+    () => loadEmployeesFromGS({forceFull:true,force:true}),
+  ];
+  const loaded = await Promise.all(fullLoaders.map(load => load()));
+  const failedIndexes = loaded.map((ok, index) => ok ? -1 : index).filter(index => index >= 0);
+  if(failedIndexes.length) {
+    // 최초 로그인 직후 Apps Script가 준비되는 동안 일부 병렬 읽기만 일시적으로 실패할 수 있다.
+    // 이미 성공한 시트는 유지하고 실패한 항목만 한 번 재확인해 불필요한 실패 배너를 줄인다.
+    showSyncStatus(`Google Sheets 일부 응답 지연 (${failedIndexes.length}건) · 재확인 중...`, '');
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const retried = await Promise.all(failedIndexes.map(index => fullLoaders[index]()));
+    failedIndexes.forEach((index, retryIndex) => { loaded[index] = retried[retryIndex]; });
+  }
   if(!loaded.every(Boolean)) return false;
   if(baseline && Number.isFinite(Number(baseline.cursor))) {
     setGsChangeCursor(baseline.cursor);
