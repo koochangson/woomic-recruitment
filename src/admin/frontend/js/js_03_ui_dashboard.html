@@ -838,7 +838,10 @@ function renderDashboardActionList(items) {
       <div class="dash-ac-main">
         <div class="dash-ac-top">
           <div class="dash-ac-name">${esc(item.title)}</div>
-          <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            ${item.navCall ? `<button class="btn btn-xs" data-action="call" data-call="${esc(item.navCall)}">${esc(item.navLabel || '이동')}</button>` : ''}
+            <button class="btn btn-xs btn-primary" data-action="call" data-call="${esc(item.call)}">${esc(item.label)}</button>
+          </div>
         </div>
         <div class="dash-ac-lines">${formatDashboardActionLines(item.desc)}</div>
       </div>
@@ -882,7 +885,13 @@ function getDashboardActionItems() {
     if(rfSubmitted) items.push({type:'referral',title:`사내추천 ${rfSubmitted}건`,desc:'접수 후 미처리 · 검토 필요',label:'사내추천',call:"navBtn('referral')",danger:true});
     if(rfReward) items.push({type:'reward',title:`포상금 ${rfReward}건`,desc:'마감 임박 · 재직확인/지급요청 필요',label:'포상금',call:"navBtn('referral');setReferralView('rewards')",danger:true});
   }
-  mailPending.forEach((m,index) => items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'기존 수동 발송 대기 · 발송 완료 확인',label:'완료',call:`confirmMailPendingAt(${index})`,danger:false}));
+  mailPending.forEach((m,index) => {
+    // "완료"는 발송을 이미 다른 경로로 마쳤다는 기록일 뿐, 실제로 안내를 보내야 한다면
+    // 그 작업을 수행하는 화면(포지션 상세 또는 지원자 상세)으로 바로 이동할 수 있어야 한다.
+    const navCall = m.posId != null ? `openPosDetail(${m.posId});scrollPositionDetail('pp-position-candidates')`
+      : (m.candId != null ? `editCandidate(${m.candId})` : null);
+    items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'기존 수동 발송 대기 · 발송 완료 확인',label:'완료',call:`confirmMailPendingAt(${index})`,navCall,navLabel:'이동',danger:false});
+  });
   return items.map(item => ({...item, category:dashboardActionCategory(item)}));
 }
 
