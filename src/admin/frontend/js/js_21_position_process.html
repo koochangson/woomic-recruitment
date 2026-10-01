@@ -124,11 +124,12 @@ function getPositionActionItems(positionId) {
       else if(secondPending.length) add('second_schedule','high','2차 공동일정 확정 필요',`미확정 ${secondPending.length}건`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
       if(r2.confirmed.length && r2.panelNotified.length < r2.confirmed.length) add('second_panel_notice','medium','2차 면접관 안내 미발송','확정된 2차 공동일정을 면접관에게 안내','면접관 안내','openInterviewNoticeFlow',`openInterviewNoticeFlow(${positionId},3,2)`);
       if(r2.confirmed.length && r2.candidateNotified.length < r2.confirmed.length) add('second_candidate_notice','medium',`2차 면접 ${routeNoticeText} 미발송`,`확정된 2차 면접일정을 ${hasHeadhunting?'업체 경유로':'지원자에게'} 안내`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
-      // 면접관 안내는 이미 나갔는데(최초 안내), 그 뒤에 레퍼런스가 완료된 경우 — 보고서를
-      // 면접관에게 별도로 전달해야 한다(자동 첨부하지 않으므로 수동 전달 여부만 추적).
+      // 면접관 안내 후 레퍼런스가 완료된 경우에는 보고서를 별도로 전달하고 완료 여부를 기록한다.
+      const refFollowupNeeded = list.filter(c => [3,4].includes(c.stage) && requiresReferenceCheck(c) && c.ref === '완료' && !c.refReportSentAt);
       // 레퍼런스는 2차면접일 전까지 완료돼야 한다(차단하지 않고 경고만). 보고서는 2차 면접관 안내 메일에 첨부한다.
       const refInterviewRisk = list.filter(c => getReferenceInterviewRisk(c));
       if(refInterviewRisk.length) add('reference_before_interview','high','2차면접 전 레퍼런스 완료 필요',`2차면접 ${REF_INTERVIEW_WARN_DAYS}일 이내 · 레퍼런스 미완료 ${refInterviewRisk.length}명 (${refInterviewRisk.slice(0,3).map(c=>c.name).join(', ')})`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+      if(r2.panelNotified.length && refFollowupNeeded.length) add('reference_followup','medium','레퍼런스 보고서 면접관 전달 필요',`면접관 안내 후 레퍼런스가 완료된 지원자 ${refFollowupNeeded.length}명 · 보고서 별도 전달 후 완료로 표시하세요.`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
       const secondResult = list.filter(c => c.stage === 3 && !c.decision);
       if(r2.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
     }
@@ -164,8 +165,9 @@ function getPositionProcessStatus(positionId) {
   const refCands = list.filter(c => c.stage >= 2 && c.stage !== 6);
   // 레퍼런스 단계는 대상자(간부급 정규직) 기준으로 판정한다. 대상자가 없으면 '완료'가 아니라 판정 보류다.
   // 2차면접 이상 지원자가 있는데 대상자가 한 명도 없으면(전원 사원급 등) 레퍼런스 단계를 생략으로 표시한다.
+  const allRefEligible = list.filter(c => c.stage !== 6 && requiresReferenceCheck(c));
   const refEligible = refCands.filter(requiresReferenceCheck);
-  const refSkip = short || (refCands.length > 0 && refEligible.length === 0);
+  const refSkip = short || (refCands.length > 0 && allRefEligible.length === 0);
   const refAll = test => refEligible.length > 0 && refEligible.every(test);
   const flow = getPositionFlow(pos);
   const activeOrPassed = list.filter(c => c.stage !== 6);
