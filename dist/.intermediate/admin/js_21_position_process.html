@@ -127,7 +127,8 @@ function getPositionActionItems(positionId) {
       if(r2.confirmed.length && r2.candidateNotified.length < r2.confirmed.length) add('second_candidate_notice','medium',`2차 면접 ${routeNoticeText} 미발송`,`확정된 2차 면접일정을 ${hasHeadhunting?'업체 경유로':'지원자에게'} 안내`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
       // 면접관 안내 후 레퍼런스가 완료된 경우에는 보고서를 별도로 전달하고 완료 여부를 기록한다.
       const refFollowupNeeded = list.filter(c => [3,4].includes(c.stage) && requiresReferenceCheck(c) && c.ref === '완료' && !c.refReportSentAt);
-      // 레퍼런스는 2차면접일 전까지 완료돼야 한다(차단하지 않고 경고만). 보고서는 2차 면접관 안내 메일에 첨부한다.
+      // 레퍼런스는 2차면접일 전까지 완료돼야 한다(차단하지 않고 경고만). 보고서는 자동 첨부되지 않으므로
+      // 완료되면 면접관에게 별도로 전달해야 한다(아래 reference_followup 액션 아이템).
       const refInterviewRisk = list.filter(c => getReferenceInterviewRisk(c));
       if(refInterviewRisk.length) add('reference_before_interview','high','2차면접 전 레퍼런스 완료 필요',`2차면접 ${REF_INTERVIEW_WARN_DAYS}일 이내 · 레퍼런스 미완료 ${refInterviewRisk.length}명 (${refInterviewRisk.slice(0,3).map(c=>c.name).join(', ')})`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
       if(r2.panelNotified.length && refFollowupNeeded.length) add('reference_followup','medium','레퍼런스 보고서 면접관 전달 필요',`면접관 안내 후 레퍼런스가 완료된 지원자 ${refFollowupNeeded.length}명 · 보고서 별도 전달 후 완료로 표시하세요.`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);

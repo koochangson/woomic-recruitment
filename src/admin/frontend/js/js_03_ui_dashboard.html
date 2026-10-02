@@ -664,7 +664,8 @@ function getSecondInterviewDate(c) {
   const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === '2차' && i.date && i.status !== 'cancelled');
   return itv ? itv.date : '';
 }
-// 레퍼런스는 2차면접일 전까지 완료돼야 한다. 막지는 않고 경고만 한다(보고서는 2차 면접관 안내 메일에 첨부).
+// 레퍼런스는 2차면접일 전까지 완료돼야 한다. 막지는 않고 경고만 한다(보고서는 자동 첨부되지
+// 않으므로 완료되면 면접관에게 별도로 전달해야 한다).
 // 반환: null(문제 없음) 또는 { days, date, reason }
 function getReferenceInterviewRisk(c, warnDays = REF_INTERVIEW_WARN_DAYS) {
   if(!c || !requiresReferenceCheck(c) || c.ref === '생략') return null;

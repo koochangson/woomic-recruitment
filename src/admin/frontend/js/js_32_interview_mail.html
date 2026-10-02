@@ -563,7 +563,7 @@ async function sendPanelNotice(posId, round, returnToPosition=true, attachments=
     if(refIncomplete.length) {
       const proceed = await confirmActionModal({
         title:'레퍼런스 체크 미완료',
-        message:'2차 면접 전까지 레퍼런스 체크가 완료되어야 하고, 보고서는 이 면접관 안내 메일에 첨부합니다. 완료되지 않은 지원자가 있는 상태로 면접관 안내를 계속 진행할까요?',
+        message:'2차 면접 전까지 레퍼런스 체크가 완료되어야 합니다. 보고서는 시스템이 자동으로 첨부하지 않으므로, 완료되면 별도로 면접관에게 전달하고 전달 완료로 표시하세요. 완료되지 않은 지원자가 있는 상태로 면접관 안내를 계속 진행할까요?',
         items:refIncomplete.map(c => `${c.name} · 레퍼런스 ${c.ref || '미시작'}`),
         confirmLabel:'그대로 안내 발송',
         danger:true,
