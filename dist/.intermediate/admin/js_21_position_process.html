@@ -177,10 +177,12 @@ function getPositionProcessStatus(positionId) {
   );
   const pastInt1 = allPast(1);
   const pastInt2 = !short && allPast(3);
+  const int1PanelDone = !!pos.panel1AvailabilityConfirmedAt || pastInt1;
+  const int2PanelDone = !!pos.panel2AvailabilityConfirmedAt || pastInt2;
   const checks = [
     { key:'register', title:'지원자 등록', done:list.length > 0, skip:false },
-    { key:'int1_panel', title:'1차 면접관 일정 확인', done:!!pos.panel1AvailabilityConfirmedAt || pastInt1, skip:false },
-    { key:'int1_slots', title:'1차 지원자 가능일 확인', done:isRoundAvailabilityComplete(r1) || pastInt1, skip:false },
+    { key:'int1_panel', title:'1차 면접관 일정 확인', done:int1PanelDone, skip:false },
+    { key:'int1_slots', title:'1차 지원자 가능일 확인', done:(int1PanelDone && isRoundAvailabilityComplete(r1)) || pastInt1, skip:false },
     // 일정 확정만으로 완료 처리하던 문제 — 확정된 면접 전원에게 지원자·면접관 안내가 모두 나가야 완료다.
     { key:'int1_notice', title:'1차 면접안내', done:isRoundNoticeComplete_(r1) || pastInt1, skip:false },
     { key:'int1_result', title:'1차 면접결과', done:pastInt1, skip:false },
@@ -189,8 +191,8 @@ function getPositionProcessStatus(positionId) {
     // 더 이상 레퍼런스 완료를 의미하지 않는다 — 실제 ref 상태로만 판정한다.
     { key:'ref_done', title:'레퍼런스 완료', done:refAll(c => c.ref === '완료' || c.ref === '생략'), skip:refSkip },
     // 완료된 레퍼런스 보고서를 면접관에게 전달했는지(수동 전달 — 자동 첨부하지 않음).
-    { key:'int2_panel', title:'2차 면접관 일정 확인', done:!!pos.panel2AvailabilityConfirmedAt || pastInt2, skip:short },
-    { key:'int2_slots', title:'2차 지원자 가능일 확인', done:isRoundAvailabilityComplete(r2) || pastInt2, skip:short },
+    { key:'int2_panel', title:'2차 면접관 일정 확인', done:int2PanelDone, skip:short },
+    { key:'int2_slots', title:'2차 지원자 가능일 확인', done:(int2PanelDone && isRoundAvailabilityComplete(r2)) || pastInt2, skip:short },
     { key:'int2_notice', title:'2차 면접안내', done:isRoundNoticeComplete_(r2) || pastInt2, skip:short },
     { key:'int2_result', title:'2차 면접결과', done:pastInt2, skip:short },
     { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
