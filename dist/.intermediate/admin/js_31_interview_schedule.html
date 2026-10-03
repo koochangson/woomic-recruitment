@@ -763,20 +763,7 @@ async function sendCollectCandidateRequest_(cur, q) {
   itv.availabilityResponderOrg = headhunter?.name || '';
   itv.availabilityProxyConfirmedAt = '';
   const subject = `[우미건설] ${cur.name}님 ${q.roundLabel} 가능 일정 확인`;
-  const tpl = document.getElementById('tpl-collect')?.value;
-  let body;
-  if(tpl) {
-    body = tpl
-      .replace(/\{지원자명\}/g, cur.name||'')
-      .replace(/\{포지션\}/g, cur.pos||'')
-      .replace(/\{면접유형\}/g, q.roundLabel)
-      .replace(/\{후보일정\}/g, q.slotText)
-      .replace(/\{장소\}/g, q.loc ? '■ 장소: '+q.loc : '')
-      .replace(/\{응답링크\}/g, issue.link)
-      .replace(/\{응답마감\}/g, q.deadline);
-  } else {
-    body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜와 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
-  }
+  const body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜와 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
   let sent = false;
   try {
     sent = await dispatchCandidateMail_(cand || cur, {

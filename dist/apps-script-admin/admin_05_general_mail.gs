@@ -428,11 +428,12 @@ function handleSendGeneralMail_(payload) {
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const to = normalizeEmail_(body.toEmail || body.to || body.email);
   const subject = String(body.subject || '').trim();
-  const message = String(body.body || body.message || '').trim();
-  if (!to || !subject || !message) return json_({ error: 'missing_mail_fields' });
+  if (!to || !subject) return json_({ error: 'missing_mail_fields' });
   try {
     const html = generalMailHtml_(body.templateType, body);
     if (!html) throw new Error('mail_template_render_failed');
+    // 메일 문구는 HTML 템플릿 한 곳에서만 관리한다 — 텍스트 버전도 렌더링된 HTML에서 만든다.
+    const message = htmlToPlainText_(html) || String(body.body || body.message || '').trim();
     const attachments = buildMailAttachments_(body.attachments);
     const result = sendMailViaGmail_(to, subject, message, html, attachments);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');

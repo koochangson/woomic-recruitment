@@ -367,91 +367,6 @@ function renderNotifyLog(){
   </table></div>`;
 }
 
-// ══════════════════════════════════════════════════════════════
-// 일괄 알림
-// ══════════════════════════════════════════════════════════════
-function updateBulkPreview(){
-  const typeEl=document.getElementById('bulk-type');
-  const stageEl=document.getElementById('bulk-stage');
-  if(!typeEl||!stageEl) return;
-  const type=typeEl.value;
-  const si=parseInt(stageEl.value);
-  const targets=si===-1?candidates:candidates.filter(c=>c.stage===si);
-  const tw=document.getElementById('bulk-targets');
-  if(tw){
-    if(!targets.length)tw.innerHTML='<div style="color:var(--t3)">해당 대상 없음</div>';
-    else tw.innerHTML=targets.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">${etypePill(c.etype)} ${esc(c.name)} <span style="color:var(--t3)">(${esc(c.pos)})</span></div>`).join('');
-  }
-  const msgs={
-    int1:document.getElementById('tpl-int1')?.value || '',
-    int2:document.getElementById('tpl-int2')?.value || '',
-    offer:document.getElementById('tpl-onboard')?.value || '',
-    remind:document.getElementById('tpl-ref-remind')?.value || '',
-  };
-  const prev=document.getElementById('bulk-preview-msg');
-  if(prev)prev.textContent=msgs[type]||'';
-}
-async function sendBulk(){
-  const type=document.getElementById('bulk-type').value;
-  const si=parseInt(document.getElementById('bulk-stage').value);
-  const ch=document.getElementById('bulk-channel').value;
-  const targets=si===-1?candidates.filter(c=>c.stage!==6):candidates.filter(c=>c.stage===si&&c.stage!==6);
-  if(!targets.length){toast('발송 대상이 없습니다.','tw');return;}
-  let outlookTargetCount=0;
-
-  if(ch==='outlook'||ch==='both'){
-    // 지원자 메일은 개인정보 보호와 개인화 안내를 위해 지원자별로 개별 작성한다.
-    const mailTargets = targets.filter(c=>{
-      const target = getCandidateMailTarget(c);
-      return target.to && target.to.includes('@');
-    });
-    if(mailTargets.length===0){toast('이메일 주소가 등록된 지원자가 없습니다.','terr');return;}
-    outlookTargetCount=mailTargets.length;
-    const subjectFor = c => ({
-      int1:`[우미건설] ${c.name}님 1차 면접 일정 안내`,
-      int2:`[우미건설] ${c.name}님 2차 면접 일정 안내`,
-      offer:`[우미건설] ${c.name}님 최종 합격 안내`,
-      remind:`[우미건설] ${c.name}님 레퍼런스 체크 안내`,
-    }[type] || `[우미건설] ${c.name}님 채용 진행 안내`);
-    const template = document.getElementById('bulk-preview-msg')?.textContent || '';
-    showGlobalSyncProgress(`지원자 ${mailTargets.length}명에게 안내 메일을 발송하고 있습니다.`);
-    let bulkSentCount = 0;
-    try {
-      for(const c of mailTargets){
-        updateGlobalSyncProgress(`일괄 안내 메일 발송 중 · ${bulkSentCount + 1}/${mailTargets.length} (${c.name})`);
-        const target = getCandidateMailTarget(c);
-        const directBody = template.replace(/\{지원자명\}/g,c.name||'').replace(/\{포지션\}/g,c.pos||'');
-        const subject = subjectFor(c);
-        const sent = await dispatchCandidateMail_(c, {
-          subject, purpose: '채용 진행', directBody, logType: `${type}일괄안내(업체경유)`,
-          sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, directBody, `${type}일괄안내`, c.name, {
-            templateType: 'general_notice',
-            candidateName: c.name,
-            positionText: c.pos || '',
-            noticeBody: directBody
-          })
-        });
-        if(sent === false) return;
-        bulkSentCount++;
-      }
-    } finally {
-      hideGlobalSyncProgress();
-    }
-  }
-
-  targets.forEach(c=>{
-    if(ch==='both'||ch==='teams') logNotify('Teams',type,c.name,c.email);
-    const target = getCandidateMailTarget(c);
-    if((ch==='both'||ch==='outlook')&&target.to&&target.to.includes('@')) logNotify('Gmail',type,c.name,target.to);
-    if(ch==='teams'||ch==='both'||(ch==='outlook'&&target.to&&target.to.includes('@'))) c.notified=true;
-  });
-  saveState();closeModal('modal-bulk-notify');renderDashboard();renderTracker();renderNotifyLog();
-  const msg = (ch==='outlook'||ch==='both') ? `${outlookTargetCount}명 지원자 개인 메일 발송 완료` : `${targets.length}명 발송 완료`;
-  toast(msg, ch==='teams'?'tteams':'toutlook');
-}
-
-
-
 // ── Google Sheets 설정 저장/로드 ─────────────────────────────
 async function saveSettingsToGS(cfg) {
   if(!GS_CONFIG.scriptUrl) return;
@@ -510,15 +425,6 @@ async function loadSettingsWithGS() {
       set('cfg-mask-pii',        gsCfg.maskPii);
       set('cfg-retention-months',gsCfg.retentionMonths);
       set('cfg-idle-minutes',    gsCfg.idleMinutes);
-      set('tpl-int1',            gsCfg.tplInt1);
-      set('tpl-int2',            gsCfg.tplInt2);
-      set('tpl-panel',           gsCfg.tplPanel);
-      set('tpl-onboard',         gsCfg.tplOnboard);
-      set('tpl-onboard-internal',gsCfg.tplOnboardInternal);
-      set('tpl-ref',             gsCfg.tplRef);
-      set('tpl-ref-remind',      gsCfg.tplRefRemind);
-      set('tpl-reject',          gsCfg.tplReject);
-      set('tpl-collect',         gsCfg.tplCollect);
       if(gsCfg.gsUrl)          GS_CONFIG.scriptUrl = gsCfg.gsUrl;
       if(gsCfg.referralDataUrl) GS_CONFIG.referralDataUrl = gsCfg.referralDataUrl;
       if(gsCfg.interviewerUrl) GS_CONFIG.interviewerUrl = gsCfg.interviewerUrl;
@@ -556,15 +462,6 @@ function saveSettings() {
     maskPii:      document.getElementById('cfg-mask-pii')?.value || 'false',
     retentionMonths: document.getElementById('cfg-retention-months')?.value || '6',
     idleMinutes:  document.getElementById('cfg-idle-minutes')?.value || '10',
-    tplInt1: document.getElementById('tpl-int1')?.value || '',
-    tplInt2: document.getElementById('tpl-int2')?.value || '',
-    tplPanel: document.getElementById('tpl-panel')?.value || '',
-    tplOnboard:document.getElementById('tpl-onboard')?.value || '',
-    tplOnboardInternal:document.getElementById('tpl-onboard-internal')?.value || '',
-    tplRef: document.getElementById('tpl-ref')?.value || '',
-    tplRefRemind: document.getElementById('tpl-ref-remind')?.value || '',
-    tplReject: document.getElementById('tpl-reject')?.value || '',
-    tplCollect: document.getElementById('tpl-collect')?.value || '',
   };
   try {
     localStorage.setItem('woomic_settings', JSON.stringify(cfg));
@@ -615,15 +512,6 @@ function loadSettings() {
     set('cfg-mask-pii',         cfg.maskPii);
     set('cfg-retention-months', cfg.retentionMonths);
     set('cfg-idle-minutes',     cfg.idleMinutes);
-    set('tpl-int1',             cfg.tplInt1);
-    set('tpl-int2',             cfg.tplInt2);
-    set('tpl-panel',            cfg.tplPanel);
-    set('tpl-onboard',          cfg.tplOnboard);
-    set('tpl-onboard-internal', cfg.tplOnboardInternal);
-    set('tpl-ref',              cfg.tplRef);
-    set('tpl-ref-remind',       cfg.tplRefRemind);
-    set('tpl-reject',           cfg.tplReject);
-    set('tpl-collect',          cfg.tplCollect);
     renderHeadhunterDbPreview();
     populateHeadhunterSelect();
     privacyMode = cfg.maskPii === 'true' || localStorage.getItem('woomic_privacy_mask') === 'true';

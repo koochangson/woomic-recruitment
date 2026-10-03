@@ -262,19 +262,7 @@ async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, attachm
     `   ${idx+1}. ${i.date.split(' ')[1]}  ${esc(i.candName)} (${esc(pos.title)})`).join('\n');
 
   const subject = `[우미건설] ${esc(pos.title)} ${roundLabel} 면접 안내 (${scheduleLabel})`;
-  const panelTemplate = document.getElementById('tpl-panel')?.value || '';
-  const body = panelTemplate
-    ? panelTemplate
-      .replace(/\{포지션\}/g, pos.title || '')
-      .replace(/\{부서\}/g, pos.dept || pos.title || '')
-      .replace(/\{채용형태\}/g, pos.etype || '')
-      .replace(/\{면접유형\}/g, roundLabel)
-      .replace(/\{면접일정\}/g, scheduleLabel)
-      .replace(/\{장소\}/g, loc || '')
-      .replace(/\{면접대상\}/g, targetText)
-      .replace(/\{대상인원\}/g, String(schedule.length))
-      .replace(/\{면접관\}/g, panelNames)
-    : `면접위원님께,\n\n${pos.dept || pos.title} ${roundLabel} 일정입니다.\n\n${scheduleLabel}\n${loc}\n\n${targetText}`;
+  const body = `면접위원님께,\n\n${pos.dept || pos.title} ${roundLabel} 일정입니다.\n\n${scheduleLabel}\n${loc}\n\n${targetText}`;
 
   const emails = groupMailRecipients(panelists.map(p => p.email));
   const targetList = schedule.map(i => `${i.candName} (${pos.title})`).join('\n');

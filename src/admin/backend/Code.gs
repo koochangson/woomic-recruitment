@@ -1432,7 +1432,8 @@ function sendReferenceEmail_(payload) {
   const templateType = String(body.templateType || body.templateKey || body.mailType || '').trim();
   if (!REFERENCE_MAIL_TEMPLATE_FILES[templateType]) return json_({ error: 'reference_template_type_required' });
   try {
-    const result = sendMailViaGmail_(to, subject, message, insertForwardNotice_(referenceMailHtml_(message, body), body));
+    const html = insertForwardNotice_(referenceMailHtml_(message, body), body);
+    const result = sendMailViaGmail_(to, subject, htmlToPlainText_(html) || message, html);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
   } catch (err) {
     console.warn('sendReferenceEmail_ failed: ' + String(err && err.message || err));
@@ -1460,6 +1461,31 @@ const REFERENCE_MAIL_TEMPLATE_FILES = {
 
 // 헤드헌팅 경유 발송: 지원자에게 가는 것과 같은 템플릿을 업체 담당자에게 보내고, 본문 맨 위에
 // "후보자에게 전달해 달라"는 안내 상자만 덧붙인다(예전에는 별도 headhunter_forward 템플릿에 텍스트를 넣었다).
+// HTML 메일 → 텍스트 버전(HTML을 못 여는 메일 앱용). 숨김 프리헤더·스타일은 빼고,
+// 링크는 "문구 (주소)"로 남기며 줄바꿈 구조만 살린다.
+function htmlToPlainText_(html) {
+  let text = String(html || '');
+  if (!text) return '';
+  text = text
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(style|script|head|title)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<div[^>]*display:\s*none[^>]*>[\s\S]*?<\/div>/gi, '')
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, function(_, href, label) {
+      const plainLabel = String(label).replace(/<[^>]+>/g, '').trim();
+      if (/^mailto:/i.test(href)) return plainLabel || href.replace(/^mailto:/i, '');
+      return plainLabel && plainLabel !== href ? plainLabel + ' (' + href + ')' : href;
+    })
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|tr|h[1-6]|li|table)>/gi, '\n')
+    .replace(/<\/td>/gi, ' ')
+    .replace(/<img[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  return text.split('\n').map(function(line) { return line.replace(/[ \t]+/g, ' ').trim(); })
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function forwardNoticeData_(data) {
   let notice = data && data.forwardNotice;
   if (typeof notice === 'string') { try { notice = JSON.parse(notice); } catch (err) { notice = null; } }
@@ -2043,11 +2069,12 @@ function handleSendGeneralMail_(payload) {
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const to = normalizeEmail_(body.toEmail || body.to || body.email);
   const subject = String(body.subject || '').trim();
-  const message = String(body.body || body.message || '').trim();
-  if (!to || !subject || !message) return json_({ error: 'missing_mail_fields' });
+  if (!to || !subject) return json_({ error: 'missing_mail_fields' });
   try {
     const html = generalMailHtml_(body.templateType, body);
     if (!html) throw new Error('mail_template_render_failed');
+    // 메일 문구는 HTML 템플릿 한 곳에서만 관리한다 — 텍스트 버전도 렌더링된 HTML에서 만든다.
+    const message = htmlToPlainText_(html) || String(body.body || body.message || '').trim();
     const attachments = buildMailAttachments_(body.attachments);
     const result = sendMailViaGmail_(to, subject, message, html, attachments);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');

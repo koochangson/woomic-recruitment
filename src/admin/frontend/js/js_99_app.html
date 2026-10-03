@@ -26,10 +26,10 @@ const DELEGATED_CALLS = Object.freeze({
   remindOneRef, remindRef, removeCandidateDateRow, removePanelist, removeRecruitPlanDraft, renderActivityLog, renderIntTable, renderNotifyLog, renderReference, renderRefReport, renderTracker, reopenPosition, requestPositionReferences,
   posdetailClosePos, posdetailDeletePos, posdetailStopPos, printReferralInterviewSheet, purgeExpiredPii, renderExpiredPii, renderReferralSection, renderTeamMaster, requestStageChange, resetIdleLock, saveIntResult, saveNewTeam, savePosition, savePositionResults, saveRecruitPlanModal, saveRefReport, saveReferralDraft, saveReferralEmployee, saveReferralStatus, selectBatchSharedAvailability, selectPositionResult, selectReferral, setInterviewPositionFilter, setPrivacyMaskFromControl, setReferralView, setRpLocation, setRpYear, setRsYear, setTrackerPage, snapTo10,
   exportReferralRewardsCsv, finishActionConfirm, finishRejectReason, runCoreDiagnosticsUI, runLegacyReferenceMigrationPreview, runLegacyReferenceMigrationExecute,
-  refreshOnboardingDeptRecipients, saveSettings, searchRecruitPlanTargets, selectRefCand, selectRefPosition, selectTemplateEditor, insertTemplateSnippet, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
+  refreshOnboardingDeptRecipients, saveSettings, searchRecruitPlanTargets, selectRefCand, selectRefPosition, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendAllCandSchedule, sendInterviewNoticeCandidates, markInterviewNoticeCandidatesDone, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelAvailabilityRequest, refreshCurrentPanelAvailability, sendPanelNotice, sendRefRequest, setDashPipeFilter, confirmPanelAvailabilityAndContinue, setRefFilter, showUnlinkedList, scrollPositionDetail,
   closeAddTeam, createCandidateFromReferral, deleteTeam, editReferralEmployee, importInterviewersFromEmployeeFile, refreshEmployeesFromGS, refreshReferralsFromGS, skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, syncTeamMasterFromInterviewers, testGSConnection, testInterviewerConnection,
-  setReferenceStageMailChoice, testRefAutoConnection, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateHeadhunterHint, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
+  setReferenceStageMailChoice, testRefAutoConnection, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkSeatHint, updateHeadhunterHint, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
   populateHeadhunterSelect, renderHeadhunterDbPreview, syncHeadhunterEditor, addHeadhunterRow, removeHeadhunterRow,
 });
 const delegatedCallFailureNotices_ = new Set();
@@ -317,7 +317,6 @@ try {
   populateSel('int-cand');
   populateSel('ob-cand');
   updateObPreview();
-  updateBulkPreview();
   renderExpiredPii();
   resetIdleLock();
   if(privacyMode) maskVisiblePii();

@@ -586,112 +586,27 @@ function openMailto(toEmail, subject, body, sequential) {
 function buildIntEmail(itv, cand) {
   const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
   const candidateLoc = itv.candidateLoc || itv.loc || '강남사옥 14F (린스퀘어)';
-  const tplId = itv.type === '1차' ? 'tpl-int1' : 'tpl-int2';
-  const tpl = document.getElementById(tplId)?.value || '';
-  if(tpl) {
-    return tpl
-      .replace(/\{지원자명\}/g, cand?.name || '')
-      .replace(/\{포지션\}/g, cand?.pos || '')
-      .replace(/\{면접유형\}/g, type)
-      .replace(/\{면접일시\}/g, itv.date || '별도 안내 예정')
-      .replace(/\{장소\}/g,    candidateLoc)
-      .replace(/\{면접관\}/g,  itv.panel || '')
-      .replace(/\{메모\}/g,    itv.memo ? '\n안내사항: ' + itv.memo : '');
-  }
   return `안녕하세요 ${cand?.name || ''}님,\n\n${type} 일정을 안내드립니다.\n\n일시: ${itv.date || '별도 안내 예정'}\n장소: ${candidateLoc}${itv.memo ? '\n안내: ' + itv.memo : ''}`;
 }
 
-function selectTemplateEditor(templateId, trigger) {
-  document.querySelectorAll('.template-panel').forEach(panel => {
-    panel.classList.toggle('active', panel.dataset.templatePanel === templateId);
-  });
-  document.querySelectorAll('.template-list button').forEach(button => button.classList.remove('active'));
-  if(trigger) trigger.classList.add('active');
-  document.getElementById(templateId)?.focus();
-}
-
-function getActiveTemplateTextarea() {
-  return document.querySelector('.template-panel.active textarea');
-}
-
-function insertTemplateSnippet(type) {
-  const textarea = getActiveTemplateTextarea();
-  if(!textarea) return;
-  const snippets = {
-    infoTable: `\n[안내 정보]\n구분        내용\n----------  --------------------------------\n전형        {면접유형}\n일시        {면접일시}\n장소        {장소}\n담당        우미건설 피플팀\n`,
-    checklist: `\n[확인 사항]\n- 면접 시작 10분 전까지 도착해 주세요.\n- 신분증을 지참해 주세요.\n- 일정 변경이 필요한 경우 본 메일로 회신 부탁드립니다.\n`,
-    divider: `\n------------------------------------------------------------\n`,
-    cta: `\n[바로가기]\n{결과설문링크}\n`
-  };
-  const text = snippets[type] || snippets.infoTable;
-  const start = textarea.selectionStart ?? textarea.value.length;
-  const end = textarea.selectionEnd ?? start;
-  textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
-  const cursor = start + text.length;
-  textarea.focus();
-  textarea.setSelectionRange(cursor, cursor);
-  toast('템플릿에 서식 블록을 삽입했습니다.', 'tok');
-}
-
 function buildOfferEmail(ob, cand) {
-  const tpl = document.getElementById('tpl-onboard')?.value || '';
-  if(tpl) {
-    return tpl
-      .replace(/\{지원자명\}/g, ob.candName || cand?.name || '')
-      .replace(/\{포지션\}/g,   ob.pos || cand?.pos || '')
-      .replace(/\{입사일\}/g,   ob.joinDate || '')
-      .replace(/\{부서\}/g,     ob.dept || '')
-      .replace(/\{직책\}/g,     ob.rank || '')
-      .replace(/\{채용형태\}/g, ob.etype || '')
-      .replace(/\{근무지\}/g,   ob.loc  || '')
-      .replace(/\{출근시간\}/g, ob.joinTime || '09:00')
-      .replace(/\{집결장소\}/g, ob.reportLocation || '본사 3층 피플팀')
-      .replace(/\{준비사항\}/g, ob.notes ? '\n준비사항:\n' + ob.notes : '');
-  }
   return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '본사 3층 피플팀'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
 }
 
 function buildInternalOnboardEmail(ob, cand) {
-  const tpl = document.getElementById('tpl-onboard-internal')?.value || '';
-  if(tpl) {
-    const joinDate = ob.joinDate || '미정';
-    const notes = (ob.notes || '').trim();
-    return tpl
-      .replace(/\{지원자명\}/g, ob.candName || cand?.name || '')
-      .replace(/\{포지션\}/g,   ob.pos || cand?.pos || '')
-      .replace(/\{입사일\}/g,   joinDate)
-      .replace(/\{부서\}/g,     ob.dept || '미정')
-      .replace(/\{직책\}/g,     ob.rank || '미정')
-      .replace(/\{채용형태\}/g, ob.etype || cand?.etype || '정규직')
-      .replace(/\{근무지\}/g,   ob.loc || '미정')
-      .replace(/\{연락처\}/g,   cand?.phone || cand?.mobile || '별도 확인')
-      .replace(/\{회신기한\}/g, joinDate === '미정' ? '입사일 전일' : '입사일 전일')
-      .replace(/\{입사당일일정\}/g, notes || '입사 당일 본사 출근 예정')
-      .replace(/\{부서협조사항\}/g, '정보전략팀 전산 비품 준비 / 경영지원팀 전화기 설치 및 사원증 발급')
-      .replace(/\{준비사항\}/g, ob.notes || '');
-  }
   return `[입사안내] ${ob.joinDate || '미정'} ${ob.dept || '미정'} ${ob.candName || cand?.name || ''} ${ob.rank || ''}\n\n안녕하세요.\n${ob.joinDate || '미정'} 입사 예정인 신규입사자를 안내드립니다.\n\n[입사자 정보]\n성명        ${ob.candName || cand?.name || ''}\n포지션      ${ob.pos || cand?.pos || ''}\n배치 부서   ${ob.dept || '미정'}\n입사일      ${ob.joinDate || '미정'}\n직책/직급   ${ob.rank || '미정'}\n채용형태    ${ob.etype || cand?.etype || '정규직'}\n근무지      ${ob.loc || '미정'}\n연락처      ${cand?.phone || cand?.mobile || '별도 확인'}\n\n[현장 담당자 확인 요청]\n입사자와 사전 연락하여 숙소 필요 여부 및 제복 사이즈를 확인해 주시기 바랍니다.\n확인 결과는 입사일 전일까지 피플팀으로 회신 부탁드립니다.\n\n[입사 당일 일정 및 부서별 협조사항]\n입사 당일 일정: ${(ob.notes || '').trim() || '입사 당일 본사 출근 예정'}\n부서별 협조사항: 정보전략팀 전산 비품 준비 / 경영지원팀 전화기 설치 및 사원증 발급\n\n원활한 입사 준비를 위해 관련 부서에서는 입사일 전일까지 준비 사항을 완료해 주시기 바랍니다.\n\n우미건설 피플팀 드림\n\n※ 본 메일에는 입사 예정자의 개인정보가 포함되어 있습니다. 입사 준비 목적 외 이용 및 외부 전달을 금합니다.`;
 }
 
 function buildRejectEmail(cand) {
-  const tpl = document.getElementById('tpl-reject')?.value;
-  if(tpl) return tpl.replace(/\{지원자명\}/g, cand.name||'').replace(/\{포지션\}/g, cand.pos||'');
   return `안녕하세요 ${cand.name}님,\n\n${cand.pos} 포지션에 지원해 주셔서 진심으로 감사드립니다.\n\n아쉽게도 이번 채용에서는 함께하기 어렵게 되었습니다.\n소중한 시간 내어 주셔서 감사드립니다.\n\n앞날에 좋은 일들이 가득하시길 바랍니다.`;
 }
 
 function buildOnboardEmail(cand) {
-  const tpl = document.getElementById('tpl-onboard')?.value;
-  if(tpl) return tpl.replace(/\{지원자명\}/g, cand.name).replace(/\{포지션\}/g, cand.pos||'');
   return `🎉 [입사 안내 - 우미건설]\n${cand.name}님, 최종 합격을 진심으로 축하드립니다!\n\n${cand.pos} 포지션으로 입사하시게 되어 환영합니다.\n입사 절차와 준비 서류를 아래와 같이 안내드립니다.\n\n■ 입사 예정일: 별도 협의\n■ 준비 서류: 신분증 사본, 통장 사본, 자격증 사본 등\n■ 문의: 우미건설 피플팀\n\n입사 관련 궁금하신 점은 언제든 회신 주세요.\n\n우미건설 피플팀 드림`;
 }
 
 function buildRefRequestEmail(cand, link) {
   const formUrl = link || document.getElementById('cfg-form-url')?.value || '[추천인 등록 링크 발급 실패 — 다시 시도해 주세요]';
-  const tpl = document.getElementById('tpl-ref')?.value;
-  if(tpl) return tpl
-    .replace(/\{지원자명\}/g, cand.name||'')
-    .replace(/\{포지션\}/g, cand.pos||'')
-    .replace(/\{추천인폼링크\}/g, formUrl);
   return `안녕하세요, ${cand.name}님.\n\n우미건설 ${cand.pos} 포지션 채용 절차와 관련하여 레퍼런스 체크를 진행하고자 합니다.\n\n아래 버튼을 통해 추천인 3인의 정보를 등록해 주시기 바랍니다.\n\n추천인 등록 링크\n${formUrl}\n\n등록 정보\n- 성함\n- 이메일\n- 휴대폰 번호\n- 지원자와의 관계\n\n등록해 주신 추천인께는 레퍼런스 체크를 위한 설문 메일이 별도로 발송될 예정입니다.\n추천인 등록 전, 추천인께 연락처 제공 및 설문 메일 발송 예정임을 미리 안내해 주시기 바랍니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
 }
 
