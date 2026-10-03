@@ -290,7 +290,7 @@ function getInterviewerDeptTeams() {
     if(person?.active===false||/퇴사|비활성|사용안함/.test(String(person?.status||'')))return;
     const name=getInterviewerDeptName(person);if(!name)return;
     const key=name.toLowerCase();
-    const division=String(person?.division||person?.businessUnit||person?.bizUnit||person?.['사업부']||'').trim();
+    const division=String(person?.division||person?.['본부']||person?.businessUnit||person?.bizUnit||person?.['사업부']||'').trim();
     if(!map.has(key))map.set(key,{name,division,source:'interviewer',active:true,hidden:false});
   });
   return [...map.values()];
@@ -315,7 +315,8 @@ function syncTeamMasterFromInterviewers(showToast=false) {
     const existing=teamMaster.find(team=>String(team.name||'').trim().toLowerCase()===key);
     if(existing) {
       existing.active=true;
-      if(!existing.division&&dept.division) existing.division=dept.division;
+      // 직원현황에서 온 팀은 업로드한 본부로 갱신한다(직접 입력한 팀의 본부는 덮어쓰지 않는다).
+      if(dept.division&&(!existing.division||existing.source==='interviewer')) existing.division=dept.division;
       if(!existing.source) existing.source='interviewer';
     } else teamMaster.push({name:dept.name,division:dept.division,source:'interviewer',active:true,hidden:false});
   });

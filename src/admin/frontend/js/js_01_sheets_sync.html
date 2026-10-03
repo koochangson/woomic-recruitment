@@ -1677,11 +1677,15 @@ function normalizeUploadedEmployeeRow(row) {
   const rank = employeeUploadValue(row, ['직급', '호칭', 'rank']);
   const dept = employeeUploadValue(row, ['통합조직', '최종 소속 통합조직 통합그룹 조직명', '최종소속통합조직통합그룹조직명', '소속', '부서', 'dept']);
   const status = employeeUploadValue(row, ['직원 상태', '직원상태', '상태', 'status']) || '재직';
+  // 본부: 정확한 열 이름이 없으면 '본부'가 들어간 열을 찾는다(예: '최종 소속 본부명').
+  const division = employeeUploadValue(row, ['본부', '본부명', '소속본부', '소속 본부', '최종 소속 본부', '사업본부', '사업부', '부문', 'division'])
+    || String(row?.[Object.keys(row || {}).find(key => /본부/.test(key) && !/코드/.test(key))] ?? '').trim();
   return {
     email,
     name,
     empNo,
     dept,
+    division,
     rank,
     status,
     updatedAt: new Date().toISOString(),

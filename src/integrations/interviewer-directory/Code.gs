@@ -12,7 +12,7 @@ const SHEET_NAME = '면접관DB';
 const ADMIN_TOKEN_PROPERTY = 'INTERVIEWER_DB_ADMIN_TOKEN';
 const LOOKUP_TOKEN_PROPERTY = 'INTERVIEWER_DB_LOOKUP_TOKEN';
 
-const HEADERS = ['id', 'empNo', 'name', 'email', 'rank', 'dept', 'type', 'active', 'status', 'updatedAt'];
+const HEADERS = ['id', 'empNo', 'name', 'email', 'rank', 'dept', 'division', 'type', 'active', 'status', 'updatedAt'];
 
 function jsonResponse(data) {
   return ContentService
@@ -150,6 +150,7 @@ function getInterviewers(typeFilter) {
       email: String(row.email || '').trim().toLowerCase(),
       rank: row.rank || '',
       dept: row.dept || '',
+      division: row.division || '',
       type: row.type || '',
       active: isActive(row),
       status: row.status || '',
@@ -178,6 +179,7 @@ function lookupEmployeeByEmpNo(empNo) {
       email: String(found.email || '').trim().toLowerCase(),
       rank: found.rank || '',
       dept: found.dept || '',
+      division: found.division || '',
       status: found.status || ''
     }
   };
@@ -201,6 +203,7 @@ function addInterviewer(body) {
     email,
     rank: body.rank || '',
     dept: body.dept || '',
+    division: body.division || '',
     type: body.type || '1차,2차',
     active: true,
     status: body.status || '재직',
@@ -221,7 +224,7 @@ function updateInterviewer(body) {
       headers.forEach((header, index) => {
         row[header] = values[i][index];
       });
-      ['empNo', 'name', 'email', 'rank', 'dept', 'type', 'active', 'status'].forEach(key => {
+      ['empNo', 'name', 'email', 'rank', 'dept', 'division', 'type', 'active', 'status'].forEach(key => {
         if (body[key] !== undefined) row[key] = body[key];
       });
       row.updatedAt = new Date().toISOString();
@@ -265,6 +268,7 @@ function replaceAllInterviewers(rows) {
       email: pick(row, ['email', '업무 이메일주소', '업무이메일주소', '업무 이메일', '업무이메일']),
       rank: pick(row, ['rank', '직급', '호칭']),
       dept: pick(row, ['dept', '통합조직', '최종 소속 통합조직 통합그룹 조직명', '소속', '부서']),
+      division: pick(row, ['division', '본부', '본부명', '소속본부', '소속 본부', '최종 소속 본부', '사업본부', '사업부', '부문']),
       type: pick(row, ['type']) || '1차,2차',
       active: true,
       status: pick(row, ['status', '직원 상태', '직원상태']) || '재직',
@@ -298,6 +302,7 @@ function normalizeInterviewerRow(row) {
     email: String(row.email || '').trim().toLowerCase(),
     rank: String(row.rank || '').trim(),
     dept: String(row.dept || '').trim(),
+    division: String(row.division || '').trim(),
     type: String(row.type || '').trim() || '1차,2차',
     active: row.active === false || row.active === 'FALSE' || row.active === 'false' ? false : true,
     status: String(row.status || '').trim() || '재직',

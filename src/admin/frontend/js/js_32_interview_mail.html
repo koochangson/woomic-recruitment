@@ -343,6 +343,7 @@ function normalizeInterviewerForUi(row) {
     email: String(row.email || '').trim().toLowerCase(),
     rank: row.rank || '',
     dept: row.dept || '',
+    division: row.division || row['본부'] || '',
     type: row.type || '',
     active: row.active !== false && row.active !== 'false',
     status: row.status || '',
