@@ -169,6 +169,7 @@ function startStartupDataSync_() {
       alignStartedInterviewStagesForActivePositions_();
       renderDashboard(); renderRecruitStatus(); renderTracker(); renderPositions(); renderIntTable();
       showSyncStatus('Google Sheets 기준으로 로드됨', 'ok');
+      if(typeof preloadPanelAvailability_ === 'function') preloadPanelAvailability_();
     } else {
       showSyncStatus('⚠ GS 응답 없음 — 로컬 캐시로 표시 중', 'warn');
     }

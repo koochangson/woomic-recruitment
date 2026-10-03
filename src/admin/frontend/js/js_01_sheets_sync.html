@@ -1104,13 +1104,14 @@ function applyPanelAvailabilityChange_(change) {
   const list = Array.isArray(panelAvailabilityCache[key]) ? panelAvailabilityCache[key] : [];
   const prev = list.find(item => String(item.id) === id);
   const rest = list.filter(item => String(item.id) !== id);
-  if(change.action === 'delete') { panelAvailabilityCache[key] = rest; return true; }
+  if(change.action === 'delete') { panelAvailabilityCache[key] = rest; if(typeof persistPanelAvailabilityCache_ === 'function') persistPanelAvailabilityCache_(); return true; }
   let selections = row.selections;
   if(!Array.isArray(selections)) { try { selections = JSON.parse(selections || '[]'); } catch(e) { selections = []; } }
   let options = row.availabilityOptions;
   if(!Array.isArray(options)) { try { options = JSON.parse(options || '[]'); } catch(e) { options = []; } }
   const next = Object.assign({}, row, { selections:Array.isArray(selections) ? selections : [], availabilityOptions:Array.isArray(options) ? options : [] });
   panelAvailabilityCache[key] = [...rest, next];
+  if(typeof persistPanelAvailabilityCache_ === 'function') persistPanelAvailabilityCache_();
   if(isAvailabilityReplied_(next.status) && !isAvailabilityReplied_(prev?.status)
     && markAvailabilityReplyNotified_(`panel|${id}|${next.status}|${next.submittedAt || next.updatedAt || ''}`)) {
     pendingAvailabilityReplies_.push({ name: `면접관 ${next.panelistName || ''}`.trim(), posId, type: round });
