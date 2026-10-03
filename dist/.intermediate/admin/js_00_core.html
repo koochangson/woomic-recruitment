@@ -414,6 +414,11 @@ function buildRsRows() {
   const completedIds=new Set(candidates.filter(c=>{
     const ob=onboardingByCand.get(Number(c.id));
     const joinDate=String(ob?.joinDate||c.joinDate||c.passDate||'');
+    if(isHireCompletedByFill_(c)) {
+      // 입사일이 없으면 포지션 마감일 기준 연도로 집계한다.
+      const pos=positions.find(p=>Number(p.id)===Number(c.posId));
+      return String(joinDate||pos?.closedAt||'').startsWith(year);
+    }
     return joinDate.startsWith(year) && (Number(c.stage)===7 || (joinDate && joinDate<=todayIso));
   }).map(c=>Number(c.id)));
   const doneCands=candidates.filter(c=>completedIds.has(Number(c.id)));
@@ -1445,6 +1450,15 @@ function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
 // 종료 상태다 — 예전에는 이를 진행중으로 취급해 마감 후에도 처리 업무·칸반·메일 재발송이 계속 남았다.
 // (진행중 + 일부 합격 상태의 '부분충원' 표시는 getPositionProjectData가 따로 계산한다.)
 function isPositionOpen_(p){ return posStatus(p) === 'active'; }
+// 운영 기준: 포지션을 충원완료(부분충원 마감 포함)로 닫으면 그 포지션의 최종합격자는 입사까지 완료된 것으로 본다.
+// 입사일을 입력하지 않았더라도 입사 안내·입사 예정 목록에서 빠진다. 단계(5) 값은 그대로 둬서
+// 충원율·합격 인원 집계는 바뀌지 않는다.
+function isHireCompletedByFill_(c){
+  if(!c || Number(c.stage) !== 5) return false;
+  const p = positions.find(x => Number(x.id) === Number(c.posId));
+  return !!p && ['filled','partial'].includes(posStatus(p));
+}
+function isOnboardingDone_(c){ return !!c && (Number(c.stage) === 7 || isHireCompletedByFill_(c)); }
 function getPositionCardProgress(pos, positionCandidates) {
   const status = posStatus(pos);
   if(status !== 'active') {

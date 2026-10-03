@@ -676,6 +676,7 @@ function getCandidateNextAction(cand) {
   if(cand.stage === 6 || cand.stage === 7) return null; // 불합격·입사 완료 — 다음 액션 없음
   if(cand.held) return null; // 보류 처리됨 — 포지션 중단/완료 등으로 더 이상 진행하지 않음
   if(cand.stage === 5) {
+    if(isHireCompletedByFill_(cand)) return null; // 충원완료 포지션 — 입사 완료로 간주
     const onboarded = cand.notified || onboardings.some(o => Number(o.candId) === Number(cand.id) && o.notified);
     if(onboarded) return null;
     return { text:'입사 안내 발송 필요', priority:'high', call: cand.posId != null ? `openOnboardingFromPosition(${cand.posId})` : null };
@@ -737,7 +738,7 @@ function renderTracker() {
     const nextActionHtml = nextAction
       ? `<span class="cl-next-action pri-${nextAction.priority}" title="${esc(nextAction.text)}">${esc(nextAction.text)}</span>`
       : '<span class="cl-next-action pri-none">-</span>';
-    const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardedIds.has(Number(c.id)) ? 'urg-red' : 'urg-none';
+    const urg = c.ref==='진행중'&&c.refD===0 ? 'urg-red' : c.stage===5&&!onboardedIds.has(Number(c.id))&&!isHireCompletedByFill_(c) ? 'urg-red' : 'urg-none';
     return `<div class="cl-row" data-action="open-candidate" data-id="${c.id}">
       <div class="urg ${urg}"></div>
       <div><div class="tname">${esc(c.name)}${headhunterSearchPill(c)}</div><div class="tsub">${esc(c.pos)}${c.dept?' · '+c.dept:''}${Number(c.stage)===5?' · '+esc(getCandidateJoinDateLabel(c)):''}</div></div>

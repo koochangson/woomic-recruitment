@@ -429,7 +429,7 @@ function populateSel(id) {
   const s = document.getElementById(id); if(!s) return;
   const v = s.value;
   s.innerHTML = '<option value="">-- 선택 --</option>';
-  const list = id === 'ob-cand' ? candidates.filter(c=>c.stage===5) : candidates;
+  const list = id === 'ob-cand' ? candidates.filter(c=>c.stage===5 && !isOnboardingDone_(c)) : candidates;
   list.forEach(c => s.add(new Option(`${esc(c.name)} (${esc(c.pos)})`, c.id)));
   if(v) s.value = v;
 }

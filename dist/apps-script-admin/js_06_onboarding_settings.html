@@ -240,9 +240,18 @@ function renderOnboarding(){
   const wrap=document.getElementById('ob-table');
   if(!wrap)return;
   const registeredIds = new Set(onboardings.map(o=>Number(o.candId)));
-  const pendingCands = candidates.filter(c=>Number(c.stage)===5 && !registeredIds.has(Number(c.id)));
-  const confirmedObs = [...onboardings].sort((a,b)=>(a.joinDate||'').localeCompare(b.joinDate||''));
-  if(!pendingCands.length && !confirmedObs.length){wrap.innerHTML=empty('최종합격 인원이 없습니다.');return;}
+  // 충원완료 포지션의 최종합격자·입사 처리자는 입사 완료로 보고 진행 목록에서 뺀다(아래 접힌 목록에서만 확인).
+  const candById = new Map(candidates.map(c=>[Number(c.id),c]));
+  const pendingCands = candidates.filter(c=>Number(c.stage)===5 && !registeredIds.has(Number(c.id)) && !isOnboardingDone_(c));
+  const sortedObs = [...onboardings].sort((a,b)=>(a.joinDate||'').localeCompare(b.joinDate||''));
+  const confirmedObs = sortedObs.filter(o=>!isOnboardingDone_(candById.get(Number(o.candId))));
+  const doneList = [
+    ...sortedObs.filter(o=>isOnboardingDone_(candById.get(Number(o.candId)))).map(o=>({ name:o.candName, pos:o.pos, dept:o.dept, joinDate:o.joinDate })),
+    ...candidates.filter(c=>isOnboardingDone_(c) && !registeredIds.has(Number(c.id))).map(c=>({ name:c.name, pos:c.pos, dept:c.dept, joinDate:getCandidateJoinDate(c) })),
+  ];
+  const doneHtml = doneList.length ? `<details class="ob-done-list"><summary>입사 완료 · ${doneList.length}명 <span>(충원완료 포지션 포함)</span></summary>
+    <div>${doneList.map(d=>`<div class="ob-done-item"><b>${esc(d.name||'-')}</b><span>${esc(d.pos||'-')}${d.dept?` · ${esc(d.dept)}`:''}</span><span>${d.joinDate?esc(d.joinDate):'입사일 미입력'}</span></div>`).join('')}</div></details>` : '';
+  if(!pendingCands.length && !confirmedObs.length){wrap.innerHTML=empty('입사 진행 중인 최종합격자가 없습니다.')+doneHtml;return;}
   const selectedId = Number(document.getElementById('ob-cand')?.value) || 0;
   const rowAttrs = candId => `class="ob-row${Number(candId)===selectedId?' ob-row-active':''}" data-action="call" data-call="selectOnboardingRow(${Number(candId)})" title="클릭하면 오른쪽 입사 안내 등록에 불러옵니다"`;
   const nameCell = (name, email, etype) => `<td class="ob-col-name"><div class="ob-name-line"><span class="tname">${esc(name||'-')}</span>${etype?etypePill(etype):''}</div>${email?`<div class="tsub ob-email" title="${esc(email)}">${esc(email)}</div>`:''}</td>`;
@@ -277,7 +286,7 @@ function renderOnboarding(){
   wrap.innerHTML=`<div class="tw ob-tw"><table class="ob-table">
     <thead><tr><th>지원자</th><th>직무/부서</th><th>입사일·직책</th><th>알림</th><th>액션</th></tr></thead>
     <tbody>${pendingHeader}${pendingRows}${confirmedHeader}${confirmedRows}</tbody>
-  </table></div>`;
+  </table></div>${doneHtml}`;
 }
 async function sendObById(id,ch){
   const ob=onboardings.find(o=>o.id===id);if(!ob)return;

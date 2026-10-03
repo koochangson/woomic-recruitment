@@ -187,6 +187,7 @@ async function closePosition(posId) {
   const passed = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === 5).length;
   const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held).length;
   const items = [`최종합격 ${passed}명 / 목표 ${hc}명`];
+  if(passed > 0) items.push(`최종합격자 ${passed}명은 입사 완료로 처리 (입사일 미입력이어도 입사 목록에서 제외)`);
   if(active > 0) items.push(`진행 중 지원자 ${active}명은 보류 처리`);
   if(passed < hc) items.push('목표 미달 상태로 부분 충원 마감');
   const confirmed = await confirmActionModal({
