@@ -5,7 +5,9 @@ function fillOnboardingDefaults(candId) {
   const select = document.getElementById('ob-cand');
   const id = Number(candId || select?.value);
   const c = candidates.find(x=>Number(x.id)===id);
-  if(!c) { renderOnboardingPositionFinalists(); updateObPreview(); return; }
+  if(!c) { renderOnboardingPositionFinalists(); renderOnboarding(); updateObPreview(); return; }
+  // 입사 처리(입사 단계)로 넘어간 지원자는 선택 목록(최종합격만)에 없어서 값이 지정되지 않는다 — 옵션을 보충한다.
+  if(select && ![...select.options].some(o => o.value === String(c.id))) select.add(new Option(`${c.name} (${c.pos || ''})`, c.id));
   if(select) select.value = String(c.id);
   const pos = positions.find(p=>Number(p.id)===Number(c.posId));
   const existing = onboardings.find(o=>Number(o.candId)===Number(c.id)) || {};
@@ -28,6 +30,19 @@ function fillOnboardingDefaults(candId) {
   renderOnboardingPositionFinalists(c.posId, c.id);
   renderOnboarding();
   updateObPreview();
+}
+
+// 왼쪽 입사 예정자 표에서 행을 누르면 오른쪽 입사 안내 등록 폼에 해당 지원자를 채운다.
+function selectOnboardingRow(candId) {
+  fillOnboardingDefaults(candId);
+  const form = document.getElementById('ob-cand')?.closest('.card');
+  if(form) {
+    const rect = form.getBoundingClientRect();
+    // 좁은 화면(폼이 표 아래로 내려간 배치)에서는 폼이 보이도록 스크롤한다.
+    if(rect.top > window.innerHeight * 0.6 || rect.bottom < 0) form.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+  const target = document.getElementById('ob-date');
+  if(target && !target.value) target.focus({ preventScroll:true });
 }
 
 function refreshOnboardingDeptRecipients() {
@@ -227,16 +242,18 @@ function renderOnboarding(){
   const pendingCands = candidates.filter(c=>Number(c.stage)===5 && !registeredIds.has(Number(c.id)));
   const confirmedObs = [...onboardings].sort((a,b)=>(a.joinDate||'').localeCompare(b.joinDate||''));
   if(!pendingCands.length && !confirmedObs.length){wrap.innerHTML=empty('최종합격 인원이 없습니다.');return;}
-  const pendingRows = pendingCands.map(c=>`<tr style="background:var(--rbg)">
+  const selectedId = Number(document.getElementById('ob-cand')?.value) || 0;
+  const rowAttrs = candId => `class="ob-row${Number(candId)===selectedId?' ob-row-active':''}" data-action="call" data-call="selectOnboardingRow(${Number(candId)})" title="클릭하면 오른쪽 입사 안내 등록에 불러옵니다"`;
+  const pendingRows = pendingCands.map(c=>`<tr ${rowAttrs(c.id)} style="background:var(--rbg)">
       <td><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.email||'')}</div></td>
       <td>${etypePill(c.etype)}</td>
       <td><div>${esc(c.pos||'-')}</div><div class="tsub">${esc(c.dept||'-')}</div></td>
       <td><span class="b bred" style="font-size:11px">미확정</span></td>
       <td>-</td>
       <td><span class="b bgray">미발송</span></td>
-      <td><button class="btn btn-xs btn-primary" data-action="call" data-call="fillOnboardingDefaults(${c.id});document.getElementById('ob-date').focus()">입사일 등록</button></td>
+      <td><button class="btn btn-xs btn-primary" data-action="call" data-call="selectOnboardingRow(${c.id})">입사일 등록</button></td>
     </tr>`).join('');
-  const confirmedRows = confirmedObs.map(o=>`<tr>
+  const confirmedRows = confirmedObs.map(o=>`<tr ${rowAttrs(o.candId)}>
       <td><div class="tname">${esc(o.candName)}</div></td>
       <td>${etypePill(o.etype)}</td>
       <td><div>${esc(o.pos||'-')}</div><div class="tsub">${esc(o.dept||'-')}</div></td>
