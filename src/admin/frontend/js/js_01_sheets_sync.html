@@ -277,7 +277,9 @@ async function flushGsRetryQueue() {
   gsRetryRunning = true;
   const remain = [];
   for(const item of queue) {
-    const result = await gsFetch(item.action, item.sheet, item.data, { allowQueue:false });
+    const result = item.action === 'upsert'
+      ? await gsUpsertWithRebase_(item.sheet, item.data, { allowQueue:false })
+      : await gsFetch(item.action, item.sheet, item.data, { allowQueue:false });
     if(result == null) remain.push({ ...item, attempts:(item.attempts||0)+1 });
   }
   localStorage.setItem(GS_RETRY_KEY, JSON.stringify(remain.slice(-200)));
@@ -622,9 +624,86 @@ async function gsGetChanges(cursor, limit=500, maxPages=20, sheet='Candidates') 
   return {changes, cursor:nextCursor, latestCursor, serverTime, resyncRequired:false, hasMore:true};
 }
 
+// ── 여러 기기 동시 작업: 버전 충돌 자동 병합 ─────────────────────
+// 기기마다 "마지막으로 받은 서버본(base)"을 기억한다. 저장 시 다른 기기가 먼저 고쳐 버전 충돌이 나면
+// 내가 base에서 바꾼 필드만 내 값으로, 나머지는 서버 최신값으로 합쳐 자동 재저장한다.
+// → 서로 다른 항목을 고친 경우 양쪽 변경이 모두 남고, 같은 항목을 고친 경우 나중 저장이 반영된다.
+const GS_REVISIONED_SHEETS_ = ['Candidates','Interviews','Positions'];
+const GS_BASE_KEY_ = 'woomic_gs_base_v1';
+let gsBaseRows_ = null;
+let gsBaseSaveTimer_ = null;
+function gsBaseStore_() {
+  if(gsBaseRows_) return gsBaseRows_;
+  try { gsBaseRows_ = JSON.parse(localStorage.getItem(GS_BASE_KEY_) || 'null'); } catch(e) { gsBaseRows_ = null; }
+  if(!gsBaseRows_ || typeof gsBaseRows_ !== 'object') gsBaseRows_ = { ready:false };
+  GS_REVISIONED_SHEETS_.forEach(sheet => { if(!gsBaseRows_[sheet]) gsBaseRows_[sheet] = {}; });
+  return gsBaseRows_;
+}
+function saveGsBaseSoon_() {
+  clearTimeout(gsBaseSaveTimer_);
+  gsBaseSaveTimer_ = setTimeout(() => {
+    try { localStorage.setItem(GS_BASE_KEY_, JSON.stringify(gsBaseStore_())); } catch(e) { console.warn('[GS] base 저장 실패', e); }
+  }, 300);
+}
+// 서버에서 받은 원본 행을 base로 기록한다(더 오래된 버전으로 되돌리지 않음).
+function rememberGsBaseRows_(sheet, rows) {
+  if(!GS_REVISIONED_SHEETS_.includes(sheet)) return;
+  const store = gsBaseStore_()[sheet];
+  let changed = false;
+  (rows || []).forEach(row => {
+    if(!row || row.id === '' || row.id == null) return;
+    const key = String(row.id);
+    const prev = store[key];
+    if(prev && (Number(prev.rev) || 0) > (Number(row.rev) || 0)) return;
+    store[key] = Object.assign({}, row);
+    changed = true;
+  });
+  if(changed) saveGsBaseSoon_();
+}
+function forgetGsBaseRow_(sheet, id) {
+  if(!GS_REVISIONED_SHEETS_.includes(sheet)) return;
+  delete gsBaseStore_()[sheet][String(id)];
+  saveGsBaseSoon_();
+}
+// 이 기기에 base가 처음 쌓였는지(배포 직후 첫 접속은 전체 로드로 한 번 채운다)
+function hasGsBaseSnapshot_() { return gsBaseStore_().ready === true; }
+function markGsBaseSnapshotReady_() { gsBaseStore_().ready = true; saveGsBaseSoon_(); }
+
+function gsCell_(value) {
+  if(value == null) return '';
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+}
+function mergeGsConflictRow_(payload, base, server) {
+  const merged = Object.assign({}, server);
+  Object.keys(payload).forEach(field => {
+    if(field === 'rev' || field === 'updatedAt') return;
+    if(gsCell_(payload[field]) !== gsCell_(base[field])) merged[field] = payload[field];
+  });
+  merged.id = payload.id;
+  merged.rev = Number(server.rev) || 0;
+  merged.updatedAt = server.updatedAt || payload.updatedAt || '';
+  return merged;
+}
+
+// 충돌 시 base 기준으로 병합해 최대 2회 다시 저장한다. base가 없으면 병합하지 않고 충돌을 그대로 돌려준다.
+async function gsUpsertWithRebase_(sheet, payload, options={}) {
+  let current = payload;
+  let result = await gsFetch('upsert', sheet, current, options);
+  for(let attempt=0; attempt<2 && result?.error === 'revision_conflict' && result.data && GS_REVISIONED_SHEETS_.includes(sheet); attempt++) {
+    const base = gsBaseStore_()[sheet][String(payload.id)];
+    if(!base) break;
+    current = mergeGsConflictRow_(payload, base, result.data);
+    console.info('[GS] 버전 충돌 자동 병합 후 재저장:', sheet, payload.id);
+    result = await gsFetch('upsert', sheet, current, options);
+    if(result && !result.error) result.rebased = true;
+  }
+  if(result?.data && !result.error) rememberGsBaseRows_(sheet, [result.data]);
+  return result;
+}
+
 async function gsUpsert(sheet, item) {
   const payload = gsSchemaPayload(sheet, item);
-  const result = await gsFetch('upsert', sheet, payload);
+  const result = await gsUpsertWithRebase_(sheet, payload);
   if(result?.error === 'revision_conflict') {
     showRevisionConflict_(sheet, result);
     clearGsReadCache(sheet);
@@ -742,6 +821,8 @@ async function syncCandToGS(cand) {
     rev:        Number(cand.rev) || 0,
     updatedAt:  cand.updatedAt,
   });
+  // 자동 병합으로 저장됐다면 다른 기기의 변경 필드도 이 화면에 반영한다.
+  if(result?.rebased && result.data) Object.assign(cand, normalizeGsCandidate(result.data));
   if(result?.data) {
     cand.rev = Number(result.data.rev) || 0;
     cand.updatedAt = result.data.updatedAt || cand.updatedAt;
@@ -797,6 +878,8 @@ async function syncIntToGS(itv) {
     rev:       Number(itv.rev) || 0,
     updatedAt: itv.updatedAt,
   });
+  // 자동 병합으로 저장됐다면 다른 기기의 변경 필드도 이 화면에 반영한다.
+  if(result?.rebased && result.data) Object.assign(itv, normalizeGsInterview(result.data));
   if(result?.data) {
     itv.rev = Number(result.data.rev) || 0;
     itv.updatedAt = result.data.updatedAt || itv.updatedAt;
@@ -847,6 +930,8 @@ async function syncPosToGS(pos) {
     rev:         Number(pos.rev) || 0,
     updatedAt:   pos.updatedAt,
   });
+  // 자동 병합으로 저장됐다면 다른 기기의 변경 필드도 이 화면에 반영한다.
+  if(result?.rebased && result.data) Object.assign(pos, normalizeGsPosition(result.data));
   if(result?.data) {
     pos.rev = Number(result.data.rev) || 0;
     pos.updatedAt = result.data.updatedAt || pos.updatedAt;
@@ -1148,6 +1233,7 @@ function applyGsChanges(changes) {
     if(REFERRAL_STRING_ID_SHEETS.includes(sheet) ? !id : !Number.isFinite(id)) return;
     if(sheet==='ReferenceCandidates' || sheet==='ReferenceResponses') referenceCheckTouched = true;
     if(change.action === 'delete') {
+      forgetGsBaseRow_(sheet, id);
       if(sheet==='Candidates') candidates = candidates.filter(x=>Number(x.id)!==id);
       if(sheet==='Interviews') interviews = interviews.filter(x=>Number(x.id)!==id);
       if(sheet==='Positions') positions = positions.filter(x=>Number(x.id)!==id);
@@ -1161,6 +1247,7 @@ function applyGsChanges(changes) {
       return;
     }
     const row = change.data || {};
+    rememberGsBaseRows_(sheet, [row]);
     const normalized = sheet==='Candidates' ? normalizeGsCandidate(row)
       : sheet==='Interviews' ? normalizeGsInterview(row)
       : sheet==='Positions' ? normalizeGsPosition(row)
@@ -1202,7 +1289,8 @@ async function syncCoreFromGS(options={}) {
 
 async function syncCoreFromGSInternal(options={}) {
   if(!hasGsBridge_()) return false;
-  const cursor = options.forceFull ? null : getGsChangeCursor();
+  // 이 기기에 병합 기준(base)이 아직 없으면 한 번 전체 로드로 채운다.
+  const cursor = options.forceFull || !hasGsBaseSnapshot_() ? null : getGsChangeCursor();
   if(cursor !== null) {
     showSyncStatus('GS 변경사항 확인 중...', '');
     const delta = await gsGetChanges(cursor);
@@ -1243,6 +1331,7 @@ async function syncCoreFromGSInternal(options={}) {
     failedIndexes.forEach((index, retryIndex) => { loaded[index] = retried[retryIndex]; });
   }
   if(!loaded.every(Boolean)) return false;
+  markGsBaseSnapshotReady_();
   if(baseline && Number.isFinite(Number(baseline.cursor))) {
     setGsChangeCursor(baseline.cursor);
     const catchup = await gsGetChanges(Number(baseline.cursor));
@@ -1384,6 +1473,7 @@ async function loadPositionsFromGS(options={}) {
       if(result.isDelta) setGsSyncCursor('Positions', result.serverTime);
       return result.isDelta || !!options.forceFull;
     }
+    rememberGsBaseRows_('Positions', data);
     const remote = data.map(row => {
       const org = inferPositionOrg(row);
       return {
@@ -1433,6 +1523,7 @@ async function loadInterviewsFromGS(options={}) {
       if(result.isDelta) setGsSyncCursor('Interviews', result.serverTime);
       return result.isDelta || !!options.forceFull;
     }
+    rememberGsBaseRows_('Interviews', data);
     const remote = data.map(row => ({
       id:       Number(row.id),
       candId:   row.candId !== '' && row.candId != null ? Number(row.candId) : null,
@@ -1822,6 +1913,7 @@ async function loadFromGS(options={}) {
   }
   // 변경 감지(poll)와 같은 변환을 쓴다. 예전 전용 변환은 rev를 빠뜨려, 다른 기기·탭이 수정한 지원자를
   // 이 화면이 다시 저장할 때마다 버전 충돌이 났다(새로고침해도 해소되지 않음). source·헤드헌터·입사일도 누락됐었다.
+  rememberGsBaseRows_('Candidates', data);
   const remote = data.map(normalizeGsCandidate);
   candidates = result.isDelta
     ? mergeGsDeltaRecords('Candidates', remote, candidates)
