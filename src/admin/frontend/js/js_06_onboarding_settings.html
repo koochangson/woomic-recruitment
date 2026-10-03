@@ -244,35 +244,37 @@ function renderOnboarding(){
   if(!pendingCands.length && !confirmedObs.length){wrap.innerHTML=empty('최종합격 인원이 없습니다.');return;}
   const selectedId = Number(document.getElementById('ob-cand')?.value) || 0;
   const rowAttrs = candId => `class="ob-row${Number(candId)===selectedId?' ob-row-active':''}" data-action="call" data-call="selectOnboardingRow(${Number(candId)})" title="클릭하면 오른쪽 입사 안내 등록에 불러옵니다"`;
+  const nameCell = (name, email, etype) => `<td class="ob-col-name"><div class="ob-name-line"><span class="tname">${esc(name||'-')}</span>${etype?etypePill(etype):''}</div>${email?`<div class="tsub ob-email" title="${esc(email)}">${esc(email)}</div>`:''}</td>`;
+  const posCell = (pos, dept) => `<td class="ob-col-pos"><div>${esc(pos||'-')}</div><div class="tsub">${esc(dept||'-')}</div></td>`;
   const pendingRows = pendingCands.map(c=>`<tr ${rowAttrs(c.id)} style="background:var(--rbg)">
-      <td><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.email||'')}</div></td>
-      <td>${etypePill(c.etype)}</td>
-      <td><div>${esc(c.pos||'-')}</div><div class="tsub">${esc(c.dept||'-')}</div></td>
-      <td><span class="b bred" style="font-size:11px">미확정</span></td>
-      <td>-</td>
-      <td><span class="b bgray">미발송</span></td>
-      <td><button class="btn btn-xs btn-primary" data-action="call" data-call="selectOnboardingRow(${c.id})">입사일 등록</button></td>
+      ${nameCell(c.name, c.email, c.etype)}
+      ${posCell(c.pos, c.dept)}
+      <td class="ob-col-date"><span class="b bred">미확정</span></td>
+      <td class="ob-col-notify"><span class="b bgray">미발송</span></td>
+      <td class="ob-col-action"><button class="btn btn-xs btn-primary" data-action="call" data-call="selectOnboardingRow(${c.id})">입사일 등록</button></td>
     </tr>`).join('');
-  const confirmedRows = confirmedObs.map(o=>`<tr ${rowAttrs(o.candId)}>
-      <td><div class="tname">${esc(o.candName)}</div></td>
-      <td>${etypePill(o.etype)}</td>
-      <td><div>${esc(o.pos||'-')}</div><div class="tsub">${esc(o.dept||'-')}</div></td>
-      <td style="font-weight:700;color:var(--green);font-family:'DM Mono',monospace;font-size:12px">${esc(o.joinDate||'-')}</td>
-      <td>${esc(o.rank||'-')}</td>
-      <td>${o.notified?'<span class="b bgreen">지원자✓</span>':'<span class="b bgray">미발송</span>'} ${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap">
+  const confirmedRows = confirmedObs.map(o=>{
+    const c = candidates.find(x=>Number(x.id)===Number(o.candId));
+    return `<tr ${rowAttrs(o.candId)}>
+      ${nameCell(o.candName, c?.email || '', o.etype)}
+      ${posCell(o.pos, o.dept)}
+      <td class="ob-col-date"><div class="ob-date">${esc(o.joinDate||'-')}</div>${o.rank?`<div class="tsub">${esc(o.rank)}</div>`:''}</td>
+      <td class="ob-col-notify"><div class="ob-badges">${o.notified?'<span class="b bgreen">지원자✓</span>':'<span class="b bgray">미발송</span>'}${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</div></td>
+      <td class="ob-col-action"><div class="ob-actions">
         <button class="btn btn-xs btn-primary" data-action="call" data-call="sendObById(${o.id},'outlook')">입사안내 발송</button>
         <button class="btn btn-xs btn-ghost" data-action="call" data-call="sendJoinNotice(${o.id})">내부 공유</button>
-      </td>
-    </tr>`).join('');
-  const pendingHeader = pendingCands.length ? `<tr style="background:var(--s2)">
-      <td colspan="7" style="padding:6px 10px;font-size:11px;font-weight:700;color:var(--red)">⚠ 입사일 확정 필요 · ${pendingCands.length}명</td>
+      </div></td>
+    </tr>`;
+  }).join('');
+  const pendingHeader = pendingCands.length ? `<tr class="ob-group-row">
+      <td colspan="5" style="color:var(--red)">⚠ 입사일 확정 필요 · ${pendingCands.length}명</td>
     </tr>` : '';
-  const confirmedHeader = confirmedObs.length ? `<tr style="background:var(--s2)">
-      <td colspan="7" style="padding:6px 10px;font-size:11px;font-weight:700;color:var(--green)">✓ 입사일 확정 · ${confirmedObs.length}명</td>
+  const confirmedHeader = confirmedObs.length ? `<tr class="ob-group-row">
+      <td colspan="5" style="color:var(--green)">✓ 입사일 확정 · ${confirmedObs.length}명</td>
     </tr>` : '';
-  wrap.innerHTML=`<div class="tw"><table>
-    <thead><tr><th>이름</th><th>채용형태</th><th>직무/부서</th><th>입사일</th><th>직책</th><th>알림</th><th>액션</th></tr></thead>
+  // 열이 많아 좁은 카드에서 액션 열이 잘렸다 — 채용형태는 이름 옆, 직책은 입사일 아래로 합쳐 5열로 줄였다.
+  wrap.innerHTML=`<div class="tw ob-tw"><table class="ob-table">
+    <thead><tr><th>지원자</th><th>직무/부서</th><th>입사일·직책</th><th>알림</th><th>액션</th></tr></thead>
     <tbody>${pendingHeader}${pendingRows}${confirmedHeader}${confirmedRows}</tbody>
   </table></div>`;
 }

@@ -265,6 +265,41 @@ textarea{resize:vertical;min-height:64px;}
 .ob-finalist{border:1px solid var(--border2);background:#fff;color:var(--t2);border-radius:16px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;}
 .ob-finalist:hover,.ob-finalist.active{border-color:var(--acc);color:var(--acc);background:var(--bbg);}
 .ob-finalist.registered::after{content:' ✓';color:var(--green);}
+.ob-tw{overflow-x:auto;}
+.ob-table td{padding:9px 10px;}
+.ob-table th{padding:8px 10px;}
+.ob-group-row td{background:var(--s2);padding:6px 10px;font-size:11px;font-weight:700;}
+.ob-col-name{min-width:0;max-width:220px;}
+.ob-name-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.ob-name-line .etype{white-space:nowrap;}
+.ob-email{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.ob-col-pos{min-width:90px;word-break:keep-all;}
+.ob-col-date,.ob-col-notify,.ob-col-action{white-space:nowrap;}
+.ob-col-date .b,.ob-col-notify .b{white-space:nowrap;}
+.ob-date{font-weight:700;color:var(--green);font-family:'DM Mono',monospace;font-size:12px;}
+.ob-badges{display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+.ob-actions{display:flex;flex-direction:column;align-items:stretch;gap:4px;}
+.ob-col-action{text-align:right;}
+/* 화면 폭이 아니라 표가 들어간 카드 폭 기준으로 전환한다 — 폼과 나란히 있을 때(1100~1300px)도 좁아지기 때문 */
+#ob-table{container-type:inline-size;}
+@container (max-width:560px){
+  .ob-table thead{display:none;}
+  .ob-table,.ob-table tbody{display:block;width:100%;}
+  .ob-table tr.ob-group-row,.ob-table tr.ob-group-row td{display:block;}
+  .ob-table tr.ob-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name notify" "pos date" "action action";gap:6px 10px;padding:11px 12px;border-bottom:1px solid var(--border);}
+  .ob-table tr.ob-row td{display:block;padding:0;border:0;background:transparent!important;box-shadow:none!important;max-width:none;}
+  .ob-table .ob-col-name{grid-area:name;}
+  .ob-table .ob-col-notify{grid-area:notify;justify-self:end;}
+  .ob-table .ob-col-pos{grid-area:pos;}
+  .ob-table .ob-col-date{grid-area:date;justify-self:end;text-align:right;}
+  .ob-table .ob-col-action{grid-area:action;text-align:left;}
+  .ob-table .ob-badges{align-items:flex-end;}
+  .ob-table .ob-actions{flex-direction:row;}
+  .ob-table .ob-actions .btn,.ob-table .ob-col-action>.btn{flex:1;}
+  .ob-table .ob-col-action>.btn{width:100%;}
+  .ob-email{max-width:none;}
+  .ob-table tr.ob-row.ob-row-active{background:var(--bbg)!important;box-shadow:inset 3px 0 0 var(--acc);}
+}
 .ob-row{cursor:pointer;}
 .ob-row:hover td{background:var(--bbg)!important;}
 .ob-row.ob-row-active td{background:var(--bbg)!important;box-shadow:inset 0 1px 0 var(--acc),inset 0 -1px 0 var(--acc);}
