@@ -374,13 +374,98 @@ function updateHeadhunterHint() {
   hint.textContent = firm ? `${firm.manager || '담당자 미입력'} · ${firm.email || '이메일 미입력'}${firm.phone ? ' · ' + firm.phone : ''}` : '설정 탭의 헤드헌팅 업체 DB에서 업체를 관리합니다.';
 }
 
+// 설정의 헤드헌팅 업체 DB 표 편집기. 예전에는 "업체명,담당자,이메일,연락처"를 한 줄씩 직접 쳐야 해서
+// 순서·쉼표를 틀리기 쉬웠다. 표에서 칸별로 입력하고, 저장 형식(숨긴 textarea의 줄 단위 CSV)은 유지한다.
+const HH_FIELDS = [
+  { key:'name', label:'업체명', placeholder:'ABC서치', required:true },
+  { key:'manager', label:'담당자', placeholder:'김컨설턴트' },
+  { key:'email', label:'담당자 이메일', placeholder:'abc@search.co.kr', type:'email', required:true },
+  { key:'phone', label:'연락처', placeholder:'010-0000-0000' },
+];
+function headhunterRowsFromStore_() {
+  return String(document.getElementById('cfg-headhunter-db')?.value || '').split(/\n+/)
+    .map(line => line.split(',').map(x => x.trim()))
+    .filter(parts => parts.some(Boolean))
+    .map(([name='', manager='', email='', phone='']) => ({ name, manager, email, phone }));
+}
+function writeHeadhunterRowsToStore_(rows) {
+  const store = document.getElementById('cfg-headhunter-db');
+  if(!store) return;
+  // 쉼표가 들어가면 칸이 밀리므로 저장할 때 공백으로 바꾼다.
+  const clean = v => String(v || '').replace(/[,\n\r]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  store.value = rows.map(r => HH_FIELDS.map(f => clean(r[f.key])).join(','))
+    .filter(line => line.replace(/,/g, '').trim()).join('\n');
+}
+function readHeadhunterRowsFromEditor_() {
+  return [...document.querySelectorAll('#headhunter-db-preview tr[data-hh-row]')].map(tr => {
+    const row = {};
+    HH_FIELDS.forEach(f => { row[f.key] = tr.querySelector(`[data-hh-field="${f.key}"]`)?.value || ''; });
+    return row;
+  });
+}
+function headhunterRowIssues_(row, rows) {
+  const issues = [];
+  const hasAny = HH_FIELDS.some(f => String(row[f.key] || '').trim());
+  if(!hasAny) return issues;
+  if(!row.name.trim()) issues.push('업체명 필요');
+  if(!row.email.trim()) issues.push('이메일 필요');
+  else if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email.trim())) issues.push('이메일 형식 확인');
+  const key = row.name.trim().toLowerCase();
+  if(key && rows.filter(r => r.name.trim().toLowerCase() === key).length > 1) issues.push('업체명 중복');
+  return issues;
+}
+function headhunterRowHtml_(r, i, usedIds) {
+  return `<tr data-hh-row="${i}">
+      <td class="hh-no">${i + 1}</td>
+      ${HH_FIELDS.map(f => `<td data-label="${f.label}"><input data-hh-field="${f.key}" type="${f.type || 'text'}" value="${esc(r[f.key] || '')}" placeholder="${esc(f.placeholder)}" data-oninput="syncHeadhunterEditor(this)" aria-label="${f.label}"${f.key === 'name' && usedIds.has(String(r.name).toLowerCase()) ? ' title="지원자에 연결된 업체입니다. 업체명을 바꾸면 기존 지원자 연결이 끊깁니다."' : ''}></td>`).join('')}
+      <td class="hh-del"><button type="button" class="btn btn-xs btn-ghost" data-action="call" data-call="removeHeadhunterRow(${i})" title="이 업체 삭제" aria-label="${i + 1}번 업체 삭제">×</button></td>
+    </tr><tr class="hh-issue-row" data-hh-issue="${i}" style="display:none"><td colspan="${HH_FIELDS.length + 2}"></td></tr>`;
+}
 function renderHeadhunterDbPreview() {
   const el = document.getElementById('headhunter-db-preview');
   if(!el) return;
-  const firms = getHeadhunterDb();
-  el.innerHTML = firms.length
-    ? firms.map(f => `<span class="b bamber" style="margin:0 4px 4px 0">${esc(f.name)}${f.manager ? ' · ' + esc(f.manager) : ''}</span>`).join('')
-    : '등록된 헤드헌팅 업체가 없습니다.';
+  const rows = headhunterRowsFromStore_();
+  if(!rows.length) rows.push({ name:'', manager:'', email:'', phone:'' });
+  const usedIds = new Set(candidates.filter(c => c.source === 'headhunting').map(c => String(c.headhunterId || '')));
+  el.innerHTML = `<table class="hh-table">
+    <thead><tr><th class="hh-no">#</th>${HH_FIELDS.map(f => `<th>${f.label}${f.required ? ' <span class="hh-req">*</span>' : ''}</th>`).join('')}<th class="hh-del"></th></tr></thead>
+    <tbody>${rows.map((r, i) => headhunterRowHtml_(r, i, usedIds)).join('')}</tbody>
+  </table>`;
+  updateHeadhunterIssues_();
+}
+function updateHeadhunterIssues_() {
+  const rows = readHeadhunterRowsFromEditor_();
+  rows.forEach((row, i) => {
+    const cell = document.querySelector(`#headhunter-db-preview tr[data-hh-issue="${i}"] td`);
+    const issues = headhunterRowIssues_(row, rows);
+    if(cell) { cell.textContent = issues.length ? `⚠ ${issues.join(' · ')}` : ''; cell.parentElement.style.display = issues.length ? '' : 'none'; }
+    document.querySelector(`#headhunter-db-preview tr[data-hh-row="${i}"]`)?.classList.toggle('has-issue', issues.length > 0);
+  });
+}
+function syncHeadhunterEditor() {
+  writeHeadhunterRowsToStore_(readHeadhunterRowsFromEditor_());
+  updateHeadhunterIssues_();
+  populateHeadhunterSelect(document.getElementById('nc-headhunter-id')?.value);
+}
+function addHeadhunterRow() {
+  const tbody = document.querySelector('#headhunter-db-preview tbody');
+  if(!tbody) return;
+  // 이미 비어 있는 행이 있으면 새로 만들지 않고 그 행으로 이동한다(빈 행은 저장되지 않는다).
+  const blank = [...tbody.querySelectorAll('tr[data-hh-row]')].find(tr => ![...tr.querySelectorAll('input')].some(x => x.value.trim()));
+  if(!blank) tbody.insertAdjacentHTML('beforeend', headhunterRowHtml_({}, tbody.querySelectorAll('tr[data-hh-row]').length, new Set()));
+  const target = blank || [...tbody.querySelectorAll('tr[data-hh-row]')].pop();
+  target?.querySelector('[data-hh-field="name"]')?.focus();
+}
+function removeHeadhunterRow(index) {
+  const rows = readHeadhunterRowsFromEditor_();
+  const target = rows[index];
+  if(!target) return;
+  const linked = target.name && candidates.some(c => c.source === 'headhunting' && String(c.headhunterId || '') === target.name.trim().toLowerCase() && Number(c.stage) < 6);
+  if(linked && !confirm(`'${target.name}'는 진행 중인 지원자에 연결된 업체입니다. 삭제하면 그 지원자의 안내 메일 수신처를 찾지 못합니다. 삭제할까요?`)) return;
+  rows.splice(index, 1);
+  writeHeadhunterRowsToStore_(rows);
+  renderHeadhunterDbPreview();
+  populateHeadhunterSelect(document.getElementById('nc-headhunter-id')?.value);
 }
 
 // nc-pos-id 드롭다운에 포지션 목록 채우기

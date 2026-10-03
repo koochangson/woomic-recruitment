@@ -305,6 +305,29 @@ textarea{resize:vertical;min-height:64px;}
 .ob-done-list summary span{font-weight:500;color:var(--t3);}
 .ob-done-item{display:flex;gap:10px;flex-wrap:wrap;padding:7px 12px;border-top:1px solid var(--border);font-size:12px;background:var(--surface);}
 .ob-done-item span{color:var(--t3);}
+.hh-editor{margin-top:6px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--surface);}
+.hh-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;}
+.hh-table th{background:#FBF6EE;color:#8A5A12;font-size:10.5px;padding:7px 8px;text-transform:none;letter-spacing:0;}
+.hh-table td{padding:5px 6px;border-bottom:1px solid var(--border);}
+.hh-table tr:last-child td{border-bottom:none;}
+.hh-table input{padding:6px 8px;font-size:12px;}
+.hh-table .hh-no{width:30px;text-align:center;color:var(--t3);font-size:11px;}
+.hh-table .hh-del{width:38px;text-align:center;}
+.hh-req{color:var(--red);}
+.hh-table tr.has-issue input{border-color:#E9B949;}
+.hh-issue-row td{padding:0 8px 6px 38px;font-size:11px;color:#8A5A12;border-bottom:1px solid var(--border);}
+#headhunter-db-preview{container-type:inline-size;}
+@container (max-width:520px){
+  .hh-table thead{display:none;}
+  .hh-table,.hh-table tbody{display:block;}
+  .hh-table tr[data-hh-row]{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;padding:8px;border-top:1px solid var(--border);}
+  .hh-table tr[data-hh-row] td{display:block;padding:0;border:0;}
+  .hh-table tr[data-hh-row] td.hh-no{display:none;}
+  .hh-table tr[data-hh-row] td.hh-del{grid-column:3;grid-row:1;}
+  .hh-table tr[data-hh-row] td[data-label]::before{content:attr(data-label);display:block;font-size:10px;color:var(--t3);margin-bottom:2px;}
+  .hh-table .hh-del{width:auto;}
+  .hh-issue-row td{display:block;padding:0 8px 8px;}
+}
 .ob-row{cursor:pointer;}
 .ob-row:hover td{background:var(--bbg)!important;}
 .ob-row.ob-row-active td{background:var(--bbg)!important;box-shadow:inset 0 1px 0 var(--acc),inset 0 -1px 0 var(--acc);}
