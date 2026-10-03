@@ -250,6 +250,15 @@ function getGsRetryQueue() {
   catch(e) { return []; }
 }
 
+// 사용자가 되돌린(저장 실패로 취소된) 변경은 자동 재시도 대기열에서 뺀다.
+function dropQueuedGsUpserts_(sheet, ids) {
+  const targets = new Set((ids || []).map(String));
+  if(!targets.size) return;
+  const queue = getGsRetryQueue();
+  const remain = queue.filter(item => !(item.sheet === sheet && item.action === 'upsert' && targets.has(String(item.data?.id))));
+  if(remain.length !== queue.length) localStorage.setItem(GS_RETRY_KEY, JSON.stringify(remain));
+}
+
 function queueGsRetry(action, sheet, data) {
   const queue = getGsRetryQueue();
   const batchKey = Array.isArray(data) ? data.map(item => item?.id ?? '').join(',') : '';
@@ -669,10 +678,13 @@ async function gsBatchUpsert(sheet, items, chunkSize=GS_BATCH_UPSERT_CHUNK_SIZE)
   return {status:'ok', count:saved, conflicts};
 }
 
+// 충돌을 자동으로 최신화·재시도하는 흐름(예: 면접 공통일정 확정)은 중간 충돌 알림을 띄우지 않는다.
+let gsConflictNoticeMuted_ = 0;
 function showRevisionConflict_(sheet, result) {
   const count = Array.isArray(result?.conflicts) ? result.conflicts.length : 1;
   const message = '다른 사용자가 먼저 수정한 ' + sheet + ' 데이터 ' + count + '건은 저장하지 않았습니다. 새로고침 후 다시 확인하세요.';
   console.warn('[GS] revision conflict:', sheet, result);
+  if(gsConflictNoticeMuted_ > 0) return;
   showSyncStatus(message, 'warn');
   toast(message, 'terr');
 }
@@ -1808,40 +1820,9 @@ async function loadFromGS(options={}) {
     }
     return !!options.forceFull;
   }
-  const remote = data.map(row => ({
-    id:         Number(row.id),
-    name:       row.name,
-    pos:        row.pos,
-    email:      row.email,
-    etype:      row.etype,
-    role:       normalizeRole(row.role),
-    dept:       row.dept,
-    career:     row.career,
-    stage:      STAGES.indexOf(row.stage) >= 0 ? STAGES.indexOf(row.stage) : 0,
-    ref:        row.ref || '미시작',
-    refD:       Number(row.refD)||0,
-    refT:       Number(row.refT)||0,
-    refReportSentAt: row.refReportSentAt || '',
-    refSkipReason: row.refSkipReason || '',
-    gradeBandOverride: normalizeGradeBand(row.gradeBandOverride, false),
-    receivedAt: formatDate(row.receivedAt),
-    docPassedAt: formatDate(row.docPassedAt || row.receivedAt),
-    memo:       row.memo,
-    rejectedAt: row.rejectedAt||'',
-    rejectReason: row.rejectReason || '',
-    rejectMemo:   row.rejectMemo || '',
-    finalAt:      row.finalAt || '',
-    decision:    row.decision || '',
-    notified:   row.notified==='Y',
-    mailPending: row.mailPending === 'Y',
-    mailPendingLabel: row.mailPendingLabel || '',
-    posId:      (row.posId !== '' && row.posId != null) ? Number(row.posId) : null,
-    intDate:    row.intDate || '',
-    held:       row.held === 'Y',
-    lastCompletedStage: row.lastCompletedStage !== '' && row.lastCompletedStage != null ? Number(row.lastCompletedStage) : null,
-    lastStageChangedAt: row.lastStageChangedAt || '',
-    updatedAt:  row.updatedAt || '',
-  }));
+  // 변경 감지(poll)와 같은 변환을 쓴다. 예전 전용 변환은 rev를 빠뜨려, 다른 기기·탭이 수정한 지원자를
+  // 이 화면이 다시 저장할 때마다 버전 충돌이 났다(새로고침해도 해소되지 않음). source·헤드헌터·입사일도 누락됐었다.
+  const remote = data.map(normalizeGsCandidate);
   candidates = result.isDelta
     ? mergeGsDeltaRecords('Candidates', remote, candidates)
     : mergeGsRecords('Candidates', remote, candidates);

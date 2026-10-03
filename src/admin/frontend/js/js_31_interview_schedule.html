@@ -1187,6 +1187,95 @@ function renderBatchPreview() {
     `<div style="padding:8px 4px 2px;font-size:11px;color:var(--t3)">지원자 안내: ${esc(loc)} · 면접관 안내: ${esc(panelLoc)} · 총 ${slots.length}명 · 종료 예정 ${slots[slots.length-1].time} 이후</div>`;
 }
 
+// 공통일정 확정 저장: 로컬 반영 → 시트 저장. 다른 화면 변경으로 버전 충돌이 나면
+// 화면 상태를 되돌리고 시트 최신본을 다시 불러와 같은 확정을 한 번 더 적용한다.
+// 최종 실패 시 로컬을 원래대로 되돌려, 재클릭 시 "대상 없음"으로 아무 반응이 없던 문제를 막는다.
+function applyBatchSchedulePlanLocal_(ctx) {
+  const { plan, round, stageIdx, sourceStage, moveAfterApply, loc, panelLoc, panel, posTitle } = ctx;
+  const snapshot = { cands:[], itvs:[], createdItvIds:[] };
+  const touched = { cands:[], itvs:[] };
+  plan.forEach(item => {
+    const cand = candidates.find(c => Number(c.id) === item.candId);
+    if(!cand) return;
+    snapshot.cands.push(JSON.parse(JSON.stringify(cand)));
+    const existing = interviews.find(i => Number(i.candId) === item.candId && i.type === round);
+    if(existing) {
+      snapshot.itvs.push(JSON.parse(JSON.stringify(existing)));
+      Object.assign(existing, {
+        date:item.datetime, loc, candidateLoc:loc, panelLoc, panel:panel || '미정', status:'confirmed',
+        notified:false, panelNotified:false, candidateNotified:false, candNotified:false,
+      });
+      touched.itvs.push(existing);
+    } else {
+      const created = {
+        id: nextId(), candId: cand.id, candName: cand.name, type: round, date: item.datetime,
+        loc, candidateLoc: loc, panelLoc, panel: panel || '미정',
+        memo: `포지션 일괄 배치 (${posTitle})`, status: 'confirmed', notified: false,
+      };
+      interviews.push(created);
+      snapshot.createdItvIds.push(created.id);
+      touched.itvs.push(created);
+    }
+    cand.intDate = item.datetime;
+    if(moveAfterApply && cand.stage === sourceStage) cand.stage = stageIdx;
+    touched.cands.push(cand);
+  });
+  return { snapshot, touched };
+}
+
+function restoreBatchScheduleSnapshot_(snapshot) {
+  snapshot.cands.forEach(saved => {
+    const index = candidates.findIndex(c => Number(c.id) === Number(saved.id));
+    if(index >= 0) candidates[index] = saved;
+  });
+  snapshot.itvs.forEach(saved => {
+    const index = interviews.findIndex(i => Number(i.id) === Number(saved.id));
+    if(index >= 0) interviews[index] = saved;
+  });
+  const created = new Set(snapshot.createdItvIds.map(Number));
+  if(created.size) interviews = interviews.filter(i => !created.has(Number(i.id)));
+  saveState();
+}
+
+async function saveBatchSchedulePlan_(ctx) {
+  const attempt = async () => {
+    const { snapshot, touched } = applyBatchSchedulePlanLocal_(ctx);
+    saveState();
+    if(!GS_CONFIG.scriptUrl) return { ok:true };
+    const tasks = [
+      ...touched.cands.map(cand => () => syncCandToGS(cand)),
+      ...touched.itvs.map(itv => () => syncIntToGS(itv)),
+    ];
+    const results = await Promise.allSettled(tasks.map(task => Promise.resolve().then(task)));
+    const values = results.map(r => r.status === 'fulfilled' ? r.value : null);
+    const conflict = values.some(v => v?.error === 'revision_conflict');
+    const failed = values.some(v => v == null || v.error);
+    if(failed) {
+      restoreBatchScheduleSnapshot_(snapshot);
+      // 되돌린 확정이 나중에 자동 재시도로 시트에 몰래 저장되지 않도록 대기열에서도 뺀다.
+      dropQueuedGsUpserts_('Candidates', touched.cands.map(c => c.id));
+      dropQueuedGsUpserts_('Interviews', touched.itvs.map(i => i.id));
+    }
+    return { ok:!failed, conflict };
+  };
+  gsConflictNoticeMuted_++;
+  try {
+    let result = await attempt();
+    if(result.ok || !result.conflict) return result;
+    // 다른 화면(다른 기기·탭)이 먼저 저장한 최신본을 받아 같은 확정을 다시 적용한다.
+    updateGlobalSyncProgress('다른 화면의 최신 변경을 반영해 다시 저장하고 있습니다.');
+    const reloaded = await Promise.all([
+      loadFromGS({ force:true, forceFull:true }),
+      loadInterviewsFromGS({ force:true, forceFull:true }),
+    ]);
+    if(!reloaded.every(Boolean)) return { ok:false, conflict:true };
+    result = await attempt();
+    return result;
+  } finally {
+    gsConflictNoticeMuted_--;
+  }
+}
+
 async function applyBatchSchedule() {
   if(batchScheduleBusy) return;
   const { posId, stageIdx, sourceStage, moveAfterApply } = batchScheduleCtx;
@@ -1219,58 +1308,21 @@ async function applyBatchSchedule() {
     const panel = stageIdx === 1
       ? parsePanelists(pos.panel1).map(p => p.name).join(', ')
       : parsePanelists(pos.panel2).map(p => p.name).join(', ');
-
-    let created = 0, updated = 0;
-    slots.forEach(s => {
-    // 기존 면접 있으면 갱신, 없으면 생성
-    const existing = interviews.find(i => i.candId === s.cand.id && i.type === round);
-    if(existing) {
-      existing.date = s.datetime;
-      existing.loc  = loc;
-      existing.candidateLoc = loc;
-      existing.panelLoc = panelLoc;
-      existing.panel = panel || '미정';
-      existing.status = 'confirmed';
-      existing.notified = false;
-      existing.panelNotified = false;
-      existing.candidateNotified = false;
-      existing.candNotified = false;
-      updated++;
-    } else {
-      interviews.push({
-        id: nextId(),
-        candId: s.cand.id, candName: s.cand.name,
-        type: round,
-        date: s.datetime,
-        loc: loc,
-        candidateLoc: loc,
-        panelLoc,
-        panel: panel || '미정',
-        memo: `포지션 일괄 배치 (${pos.title})`,
-        status: 'confirmed',
-        notified: false,
-      });
-      created++;
-    }
-    s.cand.intDate = s.datetime;
-    if(moveAfterApply && s.cand.stage === sourceStage) s.cand.stage = stageIdx;
-    });
-
-    saveState();
-    if(GS_CONFIG.scriptUrl) {
-      const syncTasks = slots.map(s => () => syncCandToGS(s.cand));
-    // 이번 배치로 생성/갱신된 면접 동기화
-      slots.forEach(s => {
-        const itv = interviews.find(i => i.candId === s.cand.id && i.type === round);
-        if(itv) syncTasks.push(() => syncIntToGS(itv));
-      });
-      const result = await settleSync(syncTasks, `${round} 면접 일정 동기화`);
-      if(result.failed) return;
+    // 저장 대상은 id로 기억한다 — 충돌 후 다시 불러오면 지원자·면접 객체가 새로 바뀌기 때문이다.
+    const plan = slots.map(s => ({ candId:Number(s.cand.id), datetime:s.datetime }));
+    const result = await saveBatchSchedulePlan_({ plan, posId, round, stageIdx, sourceStage, moveAfterApply, loc, panelLoc, panel, posTitle:pos.title });
+    if(!result.ok) {
+      toast(result.conflict
+        ? `${round} 면접 일정을 저장하지 못했습니다. 다른 화면에서 같은 지원자 정보를 계속 수정하고 있습니다. 잠시 후 다시 확정해 주세요.`
+        : `${round} 면접 일정을 저장하지 못했습니다. 네트워크 연결을 확인하고 다시 확정해 주세요. (입력값은 그대로 남아 있습니다)`, 'terr');
+      renderDashboard(); renderTracker(); renderPositions();
+      refreshOpenPositionDetail(posId);
+      return;
     }
     renderDashboard(); renderTracker(); renderPositions();
     if(typeof renderIntTable === 'function') renderIntTable();
     toast(`${round} 면접 일정 확정 완료 · ${slots.length}명. 안내 메일은 아래 화면에서 발송해 주세요.`, 'tok');
-    if(round === '2차') warnReferenceBeforeSecondInterview(slots.map(s => s.cand));
+    if(round === '2차') warnReferenceBeforeSecondInterview(plan.map(item => candidates.find(c => Number(c.id) === item.candId)).filter(Boolean));
     closeModal('modal-batch-schedule');
     refreshOpenPositionDetail(posId);
     openInterviewNoticeFlow(posId, stageIdx, round === '1차' ? 1 : 2);
