@@ -923,7 +923,7 @@ function renderStageKanban() {
 function updateMetrics() {
   const set = (id, v) => { const el=document.getElementById(id); if(el) el.innerHTML=v; };
   const active = candidates.filter(isActivePipelineCand);
-  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p)));
+  const activePos = positions.filter(p => isPositionOpen_(p));
   const activePositionIds = new Set(activePos.map(p => Number(p.id)));
   const pipeline = candidates.filter(c =>
     c.posId != null && c.posId !== '' &&
@@ -1056,7 +1056,7 @@ function getDashboardActionItems() {
   lastMailPendingItems = mailPending;
   const items = [];
   const positionTypes = new Set();
-  positions.filter(p => ['active','partial'].includes(posStatus(p))).forEach(pos => {
+  positions.filter(p => isPositionOpen_(p)).forEach(pos => {
     getPositionActionItems(pos.id).filter(a => a.priority === 'high' || a.type === 'candidate_register').forEach(a => {
       positionTypes.add(a.type);
       items.push({
@@ -1093,7 +1093,7 @@ function renderUrgent() {
   const el = document.getElementById('dash-urgent');
   if(!el) return;
   const items = getDashboardActionItems();
-  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p))).length;
+  const activePos = positions.filter(p => isPositionOpen_(p)).length;
   const weekInt = getThisWeekInterviews().length;
   const briefText = `진행중 포지션 ${activePos}개, 이번 주 면접 ${weekInt}건입니다. 우선 확인할 업무는 ${items.length}건입니다.`;
 
@@ -1198,7 +1198,7 @@ function renderKanban() {
   const stageColor = i => STAGE_COLORS[i] || 'var(--t3)';
 
   // 진행중 + 부분충원 포지션 (추가 채용 진행중인 partial 포함)
-  const activePos = positions.filter(p => ['active','partial'].includes(posStatus(p)));
+  const activePos = positions.filter(p => isPositionOpen_(p));
 
   // posId → 비탈락 지원자 배열
   const byPos = {};

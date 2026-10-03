@@ -15,9 +15,11 @@ function getPositionProjectData(positionId) {
   const remain = Math.max(0, target - filled);
   const rate = target ? Math.min(100, Math.round(filled / target * 100)) : 0;
   const rawStatus = posStatus(pos);
-  const projectStatus = rawStatus === 'active' && filled > 0 && remain > 0 ? 'partial' : rawStatus;
-  const statusLabels = { active:'진행중', partial:'부분충원', filled:'충원완료', nohire:'미채용', stopped:'중단' };
-  return { pos, list, target, final, rejected, active, filled, remain, rate, projectStatus, statusLabel:statusLabels[projectStatus] || posStatusLabel(pos) };
+  // isOpen: 아직 모집 중(status 'active')인지. 저장된 'partial'은 "부분 충원 마감"이라 종료 상태다.
+  const isOpen = rawStatus === 'active';
+  const projectStatus = isOpen ? (filled > 0 && remain > 0 ? 'partial' : 'active') : (rawStatus === 'partial' ? 'partial_closed' : rawStatus);
+  const statusLabels = { active:'진행중', partial:'부분충원', partial_closed:'부분충원 마감', filled:'충원완료', nohire:'미채용', stopped:'중단' };
+  return { pos, list, target, final, rejected, active, filled, remain, rate, isOpen, projectStatus, statusLabel:statusLabels[projectStatus] || posStatusLabel(pos) };
 }
 
 function positionRoundData(positionId, stageIdx) {
@@ -57,14 +59,14 @@ function isRoundAvailabilityComplete(roundData) {
 function getPositionActionItems(positionId) {
   const d = getPositionProjectData(positionId);
   if(!d) return [];
-  const { pos, list: allList, target, final, remain, projectStatus } = d;
+  const { pos, list: allList, target, final, remain, projectStatus, isOpen } = d;
   const items = [];
   const add = (type, priority, title, desc, actionLabel, action, actionCall) =>
     items.push({ type, priority, title, desc, actionLabel, action, actionCall });
 
   // 충원완료·미채용·채용중단된 포지션은 더 이상 진행 액션이 필요 없다 — 보류(held) 처리된
   // 지원자도 같은 이유로 제외한다 (예: 채용중단 후에도 레퍼런스 재요청 등이 계속 남는 문제 방지).
-  if(projectStatus === 'active' || projectStatus === 'partial') {
+  if(isOpen) {
     const list = allList.filter(c => !c.held);
     const short = isShortProcessEtype(pos.etype);
     const r1 = positionRoundData(positionId, 1);
@@ -150,7 +152,7 @@ function getPositionActionItems(positionId) {
     }
     else if(final.length && remain > 0) add('partial_fill','low','부분충원 상태',`최종합격 ${final.length}명 · 잔여 seat ${remain}명`,'지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
   }
-  if((projectStatus === 'nohire' || projectStatus === 'stopped') && allList.some(c => Number(c.stage) < 5 && !c.held)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+  if(!isOpen && allList.some(c => Number(c.stage) < 5 && !c.held)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
 
   const pri = { high:0, medium:1, low:2 };
   return items.sort((a,b) => pri[a.priority] - pri[b.priority]);
@@ -210,6 +212,8 @@ function getPositionProcessStatus(positionId) {
     second_panel_notice:'int2_notice', second_candidate_notice:'int2_notice',
     second_result:'int2_result', offer_negotiation:'offer', fill_complete:'final', onboard_pending:'onboard'
   };
+  // 충원완료·부분충원 마감으로 닫힌 포지션은 남은 단계가 없다 — 생략 단계를 제외하고 모두 완료로 표시한다.
+  if(['filled','partial_closed'].includes(d.projectStatus)) checks.forEach(x => { if(!x.skip) x.done = true; });
   let firstOpen = -1;
   checks.forEach((x, i) => {
     if(x.skip) return;
@@ -660,7 +664,7 @@ function alignCandidateStagesWithStartedInterview_(positionId) {
 // 보인다. 그래서 데이터 로드 직후에도 진행중 포지션 전체에 대해 한 번 맞추고 동기화한다.
 function alignStartedInterviewStagesForActivePositions_() {
   const moved = positions
-    .filter(p => ['active','partial'].includes(posStatus(p)))
+    .filter(p => isPositionOpen_(p))
     .flatMap(p => alignCandidateStagesWithStartedInterview_(p.id));
   if(moved.length && GS_CONFIG.scriptUrl) settleSync(moved.map(c => () => syncCandToGS(c)), '면접 진행단계 동기화');
   return moved;
@@ -734,7 +738,7 @@ function renderPosDetailSection(positionId) {
 function renderPosDetailOperations(positionId) {
   const d = getPositionProjectData(positionId);
   if(!d) return '';
-  const active = d.projectStatus === 'active' || d.projectStatus === 'partial';
+  const active = d.isOpen;
   return `<div class="pp-footer-group"><span class="pp-footer-label">보조</span><button class="btn btn-sm" data-action="call" data-call="nav('position')">← 목록으로</button></div>
     <div class="pp-footer-group"><span class="pp-footer-label">관리</span><button class="btn btn-sm" data-action="call" data-call="editPosition(${positionId})">수정</button><button class="btn btn-sm btn-red" data-action="call" data-call="posdetailDeletePos(${positionId})">삭제</button></div>
     <div class="pp-footer-group" style="margin-left:auto"><span class="pp-footer-label">주요 처리</span>${active

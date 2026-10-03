@@ -954,8 +954,8 @@ function renderInterviewPositionCards() {
     })
     .filter(card => interviewPositionFilter === 'all'
       || (interviewPositionFilter === 'needs' && !!card.action)
-      || (interviewPositionFilter === 'active' && ['active','partial'].includes(card.status))
-      || (interviewPositionFilter === 'filled' && card.status === 'filled')
+      || (interviewPositionFilter === 'active' && card.status === 'active')
+      || (interviewPositionFilter === 'filled' && ['filled','partial'].includes(card.status))
       || (interviewPositionFilter === 'closed' && ['nohire','stopped'].includes(card.status)))
     .sort((a,b) => a.priorityRank - b.priorityRank || (a.pos.title||'').localeCompare(b.pos.title||'','ko'));
 

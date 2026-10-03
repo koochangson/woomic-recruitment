@@ -17,8 +17,8 @@ function renderPositions() {
     (candidatesByPos[key] = candidatesByPos[key] || []).push(c);
   });
 
-  // 부분충원은 추가 채용이 진행 중이므로 진행중 그룹에 유지한다.
-  const isDone = (pos) => !['active','partial'].includes(posStatus(pos));
+  // 부분 충원 마감(status 'partial')은 종료 포지션이다. 진행중 포지션은 status 'active'만 해당한다.
+  const isDone = (pos) => !isPositionOpen_(pos);
 
   // 탭별 카운트
   const activeCount = positions.filter(p => !isDone(p)).length;
