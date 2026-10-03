@@ -1461,6 +1461,31 @@ const REFERENCE_MAIL_TEMPLATE_FILES = {
 
 // 헤드헌팅 경유 발송: 지원자에게 가는 것과 같은 템플릿을 업체 담당자에게 보내고, 본문 맨 위에
 // "후보자에게 전달해 달라"는 안내 상자만 덧붙인다(예전에는 별도 headhunter_forward 템플릿에 텍스트를 넣었다).
+// 템플릿의 {{josa:으로/로}}·{{josa:을/를}}·{{josa:이/가}}·{{josa:은/는}}·{{josa:과/와}} 표기를
+// 바로 앞 글자(태그·공백 제외)의 받침에 맞춰 고른다. 예: "인테리어{{josa:으로/로}}" → "인테리어로",
+// "공무팀{{josa:으로/로}}" → "공무팀으로". 숫자는 읽는 소리로 판단하고, 판단할 수 없는 글자
+// (영문 등)는 "(으)로"처럼 두 형태를 함께 쓴다.
+function koreanFinalConsonant_(ch) {
+  const code = ch.charCodeAt(0);
+  if (code >= 0xAC00 && code <= 0xD7A3) {
+    const jong = (code - 0xAC00) % 28;
+    return jong === 0 ? 'none' : (jong === 8 ? 'rieul' : 'other');
+  }
+  const digit = { '0':'other', '1':'rieul', '2':'none', '3':'other', '4':'none', '5':'none', '6':'other', '7':'rieul', '8':'rieul', '9':'none' };
+  return digit[ch] || 'unknown';
+}
+
+function applyKoreanJosa_(html) {
+  return String(html || '').replace(/\{\{josa:([^/}]+)\/([^}]+)\}\}/g, function(token, withFinal, withoutFinal, offset, whole) {
+    const before = whole.slice(0, offset).replace(/<[^>]*>/g, '').replace(/[\s"'”’)\]]+$/, '');
+    const last = before.slice(-1);
+    const kind = last ? koreanFinalConsonant_(last) : 'unknown';
+    if (kind === 'unknown') return withFinal === '으로' ? '(으)로' : withFinal + '(' + withoutFinal + ')';
+    if (withFinal === '으로') return kind === 'other' ? '으로' : '로';
+    return kind === 'none' ? withoutFinal : withFinal;
+  });
+}
+
 // HTML 메일 → 텍스트 버전(HTML을 못 여는 메일 앱용). 숨김 프리헤더·스타일은 빼고,
 // 링크는 "문구 (주소)"로 남기며 줄바꿈 구조만 살린다.
 function htmlToPlainText_(html) {
@@ -1565,6 +1590,7 @@ function renderReferenceMailTemplate_(html, raw, data) {
   Object.keys(replacements).forEach(function(marker) {
     rendered = rendered.split(marker).join(replacements[marker]);
   });
+  rendered = applyKoreanJosa_(rendered);
   if (/\{\{[^}]+\}\}/.test(rendered)) {
     throw new Error('unresolved_reference_mail_placeholder');
   }
@@ -2055,6 +2081,9 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       noticeBody: noticeHtml
     });
   }
+
+  // 조사 표기는 값이 채워진 뒤에 받침을 보고 고른다(남은 {{...}} 검사보다 먼저).
+  rendered = applyKoreanJosa_(rendered);
 
   if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal',
        'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&

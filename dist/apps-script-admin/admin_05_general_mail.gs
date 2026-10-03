@@ -415,6 +415,9 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
     });
   }
 
+  // 조사 표기는 값이 채워진 뒤에 받침을 보고 고른다(남은 {{...}} 검사보다 먼저).
+  rendered = applyKoreanJosa_(rendered);
+
   if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal',
        'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&
       /\{\{[^}]+\}\}/.test(rendered)) {
