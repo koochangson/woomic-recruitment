@@ -680,7 +680,7 @@ async function confirmPanelAvailabilityAndContinue() {
     }).catch(() => toast('면접관 일정 확정이 아직 서버에 저장되지 않았습니다. 자동으로 다시 시도합니다.', 'tw'));
   }
   rerenderAfterPanelAvailabilitySave_(posId);
-  toast('면접관 일정 확인을 완료했습니다. 지원자에게 보낼 면접일정 요청을 확인하세요.', 'tok');
+  // 창 제목·내용이 바로 '지원자 면접일정 요청'으로 바뀌므로 같은 내용의 알림은 띄우지 않는다.
   openCollectSlots(posId, stageIdx);
 }
 
@@ -978,9 +978,11 @@ async function doCollectSendCurrent() {
   await Promise.all(Array.from({ length:Math.min(3, pending.length) }, () => worker()));
   collectSendBusy = false;
   renderCollectSendStep();
+  // 결과는 진행창(완료·실패 인원, 재발송 버튼)에 그대로 보이므로, 창이 닫혀 있을 때만 알림으로 알린다.
   const failed = q.list.filter(item => item.sendStatus === 'failed').length;
   const completed = q.list.filter(item => item.sendStatus === 'done').length;
-  toast(failed
+  const progressOpen = document.getElementById('modal-collect-send')?.style.display === 'flex';
+  if(!progressOpen) toast(failed
     ? `지원자 일정요청 ${completed}명 발송 완료 · ${failed}명 실패`
     : `지원자 ${completed}명에게 면접일정 요청 메일을 발송했습니다.`, failed ? 'tw' : 'tok');
 }
