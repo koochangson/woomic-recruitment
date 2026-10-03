@@ -236,6 +236,7 @@ async function confirmStageChange() {
   const resetPosition = movingBackwardStage ? resetPositionRoundForRollback(c, newStage) : null;
   c.stage = newStage;
   if(newStage === 5 && !c.joinDate) c.joinDate = '';
+  if(newStage === 5 && !c.finalAt) c.finalAt = today();
   if(newStage === 6) recordRejection(c, rejectionInfo.reason, rejectionInfo.memo);
 
   const candFlow = getFlowForCandidate(c);

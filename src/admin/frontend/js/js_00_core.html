@@ -774,13 +774,18 @@ function recordRejection(cand, reason, memo='') {
   cand.rejectMemo = memo || '';
   logActivity('불합격', `${cand.name} · ${cand.rejectReason}${memo ? ' · '+memo : ''}`, 'candidate', cand.id);
 }
-function askRejectReason(count=1) {
+// options.askMail: 결과 일괄 확정처럼 메일 발송 단계가 따로 없는 흐름에서 '불합격 안내 메일 발송' 선택을 함께 받는다.
+function askRejectReason(count=1, options={}) {
   const countEl = document.getElementById('reject-target-count');
   const reasonEl = document.getElementById('reject-reason');
   const memoEl = document.getElementById('reject-memo');
+  const mailRow = document.getElementById('reject-send-mail-row');
+  const mailEl = document.getElementById('reject-send-mail');
   if(countEl) countEl.textContent = `${count}명`;
   if(reasonEl) reasonEl.value = REJECT_REASONS[0];
   if(memoEl) memoEl.value = '';
+  if(mailRow) mailRow.style.display = options.askMail ? 'flex' : 'none';
+  if(mailEl) mailEl.checked = true;
   openModal('modal-reject-reason');
   return new Promise(resolve => { rejectReasonResolver = resolve; });
 }
@@ -790,9 +795,11 @@ function finishRejectReason(confirmResult) {
   closeModal('modal-reject-reason');
   if(!resolver) return;
   if(!confirmResult) { resolver(null); return; }
+  const mailRow = document.getElementById('reject-send-mail-row');
   resolver({
     reason: document.getElementById('reject-reason')?.value || '기타',
     memo: document.getElementById('reject-memo')?.value.trim() || '',
+    sendMail: mailRow?.style.display !== 'none' && document.getElementById('reject-send-mail')?.checked === true,
   });
 }
 
@@ -1138,6 +1145,10 @@ function getMailPendingItems() {
     const cand = candidates.find(c => Number(c.id) === Number(i.candId));
     if(cand && (!isActivePipelineCand(cand) || [5,7].includes(Number(cand.stage)))) return;
     items.push({ type:'int', id:i.id, candId:i.candId, posId: cand?.posId ?? null, label:`${i.candName} ${i.type} 면접 안내` });
+  });
+  // 불합격 안내 미발송은 종료(6단계) 지원자라 위 진행중 필터에 걸러져 목록에 나오지 않았다 — 별도로 포함한다.
+  candidates.filter(c => Number(c.stage) === 6 && c.mailPending).forEach(c => {
+    items.push({ type:'cand', id:c.id, candId:c.id, posId: c.posId ?? null, rejection:true, logType:'불합격안내', label:`${c.name} 불합격 안내 재발송 필요` });
   });
   candidates.filter(c => c.mailPending && !c.notified && c.stage < 6 && isActivePipelineCand(c)).forEach(c => {
     if(!interviews.some(i => Number(i.candId)===Number(c.id) && i.mailPending)) {

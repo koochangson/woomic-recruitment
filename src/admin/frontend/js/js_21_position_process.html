@@ -855,7 +855,7 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
     }
   }
   let passCnt = 0, failCnt = 0;
-  const rejectionInfo = failers.length ? await askRejectReason(failers.length) : null;
+  const rejectionInfo = failers.length ? await askRejectReason(failers.length, { askMail:true }) : null;
   if(failers.length && !rejectionInfo) return;
   const decidedInterviews = [];
   [...passers, ...failers].forEach(c => {
@@ -865,6 +865,7 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   passers.forEach(c => {
     c.stage = nx;
     if(nx === 5 && !c.joinDate) c.joinDate = '';
+    if(nx === 5) c.finalAt = today();  // 최종합격일(리포트·이력용) — 예전에는 어디서도 기록되지 않았다
     c.decision = '';  // 판정 초기화 (다음 단계에서 새로 판정)
     passCnt++;
   });
@@ -883,21 +884,72 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
     ...[...passers, ...failers].map(c => () => syncCandToGS(c)),
     ...decidedInterviews.map(i => () => syncIntToGS(i)),
   ], '판정 결과 동기화');
+  // 일괄 확정은 개별 단계 변경과 달리 불합격 안내를 보내지 않아, 불합격자가 결과를 통보받지 못하고
+  // 재발송 필요 표시도 남지 않았다. 사유 입력 창에서 발송을 선택하면 여기서 순서대로 보낸다.
+  let rejectMailNote = '';
+  if(failers.length && rejectionInfo?.sendMail) {
+    const mail = await sendRejectionNotices_(failers);
+    rejectMailNote = mail.failed ? ` · 불합격 안내 ${mail.sent}건 발송, ${mail.failed}건 재발송 필요` : ` · 불합격 안내 ${mail.sent}건 발송`;
+  }
   renderPositions(); renderDashboard();
   if(isFinalDecision && passCnt > 0) {
     openOnboardingFromPosition(Number(posId));
-    toast(`처우협의 결과 확정: 최종합격 ${passCnt}명 · 입사 안내로 이동`, 'tok');
+    toast(`처우협의 결과 확정: 최종합격 ${passCnt}명 · 입사 안내로 이동${failCnt ? ` · 불합격 ${failCnt}명 종료` : ''}${rejectMailNote}`, rejectMailNote.includes('재발송') ? 'tw' : 'tok');
   } else if(nx === 2 && passCnt > 0) {
     // 1차 면접 합격자는 레퍼런스 단계로 이동하는 즉시 추천인 등록 안내 발송 화면으로 이어간다.
     openPosDetail(Number(posId));
-    toast(`결과 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
+    toast(`결과 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료${rejectMailNote}`, rejectMailNote.includes('재발송') ? 'tw' : 'tok');
     requestPositionReferences(Number(posId));
   } else {
     openPosDetail(Number(posId));
     toast(isFinalDecision
-      ? `처우협의 결과 확정: 최종합격 ${passCnt}명, 불합격 ${failCnt}명 종료`
-      : `결과 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
+      ? `처우협의 결과 확정: 최종합격 ${passCnt}명, 불합격 ${failCnt}명 종료${rejectMailNote}`
+      : `결과 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료${rejectMailNote}`, rejectMailNote.includes('재발송') ? 'tw' : 'tok');
   }
+}
+
+// 불합격 안내 메일을 순서대로 발송한다. 실패한 지원자는 '불합격 안내 재발송 필요'로 남겨 처리 필요 목록에 표시한다.
+async function sendRejectionNotices_(list) {
+  let sent = 0, failed = 0;
+  showGlobalSyncProgress(`불합격 안내 메일을 발송하고 있습니다. (0/${list.length})`);
+  try {
+    for(const c of list) {
+      updateGlobalSyncProgress(`불합격 안내 메일을 발송하고 있습니다. (${sent + failed + 1}/${list.length})`);
+      const target = getCandidateMailTarget(c);
+      const subject = `[우미건설] ${c.name}님 채용 결과 안내`;
+      let ok = false;
+      try {
+        ok = await dispatchCandidateMail_(c, {
+          subject, purpose: '불합격 안내', directBody: buildRejectEmail(c), logType: '불합격안내(업체경유)',
+          sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildRejectEmail(c), '불합격안내', c.name, {
+            templateType: 'rejection', candidateName: c.name, positionText: c.pos
+          })
+        });
+      } catch(error) { console.warn('[불합격 안내] 발송 오류', c.name, error); }
+      if(ok === false) {
+        c.mailPending = true;
+        c.mailPendingLabel = '불합격 안내 재발송 필요';
+        failed++;
+      } else {
+        c.mailPending = false;
+        c.mailPendingLabel = '';
+        c.notified = true;
+        sent++;
+      }
+    }
+    saveState();
+    if(GS_CONFIG.scriptUrl) await Promise.allSettled(list.map(c => syncCandToGS(c)));
+  } finally {
+    hideGlobalSyncProgress();
+  }
+  return { sent, failed };
+}
+
+async function resendRejectionNotice(candId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) return;
+  const result = await sendRejectionNotices_([c]);
+  toast(result.sent ? `${c.name}님에게 불합격 안내 메일 발송 완료` : `${c.name}님 불합격 안내 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.`, result.sent ? 'tok' : 'terr');
 }
 
 function hasConfirmedRoundSchedule(candId, stageIdx) {

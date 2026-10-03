@@ -1226,9 +1226,11 @@ function getDashboardActionItems() {
   mailPending.forEach((m,index) => {
     // "완료"는 발송을 이미 다른 경로로 마쳤다는 기록일 뿐, 실제로 안내를 보내야 한다면
     // 그 작업을 수행하는 화면(포지션 상세 또는 지원자 상세)으로 바로 이동할 수 있어야 한다.
-    const navCall = m.posId != null ? `openPosDetail(${m.posId});scrollPositionDetail('pp-position-candidates')`
+    // 불합격 안내는 이동할 화면이 없으므로(종료 지원자) 바로 재발송할 수 있게 한다.
+    const navCall = m.rejection ? `resendRejectionNotice(${m.candId})`
+      : m.posId != null ? `openPosDetail(${m.posId});scrollPositionDetail('pp-position-candidates')`
       : (m.candId != null ? `editCandidate(${m.candId})` : null);
-    items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'발송 실패 · 재발송 필요 (다른 경로로 이미 보냈다면 완료)',label:'완료',call:`confirmMailPendingAt(${index})`,navCall,navLabel:'이동',danger:false});
+    items.push({type:'mail_pending',title:m.label || '메일 발송',desc:'발송 실패 · 재발송 필요 (다른 경로로 이미 보냈다면 완료)',label:'완료',call:`confirmMailPendingAt(${index})`,navCall,navLabel:m.rejection?'재발송':'이동',danger:false});
   });
   return items.map(item => ({...item, category:dashboardActionCategory(item)}));
 }
