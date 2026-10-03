@@ -682,8 +682,7 @@ function getCandidateNextAction(cand) {
   if(cand.held) return null; // 보류 처리됨 — 포지션 중단/완료 등으로 더 이상 진행하지 않음
   if(cand.stage === 5) {
     if(isHireCompletedByFill_(cand)) return null; // 충원완료 포지션 — 입사 완료로 간주
-    const onboarded = cand.notified || onboardings.some(o => Number(o.candId) === Number(cand.id) && o.notified);
-    if(onboarded) return null;
+    if(isOnboardNoticeSent_(cand)) return null;
     return { text:'입사 안내 발송 필요', priority:'high', call: cand.posId != null ? `openOnboardingFromPosition(${cand.posId})` : null };
   }
   const types = CANDIDATE_STAGE_ACTION_TYPES[cand.stage];

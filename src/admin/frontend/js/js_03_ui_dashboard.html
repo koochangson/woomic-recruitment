@@ -1323,7 +1323,7 @@ function getPositionKanbanStatus(pos, cands, cur) {
     return `협의중 ${current.length}명` + gradeBandUnspecifiedSuffix_(current);
   }
   if(cur===5) {
-    const sent=current.filter(c=>c.notified||onboardings.some(o=>Number(o.candId)===Number(c.id)&&o.notified)).length;
+    const sent=current.filter(isOnboardNoticeSent_).length;
     const joinText = getPositionFinalJoinInline(current);
     const suffix = joinText ? ` (${joinText})` : '';
     return sent<current.length ? `안내대기 ${current.length-sent}명${suffix}` : `안내완료 ${sent}명${suffix}`;

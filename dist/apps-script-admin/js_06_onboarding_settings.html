@@ -295,7 +295,7 @@ async function sendObNotify(ch){
   ob.notified=true;
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c.email);
   saveState();renderOnboarding();renderDashboard();
-  toast(`${ob.candName}님 합격 안내 메일 발송 완료`,'🎉');
+  toast(`${ob.candName}님에게 입사 안내 메일 발송 완료`,'tok');
 }
 
 function renderOnboarding(){
@@ -374,7 +374,7 @@ async function sendObById(id,ch){
   ob.notified=true;
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c?.email||'');
   saveState();renderOnboarding();renderDashboard();
-  toast(`${ob.candName}님 메일 발송 완료`,'🎉');
+  toast(`${ob.candName}님에게 입사 안내 메일 발송 완료`,'tok');
 }
 
 function renderNotifyLog(){

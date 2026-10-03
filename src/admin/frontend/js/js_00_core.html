@@ -703,7 +703,9 @@ const STAGE_GUIDES = {
   4: { msg:'처우협의 단계로 이동합니다.\n연봉·직급·입사일 등 조건 협의 후 최종 판정을 진행하세요.', notify:false },
   5: { msg:'🎉 처우협의가 완료되어 최종합격으로 확정됩니다.\n확정 후 입사 안내 화면으로 자동 이동합니다.', notify:false },
   6: { msg:'불합격 처리합니다.\n지원자에게 불합격 안내 메시지를 발송하시겠습니까?', notify:true, tpl:'reject' },
-  7: { msg:'입사 단계로 이동합니다.\n지원자에게 입사 안내를 발송하세요.', notify:true, tpl:'onboard' },
+  // 입사 단계는 '실제 입사 완료' 기록이다. 입사 안내 메일은 입사 화면에서 이미 보내므로 여기서 다시 보내지 않는다
+  // (예전에는 직급·준비사항이 빠진 입사 안내 메일이 한 번 더 나갔다).
+  7: { msg:'입사 완료로 처리합니다.\n입사 안내 메일은 입사 화면에서 발송하며, 이 단계 변경으로는 메일이 나가지 않습니다.', notify:false },
 };
 const ROLE_CLS = { 영업직:'r-office', 기술직:'r-tech', 관리직:'r-mgr', 현장직:'r-field' };
 function normalizeRole(role){ return role === '사무직' ? '영업직' : (role || '영업직'); }
@@ -1559,6 +1561,14 @@ function isHireCompletedByFill_(c){
   return !!p && ['filled','partial'].includes(posStatus(p));
 }
 function isOnboardingDone_(c){ return !!c && (Number(c.stage) === 7 || isHireCompletedByFill_(c)); }
+// 입사 안내(지원자) 발송 여부 — 입사 등록(onboardings)에 기록된 발송 상태로만 판단한다.
+// 지원자의 notified는 면접 안내 등 '마지막 안내 발송' 표시라 최종합격자는 대부분 이미 true였고,
+// 그 때문에 입사 안내를 보내기 전부터 '입사안내 완료'·'안내완료'로 보이고 처리 필요 목록에서도 빠졌다.
+function isOnboardNoticeSent_(c){
+  if(!c) return false;
+  if(isOnboardingDone_(c)) return true;
+  return onboardings.some(o => Number(o.candId) === Number(c.id) && o.notified);
+}
 function getPositionCardProgress(pos, positionCandidates) {
   const status = posStatus(pos);
   if(status !== 'active') {
