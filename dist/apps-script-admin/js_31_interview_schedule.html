@@ -135,10 +135,48 @@ function openCollectSlots(posId, stageIdx) {
     }
   }
   openModal('modal-collect-slots');
-  if(panelMode && pos[requestedKey]) {
-    refreshPanelAvailabilityResponses(posId, stageIdx);
-    startPanelAvailabilityWatch_(posId, stageIdx);
+  if(panelMode) {
+    // 포지션에 '발송함' 기록이 없어도 서버에 면접관 회신 행이 있을 수 있다 — 항상 확인한다.
+    refreshPanelAvailabilityResponses(posId, stageIdx).then(responses => {
+      if(pos[requestedKey] || (responses || []).length) startPanelAvailabilityWatch_(posId, stageIdx);
+    });
   }
+}
+
+// 서버에 면접관 회신 행이 있는데 포지션에 발송 기록·후보일정이 비어 있으면(다른 기기에서 발송했거나
+// 저장이 덮어써진 경우) 회신 행 기준으로 복구한다. 그래야 '면접관 확인 메일 발송'으로 되돌아가지 않는다.
+function repairPanelAvailabilityState_(pos, stageIdx, responses) {
+  const list = (responses || []).filter(r => r && r.status);
+  if(!pos || !list.length) return false;
+  const keys = panelAvailabilityKeys(stageIdx);
+  let changed = false;
+  if(!pos[keys.requested]) {
+    const sentAt = list.map(r => r.createdAt || r.updatedAt || '').filter(Boolean).sort()[0] || new Date().toISOString();
+    pos[keys.requested] = sentAt;
+    changed = true;
+  }
+  if(!Array.isArray(pos[keys.options]) || !pos[keys.options].length) {
+    const options = mergeAvailabilityOptions_(list.map(r => r.availabilityOptions || []));
+    if(options.length) { pos[keys.options] = options; changed = true; }
+  }
+  if(changed) {
+    saveState();
+    if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
+  }
+  return changed;
+}
+
+// 여러 후보일정 목록을 날짜별로 합친다(날짜순, 오전→오후).
+function mergeAvailabilityOptions_(lists) {
+  const byDate = new Map();
+  (lists || []).flat().forEach(option => {
+    if(!option?.date) return;
+    const set = byDate.get(option.date) || new Set();
+    (option.periods || []).forEach(period => set.add(period));
+    byDate.set(option.date, set);
+  });
+  return [...byDate.keys()].sort().map(date => ({ date, periods:['AM','PM'].filter(p => byDate.get(date).has(p)) }))
+    .filter(option => option.periods.length);
 }
 
 // 면접관 회신 대기 중 일정 확인 창을 열어 두면, 전체 변경 확인(1분 주기)을 기다리지 않고
@@ -320,6 +358,7 @@ async function refreshPanelAvailabilityResponses(posId, stageIdx, showToast=fals
   }
   panelAvailabilityCache[panelAvailabilityCacheKey(posId, stageIdx)] = result.responses || [];
   const pos = positions.find(item => Number(item.id) === Number(posId));
+  const repaired = repairPanelAvailabilityState_(pos, stageIdx, result.responses);
   if(pos && collectSlotsCtx.mode === 'panel' && Number(collectSlotsCtx.posId) === Number(posId) && Number(collectSlotsCtx.stageIdx) === Number(stageIdx)) {
     renderPanelAvailabilityTargets(pos, stageIdx);
     const expected = parsePanelists(pos[panelAvailabilityKeys(stageIdx).panel]).filter(panelist => panelist.email);
@@ -333,8 +372,23 @@ async function refreshPanelAvailabilityResponses(posId, stageIdx, showToast=fals
     const resend = document.getElementById('csl-panel-resend');
     if(resend) resend.style.display = expected.length && responded < expected.length ? '' : 'none';
     renderPanelCommonAvailability(pos, stageIdx, result.responses || []);
+    // 버튼 문구와 실제 동작을 함께 맞춘다(예전에는 문구만 바뀌고 '메일 발송'이 그대로 실행됐다).
     const primary = document.getElementById('csl-primary-action');
-    if(primary && expected.length && responded === expected.length) primary.textContent = '지원자 면접일정 요청';
+    const requested = !!pos[panelAvailabilityKeys(stageIdx).requested];
+    if(primary && requested) {
+      const allReplied = expected.length && responded === expected.length;
+      primary.textContent = allReplied ? '지원자 면접일정 요청' : '면접관 회신 확인 완료';
+      primary.dataset.call = 'confirmPanelAvailabilityAndContinue()';
+    }
+    const refresh = document.getElementById('csl-panel-refresh');
+    if(refresh && requested) refresh.style.display = '';
+    ['csl-panel-start','csl-panel-weeks'].forEach(id => { const el = document.getElementById(id); if(el && requested) el.disabled = true; });
+    if(repaired) {
+      const opts = pos[panelAvailabilityKeys(stageIdx).options] || [];
+      const start = document.getElementById('csl-panel-start');
+      if(start && opts[0]?.date) { start.value = opts[0].date; updatePanelRangeSummary(); }
+      if(typeof rerenderAfterPanelAvailabilitySave_ === 'function') rerenderAfterPanelAvailabilitySave_(posId);
+    }
   }
   if(showToast) toast('면접관 응답 현황을 새로고침했습니다.', 'tok');
   return result.responses || [];
@@ -388,7 +442,9 @@ function renderPanelCommonAvailability(pos, stageIdx, responses) {
     return;
   }
 
-  const options = Array.isArray(pos[keys.options]) ? pos[keys.options] : [];
+  // 포지션의 후보일정과 면접관에게 실제로 보낸 후보일정(회신 행)을 합쳐 기준으로 쓴다 —
+  // 포지션 쪽 값이 비거나 달라도 회신한 일정이 '공통 일정 없음'으로 빠지지 않게 한다.
+  const options = mergeAvailabilityOptions_([pos[keys.options] || [], ...selectedResponses.map(r => r?.availabilityOptions || [])]);
   const commonOptions = commonPanelAvailability(options, selectedResponses);
   container.style.display = '';
   if(!commonOptions.length) {
@@ -535,11 +591,15 @@ async function confirmPanelAvailabilityAndContinue() {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const keys = panelAvailabilityKeys(stageIdx);
-  const options = Array.isArray(pos[keys.options]) && pos[keys.options].length ? pos[keys.options] : collectAvailabilityOptions();
-  if(!options.length) { toast('확인 완료로 처리할 면접 후보일정을 먼저 입력하세요.', 'terr'); return; }
-  if(!pos[keys.requested]) { toast('면접관 확인 메일을 먼저 발송하세요.', 'terr'); return; }
   const panelists = parsePanelists(pos[keys.panel]).filter(panelist => panelist.email);
+  // 회신을 먼저 불러온다 — 포지션의 발송 기록이 비어 있어도 회신 행 기준으로 복구된다.
   const responses = await refreshPanelAvailabilityResponses(posId, stageIdx);
+  if(!pos[keys.requested]) { toast('면접관 확인 메일을 먼저 발송하세요.', 'terr'); return; }
+  const options = mergeAvailabilityOptions_([
+    Array.isArray(pos[keys.options]) && pos[keys.options].length ? pos[keys.options] : collectAvailabilityOptions(),
+    ...responses.map(r => r?.availabilityOptions || []),
+  ]);
+  if(!options.length) { toast('확인 완료로 처리할 면접 후보일정을 먼저 입력하세요.', 'terr'); return; }
   const byEmail = new Map(responses.map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
   const missing = panelists.filter(panelist => !['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(panelist.email).toLowerCase())?.status));
   if(missing.length) {
