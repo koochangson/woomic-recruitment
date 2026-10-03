@@ -673,6 +673,14 @@ const FLOW_SHORT = [0,1,4,5,7]; // 레퍼런스·2차면접 생략
 // 대시보드 칸반 보드 전용 — 입사(7)는 별도 테이블(입사 탭)·지원자 관리 필터로 확인하므로
 // 칸반 컬럼에서는 제외한다. FLOW/FLOW_SHORT 자체는 되돌리기 판정에 쓰이므로 그대로 둔다.
 const KANBAN_FLOW = FLOW.filter(idx => idx !== 7);
+// 칸반 컬럼에 없는 단계값을 표시용으로 맞춘다 — 이관 전 레퍼런스(2)는 2차면접(3), 입사(7)는
+// 최종합격(5). 그대로 두면 어느 컬럼에도 들어가지 못해 카드가 통째로 사라진다.
+function kanbanStage(c) {
+  const s = Number(c && c.stage);
+  if(s === 2) return 3;
+  if(s === 7) return 5;
+  return s;
+}
 function isShortProcessEtype(etype){ return etype === '전문직' || etype === '파견직'; }
 function getPositionFlow(pos){ return pos && isShortProcessEtype(pos.etype) ? FLOW_SHORT : FLOW; }
 function getFlowForCandidate(c){

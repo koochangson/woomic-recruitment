@@ -823,7 +823,7 @@ function renderStageKanban() {
 
   // 1패스 그룹화: stage → 지원자[] (단계별 전체 배열 반복 검색 제거)
   const byStage = {};
-  activeCandidates.forEach(c => { (byStage[c.stage] = byStage[c.stage] || []).push(c); });
+  activeCandidates.forEach(c => { const k = kanbanStage(c); (byStage[k] = byStage[k] || []).push(c); });
   // 알림 미발송 면접 보유 지원자 집합 (매 카드마다 interviews 순회하지 않도록 사전 계산)
   const intWarnSet = new Set(interviews.filter(i => !i.notified).map(i => Number(i.candId)));
 
@@ -986,7 +986,9 @@ function compactDashboardActionDesc(action, pos) {
 
 function dashboardActionCategory(item) {
   const type = String(item?.type || '');
-  const title = String(item?.title || '');
+  // 포지션 업무는 title이 포지션명이라("메일 테스트2" 등) 그대로 쓰면 이름에 든 단어로 잘못
+  // 분류된다 — 업무 원래 제목(actionTitle)으로 판정한다.
+  const title = String(item?.actionTitle || item?.title || '');
   const label = String(item?.label || '');
   if(/referral|reward/.test(type) || /사내추천|포상금/.test(title)) return '사내추천';
   if(/reference|ref_/.test(type) || /레퍼런스/.test(title) || /레퍼런스/.test(label)) return '레퍼런스';
@@ -1035,7 +1037,7 @@ function getDashboardActionItems() {
     getPositionActionItems(pos.id).filter(a => a.priority === 'high' || a.type === 'candidate_register').forEach(a => {
       positionTypes.add(a.type);
       items.push({
-        type:a.type, positionId:pos.id,
+        type:a.type, positionId:pos.id, actionTitle:a.title,
         title:pos.title || '포지션 미지정', desc:compactDashboardActionDesc(a,pos), label:compactPositionActionLabel(a.actionLabel),
         call:getDashboardActionCall(pos.id,a.actionCall), danger:false
       });
@@ -1099,7 +1101,7 @@ function gradeBandUnspecifiedSuffix_(current) {
 }
 
 function getPositionKanbanStatus(pos, cands, cur) {
-  const current = cands.filter(c=>c.stage===cur);
+  const current = cands.filter(c=>kanbanStage(c)===cur);
   if(cur===0) {
     const scheduled=current.filter(c=>interviews.some(i=>Number(i.candId)===Number(c.id)&&i.type==='1차')).length;
     return (scheduled ? `일정수립 ${scheduled}/${current.length}` : `일정수립대기 ${current.length}명`) + gradeBandUnspecifiedSuffix_(current);
@@ -1185,7 +1187,7 @@ function renderKanban() {
   activePos.forEach(pos => {
     const cands = byPos[Number(pos.id)] || [];
     if(!cands.length) { emptyPos.push(pos); return; }
-    const cur = Math.max(...cands.map(c=>c.stage));   // 현재 단계
+    const cur = Math.max(...cands.map(kanbanStage));   // 현재 단계 (레거시 2→3, 입사 7→5로 맞춤)
     const col = stageColor(cur);
     const title = pos.title || '미지정 포지션';
     const titleSizeClass = title.length > 20 ? ' is-xlong' : (title.length > 14 ? ' is-long' : '');
