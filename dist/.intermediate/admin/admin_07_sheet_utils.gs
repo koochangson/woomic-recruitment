@@ -239,7 +239,7 @@ function stoppedPipelineCandidateIds_() {
   const ids = new Set();
   readRowsIfSheetExists_('Candidates').forEach(row => {
     const posId = row.posId === '' || row.posId == null ? '' : String(row.posId);
-    if (String(row.stage || '') === '불합격' || String(row.held || '') === 'Y' || (posId && closedPositions.has(posId))) {
+    if (candidateStageClosed_(row.stage) || String(row.held || '') === 'Y' || (posId && closedPositions.has(posId))) {
       ids.add(String(row.id));
     }
   });

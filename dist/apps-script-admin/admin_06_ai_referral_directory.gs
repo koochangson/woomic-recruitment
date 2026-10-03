@@ -215,11 +215,16 @@ function positionProcessClosed_(positionId) {
   return !!pos && CLOSED_POSITION_STATUSES_.includes(String(pos.status || '').trim());
 }
 
+function candidateStageClosed_(value) {
+  const stage = String(value == null ? '' : value).trim();
+  return ['5', '6', '7', '최종합격', '불합격', '입사'].includes(stage);
+}
+
 function candidateProcessClosed_(candId) {
   if (candId === '' || candId == null) return false;
   const cand = readRowsIfSheetExists_('Candidates').find(row => String(row.id) === String(candId));
   if (!cand) return false;
-  if (String(cand.stage || '') === '불합격' || String(cand.held || '') === 'Y') return true;
+  if (candidateStageClosed_(cand.stage) || String(cand.held || '') === 'Y') return true;
   return positionProcessClosed_(cand.posId);
 }
 
