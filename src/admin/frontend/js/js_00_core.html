@@ -493,10 +493,21 @@ function renderRsTable() {
   const cell=(value,style='')=>`<td style="padding:7px 8px;border:1px solid var(--border);font-size:11.5px;${style}">${value??'-'}</td>`;
   const rateCell=rate=>rate===null?cell('-','text-align:center'):cell(`${rate}%`,`text-align:center;font-weight:700;color:${rate>=100?'var(--green)':'var(--acc)'}`);
   const remainCell=(remain,to)=>!to?cell('-','text-align:center'):cell(remain<0?`+${Math.abs(remain)}`:remain,`text-align:center;font-weight:700;color:${remain>0?'var(--amber)':'var(--green)'}`);
-  const body=subset=>subset.map(r=>`<tr class="rs-row" data-action="call" data-call="filterPosToTeam('${esc(r.location)}','${esc(r.empType)}','${esc(r.team||'')}','${esc(r.jobType||'')}')">${cell(r.location,'text-align:center')}${cell(r.empType,'text-align:center')}${cell(esc(r.division||'-'),'text-align:center')}${cell(esc(r.label),'text-align:center')}${cell(r.to||'-','text-align:center')}${cell(r.done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(r.rate)}${cell(r.itv||'-','text-align:center;color:var(--acc)')}${cell(r.offer||'-','text-align:center;color:var(--amber)')}${remainCell(r.remain,r.to)}</tr>`).join('');
-  const subtotal=(label,subset)=>{const sum=k=>subset.reduce((n,r)=>n+(Number(r[k])||0),0),to=sum('to'),done=sum('done'),itv=sum('itv'),offer=sum('offer'),rate=to?Math.round(done/to*100):null;return `<tr style="background:var(--s2)"><td colspan="4" style="padding:7px 9px;border:1px solid var(--border);text-align:right;font-weight:700">${label}</td>${cell(to||'-','text-align:center;font-weight:700')}${cell(done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(rate)}${cell(itv,'text-align:center')}${cell(offer,'text-align:center')}${remainCell(to?to-done-itv-offer:null,to)}</tr>`;};
-  const hq=rows.filter(r=>r.location==='본사'),site=rows.filter(r=>r.location==='현장');
-  wrap.innerHTML=`<table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr>${['소속','채용형태','본부','팀 / 직종','TO','완료','달성률','면접','입사예정','잔여'].map(v=>`<th style="padding:7px 8px;border:1px solid var(--border);background:var(--s2);font-size:11px;color:var(--t2);text-align:center">${v}</th>`).join('')}</tr></thead><tbody><tr><td colspan="10" class="rs-section">본사 — 팀 기준</td></tr>${body(hq)}${subtotal('본사 계',hq)}<tr><td colspan="10" class="rs-section">현장 — 직종 기준</td></tr>${body(site)}${subtotal('현장 계',site)}${subtotal('총계',rows)}</tbody></table>`;
+  // 소속(본사/현장)은 구간 제목이 이미 나타내므로 열로 반복하지 않는다. 데이터가 없는 구간(예: 현장)은 숨기고,
+  // 구간이 하나뿐이면 구간 제목·소계 없이 총계만 둔다. 본부 값이 하나도 없으면 본부 열도 뺀다.
+  const sections=[
+    { rows:rows.filter(r=>r.location==='본사'), title:'본사 — 팀 기준', total:'본사 계', unit:'팀' },
+    { rows:rows.filter(r=>r.location==='현장'), title:'현장 — 직종 기준', total:'현장 계', unit:'직종' },
+  ].filter(sec=>sec.rows.length);
+  const multi=sections.length>1;
+  const showDivision=rows.some(r=>r.division&&r.division!=='-');
+  const labelCols=1+(showDivision?1:0)+1; // 채용형태 + (본부) + 팀/직종
+  const totalCols=labelCols+6;
+  const headers=['채용형태',...(showDivision?['본부']:[]),multi?'팀 / 직종':sections[0].unit,'TO','완료','달성률','면접','입사예정','잔여'];
+  const body=subset=>subset.map(r=>`<tr class="rs-row" data-action="call" data-call="filterPosToTeam('${esc(r.location)}','${esc(r.empType)}','${esc(r.team||'')}','${esc(r.jobType||'')}')">${cell(r.empType,'text-align:center')}${showDivision?cell(esc(r.division||'-'),'text-align:center'):''}${cell(esc(r.label),'text-align:center;font-weight:600')}${cell(r.to||'-','text-align:center')}${cell(r.done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(r.rate)}${cell(r.itv||'-','text-align:center;color:var(--acc)')}${cell(r.offer||'-','text-align:center;color:var(--amber)')}${remainCell(r.remain,r.to)}</tr>`).join('');
+  const subtotal=(label,subset,strong)=>{const sum=k=>subset.reduce((n,r)=>n+(Number(r[k])||0),0),to=sum('to'),done=sum('done'),itv=sum('itv'),offer=sum('offer'),rate=to?Math.round(done/to*100):null;return `<tr style="background:${strong?'var(--s3, #EEF2F7)':'var(--s2)'}"><td colspan="${labelCols}" style="padding:7px 9px;border:1px solid var(--border);text-align:right;font-weight:700">${label}</td>${cell(to||'-','text-align:center;font-weight:700')}${cell(done,'text-align:center;color:var(--green);font-weight:700')}${rateCell(rate)}${cell(itv||'-','text-align:center')}${cell(offer||'-','text-align:center')}${remainCell(to?to-done-itv-offer:null,to)}</tr>`;};
+  const sectionHtml=sections.map(sec=>`${multi?`<tr><td colspan="${totalCols}" class="rs-section">${sec.title}</td></tr>`:''}${body(sec.rows)}${multi?subtotal(sec.total,sec.rows):''}`).join('');
+  wrap.innerHTML=`<table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr>${headers.map(v=>`<th style="padding:7px 8px;border:1px solid var(--border);background:var(--s2);font-size:11px;color:var(--t2);text-align:center">${v}</th>`).join('')}</tr></thead><tbody>${sectionHtml}${subtotal(multi?'총계':(sections[0].rows[0]?.location==='현장'?'현장 합계':'합계'),rows,true)}</tbody></table>`;
 }
 
 function loadRpDraftRows() {
