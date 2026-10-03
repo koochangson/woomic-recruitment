@@ -8,6 +8,7 @@ const PANEL_AVAILABILITY_CACHE_KEY_ = 'recruit_panel_availability_cache_v1';
 const panelAvailabilityCache = (() => {
   try { return JSON.parse(localStorage.getItem(PANEL_AVAILABILITY_CACHE_KEY_) || '{}') || {}; } catch(e) { return {}; }
 })();
+const panelAvailabilityFetchedAt_ = {}; // 이번 화면에서 서버로 확인한 시각(신선도 판단용)
 function persistPanelAvailabilityCache_() {
   try { localStorage.setItem(PANEL_AVAILABILITY_CACHE_KEY_, JSON.stringify(panelAvailabilityCache)); } catch(e) {}
 }
@@ -376,6 +377,7 @@ async function refreshPanelAvailabilityResponses(posId, stageIdx, showToast=fals
   }
   panelAvailabilityCache[panelAvailabilityCacheKey(posId, stageIdx)] = result.responses || [];
   persistPanelAvailabilityCache_();
+  panelAvailabilityFetchedAt_[panelAvailabilityCacheKey(posId, stageIdx)] = Date.now();
   applyPanelResponsesToModal_(posId, stageIdx, result.responses || []);
   if(showToast) toast('면접관 응답 현황을 새로고침했습니다.', 'tok');
   return result.responses || [];
@@ -631,47 +633,53 @@ async function confirmPanelAvailabilityAndContinue() {
   if(!pos) return;
   const keys = panelAvailabilityKeys(stageIdx);
   const panelists = parsePanelists(pos[keys.panel]).filter(panelist => panelist.email);
-  // 회신을 먼저 불러온다 — 포지션의 발송 기록이 비어 있어도 회신 행 기준으로 복구된다.
-  const responses = await refreshPanelAvailabilityResponses(posId, stageIdx);
-  if(!pos[keys.requested]) { toast('면접관 확인 메일을 먼저 발송하세요.', 'terr'); return; }
+  // 누르는 즉시 처리 중임을 보여 준다(예전에는 서버 확인·저장이 끝날 때까지 아무 반응이 없었다).
+  const primary = document.getElementById('csl-primary-action');
+  const statusEl = document.getElementById('csl-panel-status');
+  const labelBefore = primary?.textContent;
+  const statusBefore = statusEl?.textContent;
+  const setBusy = (busy, message) => {
+    if(primary) { primary.disabled = busy; primary.textContent = busy ? '처리 중…' : labelBefore; }
+    if(statusEl) statusEl.textContent = busy ? message : statusBefore;
+  };
+  const fail = message => { setBusy(false); toast(message, 'terr'); };
+  setBusy(true, '면접관 회신 확인 중…');
+  // 1분 이내에 받아 둔 회신이 있으면 다시 묻지 않는다(창을 열 때·20초 주기로 이미 확인).
+  const cacheKey = panelAvailabilityCacheKey(posId, stageIdx);
+  const fresh = Date.now() - (panelAvailabilityFetchedAt_[cacheKey] || 0) < 60 * 1000;
+  const responses = fresh && Array.isArray(panelAvailabilityCache[cacheKey])
+    ? panelAvailabilityCache[cacheKey]
+    : await refreshPanelAvailabilityResponses(posId, stageIdx);
+  if(!pos[keys.requested]) return fail('면접관 확인 메일을 먼저 발송하세요.');
   const options = mergeAvailabilityOptions_([
     Array.isArray(pos[keys.options]) && pos[keys.options].length ? pos[keys.options] : collectAvailabilityOptions(),
     ...responses.map(r => r?.availabilityOptions || []),
   ]);
-  if(!options.length) { toast('확인 완료로 처리할 면접 후보일정을 먼저 입력하세요.', 'terr'); return; }
+  if(!options.length) return fail('확인 완료로 처리할 면접 후보일정을 먼저 입력하세요.');
   const byEmail = new Map(responses.map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
   const missing = panelists.filter(panelist => !['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(panelist.email).toLowerCase())?.status));
-  if(missing.length) {
-    toast(`아직 응답하지 않은 면접관이 있습니다: ${missing.map(panelist => panelist.name || panelist.email).join(', ')}`, 'terr');
-    return;
-  }
+  if(missing.length) return fail(`아직 응답하지 않은 면접관이 있습니다: ${missing.map(panelist => panelist.name || panelist.email).join(', ')}`);
   const selectedResponses = panelists.map(panelist => byEmail.get(String(panelist.email).toLowerCase()));
   const commonOptions = commonPanelAvailability(options, selectedResponses);
-  if(!commonOptions.length) {
-    toast('모든 면접관이 공통으로 가능한 시간대가 없습니다. 후보일정을 다시 조정해 주세요.', 'terr');
-    return;
-  }
+  if(!commonOptions.length) return fail('모든 면접관이 공통으로 가능한 시간대가 없습니다. 후보일정을 다시 조정해 주세요.');
   const selectedOptions = selectedPanelCommonOptions();
-  if(!selectedOptions.length) {
-    toast('지원자에게 안내할 공통 가능 일정을 하나 이상 선택하세요.', 'terr');
-    return;
-  }
+  if(!selectedOptions.length) return fail('지원자에게 안내할 공통 가능 일정을 하나 이상 선택하세요.');
   const allowed = new Set(commonOptions.flatMap(option => option.periods.map(period => `${option.date}|${period}`)));
   const invalid = selectedOptions.some(option => option.periods.some(period => !allowed.has(`${option.date}|${period}`)));
-  if(invalid) {
-    toast('면접관 공통 가능 일정에 포함되지 않은 항목이 있습니다. 응답을 새로고침해 주세요.', 'terr');
-    return;
-  }
+  if(invalid) return fail('면접관 공통 가능 일정에 포함되지 않은 항목이 있습니다. 응답을 새로고침해 주세요.');
+  setBusy(true, '면접관 일정 확정 저장 중…');
   applyAvailabilityOptionsToInputs(selectedOptions);
   pos[keys.options] = selectedOptions;
   pos[keys.confirmed] = new Date().toISOString();
   saveState();
+  // 저장은 뒤에서 진행하고 바로 다음 화면으로 넘어간다 — 실패하면 자동 재시도 대기열에 남고 알려 준다.
   if(GS_CONFIG.scriptUrl) {
-    const synced = await syncPosToGS(pos);
-    if(synced == null) return;
+    Promise.resolve(syncPosToGS(pos)).then(result => {
+      if(result == null || result?.error) toast('면접관 일정 확정이 아직 서버에 저장되지 않았습니다. 자동으로 다시 시도합니다.', 'tw');
+    }).catch(() => toast('면접관 일정 확정이 아직 서버에 저장되지 않았습니다. 자동으로 다시 시도합니다.', 'tw'));
   }
   rerenderAfterPanelAvailabilitySave_(posId);
-  toast('면접관 일정 확인을 완료했습니다. 지원자 면접일정 요청 화면으로 이동합니다.', 'tok');
+  toast('면접관 일정 확인을 완료했습니다. 지원자에게 보낼 면접일정 요청을 확인하세요.', 'tok');
   openCollectSlots(posId, stageIdx);
 }
 
