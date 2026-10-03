@@ -395,7 +395,7 @@ function toast(msg, type='', options={}) {
     t.addEventListener('click', () => { t.remove(); if(options.onClick) options.onClick(); });
   }
   w.appendChild(t);
-  if(!options.sticky) setTimeout(() => t.remove(), 3200);
+  if(!options.sticky) setTimeout(() => t.remove(), 4200);
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -333,7 +333,14 @@ textarea{resize:vertical;min-height:64px;}
 .toast.tteams{background:var(--teams);}
 .toast.toutlook{background:var(--outlook);}
 .toast.terr{background:var(--red);}
+.toast.tw{background:var(--amber);}
 @keyframes tin{from{transform:translateY(8px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+/* 모바일에서는 하단 주소창·제스처 바에 가려 놓치기 쉬워, 화면 위쪽에 눈에 띄게 띄운다. */
+@media (max-width:720px){
+  .toast-wrap{top:max(12px,env(safe-area-inset-top));bottom:auto;left:12px;right:12px;align-items:stretch;}
+  .toast{max-width:none;font-size:13.5px;padding:12px 16px;}
+  @keyframes tin{from{transform:translateY(-8px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+}
 
 
 /* ── 대시보드 채용단계 칸반 ─────────────────────────────── */
