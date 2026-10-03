@@ -1197,6 +1197,17 @@ function renderKanban() {
     </div>`;
     (colCards[cur] = colCards[cur] || []).push(card);
   });
+  // 진행중 포지션은 지원자가 없거나 전원 불합격이어도 칸반에서 빠지면 안 된다 — 첫 컬럼에 둔다.
+  const firstCol = KANBAN_FLOW[0];
+  emptyPos.forEach(pos => {
+    const col = stageColor(firstCol);
+    const title = pos.title || '미지정 포지션';
+    const titleSizeClass = title.length > 20 ? ' is-xlong' : (title.length > 14 ? ' is-long' : '');
+    (colCards[firstCol] = colCards[firstCol] || []).push(`<div class="position-kanban-card" role="button" tabindex="0" data-onkeydown="kbActivate(event)" data-action="open-position" data-id="${pos.id}" style="border-left-color:${col}">
+      <div class="position-kanban-title${titleSizeClass}" title="${esc(title)}">${esc(title)}</div>
+      <div class="pk-status" style="color:var(--t3)">지원자 등록 대기</div>
+    </div>`);
+  });
 
   let html = '<div class="position-kanban">';
   cols.forEach(c => {

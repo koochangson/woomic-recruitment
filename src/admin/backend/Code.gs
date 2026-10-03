@@ -3116,32 +3116,74 @@ function adminLogin_(payload) {
   }
 
   clearAdminLoginFailures_(loginId);
+  purgeExpiredAdminSessions_();
   const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
   const ttl = getAdminSessionSeconds_();
-  CacheService.getScriptCache().put(adminSessionKey_(token), JSON.stringify({
-    loginId,
-    issuedAt: nowIso_()
-  }), ttl);
+  saveAdminSession_(token, { loginId, issuedAt: nowIso_(), expiresAt: Date.now() + ttl * 1000 }, ttl);
   return { ok: true, token, loginId, expiresIn: ttl };
 }
 
 function adminLogout_(payload) {
   const token = getAdminSessionTokenFromPayload_(payload);
-  if (token) CacheService.getScriptCache().remove(adminSessionKey_(token));
+  if (token) {
+    CacheService.getScriptCache().remove(adminSessionKey_(token));
+    PropertiesService.getScriptProperties().deleteProperty(adminSessionKey_(token));
+  }
   return { ok: true };
+}
+
+// CacheService는 지정한 TTL 전에도 항목을 임의로 비울 수 있어(best effort) 세션 저장소로만
+// 쓰면 로그인이 예고 없이 풀린다. ScriptProperties에 만료시각과 함께 원본을 두고, 캐시는
+// 빠른 조회용으로만 쓴다.
+function saveAdminSession_(token, session, ttl) {
+  const raw = JSON.stringify(session);
+  PropertiesService.getScriptProperties().setProperty(adminSessionKey_(token), raw);
+  CacheService.getScriptCache().put(adminSessionKey_(token), raw, Math.min(ttl, 6 * 60 * 60));
 }
 
 function hasValidAdminSession_(token) {
   token = String(token || '').trim();
   if (!token) return false;
   try {
-    const raw = CacheService.getScriptCache().get(adminSessionKey_(token));
+    const key = adminSessionKey_(token);
+    const cached = CacheService.getScriptCache().get(key);
+    const raw = cached || PropertiesService.getScriptProperties().getProperty(key);
     if (!raw) return false;
     const session = JSON.parse(raw);
-    return !!session && !!session.loginId;
+    if (!session || !session.loginId) return false;
+    const ttl = getAdminSessionSeconds_();
+    // 만료시각이 없는 이전 형식 세션은 캐시가 살아 있는 동안만 인정한다.
+    const expiresAt = Number(session.expiresAt) || (cached ? Date.now() + ttl * 1000 : 0);
+    if (expiresAt <= Date.now()) {
+      CacheService.getScriptCache().remove(key);
+      PropertiesService.getScriptProperties().deleteProperty(key);
+      return false;
+    }
+    // 사용 중이면 연장한다(남은 시간이 절반 미만일 때만 기록해 쓰기 횟수를 줄인다).
+    if (expiresAt - Date.now() < ttl * 500) {
+      saveAdminSession_(token, Object.assign({}, session, { expiresAt: Date.now() + ttl * 1000 }), ttl);
+    } else if (!cached) {
+      CacheService.getScriptCache().put(key, raw, Math.max(60, Math.min(Math.floor((expiresAt - Date.now()) / 1000), 6 * 60 * 60)));
+    }
+    return true;
   } catch (err) {
     return false;
   }
+}
+
+function purgeExpiredAdminSessions_() {
+  const store = PropertiesService.getScriptProperties();
+  const all = store.getProperties();
+  const now = Date.now();
+  Object.keys(all).forEach(key => {
+    if (key.indexOf('admin_session:') !== 0) return;
+    try {
+      const session = JSON.parse(all[key] || 'null');
+      if (!session || !(Number(session.expiresAt) > now)) store.deleteProperty(key);
+    } catch (err) {
+      store.deleteProperty(key);
+    }
+  });
 }
 
 function getAdminSessionTokenFromPayload_(payload) {
