@@ -421,6 +421,7 @@ async function sendPanelAvailabilityRequest() {
     return;
   }
   const panelLoc = document.getElementById('csl-loc')?.value || pos.loc || '';
+  await ensureInterviewersLoaded_(); // 메일의 면접관 이름에 직급을 붙이기 위해
   let sentCount = 0;
   const failed = [];
   const primaryBtn = document.getElementById('csl-primary-action');

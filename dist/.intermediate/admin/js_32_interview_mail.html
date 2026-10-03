@@ -250,6 +250,7 @@ async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, attachm
   const scheduleLabel = `${dateLabel} ${startT}~${endT}`;
 
   // 면접위원 명단 (이름 + 직급)
+  await ensureInterviewersLoaded_();
   const panelNames = panelists.map(p => {
     const iv = interviewers.find(x => x.email === p.email);
     return iv ? `${iv.name} ${iv.rank}` : p.name;

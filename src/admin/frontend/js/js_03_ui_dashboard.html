@@ -78,8 +78,24 @@ let lazyInterviewerLoadAttempted_ = false;
 let lazyReferenceLoadPromise_ = null;
 let lazyReferenceLoaded_ = false;
 
+// 면접관 DB가 꼭 필요한 순간(메일에 면접관 직급 표기 등)에만 한 번 불러온다. 이미 불러왔거나
+// 이번 페이지에서 이미 시도했다면 다시 부르지 않는다.
+async function ensureInterviewersLoaded_() {
+  if(interviewers.length || !GS_CONFIG.interviewerUrl || typeof loadInterviewers !== 'function') return;
+  if(lazyInterviewerLoadPromise_) { await lazyInterviewerLoadPromise_; return; }
+  if(lazyInterviewerLoadAttempted_) return;
+  lazyInterviewerLoadAttempted_ = true;
+  lazyInterviewerLoadPromise_ = loadInterviewers()
+    .catch(error => console.warn('면접관 DB 로드 실패:', error))
+    .finally(() => { lazyInterviewerLoadPromise_ = null; });
+  await lazyInterviewerLoadPromise_;
+}
+
 function loadSectionDataLazily_(id) {
-  const needsInterviewers = ['position','posdetail','interview','settings'].includes(id);
+  // 면접관 DB(직원 DB)가 실제로 필요한 화면만 미리 불러온다. 포지션 상세·면접 화면은 포지션에
+  // 이미 저장된 면접관 이름·이메일로 충분하고, 포지션 추가/수정 창은 열 때 직접 불러온다
+  // (loadInterviewerOptions). 설정은 팀 목록, 입사 안내는 부서장 수신자 자동 입력에 쓴다.
+  const needsInterviewers = ['settings','onboarding'].includes(id);
   // 면접관 DB는 화면 표시에 필요하지 않은 보조 데이터다 — 전체 화면 로딩창으로 막지 않고 뒤에서
   // 한 번만 불러온다. 결과가 0건이어도 매번 다시(최대 3곳 순차 조회) 부르지 않도록 시도 여부를
   // 기억하고, 다시 불러오려면 '면접관 새로고침' 버튼을 쓴다.
@@ -88,9 +104,12 @@ function loadSectionDataLazily_(id) {
     lazyInterviewerLoadPromise_ = (async () => {
       await loadInterviewers();
       renderTeamMaster();
-      renderIntTable();
-      renderPositions();
-      if(currentPosDetailId != null) refreshOpenPositionDetail(currentPosDetailId);
+      // 입사 안내 화면이 먼저 열려 부서장 칸이 비어 있었다면 불러온 뒤 조용히 채운다.
+      const leadInput = document.getElementById('ob-dept-lead');
+      if(id === 'onboarding' && leadInput && !leadInput.value) {
+        const leads = getDeptLeadRecipients(document.getElementById('ob-dept')?.value || '');
+        if(leads.length) { leadInput.value = groupMailRecipients(leads.map(x => x.email)); updateObPreview(); }
+      }
       return interviewers.length > 0;
     })().catch(error => {
       console.warn('면접관 DB 지연 로드 실패:', error);
