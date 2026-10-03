@@ -1601,6 +1601,8 @@ function isActivePipelineCand(c){
   if(p && !isPositionOpen_(p)) return false; // 종료 포지션 소속 제외
   return true;
 }
+// 레퍼런스 진행 대상: 레퍼런스 체크 대상이면서 아직 진행 중인 지원자(불합격·보류·종료 포지션 제외).
+function isActiveReferenceCand_(c){ return requiresReferenceCheck(c) && isActivePipelineCand(c); }
 // 처리 필요 항목 단일 산출 (KPI 숫자와 처리필요 카드가 공유 → 항상 일치)
 function getActionItems(){
   const activePositionIds = new Set(positions.filter(p=>isPositionOpen_(p)).map(p=>Number(p.id)));

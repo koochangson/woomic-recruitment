@@ -748,15 +748,15 @@ function renderRefFilterPanel() {
   // 필터별 대상 결정
   const configs = {
     ready: { label:'발송 대기 — 레퍼런스 대상 미시작', color:'var(--blue)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=2&&c.ref==='미시작') },
+             list: candidates.filter(c=>isActiveReferenceCand_(c)&&c.stage>=2&&c.ref==='미시작') },
     ing:   { label:'진행 중 — 레퍼런스 응답 수집 중', color:'var(--amber)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중') },
+             list: candidates.filter(c=>isActiveReferenceCand_(c)&&c.ref==='진행중') },
     zero:  { label:'전무응답 — 추천인 0명 응답 (즉시 리마인드 필요)', color:'var(--red)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중'&&c.refD===0) },
+             list: candidates.filter(c=>isActiveReferenceCand_(c)&&c.ref==='진행중'&&c.refD===0) },
     done:  { label:'완료 — 전원 응답 완료', color:'var(--green)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='완료') },
+             list: candidates.filter(c=>isActiveReferenceCand_(c)&&c.ref==='완료') },
     pend:  { label:'총 미응답 추천인 보유 — 리마인드 필요', color:'var(--amber)',
-             list: candidates.filter(c=>requiresReferenceCheck(c)&&c.ref==='진행중'&&c.refD<c.refT) },
+             list: candidates.filter(c=>isActiveReferenceCand_(c)&&c.ref==='진행중'&&c.refD<c.refT) },
   };
 
   const cfg = configs[refMetricFilter];

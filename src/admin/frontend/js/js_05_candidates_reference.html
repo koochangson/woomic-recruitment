@@ -1071,7 +1071,7 @@ function cleanupLegacyPlaceholderRefs() {
 
 function renderReference() {
   if(cleanupLegacyPlaceholderRefs()) scheduleLocalCacheSave();
-  const refEligible = candidates.filter(requiresReferenceCheck);
+  const refEligible = candidates.filter(isActiveReferenceCand_);
   const ready  = refEligible.filter(c=>c.stage>=2&&c.ref==='미시작').length;
   const ing    = refEligible.filter(c=>c.ref==='진행중').length;
   const zero   = refEligible.filter(c=>c.ref==='진행중'&&c.refD===0).length;
@@ -1095,7 +1095,7 @@ function renderReference() {
   // 레퍼런스 진행 현황 리스트 — 포지션 단위 그룹
   const sortMode=document.getElementById('ref-sort')?.value||'name';
   const posSortMode=document.getElementById('ref-pos-sort')?.value||'status';
-  const ingList=candidates.filter(c=>requiresReferenceCheck(c) && Number(c.stage)>=2 && Number(c.stage)!==6);
+  const ingList=candidates.filter(c=>isActiveReferenceCand_(c) && Number(c.stage)>=2);
   const posGroups=new Map();
   ingList.forEach(c=>{
     const unassigned=c.posId==null||c.posId==='';
@@ -1202,14 +1202,14 @@ function renderReference() {
           ${(()=>{const dl=getReferenceDeadlineInfo(c);return dl?`<div style="font-size:10px;color:var(--t3);margin-top:3px">${dl.label} ${esc(fmtItv(dl.at).split(' ')[0])}</div>`:'';})()}
           ${(()=>{const risk=getReferenceInterviewRisk(c);return risk?`<div style="font-size:10px;color:var(--red);font-weight:700;margin-top:3px">${esc(refInterviewRiskText(risk))}</div>`:'';})()}
         </td>
-        <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <td style="display:flex;gap:4px;flex-wrap:wrap">${!isActivePipelineCand(c)?`<span class="b bgray" style="font-size:10px" title="불합격·보류 또는 마감된 포지션 — 레퍼런스 진행 종료">종료</span>`:`
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">시작</button>`:''}
           ${c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="sendRefRequest(${c.id})">재요청</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs" data-action="call" data-call="markRefRegistered(${c.id})">+접수</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markOneResponse(${c.id})">+응답</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="completeRef(${c.id})">완료</button>`:''}
           ${c.ref==='완료'&&!c.refReportSentAt?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="markReferenceReportSent(${c.id})" title="2차 면접관에게 보고서를 전달한 뒤 누르세요">면접관 전달 표시</button>`:''}
-          ${c.ref==='완료'&&c.refReportSentAt?`<span class="b bgreen" style="font-size:10px" title="${esc(fmtItv(c.refReportSentAt))} 전달">전달완료</span><button class="btn btn-xs btn-ghost" data-action="call" data-call="unmarkReferenceReportSent(${c.id})">취소</button>`:''}
+          ${c.ref==='완료'&&c.refReportSentAt?`<span class="b bgreen" style="font-size:10px" title="${esc(fmtItv(c.refReportSentAt))} 전달">전달완료</span><button class="btn btn-xs btn-ghost" data-action="call" data-call="unmarkReferenceReportSent(${c.id})">취소</button>`:''}`}
         </td>
       </tr>`;
     }).join('')}</tbody>
@@ -1217,12 +1217,12 @@ function renderReference() {
 
   // AI 셀렉트
   const aiSel=document.getElementById('ref-ai-cand');
-  if(aiSel){const pv=aiSel.value;aiSel.innerHTML='<option value="">-- 선택 --</option>';candidates.filter(c=>requiresReferenceCheck(c)&&(c.ref==='진행중'||c.ref==='완료')).forEach(c=>aiSel.add(new Option(`${esc(c.name)} (${c.refD}/${c.refT})`,c.id)));if(pv)aiSel.value=pv;}
+  if(aiSel){const pv=aiSel.value;aiSel.innerHTML='<option value="">-- 선택 --</option>';candidates.filter(c=>isActiveReferenceCand_(c)&&(c.ref==='진행중'||c.ref==='완료')).forEach(c=>aiSel.add(new Option(`${esc(c.name)} (${c.refD}/${c.refT})`,c.id)));if(pv)aiSel.value=pv;}
   const reportSel=document.getElementById('ref-report-cand');
   if(reportSel){
     const pv=reportSel.value;
     reportSel.innerHTML='<option value="">-- 지원자 선택 --</option>';
-    candidates.filter(c=>requiresReferenceCheck(c)&&(c.ref==='진행중'||c.ref==='완료')).forEach(c=>reportSel.add(new Option(`${esc(c.name)} · ${esc(c.pos)} (${c.refD}/${c.refT})`,c.id)));
+    candidates.filter(c=>isActiveReferenceCand_(c)&&(c.ref==='진행중'||c.ref==='완료')).forEach(c=>reportSel.add(new Option(`${esc(c.name)} · ${esc(c.pos)} (${c.refD}/${c.refT})`,c.id)));
     if(pv) reportSel.value=pv;
   }
 }
@@ -1554,7 +1554,7 @@ async function sendRefRequest(id){
   if(pid!=null) setTimeout(()=>openPosDetail(Number(pid)),900);
 }
 async function startAllEligible(){
-  const el=candidates.filter(c=>requiresReferenceCheck(c)&&c.stage>=2&&c.stage<=5&&c.ref==='미시작');
+  const el=candidates.filter(c=>isActiveReferenceCand_(c)&&c.stage>=2&&c.stage<=5&&c.ref==='미시작');
   if(!el.length){toast('일괄 시작할 대상이 없습니다.','tw');return;}
   const confirmed = await confirmActionModal({
     title:'레퍼런스 안내 일괄 발송',

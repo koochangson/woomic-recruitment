@@ -233,6 +233,21 @@ function weeklyOps() {
 
 // 트리거 등록은 운영자가 별도로 수행한다. 이 함수는 매일 09:00 실행을 전제로 하며,
 // eventKey가 이미 성공 기록된 메일은 다시 보내지 않는다.
+// 진행이 끝난 지원자 id 집합 — 불합격, 보류(held), 또는 진행중이 아닌 포지션 소속.
+function stoppedPipelineCandidateIds_() {
+  const closedPositions = new Set(readRowsIfSheetExists_('Positions')
+    .filter(row => ['filled', 'done', 'partial', 'nohire', 'stopped'].includes(String(row.status || '').trim()))
+    .map(row => String(row.id)));
+  const ids = new Set();
+  readRowsIfSheetExists_('Candidates').forEach(row => {
+    const posId = row.posId === '' || row.posId == null ? '' : String(row.posId);
+    if (String(row.stage || '') === '불합격' || String(row.held || '') === 'Y' || (posId && closedPositions.has(posId))) {
+      ids.add(String(row.id));
+    }
+  });
+  return ids;
+}
+
 function dailyOps() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return { ok: false, error: 'ops_already_running' };
@@ -247,8 +262,18 @@ function dailyOps() {
       failed: []
     };
 
+    // 충원완료·부분충원 마감·미채용·채용중단 포지션 소속, 불합격·보류 지원자에게는 자동 메일을 보내지 않는다.
+    const stoppedCandIds = stoppedPipelineCandidateIds_();
+    if (stoppedCandIds.size) results.skippedClosed = 0;
+    const isStopped = candId => {
+      const stopped = candId != null && stoppedCandIds.has(String(candId));
+      if (stopped) results.skippedClosed++;
+      return stopped;
+    };
+
     readRowsIfSheetExists_('ReferenceCandidates').forEach(row => {
       if (!row.candEmail || row.refereesSubmittedAt || referenceLinkExpired_(row)) return;
+      if (isStopped(row.pipelineCandId)) return;
       const reminder = referenceReminderKind_(row, today, false);
       if (!reminder) return;
       const eventKey = referenceReminderEventKey_('reference-candidate', row.id, reminder, today);
@@ -273,6 +298,7 @@ function dailyOps() {
 
     readRowsIfSheetExists_('ReferenceResponses').forEach(row => {
       if (!row.refereeEmail || row.submittedAt || referenceLinkExpired_(row)) return;
+      if (isStopped(row.pipelineCandId)) return;
       const reminder = referenceReminderKind_(row, today, true);
       if (!reminder) return;
       const eventKey = referenceReminderEventKey_('reference-referee', row.id, reminder, today);
@@ -300,6 +326,7 @@ function dailyOps() {
     const tomorrow = opsDateKey_(new Date(Date.now() + 24 * 60 * 60 * 1000));
     const tomorrowInterviews = readRowsIfSheetExists_('Interviews').filter(row =>
       row.status === 'confirmed' && !row.result && isSheetTrue_(row.candidateNotified) && opsDateKey_(row.date) === tomorrow
+      && !isStopped(row.candId)
     );
     tomorrowInterviews.forEach(row => {
       const candidate = candidateMap.get(String(row.candId));
