@@ -1282,10 +1282,9 @@ function getPositionKanbanStatus(pos, cands, cur) {
     const done=list.filter(i=>i.status==='done').length;
     const confirmed=list.filter(i=>i.status==='confirmed').length;
     const pending=list.filter(i=>(i.status||'pending')==='pending').length;
-    const decided=current.filter(c=>c.decision).length;
+    // 결과는 확정 즉시 다음 단계로 이동하므로, 이 단계에 남은 면접완료자는 모두 결과 대기다.
     let base;
-    if(done && decided<current.length) base = `결과대기 ${current.length-decided}명`;
-    else if(decided) base = `판정완료 ${decided}/${current.length}`;
+    if(done) base = `결과대기 ${current.length}명`;
     else if(confirmed) {
       const dates=[...new Set(list.filter(i=>i.status==='confirmed'&&i.date).map(i=>i.date))].sort();
       base = dates.length ? `면접예정 ${fmtItv(dates[0])}${dates.length>1?` 외 ${dates.length-1}건`:''}` : `일정확정 ${confirmed}명`;
@@ -1320,8 +1319,7 @@ function getPositionKanbanStatus(pos, cands, cur) {
     return `응답완료 ${answered}/${total}`;
   }
   if(cur===4) {
-    const decided=current.filter(c=>c.decision).length;
-    return (decided ? `결과입력 ${decided}/${current.length}` : `협의중 ${current.length}명`) + gradeBandUnspecifiedSuffix_(current);
+    return `협의중 ${current.length}명` + gradeBandUnspecifiedSuffix_(current);
   }
   if(cur===5) {
     const sent=current.filter(c=>c.notified||onboardings.some(o=>Number(o.candId)===Number(c.id)&&o.notified)).length;

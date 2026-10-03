@@ -105,8 +105,9 @@ function getPositionActionItems(positionId) {
 
     if(r1c.confirmed.length > r1c.done.length) add('first_interview_done','medium','1차 면접 실시 후 완료 처리 필요',`일정 확정 ${r1c.confirmed.length}건 · 완료 ${r1c.done.length}건`,'면접 완료 처리','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
 
-    const firstResult = list.filter(c => c.stage === 1 && !c.decision);
-    if(r1c.done.length && firstResult.length) add('first_result','high','1차 면접 결과 입력 필요',`결과 미입력 ${firstResult.length}명 · 합격/불합격 판정 후 일괄 확정`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},1)`);
+    // 1차 단계에 남아 있으면 결과가 확정되지 않은 것이다(이전 '판정 저장'만 해 둔 지원자 포함).
+    const firstResult = list.filter(c => c.stage === 1);
+    if(r1c.done.length && firstResult.length) add('first_result','high','1차 면접 결과 확정 필요',`결과 미확정 ${firstResult.length}명 · 합격/불합격 선택 후 확정`,'결과 입력','openPositionResultModal',`openPositionResultModal(${positionId},1)`);
 
     if(!short) {
       // 레퍼런스는 2차면접(3)과 병행 진행되는 트랙이라 대상을 stage===3(+레거시 2)으로 잡는다.
@@ -143,8 +144,8 @@ function getPositionActionItems(positionId) {
       const refInterviewRisk = list.filter(c => getReferenceInterviewRisk(c));
       if(refInterviewRisk.length) add('reference_before_interview','high','2차면접 전 레퍼런스 완료 필요',`2차면접 ${REF_INTERVIEW_WARN_DAYS}일 이내 · 레퍼런스 미완료 ${refInterviewRisk.length}명 (${refInterviewRisk.slice(0,3).map(c=>c.name).join(', ')})`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
       if(r2.panelNotified.length && refFollowupNeeded.length) add('reference_followup','medium','레퍼런스 보고서 면접관 전달 필요',`면접관 안내 후 레퍼런스가 완료된 지원자 ${refFollowupNeeded.length}명 · 보고서 별도 전달 후 완료로 표시하세요.`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
-      const secondResult = list.filter(c => c.stage === 3 && !c.decision);
-      if(r2c.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
+      const secondResult = list.filter(c => c.stage === 3);
+      if(r2c.done.length && secondResult.length) add('second_result','high','2차 면접 결과 확정 필요',`결과 미확정 ${secondResult.length}명 · 합격/불합격 선택 후 확정`,'결과 입력','openPositionResultModal',`openPositionResultModal(${positionId},3)`);
     }
 
     const gradeUnspecified = list.filter(c => [0,1,3,4].includes(Number(c.stage)) && isGradeBandUnspecified(c));
@@ -507,11 +508,11 @@ function openPositionResultModal(positionId, stageIdx) {
   const help=document.getElementById('pr-help');
   if(help) help.textContent=isFinal
     ? '지원자별 처우협의 결과를 선택하세요. 최종합격자는 충원 seat에 반영된 후 입사 안내 화면으로 이어지고, 불합격자는 전형 종료되며, 협의중인 지원자는 처우협의 단계에 남습니다.'
-    : '지원자별 판정을 선택하세요. 저장만 하거나, 판정 확정 후 다음 단계로 이동할 수 있습니다.';
-  const saveBtn=document.getElementById('pr-save-btn');
+    : `지원자별 결과를 선택하세요. 확정하면 합격자는 ${josa_(STAGES[nextFlowStage(Number(stageIdx), positionId)] || '다음 단계','으로','로')}, 불합격자는 전형 종료로 바로 반영됩니다. 미정인 지원자는 현재 단계에 남습니다.`;
+  // 결과는 '확정' 한 번으로 반영한다. (예전 '판정 저장'은 단계 이동 없이 판정만 남겨, 처리 필요 목록에서
+  // '결과 입력'이 사라진 채 지원자가 단계에 멈춰 있는 중간 상태를 만들었다)
   const confirmBtn=document.getElementById('pr-confirm-btn');
-  if(saveBtn) saveBtn.textContent=isFinal?'협의 결과 임시 저장':'판정 저장';
-  if(confirmBtn) confirmBtn.textContent=isFinal?'처우협의 결과 확정':'판정 확정 및 단계 이동';
+  if(confirmBtn) confirmBtn.textContent=isFinal?'처우협의 결과 확정':'결과 확정';
   document.getElementById('pr-list').innerHTML = list.map(c=>`
     <div style="display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border)">
       <div>
@@ -549,6 +550,10 @@ async function savePositionResults(confirmAndMove) {
     }
   });
   if(confirmAndMove) {
+    if(!list.some(c => c.decision === 'pass' || c.decision === 'fail')) {
+      toast(Number(stageIdx) === 4 ? '최종합격 또는 불합격을 선택한 지원자가 없습니다.' : '합격 또는 불합격을 선택한 지원자가 없습니다.', 'tw');
+      return;
+    }
     closeModal('modal-position-result');
     return confirmStageDecisions(positionId, stageIdx, {skipConfirm:true});
   }
@@ -812,6 +817,8 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   const undecided = posCands.filter(c => !c.decision);
   const passers = posCands.filter(c => c.decision === 'pass');
   const failers = posCands.filter(c => c.decision === 'fail');
+  // 선택된 결과가 하나도 없으면 아무도 이동하지 않는 확인창 대신 결과 입력 창을 연다.
+  if(!passers.length && !failers.length) return openPositionResultModal(posId, stageIdx);
 
   if(undecided.length && !skipConfirm) {
     const confirmed = await confirmActionModal({
@@ -884,13 +891,13 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   } else if(nx === 2 && passCnt > 0) {
     // 1차 면접 합격자는 레퍼런스 단계로 이동하는 즉시 추천인 등록 안내 발송 화면으로 이어간다.
     openPosDetail(Number(posId));
-    toast(`판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
+    toast(`결과 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
     requestPositionReferences(Number(posId));
   } else {
     openPosDetail(Number(posId));
     toast(isFinalDecision
       ? `처우협의 결과 확정: 최종합격 ${passCnt}명, 불합격 ${failCnt}명 종료`
-      : `판정 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
+      : `결과 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료`, 'tok');
   }
 }
 
