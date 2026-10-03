@@ -1053,6 +1053,15 @@ const REFERRAL_STRING_ID_SHEETS = ['Referrals','Rewards','RefRules','Employees',
 // 다른 경로(지원자 응답 페이지 등)에서 들어온 면접 가능일정 회신 — 화면에 알린 뒤 비운다.
 let pendingAvailabilityReplies_ = [];
 function isAvailabilityReplied_(status) { return status === 'RESPONDED' || status === 'UNAVAILABLE'; }
+// 회신 알림을 누르면 포지션 상세를 거쳐 그 차수의 일정 작업창을 바로 연다.
+// openCollectSlots가 상태에 맞는 창(면접관 회신 확인 → 지원자 일정 요청 → 시간·순서 확정)을 고른다.
+function openAvailabilityReplyWork_(posId, roundType) {
+  openPosDetail(posId);
+  const stageIdx = String(roundType || '').startsWith('2') ? 3 : 1;
+  const targetStages = stageIdx === 1 ? [0,1] : [2,3];
+  const hasTargets = candidates.some(c => Number(c.posId) === Number(posId) && targetStages.includes(Number(c.stage)) && !c.held);
+  if(hasTargets) openCollectSlots(posId, stageIdx);
+}
 function flushAvailabilityReplyNotices_() {
   const replies = pendingAvailabilityReplies_;
   pendingAvailabilityReplies_ = [];
@@ -1066,7 +1075,7 @@ function flushAvailabilityReplyNotices_() {
     const pos = positions.find(p => Number(p.id) === Number(first.posId));
     const names = list.slice(0, 3).map(r => r.name).join(', ') + (list.length > 3 ? ` 외 ${list.length - 3}명` : '');
     const msg = `📅 ${pos ? pos.title + ' · ' : ''}${names}님이 ${first.type} 면접 가능일정을 회신했습니다. 클릭해서 확인하세요.`;
-    toast(msg, 'tok', { sticky:true, onClick: pos ? () => openPosDetail(Number(pos.id)) : null });
+    toast(msg, 'tok', { sticky:true, onClick: pos ? () => openAvailabilityReplyWork_(Number(pos.id), first.type) : null });
   });
 }
 
