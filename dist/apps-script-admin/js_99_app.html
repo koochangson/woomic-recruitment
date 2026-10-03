@@ -326,7 +326,7 @@ try {
 
 } catch(initErr) {
   console.error('[DOMContentLoaded] 초기화 에러:', initErr);
-  toast(`대시보드 초기화 오류: ${initErr.message}`, 'terr');
+  toast(`화면을 여는 중 문제가 생겼습니다. 새로고침해 주세요. 계속되면 관리자에게 알려 주세요. (${String(initErr.message || '').slice(0, 60)})`, 'terr');
 }
 });
 

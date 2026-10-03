@@ -138,8 +138,8 @@ function getOnboardInternalRecipients(cand, onboarding) {
 function linkCandToPos(candId, posId) {
   const c = candidates.find(x => Number(x.id) === Number(candId));
   const pos = positions.find(p => Number(p.id) === Number(posId));
-  if(!c) { toast('지원자를 찾을 수 없습니다 (id: '+candId+')', 'terr'); return; }
-  if(!pos) { toast('포지션을 찾을 수 없습니다 (id: '+posId+')', 'terr'); return; }
+  if(!c) { toast('지원자를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return; }
+  if(!pos) { toast('포지션을 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return; }
   c.posId = Number(posId);
   saveState();
   if(GS_CONFIG.scriptUrl) {
@@ -272,7 +272,7 @@ function openAddPosition() {
     openModal('modal-position');
   } catch(err) {
     console.error('[openAddPosition] error:', err);
-    toast(`포지션 저장 오류: ${err.message}`, 'terr');
+    toast(`포지션 정보를 불러오지 못했습니다. ${friendlyError_(err)}`, 'terr');
   }
 }
 

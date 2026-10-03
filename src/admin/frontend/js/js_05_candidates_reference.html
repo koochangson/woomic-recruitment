@@ -473,7 +473,7 @@ function openIntResult(intId) {
 async function saveIntResult() {
   const itv = interviews.find(i=>Number(i.id)===Number(editingInterviewResultId));
   if(!itv) {
-    toast('저장할 면접 정보를 찾지 못했습니다.', 'terr');
+    toast('저장할 면접 정보를 찾지 못했습니다. 새로고침 후 다시 시도해 주세요.', 'terr');
     return;
   }
   const result = document.getElementById('ir-result')?.value || '';
@@ -1384,7 +1384,7 @@ async function sendSurveyEmailsViaGS(queue, refFormUrl, refAutoUrl) {
     // Apps Script 오류 시 surveySent 초기화 후 사용자에게 알림
     queue.forEach(({ r }) => { r.surveySent = false; });
     saveState();
-    toast(`설문 자동 발송 실패: ${e.message} — Apps Script 설정을 확인하세요.`, 'terr');
+    toast(`추천인 설문 메일을 자동으로 보내지 못했습니다. ${friendlyError_(e, '레퍼런스 화면에서 다시 보내 주세요.')}`, 'terr');
   }
 }
 
@@ -1393,7 +1393,7 @@ async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targe
   ({ toEmail, subject, body, templateData } = applyMailForward_(forward, toEmail, subject, body, templateData));
   if(forward?.logType) logType = forward.logType;
   if(!hasGsBridge_()) {
-    toast('메일 발송은 관리자 Apps Script 연결이 필요합니다.', 'terr');
+    toast('서버에 연결되지 않아 메일을 보낼 수 없습니다. 설정 → 시스템 연동을 확인해 주세요.', 'terr');
     return false;
   }
   const payload = { toEmail, subject, body, ...templateData };
@@ -1406,7 +1406,7 @@ async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targe
     result = { ok:false, error:error?.message || 'mail_send_failed' };
   }
   if(!result || !result.ok) {
-    toast(`메일 발송 실패: ${result?.error || 'Apps Script/Gmail 권한을 확인하세요.'}`, 'terr');
+    toast(`메일을 보내지 못했습니다. ${friendlyError_(result?.error, '서버(Apps Script)·Gmail 권한을 확인해 주세요.')}`, 'terr');
     return false;
   }
   logNotify('Gmail', logType || '레퍼런스안내', targetName || '', toEmail);
@@ -1420,7 +1420,7 @@ async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetN
   ({ toEmail, subject, body, templateData } = applyMailForward_(forward, toEmail, subject, body, templateData));
   if(forward?.logType) logType = forward.logType;
   if(!hasGsBridge_()) {
-    toast('메일 발송은 관리자 Apps Script 연결이 필요합니다.', 'terr');
+    toast('서버에 연결되지 않아 메일을 보낼 수 없습니다. 설정 → 시스템 연동을 확인해 주세요.', 'terr');
     return false;
   }
   const payload = { toEmail, subject, body, ...templateData, ...(attachments.length ? { attachments } : {}) };
@@ -1434,7 +1434,7 @@ async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetN
   }
   if(!result || !result.ok) {
     lastMailSendError_ = result?.error || 'Apps Script/Gmail 권한을 확인하세요.';
-    toast(`메일 발송 실패: ${lastMailSendError_}`, 'terr');
+    toast(`메일을 보내지 못했습니다. ${friendlyError_(lastMailSendError_, '서버(Apps Script)·Gmail 권한을 확인해 주세요.')}`, 'terr');
     return false;
   }
   logNotify('Gmail', logType || '안내메일', targetName || '', toEmail);
@@ -1446,7 +1446,7 @@ async function remindOneRef(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;
   ensureRefDetails(c);
   const r=refDetails[candId][ri];
-  if(!r){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
+  if(!r){toast('추천인 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.','terr');return;}
   const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
   const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 ${REF_LINK_TTL_DAYS}일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
@@ -1466,7 +1466,7 @@ async function remindOneRef(candId,ri){
 function markRefResponse(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;
   ensureRefDetails(c);
-  if(!refDetails[candId][ri]){toast('접수된 추천인 정보를 찾을 수 없습니다.','terr');return;}
+  if(!refDetails[candId][ri]){toast('추천인 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.','terr');return;}
   refDetails[candId][ri].status='응답';
   c.refD=refDetails[candId].filter(r=>r.status==='응답').length;
   if(c.refD>=c.refT)c.ref='완료';
@@ -1475,7 +1475,7 @@ function markRefResponse(candId,ri){
 function markOneResponse(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
   const refs=ensureRefDetails(c);
-  if(!refs.length){toast('접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.','terr');return;}
+  if(!refs.length){toast('아직 등록된 추천인이 없습니다. 지원자가 추천인 등록 링크로 등록하면 자동으로 반영됩니다.','tinfo');return;}
   // 응답 처리: 등록된(또는 대기) 추천인 중 아직 미응답인 첫 번째를 응답으로
   const target=refDetails[id].find(r=>r.status==='등록') || refDetails[id].find(r=>r.status==='대기');
   if(target){target.status='응답';c.refD++;}
@@ -1486,7 +1486,7 @@ function markOneResponse(id){
 async function markRefRegistered(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
   const refs=ensureRefDetails(c);
-  if(!refs.length){toast('추천인 접수는 구글폼 동기화로 반영됩니다. 접수된 정보가 없습니다.','terr');return;}
+  if(!refs.length){toast('아직 등록된 추천인이 없습니다. 지원자가 추천인 등록 링크로 등록하면 자동으로 반영됩니다.','tinfo');return;}
   const pend=refDetails[id].find(r=>r.status==='대기');
   if(!pend){toast('모든 추천인이 이미 접수됐습니다.','tinfo');return;}
   pend.status='등록';
@@ -1521,7 +1521,7 @@ async function startRef(id, resend=false){
     candId: c.id, candName: c.name, candEmail: c.email || target.to, positionText: c.pos
   }, {allowQueue:false});
   if(!linkResult || !linkResult.ok){
-    toast('추천인 등록 링크 발급에 실패했습니다. 관리자 Apps Script 연결을 확인하세요.','terr');
+    toast('추천인 등록 링크를 만들지 못했습니다. 잠시 후 다시 시도해 주세요. 계속되면 설정 → 시스템 연동을 확인해 주세요.','terr');
     return false;
   }
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 추천인 등록 안내`;
@@ -1581,7 +1581,7 @@ async function startAllEligible(){
 async function remindRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const refs=ensureRefDetails(c);
-  if(!refs.length){toast('접수된 추천인 정보가 없어 리마인드를 발송할 수 없습니다.','terr');return;}
+  if(!refs.length){toast('아직 등록된 추천인이 없어 리마인드를 보낼 수 없습니다. 지원자에게 추천인 등록을 다시 요청해 주세요.','terr');return;}
   const pendingRefs=refDetails[id].filter(r=>r.status==='대기'||r.status==='등록');
   if(!pendingRefs.length){toast('미응답 추천인이 없습니다.');return;}
   let sentCount = 0;
@@ -1611,7 +1611,7 @@ async function remindRef(id){
 function completeRef(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   const refs=ensureRefDetails(c);
-  if(!refs.length){toast('접수된 추천인 정보가 없어 완료 처리할 수 없습니다.','terr');return;}
+  if(!refs.length){toast('아직 등록된 추천인이 없어 완료 처리할 수 없습니다. 생략이 필요하면 지원자 상세에서 생략 사유를 입력해 주세요.','terr');return;}
   c.ref='완료';c.refD=c.refT;
   refs.forEach(r=>r.status='응답');
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
@@ -1686,7 +1686,7 @@ async function generateAI(){
   if(!c){toast('지원자를 선택하세요.','terr');return;}
   if(c.ref==='미시작'){toast('레퍼런스 체크가 시작되지 않아 요약할 응답이 없습니다.','terr');return;}
   const syncedRefs=ensureRefDetails(c);
-  if(!syncedRefs.length){toast('접수된 추천인 정보가 없습니다. Google Sheets 동기화를 먼저 실행하세요.','terr');return;}
+  if(!syncedRefs.length){toast('아직 등록된 추천인이 없어 요약할 응답이 없습니다.','terr');return;}
   const prog=document.getElementById('ref-ai-progress');
   const bar=document.getElementById('ref-ai-bar');
   const label=document.getElementById('ref-ai-label');
@@ -1715,7 +1715,7 @@ ${refs.map((r,i)=>`[추천인 ${i+1} · ${r.name} · ${r.relation}]\n<referee_re
   if(!GS_CONFIG.scriptUrl){
     clearInterval(timer);
     if(prog)prog.style.display='none';
-    toast('AI 요약은 관리자 Google Sheets 연동 후 사용할 수 있습니다.', 'terr');
+    toast('서버에 연결되지 않아 AI 요약을 쓸 수 없습니다. 설정 → 시스템 연동을 확인해 주세요.', 'terr');
     return;
   }
   try{
@@ -1732,7 +1732,7 @@ ${refs.map((r,i)=>`[추천인 ${i+1} · ${r.name} · ${r.relation}]\n<referee_re
   }catch(e){
     clearInterval(timer);if(prog)prog.style.display='none';if(out)out.style.display='none';
     if(text)text.textContent=`AI 요약 생성 실패: ${e.message}\n\n관리자 Apps Script의 OPENAI_API_KEY 설정과 배포 권한을 확인하세요.`;
-    toast('AI 요약 생성에 실패했습니다. 관리자 Apps Script 설정을 확인하세요.', 'terr');
+    toast('AI 요약을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.', 'terr');
   }
 }
 

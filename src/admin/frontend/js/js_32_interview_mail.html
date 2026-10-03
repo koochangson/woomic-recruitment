@@ -5,7 +5,7 @@
 
 async function sendAllCandSchedule(posId, stageIdx, skipConfirm) {
   const confirmedItvs = getConfirmedPositionInterviews(posId, stageIdx);
-  if(!confirmedItvs.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return 0; }
+  if(!confirmedItvs.length) { toast('일정이 확정된 지원자가 없습니다. 먼저 면접 시간·순서를 확정해 주세요.', 'terr'); return 0; }
   if(!skipConfirm) {
     const confirmed = await confirmActionModal({
       title:'지원자 면접 안내 발송',
@@ -40,7 +40,7 @@ function openInterviewNoticeFlow(posId, stageIdx, round) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const confirmed = getConfirmedPositionInterviews(posId, stageIdx);
-  if(!confirmed.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  if(!confirmed.length) { toast('일정이 확정된 지원자가 없습니다. 먼저 면접 시간·순서를 확정해 주세요.', 'terr'); return; }
   interviewNoticeFlowCtx = { posId:Number(posId), stageIdx:Number(stageIdx), round:Number(round) };
   interviewNoticePanelResult = null;
   document.getElementById('inf-title').textContent = `${round}차 면접 안내 — ${pos.title}`;
@@ -111,7 +111,7 @@ async function markInterviewNoticeCandidatesDone() {
   if(interviewNoticeBusy.candidates) return;
   const { posId, stageIdx } = interviewNoticeFlowCtx;
   const schedule = getConfirmedPositionInterviews(posId, stageIdx);
-  if(!schedule.length) { toast('확정된 일정이 있는 지원자가 없습니다.', 'terr'); return; }
+  if(!schedule.length) { toast('일정이 확정된 지원자가 없습니다. 먼저 면접 시간·순서를 확정해 주세요.', 'terr'); return; }
   const confirmed = await confirmActionModal({
     title:'지원자 안내 완료 처리',
     message:`아래 ${schedule.length}명에게 채용사이트 등 다른 경로로 이미 면접 일정을 안내했습니까?\n메일은 발송하지 않고 완료 상태로만 기록합니다.`,
@@ -183,10 +183,10 @@ async function sendInterviewNoticePanel() {
 // 지원자에게 확정 면접 일정 개인 안내 (면접 30분 전 도착 안내 포함)
 async function sendCandSchedule(intId, sequential) {
   const itv = interviews.find(i => i.id === intId);
-  if(!itv) { toast('면접 정보를 찾을 수 없습니다.', 'terr'); return false; }
+  if(!itv) { toast('면접 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return false; }
   const c = candidates.find(x => Number(x.id) === Number(itv.candId));
-  if(!c) { toast('지원자를 찾을 수 없습니다.', 'terr'); return false; }
-  if(!itv.date || itv.date.indexOf('미정') !== -1) { toast('확정된 일정이 없습니다.', 'terr'); return false; }
+  if(!c) { toast('지원자를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return false; }
+  if(!itv.date || itv.date.indexOf('미정') !== -1) { toast('면접 일시가 확정되지 않았습니다. 먼저 일정을 확정해 주세요.', 'terr'); return false; }
 
   const roundLabel = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
 
@@ -227,7 +227,7 @@ async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, attachm
     .map(c => interviews.find(i => i.candId === c.id && i.type === round && (i.status==='confirmed'||i.status==='done')))
     .filter(Boolean)
     .sort((a,b) => a.date.localeCompare(b.date));
-  if(!schedule.length) { toast('확정된 면접 일정이 없습니다.', 'terr'); return false; }
+  if(!schedule.length) { toast('확정된 면접 일정이 없습니다. 먼저 면접 시간·순서를 확정해 주세요.', 'terr'); return false; }
 
   const loc = schedule[0].panelLoc || schedule[0].loc;
   // 날짜 포맷: 2026-06-05 → 2026. 6. 5(금)
@@ -527,7 +527,7 @@ async function sendPanelNotice(posId, round, returnToPosition=true, attachments=
     interviews.some(i => i.candId === c.id && i.type === roundLabel && (i.status==='confirmed'||i.status==='done'))
   );
 
-  if(stageCands.length === 0) { toast(`${roundLabel} 면접 대상 지원자가 없습니다.`, 'terr'); return false; }
+  if(stageCands.length === 0) { toast(`${roundLabel} 면접 대상 지원자가 없습니다.`, 'tinfo'); return false; }
   if(confirmed.length === 0) {
     toast(`확정된 면접 일정이 없습니다. 먼저 지원자 일정을 확정하세요.`, 'terr');
     return false;

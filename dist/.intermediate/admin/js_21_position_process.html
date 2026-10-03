@@ -447,7 +447,7 @@ async function changePositionProcessStage(positionId, toStage) {
   const fromStage = flow[targetIndex - 1];
   const targets = candidates.filter(c => Number(c.posId) === Number(positionId) && c.stage === fromStage);
   if(!targets.length) {
-    toast(`${stageLabel(fromStage)} 단계에 이동할 지원자가 없습니다.`, 'terr');
+    toast(`${stageLabel(fromStage)} 단계에 이동할 지원자가 없습니다.`, 'tinfo');
     return;
   }
   const completionCheck = getPositionStageMoveBlockers(positionId, fromStage, Number(toStage));
@@ -500,7 +500,7 @@ let positionResultCtx = { positionId:null, stageIdx:null };
 function openPositionResultModal(positionId, stageIdx) {
   const pos = positions.find(p=>Number(p.id)===Number(positionId));
   const list = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===Number(stageIdx));
-  if(!pos || !list.length) { toast(stageIdx===4?'결과를 입력할 처우협의 대상자가 없습니다.':'결과를 입력할 면접 대상자가 없습니다.', 'terr'); return; }
+  if(!pos || !list.length) { toast(stageIdx===4?'결과를 입력할 처우협의 대상자가 없습니다.':'결과를 입력할 면접 대상자가 없습니다.', 'tinfo'); return; }
   positionResultCtx = { positionId:Number(positionId), stageIdx:Number(stageIdx) };
   const isFinal = Number(stageIdx) === 4;
   document.getElementById('pr-title').textContent = `${isFinal?'처우협의 결과 입력':stageLabel(stageIdx)+' 결과 입력'} — ${pos.title} (${list.length}명)`;
@@ -562,7 +562,7 @@ async function completePositionInterviews(positionId, stageIdx) {
   const round = stageIdx === 1 ? '1차' : '2차';
   const ids = new Set(candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===stageIdx).map(c=>Number(c.id)));
   const targets = interviews.filter(i=>ids.has(Number(i.candId))&&i.type===round&&i.status==='confirmed');
-  if(!targets.length) { toast('완료 처리할 확정 면접이 없습니다.', 'terr'); return; }
+  if(!targets.length) { toast('완료 처리할 확정 면접이 없습니다.', 'tinfo'); return; }
   const confirmed = await confirmActionModal({
     title:`${round} 면접 완료 처리`,
     message:`확정된 ${round} 면접 ${targets.length}건을 완료 상태로 변경합니다.`,
@@ -582,7 +582,7 @@ async function requestPositionReferences(positionId) {
     [2,3].includes(c.stage) &&
     (c.ref === '미시작' || (c.ref === '진행중' && Number(c.refD || 0) === 0))
   );
-  if(!targets.length) { toast('레퍼런스 요청 대상자가 없습니다.', 'terr'); return; }
+  if(!targets.length) { toast('레퍼런스 요청 대상자가 없습니다.', 'tinfo'); return; }
   const resendCount = targets.filter(c => c.ref === '진행중').length;
   const confirmed = await confirmActionModal({
     title:'레퍼런스 체크 안내 발송',
@@ -602,9 +602,9 @@ async function requestPositionReferences(positionId) {
 
 async function completePositionReferences(positionId) {
   const targets = candidates.filter(c=>Number(c.posId)===Number(positionId)&&[2,3].includes(c.stage)&&c.ref==='진행중');
-  if(!targets.length) { toast('완료 처리할 레퍼런스 진행 건이 없습니다.', 'terr'); return; }
+  if(!targets.length) { toast('완료 처리할 레퍼런스 진행 건이 없습니다.', 'tinfo'); return; }
   const eligible = targets.filter(c => ensureRefDetails(c).length > 0);
-  if(!eligible.length) { toast('실제 접수된 추천인 정보가 없습니다. 구글시트 동기화를 먼저 실행하세요.', 'terr'); return; }
+  if(!eligible.length) { toast('아직 등록된 추천인이 없어 완료 처리할 수 없습니다. 추천인 등록·응답을 기다려 주세요.', 'terr'); return; }
   const confirmed = await confirmActionModal({
     title:'레퍼런스 완료 처리',
     message:`지원자 ${eligible.length}명의 레퍼런스를 완료 상태로 변경합니다.`,
@@ -793,7 +793,7 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   const isFinalDecision = Number(stageIdx) === 4;
   const round = isFinalDecision ? '처우협의 결과' : STAGES[stageIdx];
   const posCands = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === stageIdx);
-  if(!posCands.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+  if(!posCands.length) { toast('이 단계에 대상 지원자가 없습니다.', 'tinfo'); return; }
 
   if(stageIdx === 1 || stageIdx === 3) {
     const missing = posCands.filter(c => !hasConfirmedRoundSchedule(c.id, stageIdx));
@@ -985,7 +985,7 @@ async function deletePanelAvailabilityRoundFromGS(positionId, stageIdx) {
 
 async function batchStageChange(posId, fromStage, toStage) {
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === fromStage);
-  if(!targets.length) { toast('대상 지원자가 없습니다.', 'terr'); return; }
+  if(!targets.length) { toast('이 단계에 대상 지원자가 없습니다.', 'tinfo'); return; }
 
   // 면접 단계 진입은 포지션 공통일정을 먼저 확정한 뒤 일괄 이동한다.
   if(toStage === 1 || toStage === 3) {

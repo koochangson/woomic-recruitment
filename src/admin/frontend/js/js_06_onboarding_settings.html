@@ -86,7 +86,7 @@ function openOnboardingFromPosition(positionId) {
   const pos = positions.find(p=>Number(p.id)===Number(positionId));
   if(!pos) return;
   const finals = candidates.filter(c=>Number(c.posId)===Number(positionId)&&c.stage===5);
-  if(!finals.length) { toast('입사안내를 진행할 최종합격자가 없습니다.', 'terr'); return; }
+  if(!finals.length) { toast('입사안내를 진행할 최종합격자가 없습니다.', 'tinfo'); return; }
   const candidate = finals.find(c=>!onboardings.some(o=>Number(o.candId)===Number(c.id))) || finals[0];
   nav('onboarding');
   populateSel('ob-cand');
@@ -476,7 +476,7 @@ function saveSettings() {
       toast('설정이 저장되었습니다. 새로고침 후에도 유지됩니다.','tok');
     }
   } catch(e) {
-    toast('설정 저장 실패: 브라우저 저장공간 부족','terr');
+    toast('브라우저 저장공간이 부족해 설정을 저장하지 못했습니다. 다른 탭을 닫거나 브라우저 데이터를 정리한 뒤 다시 시도해 주세요.','terr');
   }
 }
 
@@ -555,10 +555,10 @@ async function runLegacyReferenceMigrationExecute() {
   try {
     preview = await adminApiRun_({ action:'legacyReferenceStageMigrationPreview' });
   } catch(err) {
-    toast(`대상 조회 실패: ${err?.message || err}`, 'terr');
+    toast(`이관 대상을 조회하지 못했습니다. ${friendlyError_(err)}`, 'terr');
     return;
   }
-  if(!preview || preview.error) { toast(`대상 조회 실패: ${preview?.error || '알 수 없는 오류'}`, 'terr'); return; }
+  if(!preview || preview.error) { toast(`이관 대상을 조회하지 못했습니다. ${friendlyError_(preview?.error)}`, 'terr'); return; }
   if(!preview.totalLegacyReferenceCandidates) { toast('이관할 대상이 없습니다. 이미 모두 2차면접으로 넘어갔습니다.', 'tok'); return; }
 
   const confirmed = await confirmActionModal({
@@ -573,7 +573,7 @@ async function runLegacyReferenceMigrationExecute() {
   if(resultEl) resultEl.textContent = '이관 중...';
   try {
     const r = await adminApiRun_({ action:'migrateLegacyReferenceStage', data:{ confirm:true } });
-    if(!r || r.error) { toast(`이관 실패: ${r?.error || '알 수 없는 오류'}`, 'terr'); return; }
+    if(!r || r.error) { toast(`이관하지 못했습니다. ${friendlyError_(r?.error)}`, 'terr'); return; }
     if(resultEl) resultEl.textContent = `이관 완료 · 성공 ${r.migratedCount}명${r.failedCount?` · 실패 ${r.failedCount}명`:''}`;
     console.info('[레퍼런스 이관] 결과', r);
     toast(`이관 완료 · ${r.migratedCount}명을 2차면접으로 변경했습니다.`, r.failedCount ? 'tw' : 'tok');

@@ -369,7 +369,7 @@ async function refreshPanelAvailabilityResponses(posId, stageIdx, showToast=fals
   const round = stageIdx === 1 ? '1차' : '2차';
   const result = await gsFetch('getPanelAvailabilityResponses', '', { positionId:posId, round }, { allowQueue:false });
   if(!result?.ok) {
-    if(showToast) toast('면접관 응답을 불러오지 못했습니다.', 'terr');
+    if(showToast) toast('면접관 응답을 불러오지 못했습니다. 잠시 후 [응답 새로고침]을 다시 눌러 주세요.', 'terr');
     const status = document.getElementById('csl-panel-status');
     if(status && /확인 중/.test(status.textContent)) status.textContent = '면접관 회신을 불러오지 못했습니다. [응답 새로고침]을 눌러 주세요.';
     const primary = document.getElementById('csl-primary-action');
@@ -602,7 +602,7 @@ async function sendPanelAvailabilityRequest() {
   if(!sentCount && failed.length) {
     if(primaryBtn) { primaryBtn.disabled = false; primaryBtn.textContent = primaryLabelBefore; }
     renderPanelAvailabilityTargets(pos, stageIdx);
-    toast(`면접관 확인 메일을 발송하지 못했습니다: ${failed.join(', ')}`, 'terr');
+    toast(`면접관 확인 메일을 보내지 못했습니다: ${failed.join(', ')} — 잠시 후 [미응답자 재발송]으로 다시 보내 주세요.`, 'terr');
     return;
   }
   pos[keys.options] = options;
@@ -688,7 +688,7 @@ async function sendCollectSlots() {
   const { posId, stageIdx } = collectSlotsCtx;
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
-  if(!hasGsBridge_()) { toast('지원자 응답 링크를 만들려면 Apps Script 연결이 필요합니다.', 'terr'); return; }
+  if(!hasGsBridge_()) { toast('서버에 연결되지 않아 지원자 응답 링크를 만들 수 없습니다. 설정 → 시스템 연동을 확인해 주세요.', 'terr'); return; }
   const panelKeys = panelAvailabilityKeys(stageIdx);
   if(!pos[panelKeys.confirmed]) {
     toast('면접관 가능 일정을 먼저 확인해 주세요.', 'terr');
@@ -1087,7 +1087,7 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
   const round = stageIdx === 1 ? '1차' : '2차';
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === sourceStage);
   if(targets.length === 0) {
-    toast(`${STAGES[sourceStage]} 단계 지원자가 없습니다.`, 'terr');
+    toast(`${STAGES[sourceStage]} 단계 지원자가 없습니다.`, 'tinfo');
     return;
   }
   const orderedIds = targets.slice().sort((a,b) => a.name.localeCompare(b.name,'ko')).map(c => Number(c.id));
@@ -1201,7 +1201,7 @@ async function applyBatchSchedule() {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   const round = stageIdx === 1 ? '1차' : '2차';
   const { slots } = computeBatchSlots();
-  if(!slots.length) { toast('배치할 지원자가 없습니다.', 'terr'); return; }
+  if(!slots.length) { toast('배치할 지원자가 없습니다.', 'tinfo'); return; }
   const conflicts = slots.filter(slot => slot.availability !== 'available');
   if(conflicts.length) {
     const confirmed = await confirmActionModal({
@@ -1277,7 +1277,7 @@ async function applyBatchSchedule() {
     openInterviewNoticeFlow(posId, stageIdx, round === '1차' ? 1 : 2);
   } catch(error) {
     console.error('[applyBatchSchedule]', error);
-    toast(`면접 일정 처리 실패: ${error?.message || error}`, 'terr');
+    toast(`면접 일정을 저장하지 못했습니다. ${friendlyError_(error)}`, 'terr');
   } finally {
     setBatchScheduleBusy(false, '');
   }

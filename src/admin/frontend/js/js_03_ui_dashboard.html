@@ -602,14 +602,14 @@ async function sendMailViaGmail(to, subject, body) {
   try {
     const result = await gsFetch('sendMail', '', { to, subject, body }, { allowQueue:false });
     if(!result || !result.ok) {
-      toast(`메일 발송 실패 (${to}): ${result?.error || 'Apps Script/Gmail 권한을 확인하세요.'}`, 'terr');
+      toast(`메일을 보내지 못했습니다 (${to}). ${friendlyError_(result?.error, '서버(Apps Script)·Gmail 권한을 확인해 주세요.')}`, 'terr');
       return false;
     }
     toast(`메일 발송 완료 (${to})`, 'tok');
     return true;
   } catch(err) {
     console.error(err);
-    toast(`메일 발송 중 오류가 발생했습니다 (${to})`, 'terr');
+    toast(`메일을 보내지 못했습니다 (${to}). 잠시 후 다시 시도해 주세요.`, 'terr');
     return false;
   }
 }

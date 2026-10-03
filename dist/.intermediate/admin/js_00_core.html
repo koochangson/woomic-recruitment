@@ -306,7 +306,7 @@ function getSelectableTeams() {
 
 function syncTeamMasterFromInterviewers(showToast=false) {
   if(!Array.isArray(interviewers)||!interviewers.length) {
-    if(showToast) toast('면접관 DB를 먼저 연결하거나 새로고침하세요.', 'terr');
+    if(showToast) toast('면접관 DB가 비어 있습니다. 설정에서 면접관 DB를 연결하거나 직원현황을 업로드해 주세요.', 'terr');
     return 0;
   }
   const before=JSON.stringify(teamMaster);
@@ -1401,7 +1401,7 @@ async function purgeExpiredPii() {
   const ids = new Set(expired.map(c => Number(c.id)));
   const emails = [...new Set(expired.map(c => c.email).filter(Boolean))];
   if(!GS_CONFIG.scriptUrl) {
-    toast('서버 연결이 없어 개인정보를 파기할 수 없습니다. Apps Script 연결을 확인하세요.', 'terr');
+    toast('서버에 연결되지 않아 개인정보를 파기할 수 없습니다. 설정 → 시스템 연동에서 연결을 확인해 주세요.', 'terr');
     return;
   }
   showGlobalSyncProgress(`개인정보 ${ids.size}명의 파기를 처리하고 있습니다.`);
@@ -1410,12 +1410,12 @@ async function purgeExpiredPii() {
     // 서버의 원본과 변경 이력을 먼저 파기한다. 성공 전에는 로컬 상태를 변경하지 않는다.
     const result = await gsFetch('purgeCandidatePii', '', { candidateIds: [...ids], candidateEmails: emails }, { allowQueue:false });
     if(!result?.ok) {
-      toast(`개인정보 파기에 실패했습니다. ${result?.error || 'Apps Script 연결을 확인하세요.'}`, 'terr');
+      toast(`개인정보 파기에 실패했습니다. ${friendlyError_(result?.error, '서버(Apps Script) 연결을 확인해 주세요.')}`, 'terr');
       return;
     }
   } catch(error) {
     console.warn('개인정보 파기 실패:', error);
-    toast(`개인정보 파기에 실패했습니다. ${error?.message || 'Apps Script 연결을 확인하세요.'}`, 'terr');
+    toast(`개인정보 파기에 실패했습니다. ${friendlyError_(error, '서버(Apps Script) 연결을 확인해 주세요.')}`, 'terr');
     return;
   } finally {
     hideGlobalSyncProgress();
@@ -1467,7 +1467,7 @@ async function settleSync(tasks, label='GS 동기화'){
     const failed = results.filter(r => r.status === 'rejected' || r.value == null || r.value?.error).length;
     if(failed) {
       showSyncStatus(`${label} 일부 실패 (${failed}/${results.length})`, 'warn');
-      toast(`${label} 일부 실패: ${failed}건`, 'terr');
+      toast(`${label} 중 ${failed}건이 저장되지 않았습니다. 새로고침 후 해당 항목을 확인해 주세요.`, 'terr');
     } else {
       showSyncStatus(`${label} 완료`, 'ok');
     }
@@ -1492,6 +1492,42 @@ function posStatusLabel(p){ return POS_STATUS[posStatus(p)]; }
 // 아직 모집 중인 포지션인지. 저장된 status 'partial'은 closePosition의 "부분 충원 마감"이 남기는 값이라
 // 종료 상태다 — 예전에는 이를 진행중으로 취급해 마감 후에도 처리 업무·칸반·메일 재발송이 계속 남았다.
 // (진행중 + 일부 합격 상태의 '부분충원' 표시는 getPositionProjectData가 따로 계산한다.)
+// 서버 오류 코드·브라우저 오류를 사용자가 이해할 수 있는 한국어와 다음 할 일로 바꾼다.
+// (오류 알림에 'admin_auth_required' 같은 코드나 영문 오류가 그대로 보이던 문제)
+const FRIENDLY_ERRORS_ = {
+  admin_auth_required:'로그인이 만료되었습니다. 다시 로그인해 주세요.',
+  invalid_credentials:'아이디 또는 비밀번호가 맞지 않습니다.',
+  revision_conflict:'다른 화면에서 먼저 수정한 내용이 있습니다. 새로고침 후 다시 시도해 주세요.',
+  missing_mail_fields:'받는 사람·제목·본문 중 빠진 값이 있어 메일을 보내지 못했습니다.',
+  no_recipient:'받는 사람 이메일이 없습니다. 이메일 주소를 확인해 주세요.',
+  mail_send_failed:'메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  mail_template_render_failed:'메일 양식을 만들지 못했습니다. 관리자에게 알려 주세요.',
+  attachment_too_large:'첨부파일이 너무 큽니다. 전체 15MB 이하로 줄여 주세요.',
+  file_too_large:'파일이 너무 큽니다.',
+  unsupported_file_type:'지원하지 않는 파일 형식입니다.',
+  openai_key_not_configured:'AI 요약 키가 설정되지 않았습니다. 관리자에게 알려 주세요.',
+  openai_invalid_response:'AI 응답을 해석하지 못했습니다. 다시 시도해 주세요.',
+  prompt_too_large:'요약할 응답이 너무 깁니다.',
+  notify_email_not_configured:'알림 받을 이메일이 설정되지 않았습니다. 설정에서 입력해 주세요.',
+  ops_already_running:'같은 작업이 이미 실행 중입니다. 잠시 후 다시 시도해 주세요.',
+  process_closed:'채용 절차가 종료된 대상입니다.',
+  not_found:'대상을 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.',
+  interview_not_found:'면접 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.',
+  non_json_response:'서버 응답을 읽지 못했습니다. 서버(Apps Script) 배포 상태를 확인해 주세요.',
+  unknown_action:'서버가 이 기능을 모릅니다. 서버(Apps Script)를 최신 버전으로 다시 배포해 주세요.',
+};
+function friendlyError_(raw, fallback = '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.') {
+  const text = String(raw?.message ?? raw ?? '').trim();
+  if(!text) return fallback;
+  if(FRIENDLY_ERRORS_[text]) return FRIENDLY_ERRORS_[text];
+  if(/failed to fetch|network|timeout|timed out/i.test(text)) return '서버 응답이 없습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.';
+  if(/too many times|quota|limit exceeded/i.test(text)) return 'Gmail 하루 발송 한도를 넘었습니다. 내일 다시 시도해 주세요.';
+  if(/permission|authoriz|권한/i.test(text)) return '권한이 없어 처리하지 못했습니다. 서버(Apps Script) 권한 승인을 확인해 주세요.';
+  // 이미 한국어 안내면 그대로, 코드·영문이면 안내문 뒤에 참고용으로만 붙인다.
+  if(/[가-힣]/.test(text)) return text;
+  return `${fallback} (참고: ${text.slice(0, 60)})`;
+}
+
 function isPositionOpen_(p){ return posStatus(p) === 'active'; }
 // 자리를 채운 지원자: 최종합격(5) 또는 입사(7). 입사로 옮긴 사람을 빼고 세면 충원율이 내려가고
 // 이미 채운 포지션에 '충원 필요'·업무가 다시 생겼다.
