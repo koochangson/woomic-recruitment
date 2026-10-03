@@ -268,9 +268,10 @@ textarea{resize:vertical;min-height:64px;}
 .ob-mail-label{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .ref-report-table{width:100%;border-collapse:collapse;table-layout:fixed;}
 .ref-report-table th,.ref-report-table td{border:1px solid var(--border2);padding:0;vertical-align:middle;}
+.ref-report-table tr:last-child td{border-bottom:1px solid var(--border2);}
 .ref-report-table th{background:var(--s2);font-size:12px;font-weight:700;text-align:center;padding:9px;}
 .ref-report-table .ref-report-label{width:120px;background:#F8FAF8;text-align:center;font-size:12px;font-weight:700;color:var(--text);padding:12px 8px;}
-.ref-report-table textarea{display:block;width:100%;min-height:92px;padding:11px 13px;border:0;border-radius:0;background:#fff;font-family:'Pretendard',sans-serif;font-size:12px;line-height:1.75;resize:vertical;color:var(--text);}
+.ref-report-table textarea{display:block;width:100%;min-height:92px;padding:11px 13px;border:0;border-radius:0;background:#fff;font-family:'Pretendard',sans-serif;font-size:12px;line-height:1.75;resize:vertical;color:var(--text);overflow-y:auto;}
 .ref-report-table textarea:focus{outline:2px solid var(--acc);outline-offset:-2px;background:#FCFDFE;}
 .ref-report-table tr:first-of-type textarea{min-height:120px;background:#F8FFF9;}
 

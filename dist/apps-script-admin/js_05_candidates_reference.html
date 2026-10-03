@@ -1247,6 +1247,24 @@ function renderReference() {
   }
 }
 
+// 결과표 입력칸이 고정 높이라 긴 AI 요약이 칸 안에서 잘려 보였다 — 내용 길이에 맞춰 늘린다.
+function autoGrowRefReportTextarea_(el) {
+  if(!el) return;
+  el.style.height = 'auto';
+  if(!el.scrollHeight) { el.style.height = ''; return; } // 화면에 안 보이는 상태
+  el.style.height = `${el.scrollHeight + 2}px`;
+}
+function autoGrowRefReportTextareas_() {
+  const wrap = document.getElementById('ref-report-wrap');
+  if(!wrap) return;
+  if(!wrap.dataset.autoGrowBound) {
+    wrap.addEventListener('input', event => { if(event.target.matches('.ref-report-table textarea')) autoGrowRefReportTextarea_(event.target); });
+    wrap.dataset.autoGrowBound = '1';
+  }
+  // 숨겨진 상태에서는 scrollHeight가 0이라 화면에 표시된 뒤 계산한다.
+  requestAnimationFrame(() => wrap.querySelectorAll('.ref-report-table textarea').forEach(autoGrowRefReportTextarea_));
+}
+
 function renderRefReport(candId) {
   const sel=document.getElementById('ref-report-cand');
   const id=Number(candId || sel?.value);
@@ -1277,6 +1295,7 @@ function renderRefReport(candId) {
   }
   if(wrap) wrap.style.display='block';
   if(emptyEl) emptyEl.style.display='none';
+  autoGrowRefReportTextareas_();
   const saved=document.getElementById('ref-report-saved');
   if(saved) {
     const audit = report.updatedBy ? ` · 수정자: ${report.updatedBy}` : '';
@@ -1675,6 +1694,7 @@ function applyAISectionsToRefReport(cid, rawText) {
     wrap.dataset.aiAppliedAt = new Date().toISOString();
     wrap.dataset.aiAppliedBy = getAdminSession_()?.username || 'unknown';
   }
+  autoGrowRefReportTextareas_();
   const saved = document.getElementById('ref-report-saved');
   if(saved) saved.textContent = 'AI 요약 반영됨 · 내용 확인 후 저장하세요.';
   return true;

@@ -148,7 +148,7 @@ function nav(id, btn) {
   if(id==='recruit-status') renderRecruitStatus();
   if(id==='tracker') { populateSel('int-cand'); populateSel('ob-cand'); renderTracker(); }
   if(id==='interview') { populateSel('int-cand'); renderIntTable(); }
-  if(id==='reference') { renderReference(); }
+  if(id==='reference') { renderReference(); if(typeof autoGrowRefReportTextareas_ === 'function') autoGrowRefReportTextareas_(); }
   if(id==='referral') { renderReferralSection(); }
   if(id==='onboarding') { populateSel('ob-cand'); renderOnboarding(); }
   if(id==='notifylog') { renderNotifyLog(); renderActivityLog(); }
