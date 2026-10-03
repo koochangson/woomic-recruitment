@@ -1536,10 +1536,12 @@ function normalizeActiveEmployee_(row) {
 
 function ensureSheet_(sheetName) {
   assertKnownSheet_(sheetName);
+  if (EXEC_CACHE_.sheets[sheetName]) return EXEC_CACHE_.sheets[sheetName];
   const ss = getSpreadsheetForSheet_(sheetName);
   let sheet = ss.getSheetByName(sheetName);
   if (!sheet) sheet = ss.insertSheet(sheetName);
   ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+  EXEC_CACHE_.sheets[sheetName] = sheet;
   return sheet;
 }
 
@@ -1548,7 +1550,7 @@ function getSpreadsheetForSheet_(sheetName) {
     const recruitmentUrl = getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY);
     if (recruitmentUrl) {
       try {
-        return SpreadsheetApp.openByUrl(recruitmentUrl);
+        return openSpreadsheetCached_(recruitmentUrl);
       } catch (err) {
         throw new Error('recruitment_data_file_open_failed: ' + String(err && err.message || err));
       }
@@ -1558,17 +1560,25 @@ function getSpreadsheetForSheet_(sheetName) {
     const referralDataUrl = getFirstSettingValue_(REFERRAL_DATA_URL_SETTING_KEYS);
     if (referralDataUrl) {
       try {
-        return SpreadsheetApp.openByUrl(referralDataUrl);
+        return openSpreadsheetCached_(referralDataUrl);
       } catch (err) {
         throw new Error('referral_data_file_open_failed: ' + String(err && err.message || err));
       }
     }
   }
-  return SpreadsheetApp.getActiveSpreadsheet();
+  return openSpreadsheetCached_('');
 }
 
 function ensureHeaders_(sheet, schema) {
   if (!schema || !schema.length) throw new Error('missing_schema');
+  const cached = EXEC_CACHE_.headers.get(sheet);
+  if (cached && schema.every(header => cached.includes(header))) return cached.slice();
+  const resolved = ensureHeadersUncached_(sheet, schema);
+  EXEC_CACHE_.headers.set(sheet, resolved.slice());
+  return resolved;
+}
+
+function ensureHeadersUncached_(sheet, schema) {
   const lastColumn = Math.max(sheet.getLastColumn(), schema.length);
   let headers = [];
   if (sheet.getLastRow() >= 1 && lastColumn > 0) {
@@ -1676,6 +1686,12 @@ function appendChanges_(changes) {
 }
 
 function ensureChangeLogSheet_() {
+  if (EXEC_CACHE_.changeLogSheet) return EXEC_CACHE_.changeLogSheet;
+  EXEC_CACHE_.changeLogSheet = ensureChangeLogSheetUncached_();
+  return EXEC_CACHE_.changeLogSheet;
+}
+
+function ensureChangeLogSheetUncached_() {
   const ss = getMainSpreadsheet_();
   let sheet = ss.getSheetByName(CHANGE_LOG_SHEET);
   if (!sheet) sheet = ss.insertSheet(CHANGE_LOG_SHEET);
@@ -1696,10 +1712,20 @@ function ensureChangeLogSheet_() {
   return sheet;
 }
 
+// Apps Script는 요청(실행)마다 전역을 새로 만든다 — 이 캐시는 한 요청 안에서만 유지된다.
+// 같은 스프레드시트를 한 요청에서 여러 번 openByUrl로 새로 열고 헤더를 매번 다시 읽던 비용을 없앤다.
+const EXEC_CACHE_ = { spreadsheets: {}, sheets: {}, headers: new Map() };
+
+function openSpreadsheetCached_(url) {
+  const key = url || '__active__';
+  if (!EXEC_CACHE_.spreadsheets[key]) {
+    EXEC_CACHE_.spreadsheets[key] = url ? SpreadsheetApp.openByUrl(url) : SpreadsheetApp.getActiveSpreadsheet();
+  }
+  return EXEC_CACHE_.spreadsheets[key];
+}
+
 function getMainSpreadsheet_() {
-  const url = getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY);
-  if (url) return SpreadsheetApp.openByUrl(url);
-  return SpreadsheetApp.getActiveSpreadsheet();
+  return openSpreadsheetCached_(getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY));
 }
 
 function getChangeCursor_() {

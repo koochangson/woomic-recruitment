@@ -1,9 +1,11 @@
 function ensureSheet_(sheetName) {
   assertKnownSheet_(sheetName);
+  if (EXEC_CACHE_.sheets[sheetName]) return EXEC_CACHE_.sheets[sheetName];
   const ss = getSpreadsheetForSheet_(sheetName);
   let sheet = ss.getSheetByName(sheetName);
   if (!sheet) sheet = ss.insertSheet(sheetName);
   ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+  EXEC_CACHE_.sheets[sheetName] = sheet;
   return sheet;
 }
 
@@ -12,7 +14,7 @@ function getSpreadsheetForSheet_(sheetName) {
     const referralDataUrl = getScriptProperty_(REFERRAL_DATA_URL_PROPERTY) || getFirstSettingValue_(REFERRAL_DATA_URL_SETTING_KEYS);
     if (referralDataUrl) {
       try {
-        return SpreadsheetApp.openByUrl(referralDataUrl);
+        return openSpreadsheetCached_(referralDataUrl);
       } catch (err) {
         throw new Error('referral_data_file_open_failed: ' + String(err && err.message || err));
       }
@@ -23,6 +25,14 @@ function getSpreadsheetForSheet_(sheetName) {
 
 function ensureHeaders_(sheet, schema) {
   if (!schema || !schema.length) throw new Error('missing_schema');
+  const cached = EXEC_CACHE_.headers.get(sheet);
+  if (cached && schema.every(header => cached.includes(header))) return cached.slice();
+  const resolved = ensureHeadersUncached_(sheet, schema);
+  EXEC_CACHE_.headers.set(sheet, resolved.slice());
+  return resolved;
+}
+
+function ensureHeadersUncached_(sheet, schema) {
   const lastColumn = Math.max(sheet.getLastColumn(), schema.length);
   let headers = [];
   if (sheet.getLastRow() >= 1 && lastColumn > 0) {
@@ -127,6 +137,12 @@ function appendChanges_(changes) {
 }
 
 function ensureChangeLogSheet_() {
+  if (EXEC_CACHE_.changeLogSheet) return EXEC_CACHE_.changeLogSheet;
+  EXEC_CACHE_.changeLogSheet = ensureChangeLogSheetUncached_();
+  return EXEC_CACHE_.changeLogSheet;
+}
+
+function ensureChangeLogSheetUncached_() {
   const ss = getMainSpreadsheet_();
   let sheet = ss.getSheetByName(CHANGE_LOG_SHEET);
   if (!sheet) sheet = ss.insertSheet(CHANGE_LOG_SHEET);
