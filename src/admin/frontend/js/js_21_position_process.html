@@ -8,7 +8,7 @@ function getPositionProjectData(positionId) {
   if(!pos) return null;
   const list = candidates.filter(c => Number(c.posId) === Number(positionId));
   const target = parseInt(pos.headcount) || 1;
-  const final = list.filter(c => c.stage === 5);
+  const final = list.filter(isSeatFilledCand_); // 최종합격 + 입사
   const rejected = list.filter(c => c.stage === 6);
   const active = list.filter(c => c.stage < 5 && !c.held);
   const filled = Math.min(target, final.length);
@@ -43,7 +43,10 @@ function positionRoundData(positionId, stageIdx) {
 
 // 확정된 면접이 있고, 그 전원에게 지원자 안내와 면접관 안내가 모두 발송됐는지
 function isRoundNoticeComplete_(roundData) {
-  const confirmed = roundData?.confirmed || [];
+  // 지금 이 차수에 남아 있는 지원자가 있으면 그들의 면접만 본다(탈락·보류자의 미표시 기록 제외).
+  const current = new Set((roundData?.candidates || []).filter(c => !c.held).map(c => Number(c.id)));
+  const all = roundData?.confirmed || [];
+  const confirmed = current.size ? all.filter(i => current.has(Number(i.candId))) : all;
   if(!confirmed.length) return false;
   return confirmed.every(i => (i.candidateNotified || i.candNotified) && (i.panelNotified || i.notified));
 }
@@ -92,13 +95,17 @@ function getPositionActionItems(positionId) {
     else if(firstWaiting.length) add('first_schedule_wait','medium','1차 가능 시간대 응답 대기',`응답완료 ${firstResponded.length}명 · 대기 ${firstWaiting.length}명`,'응답 현황','openCollectSlots',`openCollectSlots(${positionId},1)`);
     else if(firstPending.length) add('first_schedule','high','1차 공동일정 확정 필요',`미확정 일정 ${firstPending.length}건이 있습니다.`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},1)`);
 
-    if(r1.confirmed.length && r1.panelNotified.length < r1.confirmed.length) add('first_panel_notice','medium','1차 면접관 안내 미발송',`확정 ${r1.confirmed.length}건 중 면접관 안내 미완료`,'면접관 안내','openInterviewNoticeFlow',`openInterviewNoticeFlow(${positionId},1,1)`);
-    if(r1.confirmed.length && r1.candidateNotified.length < r1.confirmed.length) add('first_candidate_notice','medium',`1차 면접 ${routeNoticeText} 미발송`,`확정 ${r1.confirmed.length}건 중 ${routeNoticeText} 미완료`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},1)`);
+    // 안내·완료 업무는 지금 1차 단계에 있는(보류·불합격·다음 단계 이동 제외) 지원자의 면접만 대상으로 한다 —
+    // 이미 다음 단계로 넘어갔거나 탈락한 지원자의 미표시 기록 때문에 업무가 계속 남던 문제 방지.
+    const cur1 = rows => rows.filter(i => round1CandIds.has(Number(i.candId)));
+    const r1c = { confirmed:cur1(r1.confirmed), done:cur1(r1.done), panelNotified:cur1(r1.panelNotified), candidateNotified:cur1(r1.candidateNotified) };
+    if(r1c.confirmed.length && r1c.panelNotified.length < r1c.confirmed.length) add('first_panel_notice','medium','1차 면접관 안내 미발송',`확정 ${r1c.confirmed.length}건 중 면접관 안내 미완료`,'면접관 안내','openInterviewNoticeFlow',`openInterviewNoticeFlow(${positionId},1,1)`);
+    if(r1c.confirmed.length && r1c.candidateNotified.length < r1c.confirmed.length) add('first_candidate_notice','medium',`1차 면접 ${routeNoticeText} 미발송`,`확정 ${r1c.confirmed.length}건 중 ${routeNoticeText} 미완료`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},1)`);
 
-    if(r1.confirmed.length > r1.done.length) add('first_interview_done','medium','1차 면접 실시 후 완료 처리 필요',`일정 확정 ${r1.confirmed.length}건 · 완료 ${r1.done.length}건`,'면접 완료 처리','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+    if(r1c.confirmed.length > r1c.done.length) add('first_interview_done','medium','1차 면접 실시 후 완료 처리 필요',`일정 확정 ${r1c.confirmed.length}건 · 완료 ${r1c.done.length}건`,'면접 완료 처리','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
 
     const firstResult = list.filter(c => c.stage === 1 && !c.decision);
-    if(r1.done.length && firstResult.length) add('first_result','high','1차 면접 결과 입력 필요',`결과 미입력 ${firstResult.length}명 · 합격/불합격 판정 후 일괄 확정`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},1)`);
+    if(r1c.done.length && firstResult.length) add('first_result','high','1차 면접 결과 입력 필요',`결과 미입력 ${firstResult.length}명 · 합격/불합격 판정 후 일괄 확정`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},1)`);
 
     if(!short) {
       // 레퍼런스는 2차면접(3)과 병행 진행되는 트랙이라 대상을 stage===3(+레거시 2)으로 잡는다.
@@ -124,8 +131,10 @@ function getPositionActionItems(positionId) {
       if(secondResponded.length && !secondWaiting.length) add('second_schedule','high','2차 면접시간·순서 확정 필요',`가능 시간대 응답 ${secondResponded.length}건 취합 완료`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
       else if(secondWaiting.length) add('second_schedule_wait','medium','2차 가능 시간대 응답 대기',`응답완료 ${secondResponded.length}명 · 대기 ${secondWaiting.length}명`,'응답 현황','openCollectSlots',`openCollectSlots(${positionId},3)`);
       else if(secondPending.length) add('second_schedule','high','2차 공동일정 확정 필요',`미확정 ${secondPending.length}건`,'일정 확정','openPositionRoundSchedule',`openPositionRoundSchedule(${positionId},3)`);
-      if(r2.confirmed.length && r2.panelNotified.length < r2.confirmed.length) add('second_panel_notice','medium','2차 면접관 안내 미발송','확정된 2차 공동일정을 면접관에게 안내','면접관 안내','openInterviewNoticeFlow',`openInterviewNoticeFlow(${positionId},3,2)`);
-      if(r2.confirmed.length && r2.candidateNotified.length < r2.confirmed.length) add('second_candidate_notice','medium',`2차 면접 ${routeNoticeText} 미발송`,`확정된 2차 면접일정을 ${hasHeadhunting?'업체 경유로':'지원자에게'} 안내`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
+      const cur2 = rows => rows.filter(i => round2CandIds.has(Number(i.candId)));
+      const r2c = { confirmed:cur2(r2.confirmed), done:cur2(r2.done), panelNotified:cur2(r2.panelNotified), candidateNotified:cur2(r2.candidateNotified) };
+      if(r2c.confirmed.length && r2c.panelNotified.length < r2c.confirmed.length) add('second_panel_notice','medium','2차 면접관 안내 미발송','확정된 2차 공동일정을 면접관에게 안내','면접관 안내','openInterviewNoticeFlow',`openInterviewNoticeFlow(${positionId},3,2)`);
+      if(r2c.confirmed.length && r2c.candidateNotified.length < r2c.confirmed.length) add('second_candidate_notice','medium',`2차 면접 ${routeNoticeText} 미발송`,`확정된 2차 면접일정을 ${hasHeadhunting?'업체 경유로':'지원자에게'} 안내`,'안내 발송','sendAllCandSchedule',`sendAllCandSchedule(${positionId},3)`);
       // 면접관 안내 후 레퍼런스가 완료된 경우에는 보고서를 별도로 전달하고 완료 여부를 기록한다.
       const refFollowupNeeded = list.filter(c => [3,4].includes(c.stage) && requiresReferenceCheck(c) && c.ref === '완료' && !c.refReportSentAt);
       // 레퍼런스는 2차면접일 전까지 완료돼야 한다(차단하지 않고 경고만). 보고서는 자동 첨부되지 않으므로
@@ -134,7 +143,7 @@ function getPositionActionItems(positionId) {
       if(refInterviewRisk.length) add('reference_before_interview','high','2차면접 전 레퍼런스 완료 필요',`2차면접 ${REF_INTERVIEW_WARN_DAYS}일 이내 · 레퍼런스 미완료 ${refInterviewRisk.length}명 (${refInterviewRisk.slice(0,3).map(c=>c.name).join(', ')})`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
       if(r2.panelNotified.length && refFollowupNeeded.length) add('reference_followup','medium','레퍼런스 보고서 면접관 전달 필요',`면접관 안내 후 레퍼런스가 완료된 지원자 ${refFollowupNeeded.length}명 · 보고서 별도 전달 후 완료로 표시하세요.`,'레퍼런스 보기','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
       const secondResult = list.filter(c => c.stage === 3 && !c.decision);
-      if(r2.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
+      if(r2c.done.length && secondResult.length) add('second_result','high','2차 면접 결과 입력 필요',`결과 미입력 ${secondResult.length}명`,'결과 입력','confirmStageDecisions',`confirmStageDecisions(${positionId},3)`);
     }
 
     const gradeUnspecified = list.filter(c => [0,1,3,4].includes(Number(c.stage)) && isGradeBandUnspecified(c));
@@ -144,7 +153,7 @@ function getPositionActionItems(positionId) {
     if(offerStage.length) add('offer_negotiation','medium',hasHeadhunting?'처우협의 업체 확인 필요':'처우협의 결과 입력 필요',`${offerStage.length}명 · ${hasHeadhunting?'업체를 통한 협의 결과를 ':'협의 결과를 '}최종합격/불합격/협의중으로 입력하세요.`,'결과 입력','openPositionResultModal',`openPositionResultModal(${positionId},4)`);
 
     if(final.length >= target) {
-      const noticePending = final.filter(c => !c.notified && !onboardings.some(o => Number(o.candId) === Number(c.id)));
+      const noticePending = final.filter(c => Number(c.stage) === 5 && !c.notified && !onboardings.some(o => Number(o.candId) === Number(c.id)));
       // 입사 안내를 보내지 않은 최종합격자가 있으면 칸반의 '안내대기'와 어긋나지 않도록
       // 충원완료 처리보다 안내 발송을 먼저 안내한다.
       if(noticePending.length) add('onboard_pending','high','입사 안내 발송 필요',`최종합격 ${final.length}명 / 목표 ${target}명 · 안내 미발송 ${noticePending.length}명 · 입사 안내 후 충원완료 처리하세요.`,'입사 안내','openOnboardingFromPosition',`openOnboardingFromPosition(${positionId})`);
@@ -200,9 +209,11 @@ function getPositionProcessStatus(positionId) {
     { key:'int2_slots', title:'2차 지원자 가능일 확인', done:(int2PanelDone && isRoundAvailabilityComplete(r2)) || pastInt2 || roundScheduled(r2), skip:short },
     { key:'int2_notice', title:'2차 면접안내', done:isRoundNoticeComplete_(r2) || pastInt2, skip:short },
     { key:'int2_result', title:'2차 면접결과', done:pastInt2, skip:short },
-    { key:'offer', title:'처우협의', done:list.some(c => c.stage >= 4 && c.stage !== 6), skip:false },
-    { key:'final', title:'최종합격', done:final.length > 0 && !list.some(c => c.stage === 4), skip:false },
-    { key:'onboard', title:'입사안내', done:final.some(c => c.notified) || final.some(c => onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
+    // 처우협의는 협의 중인 지원자가 남아 있으면 끝난 것이 아니다(예전에는 누군가 4단계에 들어가기만 해도 '완료').
+    { key:'offer', title:'처우협의', done:final.length > 0 && !list.some(c => c.stage === 4 && !c.held), skip:false },
+    { key:'final', title:'최종합격', done:final.length > 0 && !list.some(c => c.stage === 4 && !c.held), skip:false },
+    // 입사안내는 최종합격자 전원 기준(입사 처리됐거나 충원완료로 입사 완료 간주된 사람은 완료로 본다).
+    { key:'onboard', title:'입사안내', done:final.length > 0 && final.every(c => Number(c.stage) === 7 || c.notified || isHireCompletedByFill_(c) || onboardings.some(o => Number(o.candId) === Number(c.id))), skip:false },
   ];
   const actions = getPositionActionItems(positionId);
   const keyMap = {

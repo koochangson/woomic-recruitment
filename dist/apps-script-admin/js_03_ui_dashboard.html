@@ -935,7 +935,7 @@ function updateMetrics() {
   const needed = activePos.reduce((sum, pos) => {
     const target = parseInt(pos.headcount) || 1;
     const filled = candidates.filter(c =>
-      Number(c.posId) === Number(pos.id) && Number(c.stage) === 5
+      Number(c.posId) === Number(pos.id) && isSeatFilledCand_(c)
     ).length;
     return sum + Math.max(0, target - filled);
   }, 0);

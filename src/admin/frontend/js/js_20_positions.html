@@ -56,7 +56,7 @@ function renderPositions() {
   const renderPositionCard = (pos) => {
     const posCandidates = candidatesByPos[Number(pos.id)] || [];
     const active = posCandidates.filter(c => Number(c.stage) < 5 && isActivePipelineCand(c));
-    const passed = posCandidates.filter(c => Number(c.stage) === 5);
+    const passed = posCandidates.filter(isSeatFilledCand_);
     const done = isDone(pos);
     const progress = getPositionCardProgress(pos, posCandidates);
     const actions = getPositionActionItems(pos.id);
@@ -184,7 +184,7 @@ async function closePosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const hc = parseInt(pos.headcount) || 1;
-  const passed = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === 5).length;
+  const passed = candidates.filter(c => Number(c.posId) === Number(posId) && isSeatFilledCand_(c)).length;
   const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held).length;
   const items = [`최종합격 ${passed}명 / 목표 ${hc}명`];
   if(passed > 0) items.push(`최종합격자 ${passed}명은 입사 완료로 처리 (입사일 미입력이어도 입사 목록에서 제외)`);
