@@ -526,6 +526,10 @@
                 </select>
               </div>
               <div class="fg full"><label>입사 전 준비 안내</label><textarea id="ob-notes" placeholder="건강검진, 서류 목록, 출입증 등" data-oninput="updateObPreview()"></textarea></div>
+              <div class="fg full"><label>첨부파일 <span style="font-weight:400;color:var(--t3)">(오퍼레터·처우 안내서·제출서류 양식 등, 전체 15MB 이하)</span></label>
+                <input type="file" id="ob-attach" multiple accept=".pdf,.doc,.docx,.hwp,.hwpx,.xls,.xlsx,.jpg,.jpeg,.png,.zip" data-onchange="renderObAttachList()">
+                <div id="ob-attach-list" class="field-hint"></div>
+              </div>
             </div>
             <div class="brow">
               <button class="btn btn-primary" data-action="call" data-call="addOnboarding()">등록</button>

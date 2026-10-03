@@ -5,6 +5,8 @@
 function fillOnboardingDefaults(candId) {
   const select = document.getElementById('ob-cand');
   const id = Number(candId || select?.value);
+  // 다른 지원자로 바꾸면 이전 지원자용으로 고른 첨부파일이 섞이지 않도록 비운다.
+  if(select && String(id) !== String(select.dataset.attachFor || '')) { clearObAttachments_(); select.dataset.attachFor = String(id || ''); }
   const c = candidates.find(x=>Number(x.id)===id);
   if(!c) { renderOnboardingPositionFinalists(); renderOnboarding(); updateObPreview(); return; }
   // 입사 처리(입사 단계)로 넘어간 지원자는 선택 목록(최종합격만)에 없어서 값이 지정되지 않는다 — 옵션을 보충한다.
@@ -210,6 +212,35 @@ function addOnboarding(){
   toast(`${esc(c.name)}님 입사 등록 완료`,'tok');
 }
 
+// 입사 안내(오퍼) 메일 첨부 — 입사 안내 등록 폼에서 고른 파일을 지원자(또는 헤드헌팅 업체) 메일에 붙인다.
+function obAttachFiles_() {
+  const input = document.getElementById('ob-attach');
+  return input?.files ? [...input.files] : [];
+}
+function renderObAttachList() {
+  const el = document.getElementById('ob-attach-list');
+  if(!el) return;
+  const files = obAttachFiles_();
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+  const mb = n => (n / 1024 / 1024).toFixed(1);
+  el.innerHTML = files.length
+    ? `${files.map(f => esc(f.name)).join(', ')} · 합계 ${mb(total)}MB${total > MAIL_ATTACHMENT_MAX_TOTAL_BYTES_ ? ' <b style="color:var(--red)">· 15MB를 넘어 발송할 수 없습니다</b>' : ''}`
+    : '선택한 파일은 [지원자 입사안내 발송] 시 함께 첨부됩니다.';
+}
+function clearObAttachments_() {
+  const input = document.getElementById('ob-attach');
+  if(input) input.value = '';
+  renderObAttachList();
+}
+// 지금 폼에 선택된 지원자에게 보내는 경우에만 첨부를 붙인다(다른 행의 발송 버튼에 엉뚱한 파일이 붙지 않게).
+async function readObAttachmentsFor_(candId) {
+  const selected = Number(document.getElementById('ob-cand')?.value);
+  const files = Number(candId) === selected ? obAttachFiles_() : [];
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+  if(total > MAIL_ATTACHMENT_MAX_TOTAL_BYTES_) { toast('첨부파일 용량이 너무 큽니다. 전체 15MB 이하로 선택하세요.', 'terr'); return null; }
+  return Promise.all(files.map(readFileAsMailAttachment_));
+}
+
 async function sendObNotify(ch){
   const cid=parseInt(document.getElementById('ob-cand').value);
   const c=candidates.find(x=>x.id===cid);
@@ -220,15 +251,18 @@ async function sendObNotify(ch){
     const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
     const target=getCandidateMailTarget(c);
+    const attachments = await readObAttachmentsFor_(c.id);
+    if(attachments === null) return;
     const sent = await dispatchCandidateMail_(c, {
-      subject, purpose: '입사 안내', directBody: body, logType: '입사안내(업체경유)',
+      subject, purpose: '입사 안내', logType: '입사안내(업체경유)',
       sendDirect: () => sendGeneralEmailViaGmail(target.to||c.email,subject,body,'입사안내-지원자',ob.candName,{
         templateType:'onboarding', candidateName:ob.candName||c.name, positionText:ob.pos||c.pos,
         joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c.etype||'',
         location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', prepNotes:ob.notes||''
-      })
+      }, attachments)
     });
     if(!sent)return;
+    if(attachments.length) clearObAttachments_();
   }
   ob.notified=true;
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c.email);
@@ -295,15 +329,19 @@ async function sendObById(id,ch){
     const subject=`[우미건설] ${ob.candName}님 입사 안내`;
     const body=buildOfferEmail(ob,c);
     const target=c?getCandidateMailTarget(c):{to:''};
+    // 표의 발송 버튼은 오른쪽 폼에 같은 지원자가 선택되어 있을 때만 폼의 첨부파일을 함께 보낸다.
+    const attachments = c ? await readObAttachmentsFor_(c.id) : [];
+    if(attachments === null) return;
     const sent = await dispatchCandidateMail_(c, {
-      subject, purpose: '입사 안내', directBody: body, logType: '입사안내(업체경유)',
+      subject, purpose: '입사 안내', logType: '입사안내(업체경유)',
       sendDirect: () => sendGeneralEmailViaGmail(target.to||c?.email||'',subject,body,'입사안내-지원자',ob.candName,{
         templateType:'onboarding', candidateName:ob.candName||c?.name||'', positionText:ob.pos||c?.pos||'',
         joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', etype:ob.etype||c?.etype||'',
         location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', prepNotes:ob.notes||''
-      })
+      }, attachments)
     });
     if(!sent)return;
+    if(attachments.length) clearObAttachments_();
   }
   ob.notified=true;
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c?.email||'');

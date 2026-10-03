@@ -1384,6 +1384,9 @@ async function sendSurveyEmailsViaGS(queue, refFormUrl, refAutoUrl) {
 }
 
 async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targetName, templateData={}) {
+  const forward = takeMailForwardContext_();
+  ({ toEmail, subject, body, templateData } = applyMailForward_(forward, toEmail, subject, body, templateData));
+  if(forward?.logType) logType = forward.logType;
   if(!hasGsBridge_()) {
     toast('메일 발송은 관리자 Apps Script 연결이 필요합니다.', 'terr');
     return false;
@@ -1408,6 +1411,9 @@ async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targe
 // 레퍼런스체크 외 일반 안내 메일(면접·입사·불합격 등) — 디자인 있는 HTML 메일로 발송.
 let lastMailSendError_ = ''; // 마지막 메일 발송 실패 사유 — 발송 화면 카드에 표시용
 async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetName, templateData={}, attachments=[]) {
+  const forward = takeMailForwardContext_();
+  ({ toEmail, subject, body, templateData } = applyMailForward_(forward, toEmail, subject, body, templateData));
+  if(forward?.logType) logType = forward.logType;
   if(!hasGsBridge_()) {
     toast('메일 발송은 관리자 Apps Script 연결이 필요합니다.', 'terr');
     return false;
@@ -1430,19 +1436,6 @@ async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetN
   return true;
 }
 
-async function sendHeadhunterForwardEmailViaGmail(cand, subject, purpose, directBody, logType='업체경유안내', templateData={}) {
-  const target = getCandidateMailTarget(cand);
-  const cleanBody = String(directBody || '').replace(new RegExp(`안녕하세요\\s*${cand.name}님,?\\n*`, 'g'), '').trim();
-  return sendGeneralEmailViaGmail(target.to, subject, wrapHeadhunterBody(cand, purpose, directBody), logType, cand.name, {
-    templateType: 'headhunter_forward',
-    recipientName: target.recipientName,
-    candidateName: cand.name,
-    positionText: cand.pos || '',
-    purpose,
-    forwardBody: cleanBody,
-    ...templateData
-  });
-}
 
 async function remindOneRef(candId,ri){
   const c=candidates.find(x=>x.id===candId);if(!c)return;

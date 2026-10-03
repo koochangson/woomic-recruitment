@@ -254,7 +254,7 @@ function generalMailHtml_(templateKey, data) {
 
     const preheaderDiv = '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#ffffff;">' + preheader + '</div>';
 
-    return headerTop + preheaderDiv + headerBottom + bodyOpen + filledBody + contactHtml + bodyClose + footer;
+    return headerTop + preheaderDiv + headerBottom + bodyOpen + forwardNoticeHtml_(ctx) + filledBody + contactHtml + bodyClose + footer;
   } catch (err) {
     console.warn('generalMailHtml_ failed: ' + String(err && err.message || err));
     return '';

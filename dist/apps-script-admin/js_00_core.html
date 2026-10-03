@@ -119,9 +119,42 @@ ${usesSystemResponse ? '링크에서 제출한 내용은 헤드헌터 대리 회
 
 // 헤드헌팅 경유 여부에 따라 대행사 전달 메일 또는 지원자 직접 메일로 분기해 발송한다.
 // (발송 지점마다 isHeadhuntingCandidate 분기가 중복되던 것을 한곳에 모음)
-async function dispatchCandidateMail_(cand, { subject, purpose, directBody, logType, sendDirect, headhunterTemplateData }) {
+// 헤드헌팅 경유 지원자도 지원자에게 보내는 것과 "같은 템플릿"으로 발송한다.
+// sendDirect가 만드는 메일(템플릿·첨부 포함)을 그대로 쓰되, 수신처·제목만 업체 담당자용으로 바꾸고
+// 본문 맨 위에 "후보자에게 전달 부탁" 안내 상자를 붙인다. 아래 컨텍스트는 sendDirect가 동기적으로
+// 호출하는 메일 발송 함수가 첫 줄에서 꺼내 쓰고 비우므로, 다른 발송과 섞이지 않는다.
+let mailForwardContext_ = null;
+function takeMailForwardContext_() { const ctx = mailForwardContext_; mailForwardContext_ = null; return ctx; }
+function applyMailForward_(forward, toEmail, subject, body, templateData) {
+  if(!forward) return { toEmail, subject, body, templateData };
+  const { cand, target, purpose, headhunterTemplateData } = forward;
+  const extra = headhunterTemplateData || {};
+  const instruction = [extra.responseInstruction, extra.responseNote].filter(Boolean).join(' ');
+  return {
+    toEmail: target.to,
+    subject: routeMailSubject(cand, subject),
+    body: wrapHeadhunterBody(cand, purpose, body),
+    templateData: {
+      ...templateData,
+      forwardNotice: {
+        recipientName: target.recipientName || '헤드헌팅 담당자',
+        firmName: target.firm?.name || '',
+        candidateName: cand.name || '',
+        positionText: cand.pos || '',
+        purpose: purpose || '채용 진행',
+        ...(instruction ? { instruction } : {}),
+      },
+    },
+  };
+}
+async function dispatchCandidateMail_(cand, { subject, purpose, logType, sendDirect, headhunterTemplateData }) {
   if (isHeadhuntingCandidate(cand)) {
-    return await sendHeadhunterForwardEmailViaGmail(cand, routeMailSubject(cand, subject), purpose, directBody, logType, headhunterTemplateData);
+    const target = getCandidateMailTarget(cand);
+    if(!target.to) { toast(`${cand.name}님의 헤드헌팅 업체 담당자 이메일이 없습니다. 설정의 헤드헌팅 업체 DB를 확인하세요.`, 'terr'); return false; }
+    mailForwardContext_ = { cand, target, purpose, logType, headhunterTemplateData };
+    let pending;
+    try { pending = sendDirect(); } finally { mailForwardContext_ = null; }
+    return await pending;
   }
   return await sendDirect();
 }

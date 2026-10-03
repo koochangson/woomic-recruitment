@@ -1432,7 +1432,7 @@ function sendReferenceEmail_(payload) {
   const templateType = String(body.templateType || body.templateKey || body.mailType || '').trim();
   if (!REFERENCE_MAIL_TEMPLATE_FILES[templateType]) return json_({ error: 'reference_template_type_required' });
   try {
-    const result = sendMailViaGmail_(to, subject, message, referenceMailHtml_(message, body));
+    const result = sendMailViaGmail_(to, subject, message, insertForwardNotice_(referenceMailHtml_(message, body), body));
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
   } catch (err) {
     console.warn('sendReferenceEmail_ failed: ' + String(err && err.message || err));
@@ -1457,6 +1457,45 @@ const REFERENCE_MAIL_TEMPLATE_FILES = {
   referee_reminder: 'mail_04_reference_referee_reminder',
   referee_complete: 'mail_05_reference_referee_complete'
 };
+
+// 헤드헌팅 경유 발송: 지원자에게 가는 것과 같은 템플릿을 업체 담당자에게 보내고, 본문 맨 위에
+// "후보자에게 전달해 달라"는 안내 상자만 덧붙인다(예전에는 별도 headhunter_forward 템플릿에 텍스트를 넣었다).
+function forwardNoticeData_(data) {
+  let notice = data && data.forwardNotice;
+  if (typeof notice === 'string') { try { notice = JSON.parse(notice); } catch (err) { notice = null; } }
+  return notice && typeof notice === 'object' ? notice : null;
+}
+
+function forwardNoticeHtml_(data) {
+  const notice = forwardNoticeData_(data);
+  if (!notice) return '';
+  const recipient = escapeMailHtml_(notice.recipientName || '담당자');
+  const firm = notice.firmName ? escapeMailHtml_(notice.firmName) + ' ' : '';
+  const candidate = escapeMailHtml_(notice.candidateName || '후보자');
+  const position = notice.positionText ? escapeMailHtml_(notice.positionText) + ' 포지션 ' : '';
+  const purposeText = String(notice.purpose || '채용 진행').trim();
+  const purpose = escapeMailHtml_(/안내$/.test(purposeText) ? purposeText : purposeText + ' 안내');
+  const instruction = escapeMailHtml_(notice.instruction || '아래 내용을 후보자분께 전달해 주시고, 회신은 후보자명과 포지션명을 함께 기재해 본 메일로 보내 주세요.');
+  return '        <tr>\n' +
+    '          <td style="padding:0 0 22px;">\n' +
+    '            <div style="padding:14px 16px;border:1px solid #f0d9a8;background:#fff8ea;border-radius:12px;">\n' +
+    '              <div style="font-size:13px;line-height:1.4;font-weight:700;color:#8a5a12;padding-bottom:6px;">헤드헌팅 경유 안내</div>\n' +
+    '              <div style="font-size:14px;line-height:1.6;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">' + firm + recipient + '님, 안녕하세요. ' + position + '후보자 <strong>' + candidate + '</strong>님의 ' + purpose + '입니다.<br>' + instruction + '</div>\n' +
+    '            </div>\n' +
+    '          </td>\n' +
+    '        </tr>\n';
+}
+
+function insertForwardNotice_(html, data) {
+  const block = forwardNoticeHtml_(data);
+  if (!block) return html;
+  const source = String(html || '');
+  const marker = source.indexOf('<!-- 본문 -->');
+  const tableStart = source.indexOf('<table', marker < 0 ? 0 : marker);
+  const tableEnd = tableStart < 0 ? -1 : source.indexOf('>', tableStart);
+  if (marker < 0 || tableEnd < 0) return html;
+  return source.slice(0, tableEnd + 1) + '\n' + block + source.slice(tableEnd + 1);
+}
 
 function referenceMailHtml_(message, context) {
   const raw = String(message || '');
@@ -1830,7 +1869,7 @@ function generalMailHtml_(templateKey, data) {
 
     const preheaderDiv = '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#ffffff;">' + preheader + '</div>';
 
-    return headerTop + preheaderDiv + headerBottom + bodyOpen + filledBody + contactHtml + bodyClose + footer;
+    return headerTop + preheaderDiv + headerBottom + bodyOpen + forwardNoticeHtml_(ctx) + filledBody + contactHtml + bodyClose + footer;
   } catch (err) {
     console.warn('generalMailHtml_ failed: ' + String(err && err.message || err));
     return '';
