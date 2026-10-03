@@ -1069,11 +1069,43 @@ function flushAvailabilityReplyNotices_() {
   });
 }
 
+// 면접관이 일정 선택 링크에서 회신하면 PanelAvailability 변경이 들어온다 — 예전에는 이 변경을
+// 버려서, 일정 확인 창의 "응답새로고침"을 누르기 전까지 회신이 화면에 보이지 않았다.
+function applyPanelAvailabilityChange_(change) {
+  const row = change.data || {};
+  const id = String(change.id ?? row.id ?? '');
+  const posId = Number(row.positionId);
+  const round = String(row.round || '');
+  if(!id || !Number.isFinite(posId) || !['1차','2차'].includes(round)) return false;
+  const stageIdx = round === '1차' ? 1 : 3;
+  const key = panelAvailabilityCacheKey(posId, stageIdx);
+  const list = Array.isArray(panelAvailabilityCache[key]) ? panelAvailabilityCache[key] : [];
+  const prev = list.find(item => String(item.id) === id);
+  const rest = list.filter(item => String(item.id) !== id);
+  if(change.action === 'delete') { panelAvailabilityCache[key] = rest; return true; }
+  let selections = row.selections;
+  if(!Array.isArray(selections)) { try { selections = JSON.parse(selections || '[]'); } catch(e) { selections = []; } }
+  let options = row.availabilityOptions;
+  if(!Array.isArray(options)) { try { options = JSON.parse(options || '[]'); } catch(e) { options = []; } }
+  const next = Object.assign({}, row, { selections:Array.isArray(selections) ? selections : [], availabilityOptions:Array.isArray(options) ? options : [] });
+  panelAvailabilityCache[key] = [...rest, next];
+  if(isAvailabilityReplied_(next.status) && !isAvailabilityReplied_(prev?.status)) {
+    pendingAvailabilityReplies_.push({ name: `면접관 ${next.panelistName || ''}`.trim(), posId, type: round });
+  }
+  const pos = positions.find(p => Number(p.id) === posId);
+  if(pos && collectSlotsCtx?.mode === 'panel' && Number(collectSlotsCtx.posId) === posId && Number(collectSlotsCtx.stageIdx) === stageIdx
+    && document.getElementById('modal-collect-slots')?.style.display === 'flex') {
+    refreshPanelAvailabilityResponses(posId, stageIdx);
+  }
+  return true;
+}
+
 function applyGsChanges(changes) {
   let applied = 0;
   let referenceCheckTouched = false;
   (changes || []).forEach(change => {
     const sheet = change.sheet;
+    if(sheet === 'PanelAvailability') { if(applyPanelAvailabilityChange_(change)) applied++; return; }
     if(!['Candidates','Interviews','Positions','Referrals','Rewards','RefRules','Employees','ReferenceCandidates','ReferenceResponses'].includes(sheet)) return;
     const rawId = change.id ?? change.data?.id;
     const id = REFERRAL_STRING_ID_SHEETS.includes(sheet) ? String(rawId || change.data?.email || '') : Number(rawId);
@@ -1235,6 +1267,7 @@ function renderGsPolledChanges_() {
   renderIntTable();
   renderReferralSection();
   updateMetrics();
+  if(typeof currentPosDetailId !== 'undefined' && currentPosDetailId != null) refreshOpenPositionDetail(currentPosDetailId);
 }
 
 async function pollGsChanges_() {

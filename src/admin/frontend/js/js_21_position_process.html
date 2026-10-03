@@ -75,7 +75,7 @@ function getPositionActionItems(positionId) {
     if(!list.length) add('candidate_register','high','지원자 미배정','등록된 지원자 없음 · 지원자 등록 필요','지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
 
     const stage0 = list.filter(c => c.stage === 0);
-    if(stage0.length && !pos.panel1AvailabilityConfirmedAt) add('first_panel_availability','high',pos.panel1AvailabilityRequestedAt?'1차 면접관 가능 일정 회신 확인 필요':'1차 면접관 가능 일정 확인 필요',pos.panel1AvailabilityRequestedAt?'면접관 회신을 확인한 뒤 지원자 가능일 확인을 진행하세요.':'면접관에게 공통 후보 날짜의 참석 가능 여부를 먼저 확인하세요.','면접관 일정 확인','openCollectSlots',`openCollectSlots(${positionId},1)`);
+    if(stage0.length && !pos.panel1AvailabilityConfirmedAt) add('first_panel_availability','high',pos.panel1AvailabilityRequestedAt?'1차 면접관 가능 일정 회신 확인 필요':'1차 면접관 가능 일정 확인 필요',pos.panel1AvailabilityRequestedAt?panelReplyTaskText_(pos,1):'면접관에게 공통 후보 날짜의 참석 가능 여부를 먼저 확인하세요.','면접관 일정 확인','openCollectSlots',`openCollectSlots(${positionId},1)`);
     if(stage0.length && pos.panel1AvailabilityConfirmedAt && !r1.interviews.length) add('first_slots','high',`1차 지원자 가능일 ${routeNoticeText} 필요`,`${stage0.length}명 · 면접관 확인이 완료된 후보일정을 ${hasHeadhunting?'업체 경유로 ':''}지원자에게 안내하세요.`,'지원자 가능일 확인','openCollectSlots',`openCollectSlots(${positionId},1)`);
 
     // r1.interviews는 완료·확정 여부 추적을 위해 이미 다음 단계로 넘어간 지원자의
@@ -113,7 +113,7 @@ function getPositionActionItems(positionId) {
       // 2차 면접 일정 확정은 레퍼런스 완료 여부와 무관하게 병행 진행할 수 있도록 한다.
       // (단, 실제 면접 전까지는 레퍼런스가 완료·보고되어야 하며, 이는 면접관 안내 발송 시점에 별도 확인한다.)
       const secondReady = list.some(c => [2,3].includes(c.stage));
-      if(secondReady && !pos.panel2AvailabilityConfirmedAt) add('second_panel_availability','high',pos.panel2AvailabilityRequestedAt?'2차 면접관 가능 일정 회신 확인 필요':'2차 면접관 가능 일정 확인 필요',pos.panel2AvailabilityRequestedAt?'면접관 회신을 확인한 뒤 지원자 가능일 확인을 진행하세요.':'면접관에게 공통 후보 날짜의 참석 가능 여부를 먼저 확인하세요.','면접관 일정 확인','openCollectSlots',`openCollectSlots(${positionId},3)`);
+      if(secondReady && !pos.panel2AvailabilityConfirmedAt) add('second_panel_availability','high',pos.panel2AvailabilityRequestedAt?'2차 면접관 가능 일정 회신 확인 필요':'2차 면접관 가능 일정 확인 필요',pos.panel2AvailabilityRequestedAt?panelReplyTaskText_(pos,3):'면접관에게 공통 후보 날짜의 참석 가능 여부를 먼저 확인하세요.','면접관 일정 확인','openCollectSlots',`openCollectSlots(${positionId},3)`);
       if(secondReady && pos.panel2AvailabilityConfirmedAt && !r2.interviews.length) add('second_slots','medium',`2차 지원자 가능일 ${routeNoticeText} 필요`,`면접관 확인이 완료된 일정을 ${hasHeadhunting?'업체 경유로 ':''}안내하세요. 레퍼런스는 면접 전까지 완료되면 됩니다.`,'지원자 가능일 확인','openCollectSlots',`openCollectSlots(${positionId},3)`);
       const round2CandIds = new Set(list.filter(c => [2,3].includes(c.stage)).map(c => Number(c.id)));
       const secondResponded = r2.interviews.filter(i => round2CandIds.has(Number(i.candId)) && ['RESPONDED','UNAVAILABLE'].includes(i.availabilityStatus));
@@ -744,6 +744,20 @@ function renderPosDetailOperations(positionId) {
 
 // 포지션 상세 section이 지금 이 포지션을 보여주고 있을 때만 다시 그린다.
 // 다른 화면을 보고 있거나 다른 포지션 상세를 보는 중이면 아무 것도 하지 않는다.
+// 처리 필요 업무 카드에 면접관 회신 현황을 보여준다(실시간 변경 반영으로 채워지는 캐시 기준).
+function panelReplyTaskText_(pos, stageIdx) {
+  const fallback = '면접관 회신을 확인한 뒤 지원자 가능일 확인을 진행하세요.';
+  const cached = typeof panelAvailabilityCache !== 'undefined' ? panelAvailabilityCache[panelAvailabilityCacheKey(pos.id, stageIdx)] : null;
+  if(!Array.isArray(cached)) return fallback;
+  const panelists = parsePanelists(pos[stageIdx === 1 ? 'panel1' : 'panel2']).filter(p => p.email);
+  if(!panelists.length) return fallback;
+  const byEmail = new Map(cached.map(r => [String(r.panelistEmail || '').toLowerCase(), r]));
+  const replied = panelists.filter(p => ['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(p.email).toLowerCase())?.status)).length;
+  return replied === panelists.length
+    ? `면접관 응답 ${replied}/${panelists.length} 완료 · 공통 일정을 선택하고 확인 완료를 눌러주세요.`
+    : `면접관 응답 ${replied}/${panelists.length} · 응답을 기다리고 있습니다.`;
+}
+
 function refreshOpenPositionDetail(positionId) {
   if(Number(currentPosDetailId) !== Number(positionId)) return;
   const posdetailSect = document.getElementById('sect-posdetail');

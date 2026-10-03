@@ -490,8 +490,15 @@ async function sendPanelAvailabilityRequest() {
     ], `${round} 면접 시작 동기화`);
   }
   await refreshPanelAvailabilityResponses(posId, stageIdx);
+  rerenderAfterPanelAvailabilitySave_(posId);
   toast(`면접관 ${sentCount}명에게 일정 선택 링크를 발송했습니다.${failed.length ? ` 실패 ${failed.length}명` : ''}`, failed.length ? 'tw' : 'tok');
   openCollectSlots(posId, stageIdx);
+}
+
+// 면접관 일정 요청·확인을 저장한 뒤 뒤쪽 화면(처리 필요 업무, 포지션 상세, 칸반)도 바로 갱신한다.
+function rerenderAfterPanelAvailabilitySave_(posId) {
+  renderDashboard(); renderTracker(); renderPositions();
+  refreshOpenPositionDetail(posId);
 }
 
 async function confirmPanelAvailabilityAndContinue() {
@@ -535,6 +542,7 @@ async function confirmPanelAvailabilityAndContinue() {
     const synced = await syncPosToGS(pos);
     if(synced == null) return;
   }
+  rerenderAfterPanelAvailabilitySave_(posId);
   toast('면접관 일정 확인을 완료했습니다. 지원자 면접일정 요청 화면으로 이동합니다.', 'tok');
   openCollectSlots(posId, stageIdx);
 }
