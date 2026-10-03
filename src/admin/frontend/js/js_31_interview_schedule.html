@@ -4,6 +4,8 @@
 // ══════════════════════════════════════════════════════════════
 let collectSlotsCtx = { posId: null, stageIdx: null, mode: 'panel' };
 const panelAvailabilityCache = {};
+// 면접관 확인 메일을 순차 발송하는 동안, 지금 처리 중인 면접관을 "발송중"으로 표시하기 위한 집합.
+const panelAvailabilitySendingEmails = new Set();
 
 function localDateInputValue(date) {
   const year = date.getFullYear();
@@ -267,9 +269,11 @@ function renderPanelAvailabilityTargets(pos, stageIdx) {
   const cached = panelAvailabilityCache[panelAvailabilityCacheKey(pos.id, stageIdx)];
   const byEmail = new Map((cached || []).map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
   target.innerHTML = panelists.map(panelist => {
-    const response = byEmail.get(String(panelist.email || '').toLowerCase());
-    const status = response ? panelAvailabilityResponseText(response) : (pos[keys.requested] ? '응답 확인 중' : '미발송');
-    const badge = response?.status === 'RESPONDED' ? 'bgreen' : response?.status === 'UNAVAILABLE' ? 'bred' : response?.status === 'SENT' ? 'bblue' : 'bgray';
+    const emailKey = String(panelist.email || '').toLowerCase();
+    const sending = panelAvailabilitySendingEmails.has(emailKey);
+    const response = byEmail.get(emailKey);
+    const status = sending ? '발송중' : response ? panelAvailabilityResponseText(response) : (pos[keys.requested] ? '응답 확인 중' : '미발송');
+    const badge = sending ? 'bamber' : response?.status === 'RESPONDED' ? 'bgreen' : response?.status === 'UNAVAILABLE' ? 'bred' : response?.status === 'SENT' ? 'bblue' : 'bgray';
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="font-weight:600">${esc(panelist.name || '면접관')}</span>
       <span style="color:var(--t3);flex:1">${esc(panelist.email)}</span>
@@ -419,9 +423,14 @@ async function sendPanelAvailabilityRequest() {
   const panelLoc = document.getElementById('csl-loc')?.value || pos.loc || '';
   let sentCount = 0;
   const failed = [];
+  const primaryBtn = document.getElementById('csl-primary-action');
+  const primaryLabelBefore = primaryBtn?.textContent;
+  if(primaryBtn) { primaryBtn.disabled = true; primaryBtn.textContent = '발송 중...'; }
   for(const panelist of pendingPanelists) {
     const iv = interviewers.find(x => x.email === panelist.email);
     const panelistDisplayName = iv && iv.rank ? `${iv.name} ${iv.rank}` : panelist.name;
+    panelAvailabilitySendingEmails.add(String(panelist.email || '').toLowerCase());
+    renderPanelAvailabilityTargets(pos, stageIdx);
     const issued = await gsFetch('issuePanelAvailabilityLink', '', {
       positionId: pos.id,
       positionTitle: pos.title,
@@ -432,7 +441,11 @@ async function sendPanelAvailabilityRequest() {
       options,
       expiresAt
     }, { allowQueue:false });
-    if(!issued?.ok || !issued.link) { failed.push(panelistDisplayName || panelist.email); continue; }
+    if(!issued?.ok || !issued.link) {
+      failed.push(panelistDisplayName || panelist.email);
+      panelAvailabilitySendingEmails.delete(String(panelist.email || '').toLowerCase());
+      continue;
+    }
     const body = [
       `안녕하세요 ${panelistDisplayName || '면접위원'}님,`, '',
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
@@ -456,8 +469,14 @@ async function sendPanelAvailabilityRequest() {
       headerTitle:`${round} 면접 가능 일정 확인`, noticeBody, actionLink:issued.link, actionLabel:'면접 가능 일정 선택'
     });
     if(sent) sentCount++; else failed.push(panelistDisplayName || panelist.email);
+    panelAvailabilitySendingEmails.delete(String(panelist.email || '').toLowerCase());
   }
-  if(!sentCount && failed.length) { toast(`면접관 확인 메일을 발송하지 못했습니다: ${failed.join(', ')}`, 'terr'); return; }
+  if(!sentCount && failed.length) {
+    if(primaryBtn) { primaryBtn.disabled = false; primaryBtn.textContent = primaryLabelBefore; }
+    renderPanelAvailabilityTargets(pos, stageIdx);
+    toast(`면접관 확인 메일을 발송하지 못했습니다: ${failed.join(', ')}`, 'terr');
+    return;
+  }
   pos[keys.options] = options;
   pos[keys.requested] = new Date().toISOString();
   pos[keys.confirmed] = '';
