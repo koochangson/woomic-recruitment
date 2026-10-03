@@ -318,7 +318,10 @@ function savePosition() {
   if(!editingPosId && etype === '정규직' && !targetGradeBand) { toast('채용 대상 직급(사원급/간부급/혼합)을 선택하세요.', 'terr'); return; }
   const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
 
+  // 수정 시 폼에 없는 필드(면접관 일정 발송·확정 기록, 후보일정, rev 등)를 그대로 유지한다 —
+  // 예전에는 폼 값만으로 새 객체를 만들어, 포지션을 수정할 때마다 면접관 일정 진행 기록이 지워졌다.
   const posData = {
+    ...existingPos,
     id:        editingPosId || nextId(),
     title,
     etype,
