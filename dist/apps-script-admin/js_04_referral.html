@@ -450,7 +450,9 @@ function saveReferralDraft() {
     validUntil:addMonths(today(), Number(getReferralParam('validMonths', 6))),
     updatedAt:nowIso,
   };
-  if(!ref.refEmail || !ref.refName || !ref.candName || !ref.candPhone || !ref.posText) { toast('추천인·후보자·포지션 필수값을 입력하세요.','terr'); return; }
+  // 비어 있는 첫 필수 칸을 정확히 알려 준다(예전에는 '필수값을 입력하세요'로 어느 칸인지 알 수 없었다).
+  const missingRef = [['rf-new-refName','추천인 성명',ref.refName],['rf-new-refEmail','추천인 회사 이메일',ref.refEmail],['rf-new-candName','후보자 성명',ref.candName],['rf-new-candPhone','후보자 연락처',ref.candPhone],['rf-new-posText','추천 포지션',ref.posText]].find(item => !item[2]);
+  if(missingRef) { fieldError_(missingRef[0], `${josa_(missingRef[1], '을', '를')} 입력해 주세요.`); return; }
   ref.dupFlag = getReferralDupFlag(ref);
   referrals.push(ref);
   selectedReferralId = ref.id;
@@ -474,8 +476,8 @@ function saveReferralStatus(id) {
   if(hireDate && hireCL && !['HIRED','FAILED','REJECTED','WITHDRAWN','EXPIRED'].includes(status)) {
     status = 'HIRED';
   }
-  if(['FAILED','REJECTED'].includes(status) && !reason) { toast(status==='FAILED'?'불합격 사유를 입력하세요.':'불인정 사유를 입력하세요.','terr'); return; }
-  if(status==='HIRED' && (!hireDate || !hireCL)) { toast('입사 상태는 입사일과 CL이 필요합니다.','terr'); return; }
+  if(['FAILED','REJECTED'].includes(status) && !reason) { fieldError_('rf-edit-reason', status==='FAILED'?'불합격 사유를 입력해 주세요.':'불인정 사유를 입력해 주세요.'); return; }
+  if(status==='HIRED' && (!hireDate || !hireCL)) { fieldError_(!hireDate ? 'rf-edit-hire-date' : 'rf-edit-cl', !hireDate ? '입사 상태로 바꾸려면 입사일을 입력해 주세요.' : '입사 상태로 바꾸려면 CL을 입력해 주세요.'); return; }
   if(status==='HIRED' && ref.validUntil && formatDate(hireDate) > formatDate(ref.validUntil)) { toast('추천 유효기간 경과 후 입사 건은 포상금 대상 처리할 수 없습니다.','terr'); return; }
   const first = firstReferralForCandidate(ref);
   if(status==='HIRED' && first && first.id!==ref.id) { toast(`선접수 추천 건(${first.id})이 있어 이 추천 건은 입사/포상 처리할 수 없습니다.`,'terr'); return; }
@@ -768,13 +770,14 @@ async function saveReferralEmployee() {
     status: val('emp-status') || '재직',
     updatedAt: new Date().toISOString(),
   });
-  if(!row.email || !row.name) { toast('회사 이메일과 성명은 필수입니다.','terr'); return; }
+  if(!row.email) { fieldError_('emp-email', '회사 이메일을 입력해 주세요.'); return; }
+  if(!row.name) { fieldError_('emp-name', '성명을 입력해 주세요.'); return; }
   employees = mergeEmployeeRecords(employees.filter(e=>normalizeReferralEmail(e.email)!==row.email), [row]);
   saveState();
   const synced = GS_CONFIG.scriptUrl ? await syncEmployeeToGS(row) : null;
   renderReferralSection();
   const viaFrame = synced?.status === 'sent-via-frame';
-  toast(GS_CONFIG.scriptUrl ? (synced ? (viaFrame ? '인증 DB 저장 요청을 Google Sheets로 전송했습니다. 잠시 후 인증 DB 동기화로 확인하세요.' : '인증 DB를 저장하고 Google Sheets에 반영했습니다.') : '인증 DB는 로컬 저장됐지만 Google Sheets 반영에 실패했습니다.') : '인증 DB를 로컬에 저장했습니다.', synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
+  toast(GS_CONFIG.scriptUrl ? (synced ? (viaFrame ? '인증 DB 저장 요청을 Google Sheets로 전송했습니다. 잠시 후 인증 DB 동기화로 확인해 주세요.' : '인증 DB를 저장하고 Google Sheets에 반영했습니다.') : '인증 DB는 로컬 저장됐지만 Google Sheets 반영에 실패했습니다.') : '인증 DB를 로컬에 저장했습니다.', synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
 }
 function editReferralEmployee(email) {
   const row = employees.find(e=>normalizeReferralEmail(e.email)===normalizeReferralEmail(email));

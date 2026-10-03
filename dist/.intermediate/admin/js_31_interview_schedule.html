@@ -278,7 +278,7 @@ function addCandidateDateRow(dateValue, amChecked=true, pmChecked=true) {
 function removeCandidateDateRow(btn) {
   const list = document.getElementById('csl-date-list');
   const rows = list ? list.querySelectorAll('[data-date-row]') : [];
-  if(rows.length <= 1) { toast('최소 1개의 날짜는 있어야 합니다.', 'terr'); return; }
+  if(rows.length <= 1) { toast('후보 날짜는 최소 1개가 있어야 해서 지울 수 없습니다.', 'tinfo'); return; }
   btn.closest('[data-date-row]')?.remove();
 }
 
@@ -529,13 +529,13 @@ async function sendPanelAvailabilityRequest() {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const options = collectAvailabilityOptions();
-  if(!options.length) { toast('면접관에게 확인할 날짜와 오전·오후를 선택하세요.', 'terr'); return; }
+  if(!options.length) { fieldError_('csl-panel-start', '면접관에게 확인할 기간의 시작일을 선택해 주세요.'); return; }
   const keys = panelAvailabilityKeys(stageIdx);
   const panelists = parsePanelists(pos[keys.panel]).filter(p => p.email && p.email.includes('@'));
-  if(!panelists.length) { toast('이메일이 등록된 면접관이 없습니다. 포지션의 면접관 정보를 확인하세요.', 'terr'); return; }
+  if(!panelists.length) { toast('이메일이 등록된 면접관이 없습니다. 포지션의 면접관 정보를 확인해 주세요.', 'terr'); return; }
   const round = stageIdx === 1 ? '1차' : '2차';
   const deadline = document.getElementById('csl-panel-deadline')?.value || '';
-  if(!deadline) { toast('면접관 응답 마감일을 입력하세요.', 'terr'); return; }
+  if(!deadline) { fieldError_('csl-panel-deadline', '면접관 응답 마감일을 입력해 주세요.'); return; }
   const expiresAt = new Date(`${deadline}T23:59:59+09:00`).toISOString();
   const optionText = formatAvailabilityOptions(options);
   const existing = await refreshPanelAvailabilityResponses(posId, stageIdx);
@@ -698,11 +698,11 @@ async function sendCollectSlots() {
   const roundLabel = round === '1차' ? '1차 실무면접' : '2차 임원면접';
 
   const options = collectAvailabilityOptions();
-  if(!options.length) { toast('후보 날짜와 오전·오후를 1개 이상 선택하세요.', 'terr'); return; }
+  if(!options.length) { fieldError_('csl-date-list', '후보 날짜와 오전·오후를 1개 이상 선택해 주세요.'); return; }
   const uniqueDates = new Set(options.map(item => item.date));
-  if(uniqueDates.size !== options.length) { toast('같은 날짜가 중복되었습니다.', 'terr'); return; }
+  if(uniqueDates.size !== options.length) { fieldError_('csl-date-list', '같은 날짜가 두 번 들어 있습니다. 하나를 지워 주세요.'); return; }
   const deadline = document.getElementById('csl-deadline')?.value || '';
-  if(!deadline) { toast('응답 마감일을 입력하세요.', 'terr'); return; }
+  if(!deadline) { fieldError_('csl-deadline', '지원자 응답 마감일을 입력해 주세요.'); return; }
   const loc = document.getElementById('csl-loc')?.value || '';
   const slotText = formatAvailabilityOptions(options);
   pos[panelKeys.options] = options;
@@ -1194,9 +1194,9 @@ async function applyBatchSchedule() {
   const date = document.getElementById('bs-date')?.value;
   const loc  = document.getElementById('bs-loc')?.value?.trim() || '';
   const panelLoc = document.getElementById('bs-panel-loc')?.value?.trim() || '';
-  if(!date) { toast('면접 날짜를 선택하세요.', 'terr'); return; }
-  if(!loc) { toast('지원자에게 안내할 장소를 입력하세요.', 'terr'); return; }
-  if(!panelLoc) { toast('면접관에게 안내할 실제 면접 장소를 입력하세요.', 'terr'); return; }
+  if(!date) { fieldError_('bs-date', '면접 날짜를 선택해 주세요.'); return; }
+  if(!loc) { fieldError_('bs-loc', '지원자에게 안내할 장소를 입력해 주세요.'); return; }
+  if(!panelLoc) { fieldError_('bs-panel-loc', '면접관에게 안내할 실제 면접 장소를 입력해 주세요.'); return; }
 
   const pos = positions.find(p => Number(p.id) === Number(posId));
   const round = stageIdx === 1 ? '1차' : '2차';
@@ -1270,7 +1270,7 @@ async function applyBatchSchedule() {
     }
     renderDashboard(); renderTracker(); renderPositions();
     if(typeof renderIntTable === 'function') renderIntTable();
-    toast(`${round} 면접 일정 확정 완료 · ${slots.length}명. 안내 메일은 아래 화면에서 발송하세요.`, 'tok');
+    toast(`${round} 면접 일정 확정 완료 · ${slots.length}명. 안내 메일은 아래 화면에서 발송해 주세요.`, 'tok');
     if(round === '2차') warnReferenceBeforeSecondInterview(slots.map(s => s.cand));
     closeModal('modal-batch-schedule');
     refreshOpenPositionDetail(posId);

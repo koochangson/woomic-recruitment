@@ -300,21 +300,21 @@ function editPosition(posId) {
 
 function savePosition() {
   const title = document.getElementById('pos-title')?.value.trim();
-  if(!title) { toast('포지션명을 입력하세요.', 'terr'); return; }
+  if(!title) { fieldError_('pos-title', '포지션명을 입력해 주세요.'); return; }
   const location = document.querySelector('input[name="pos-location"]:checked')?.value || '';
   const team = document.getElementById('pos-team')?.value || '';
   const jobType = document.getElementById('pos-jobtype')?.value || '';
-  if(!location) { toast('소속을 선택하세요.', 'terr'); return; }
-  if(location==='본사' && !team) { toast('본사 팀을 선택하세요.', 'terr'); return; }
+  if(!location) { fieldError_('input[name="pos-location"]', '소속(본사/현장)을 선택해 주세요.'); return; }
+  if(location==='본사' && !team) { fieldError_('pos-team', '본사 팀을 선택해 주세요.'); return; }
   if(location==='본사') {
     const validTeams = [...document.querySelectorAll('#pos-team-options option')].map(option=>option.value);
-    if(!validTeams.includes(team)) { toast('검색 목록에서 팀을 선택하세요.', 'terr'); return; }
+    if(!validTeams.includes(team)) { fieldError_('pos-team', `${josa_(team, '은', '는')} 팀 목록에 없습니다. 검색 목록에서 팀을 선택해 주세요.`); return; }
   }
-  if(location==='현장' && !jobType) { toast('현장 직종을 선택하세요.', 'terr'); return; }
+  if(location==='현장' && !jobType) { fieldError_('pos-jobtype', '현장 직종을 선택해 주세요.'); return; }
   const etype = document.getElementById('pos-etype')?.value || '정규직';
   const targetGradeBand = normalizeGradeBand(document.getElementById('pos-grade-band')?.value, true);
   // 신규 정규직 포지션은 채용 대상 직급을 반드시 고른다. 기존 포지션은 담당자가 수정할 때 지정한다.
-  if(!editingPosId && etype === '정규직' && !targetGradeBand) { toast('채용 대상 직급(사원급/간부급/혼합)을 선택하세요.', 'terr'); return; }
+  if(!editingPosId && etype === '정규직' && !targetGradeBand) { fieldError_('pos-grade-band', '채용 대상 직급(사원급/간부급/혼합)을 선택해 주세요.'); return; }
   const existingPos = editingPosId ? (positions.find(p => Number(p.id) === Number(editingPosId)) || {}) : {};
 
   // 수정 시 폼에 없는 필드(면접관 일정 발송·확정 기록, 후보일정, rev 등)를 그대로 유지한다 —

@@ -171,7 +171,7 @@ async function confirmStageChange() {
     && requiresReferenceCheck(c)
     && c.ref === '미시작';
   if(needsReferenceMailChoice && referenceMailChoice === null) {
-    toast('추천인 등록 안내메일 발송 여부를 예/아니오로 선택해 주세요.', 'terr');
+    toast('추천인 등록 안내메일을 보낼지 [예]/[아니오]를 선택해 주세요.', 'terr');
     return;
   }
 
@@ -341,7 +341,7 @@ async function confirmStageChange() {
       const sent = await startRef(c.id, false);
       if(!sent) toast('단계 이동은 완료됐지만 추천인 등록 안내 메일은 발송되지 않았습니다. 레퍼런스 화면에서 [재요청]으로 다시 보내 주세요.', 'tw');
     } else {
-      toast('추천인 등록 안내 메일은 보내지 않았습니다. 필요할 때 레퍼런스 화면에서 요청하세요.', 'tinfo');
+      toast('추천인 등록 안내 메일은 보내지 않았습니다. 필요할 때 레퍼런스 화면에서 요청해 주세요.', 'tinfo');
     }
   }
 
@@ -385,7 +385,7 @@ async function confirmStageChange() {
       if(GS_CONFIG.scriptUrl) {
         scheduledInterview = interviews.find(i => i.candId === c.id && i.type === intType) || null;
       }
-      toast(`면접 후보 일정 ${slots.length}개 등록 (면접 관리 탭에서 확정하세요)`, 'tok');
+      toast(`면접 후보 일정 ${slots.length}개 등록 · 면접 화면에서 일정을 확정해 주세요`, 'tok');
     }
   }
 
@@ -480,7 +480,7 @@ async function saveIntResult() {
   const result = document.getElementById('ir-result')?.value || '';
   const note = document.getElementById('ir-note')?.value.trim() || '';
   if(!['합격','불합격'].includes(result)) {
-    toast('면접 결과를 선택하세요.', 'terr');
+    fieldError_('ir-result', '면접 결과를 선택해 주세요.');
     return;
   }
   itv.result = result;
@@ -507,24 +507,25 @@ async function addCandidate() {
   const source  = document.getElementById('nc-source')?.value || 'direct';
   const headhunterId = document.getElementById('nc-headhunter-id')?.value || '';
   const headhunter = getHeadhunterDb().find(x => x.id === headhunterId);
-  if(!name||!pos) { toast('성명과 직무를 입력하세요.', 'terr'); return; }
-  if(source !== 'headhunting' && !email) { toast('입사지원자는 이메일이 필수입니다.', 'terr'); return; }
-  if(source === 'headhunting' && !headhunter) { toast('헤드헌팅 업체를 선택하세요.', 'terr'); return; }
-  if(source === 'headhunting' && !headhunter.email) { toast('선택한 헤드헌팅 업체의 담당자 이메일을 설정 탭 DB에 입력하세요.', 'terr'); return; }
+  if(!name) { fieldError_('nc-name', '성명을 입력해 주세요.'); return; }
+  if(!pos) { fieldError_('nc-pos', '직무를 입력해 주세요.'); return; }
+  if(source !== 'headhunting' && !email) { fieldError_('nc-email', '이메일을 입력해 주세요. (헤드헌팅이 아닌 지원자는 이메일로 안내합니다)'); return; }
+  if(source === 'headhunting' && !headhunter) { fieldError_('nc-headhunter-id', '헤드헌팅 업체를 선택해 주세요.'); return; }
+  if(source === 'headhunting' && !headhunter.email) { fieldError_('nc-headhunter-id', '선택한 헤드헌팅 업체에 담당자 이메일이 없습니다. 설정 → 헤드헌팅 업체 DB에 입력해 주세요.'); return; }
   const modal = document.getElementById('modal-add');
   const editId = modal.dataset.editId ? parseInt(modal.dataset.editId) : null;
   const posIdVal = parseInt(document.getElementById('nc-pos-id')?.value) || null;
   const fromPos = modal.dataset.returnPosId ? parseInt(modal.dataset.returnPosId) : null;
   const finalPosId = editId ? (parseInt(document.getElementById('nc-pos-id')?.value) || null) : (posIdVal || fromPos);
   if(!editId && !finalPosId) {
-    toast('포지션 상세 또는 드롭다운에서 연결할 포지션을 선택하세요.', 'terr');
+    fieldError_('nc-pos-id', '연결할 포지션을 선택해 주세요.');
     return;
   }
   const gradeBandOverride = normalizeGradeBand(document.getElementById('nc-grade-band')?.value, false);
   const finalPos = finalPosId ? positions.find(p => Number(p.id) === Number(finalPosId)) : null;
   if(!editId && !gradeBandOverride && finalPos && (finalPos.etype || '정규직') === '정규직'
      && normalizeGradeBand(finalPos.targetGradeBand, true) === 'MIXED') {
-    toast('혼합 포지션은 지원자의 채용예정 직급군을 선택해야 합니다.', 'terr');
+    fieldError_('nc-grade-band', '혼합 포지션은 지원자의 채용예정 직급군(사원급/간부급)을 선택해 주세요.');
     return;
   }
   const seatInfo = finalPosId ? getPosSeatInfo(finalPosId) : null;
@@ -873,9 +874,9 @@ async function quickNotify(id, ch) {
 async function addInterview() {
   const cid  = parseInt(document.getElementById('int-cand').value);
   const cand = candidates.find(c=>c.id===cid);
-  if(!cand) { toast('지원자를 선택하세요.', 'terr'); return; }
+  if(!cand) { fieldError_('int-cand', '지원자를 선택해 주세요.'); return; }
   const dt = document.getElementById('int-dt').value;
-  if(!dt) { toast('면접 일시를 입력하세요.', 'terr'); return; }
+  if(!dt) { fieldError_('int-dt', '면접 일시를 입력해 주세요.'); return; }
   const type = document.getElementById('int-type').value;
   const itv = {
     id: nextId(), candId: cid, candName: cand.name, type,
@@ -969,9 +970,9 @@ function renderInterviewPositionCards() {
 async function sendIntNotify(ch) {
   const cid = parseInt(document.getElementById('int-cand').value);
   const cand = candidates.find(c=>c.id===cid);
-  if(!cand) { toast('지원자를 선택하세요.', 'terr'); return; }
+  if(!cand) { fieldError_('int-cand', '지원자를 선택해 주세요.'); return; }
   const itv = interviews.find(i=>i.candId===cid);
-  if(!itv) { toast('면접 일정을 먼저 등록하세요.', 'terr'); return; }
+  if(!itv) { toast('면접 일정을 먼저 등록해 주세요.', 'terr'); return; }
   if(ch === 'outlook') {
     const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
     const target = getCandidateMailTarget(cand);
@@ -1295,7 +1296,7 @@ function renderRefReport(candId) {
 function saveRefReport() {
   const id=Number(document.getElementById('ref-report-cand')?.value);
   const c=candidates.find(x=>Number(x.id)===id);
-  if(!c){toast('결과를 정리할 지원자를 선택하세요.','terr');return;}
+  if(!c){fieldError_('ref-report-cand', '결과를 정리할 지원자를 선택해 주세요.');return;}
   const val=field=>document.getElementById(`ref-report-${field}`)?.value.trim()||'';
   const wrap=document.getElementById('ref-report-wrap');
   const previous=refReports[c.id] || {};
@@ -1675,16 +1676,16 @@ function applyAISectionsToRefReport(cid, rawText) {
 }
 function applyAIToRefReport() {
   const rawText = document.getElementById('ref-ai-text')?.textContent || '';
-  if(!rawText) { toast('먼저 AI 요약을 생성하세요.', 'terr'); return; }
+  if(!rawText) { toast('먼저 AI 요약을 생성해 주세요.', 'terr'); return; }
   if(rawText.trim().startsWith('오류:') || rawText.trim().startsWith('AI 요약 생성 실패')) { toast('오류 결과는 결과표에 반영할 수 없습니다.', 'terr'); return; }
   const cid = parseInt(document.getElementById('ref-ai-cand')?.value);
-  if(!cid) { toast('AI 요약 대상 지원자를 선택하세요.', 'terr'); return; }
+  if(!cid) { fieldError_('ref-ai-cand', 'AI 요약 대상 지원자를 선택해 주세요.'); return; }
   applyAISectionsToRefReport(cid, rawText); // 정리표와 저장 상태 문구에 바로 반영된다
 }
 async function generateAI(){
   const cid=parseInt(document.getElementById('ref-ai-cand')?.value);
   const c=candidates.find(x=>x.id===cid);
-  if(!c){toast('지원자를 선택하세요.','terr');return;}
+  if(!c){fieldError_('ref-ai-cand', '지원자를 선택해 주세요.');return;}
   if(c.ref==='미시작'){toast('레퍼런스 체크가 시작되지 않아 요약할 응답이 없습니다.','terr');return;}
   const syncedRefs=ensureRefDetails(c);
   if(!syncedRefs.length){toast('아직 등록된 추천인이 없어 요약할 응답이 없습니다.','terr');return;}
@@ -1728,7 +1729,7 @@ ${refs.map((r,i)=>`[추천인 ${i+1} · ${r.name} · ${r.relation}]\n<referee_re
       if(prog)prog.style.display='none';
       if(out)out.style.display='block';
       if(text)text.textContent=result;
-      if(data.truncated) toast('AI 응답이 길이 제한으로 잘렸을 수 있습니다. 내용을 확인하세요.', 'tw');
+      if(data.truncated) toast('AI 응답이 길이 제한으로 잘렸을 수 있습니다. 내용을 확인해 주세요.', 'tw');
     },300);
   }catch(e){
     clearInterval(timer);if(prog)prog.style.display='none';if(out)out.style.display='none';
@@ -1767,7 +1768,7 @@ async function syncRefFromGS() {
 async function syncRefFromGSInternal() {
   const url = GS_CONFIG.refAutoUrl || document.getElementById('cfg-ref-auto-url')?.value?.trim();
   const status = document.getElementById('ref-auto-conn-status');
-  if(!url) { toast('레퍼런스 자동화 URL을 먼저 입력하세요.', 'terr'); return false; }
+  if(!url) { fieldError_('cfg-ref-auto-url', '레퍼런스 자동화 URL을 먼저 입력해 주세요.'); return false; }
   if(status) status.textContent = '가져오는 중...';
   try {
     const res = await fetch(url + '?action=getRefStatus');

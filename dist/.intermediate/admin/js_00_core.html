@@ -150,7 +150,7 @@ function applyMailForward_(forward, toEmail, subject, body, templateData) {
 async function dispatchCandidateMail_(cand, { subject, purpose, logType, sendDirect, headhunterTemplateData }) {
   if (isHeadhuntingCandidate(cand)) {
     const target = getCandidateMailTarget(cand);
-    if(!target.to) { toast(`${cand.name}님의 헤드헌팅 업체 담당자 이메일이 없습니다. 설정의 헤드헌팅 업체 DB를 확인하세요.`, 'terr'); return false; }
+    if(!target.to) { toast(`${cand.name}님의 헤드헌팅 업체 담당자 이메일이 없습니다. 설정의 헤드헌팅 업체 DB를 확인해 주세요.`, 'terr'); return false; }
     mailForwardContext_ = { cand, target, purpose, logType, headhunterTemplateData };
     let pending;
     try { pending = sendDirect(); } finally { mailForwardContext_ = null; }
@@ -368,8 +368,8 @@ function closeAddTeam() {
 function saveNewTeam() {
   const name = document.getElementById('new-team-name')?.value.trim();
   const division = document.getElementById('new-team-division')?.value.trim() || '';
-  if(!name) { toast('팀명을 입력하세요.', 'terr'); return; }
-  if(teamMaster.some(t=>t.name===name)) { toast('이미 존재하는 팀명입니다.', 'terr'); return; }
+  if(!name) { fieldError_('new-team-name', '팀명을 입력해 주세요.'); return; }
+  if(teamMaster.some(t=>t.name===name)) { fieldError_('new-team-name', `'${name}' 팀은 이미 있습니다. 다른 이름을 입력해 주세요.`); return; }
   teamMaster.push({name,division,source:'manual',active:true,hidden:false});
   saveTeamMaster(); closeAddTeam(); renderTeamMaster();
 }
@@ -1070,7 +1070,7 @@ function showUnlinkedList() {
 function linkCandFromUnlinked(candId) {
   const sel = document.getElementById('ulink-' + candId);
   const posId = sel ? parseInt(sel.value) : null;
-  if(!posId) { toast('포지션을 선택하세요.', 'terr'); return; }
+  if(!posId) { fieldError_(sel, '연결할 포지션을 선택해 주세요.'); return; }
   linkCandToPos(candId, posId);
   logActivity('포지션 연결', `미연결 합격자 연결`, 'candidate', candId);
   showUnlinkedList();
@@ -1258,10 +1258,10 @@ function updateBulkSeatHint() {
 function executeBulkAdd() {
   const posId = parseInt(document.getElementById('bulk-pos-id')?.value);
   const pos = positions.find(p => Number(p.id) === posId);
-  if(!pos) { toast('포지션을 선택하세요.', 'terr'); return; }
+  if(!pos) { fieldError_('bulk-pos-id', '등록할 포지션을 선택해 주세요.'); return; }
   const docPassed = document.getElementById('bulk-doc-passed')?.value || today();
   const lines = (document.getElementById('bulk-lines')?.value || '').split('\n').map(l => l.trim()).filter(Boolean);
-  if(!lines.length) { toast('등록할 합격자를 입력하세요.', 'terr'); return; }
+  if(!lines.length) { fieldError_('bulk-lines', '등록할 합격자를 한 줄에 한 명씩 입력해 주세요.'); return; }
   let ok = 0, skip = 0;
   lines.forEach(line => {
     const parts = line.split(',').map(s => s.trim());
@@ -1516,6 +1516,14 @@ const FRIENDLY_ERRORS_ = {
   non_json_response:'서버 응답을 읽지 못했습니다. 서버(Apps Script) 배포 상태를 확인해 주세요.',
   unknown_action:'서버가 이 기능을 모릅니다. 서버(Apps Script)를 최신 버전으로 다시 배포해 주세요.',
 };
+// 받침에 맞는 조사: josa_('연락처','을','를') → '연락처를', josa_('성명','을','를') → '성명을'
+function josa_(word, withFinal, withoutFinal) {
+  const text = String(word || '');
+  const code = text.charCodeAt(text.length - 1);
+  if(!(code >= 0xAC00 && code <= 0xD7A3)) return `${text}${withFinal}(${withoutFinal})`;
+  return text + ((code - 0xAC00) % 28 ? withFinal : withoutFinal);
+}
+
 function friendlyError_(raw, fallback = '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.') {
   const text = String(raw?.message ?? raw ?? '').trim();
   if(!text) return fallback;

@@ -40,7 +40,7 @@ function reportDelegatedCallFailure_(reason, call, error) {
   console.warn(`[delegated-call] ${reason}: ${source}`, error || '');
   if(delegatedCallFailureNotices_.has(key)) return;
   delegatedCallFailureNotices_.add(key);
-  if(typeof toast === 'function') toast('화면 동작을 실행하지 못했습니다. 새로고침 후 다시 시도하세요.', 'terr');
+  if(typeof toast === 'function') toast('화면 동작을 실행하지 못했습니다. 새로고침 후 다시 시도해 주세요.', 'terr');
 }
 
 function invokeDelegatedCall(call, target, delegatedEvent) {

@@ -1717,8 +1717,8 @@ async function importInterviewersFromEmployeeFile() {
   const input = document.getElementById('interviewer-employee-file');
   const status = document.getElementById('interviewer-upload-status');
   const file = input?.files?.[0];
-  if(!file) { toast('직원현황 엑셀 파일을 선택하세요.', 'terr'); return; }
-  if(!GS_CONFIG.scriptUrl) { toast('Google Sheets 연동 URL을 먼저 설정하세요.', 'terr'); return; }
+  if(!file) { fieldError_('interviewer-employee-file', '직원현황 엑셀 파일을 선택해 주세요.'); return; }
+  if(!GS_CONFIG.scriptUrl) { toast('서버에 연결되지 않았습니다. 설정 → 시스템 연동에서 연결을 먼저 확인해 주세요.', 'terr'); return; }
   try {
     if(status) status.textContent = '직원현황 파일을 읽는 중입니다...';
     const rawRows = await readEmployeeWorkbookRows(file);

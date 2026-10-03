@@ -409,6 +409,8 @@ textarea{resize:vertical;min-height:64px;}
 .toast.terr{background:var(--red);}
 .toast.tw{background:var(--amber);}
 .toast.tinfo{background:#475569;}
+/* 입력값 확인 오류가 난 칸 — 고치기 시작하면 사라진다 */
+.field-invalid{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(220,38,38,.18)!important;border-radius:var(--rsm);}
 @keyframes tin{from{transform:translateY(-8px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 @media (max-width:720px){
   .toast-wrap{left:12px;right:12px;align-items:stretch;}
