@@ -1119,12 +1119,26 @@ function openBatchSchedule(posId, stageIdx, sourceStage = stageIdx, moveAfterApp
   openModal('modal-batch-schedule');
 }
 
+// 공통일정 확정 대상: 모달을 연 시점의 지원자(id) 기준.
+// 열어둔 사이 다른 기기·이전 저장으로 이미 다음 단계(stageIdx)로 옮겨진 지원자도 일정 확정 대상에 남긴다.
+// (예전에는 클릭 시점에 원래 단계만 다시 걸러 "배치할 지원자가 없습니다"만 뜨고 진행되지 않았다.)
+function batchScheduleTargets_() {
+  const { posId, stageIdx, sourceStage } = batchScheduleCtx;
+  const order = Array.isArray(batchScheduleCtx.order) ? batchScheduleCtx.order : [];
+  const allowed = new Set([sourceStage, stageIdx]);
+  const fromOrder = order.map(id => candidates.find(c => Number(c.id) === Number(id)))
+    .filter(c => c && Number(c.posId) === Number(posId) && allowed.has(c.stage));
+  const seen = new Set(fromOrder.map(c => Number(c.id)));
+  const added = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === sourceStage && !seen.has(Number(c.id)));
+  return fromOrder.concat(added);
+}
+
 function computeBatchSlots() {
   const { posId, stageIdx, sourceStage } = batchScheduleCtx;
   const date     = document.getElementById('bs-date')?.value;
   const start    = document.getElementById('bs-start')?.value || '10:00';
   const interval = parseInt(document.getElementById('bs-interval')?.value || '30');
-  const source = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage === sourceStage);
+  const source = batchScheduleTargets_();
   const order = Array.isArray(batchScheduleCtx.order) ? batchScheduleCtx.order : [];
   const pos = positions.find(p => Number(p.id) === Number(posId));
   const optionKey = stageIdx === 1 ? 'panel1AvailabilityOptions' : 'panel2AvailabilityOptions';
@@ -1290,7 +1304,12 @@ async function applyBatchSchedule() {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   const round = stageIdx === 1 ? '1차' : '2차';
   const { slots } = computeBatchSlots();
-  if(!slots.length) { toast('배치할 지원자가 없습니다.', 'tinfo'); return; }
+  if(!slots.length) {
+    toast('일정을 확정할 지원자가 없습니다. 이미 다른 단계로 이동했거나 처리가 끝났을 수 있어 화면을 새로 고칩니다.', 'tw');
+    closeModal('modal-batch-schedule');
+    refreshOpenPositionDetail(posId);
+    return;
+  }
   const conflicts = slots.filter(slot => slot.availability !== 'available');
   if(conflicts.length) {
     const confirmed = await confirmActionModal({
