@@ -592,7 +592,7 @@ async function saveRecruitPlanModal() {
   const deletedIds = previousIds.filter(id=>!savedIds.has(id));
   saveRecruitPlans(); closeModal('modal-recruit-plan'); renderRecruitStatus();
   const synced = GS_CONFIG.scriptUrl ? await syncRecruitPlansToGS(savedRows, deletedIds) : false;
-  toast(`${rpYear}년 ${rpLocation} 채용계획 저장 완료${GS_CONFIG.scriptUrl ? (synced ? ' · Google Sheets 반영' : ' · 로컬 저장, GS 반영 실패') : ''}`, synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
+  toast(`${rpYear}년 ${rpLocation} 채용계획 저장 완료${GS_CONFIG.scriptUrl ? (synced ? ' · Google Sheets 반영' : ' · 이 브라우저에만 저장됨 (Google Sheets 반영 실패 — 다시 저장해 주세요)') : ''}`, synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
 }
 
 function exportRecruitStatus(){const rows=buildRsRows(),data=[['소속','채용형태','본부','팀/직종','TO','완료','달성률(%)','면접','입사예정','잔여'],...rows.map(r=>[r.location,r.empType,r.division||'-',r.label,r.to,r.done,r.rate??'-',r.itv,r.offer,r.remain??'-'])];const csv=data.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`채용현황_${rsYear}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

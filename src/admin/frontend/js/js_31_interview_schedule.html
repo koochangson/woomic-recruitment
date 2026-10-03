@@ -42,7 +42,7 @@ function openCollectSlots(posId, stageIdx) {
   const targetStages = stageIdx === 1 ? [0,1] : [2,3];
   const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage));
   if(!targets.length) {
-    toast(`${round} 면접 일정요청 대상이 없습니다. 지원자를 ${targetStages.map(s=>STAGES[s]).join(' 또는 ')} 단계로 이동해 주세요.`, 'tw');
+    toast(`${round} 면접 일정요청 대상이 없습니다. 지원자를 ${targetStages.map(s=>STAGES[s]).join(' 또는 ')} 단계로 이동해 주세요.`, 'terr');
     return;
   }
 
@@ -543,7 +543,7 @@ async function sendPanelAvailabilityRequest() {
   if(!pendingPanelists.length) {
     const resend = document.getElementById('csl-panel-resend');
     if(resend) resend.style.display = 'none';
-    toast(`면접관 응답 ${panelists.length}/${panelists.length} 완료 · 재발송 대상이 없습니다.`, 'tw');
+    toast(`면접관 응답 ${panelists.length}/${panelists.length} 완료 · 재발송 대상이 없습니다.`, 'tinfo');
     return;
   }
   const panelLoc = document.getElementById('csl-loc')?.value || pos.loc || '';
@@ -720,7 +720,7 @@ async function sendCollectSlots() {
     return true;
   });
   if(!targets.length) {
-    toast(skipped.length ? `보낼 대상이 없습니다 — ${skipped.join(', ')}` : '대상이 없습니다.', skipped.length ? 'tw' : 'terr');
+    toast(skipped.length ? `보낼 대상이 없습니다 — ${skipped.join(', ')}` : '대상이 없습니다.', skipped.length ? 'tinfo' : 'terr');
     return;
   }
 
@@ -995,11 +995,11 @@ function skipCollectSend() { return; }
 
 function closeCollectSend() {
   if(collectSendQueue?.preparing) {
-    toast('면접 정보 저장이 끝난 뒤 닫을 수 있습니다.', 'tw');
+    toast('면접 정보 저장이 끝난 뒤 닫을 수 있습니다.', 'tinfo');
     return;
   }
   if(collectSendBusy) {
-    toast('메일 발송이 끝난 뒤 닫을 수 있습니다.', 'tw');
+    toast('메일 발송이 끝난 뒤 닫을 수 있습니다.', 'tinfo');
     return;
   }
   const posId = collectSendQueue ? collectSendQueue.posId : null;

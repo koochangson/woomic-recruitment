@@ -415,7 +415,7 @@ function selectInterviewer(round, payloadStr) {
 
   const existing = getPanelistsFromHidden(round);
   if (existing.some(p => p.email === iv.email)) {
-    toast(iv.name + '은(는) 이미 추가됐습니다.', 'tw');
+    toast(iv.name + '은(는) 이미 추가됐습니다.', 'tinfo');
     return;
   }
 

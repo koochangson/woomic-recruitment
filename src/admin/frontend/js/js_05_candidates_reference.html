@@ -170,7 +170,7 @@ async function confirmStageChange() {
     && requiresReferenceCheck(c)
     && c.ref === '미시작';
   if(needsReferenceMailChoice && referenceMailChoice === null) {
-    toast('추천인 등록 안내메일 발송 여부를 예/아니오로 선택해 주세요.', 'tw');
+    toast('추천인 등록 안내메일 발송 여부를 예/아니오로 선택해 주세요.', 'terr');
     return;
   }
 
@@ -338,9 +338,9 @@ async function confirmStageChange() {
   if(shouldPromptReferenceStart) {
     if(referenceMailChoice === true) {
       const sent = await startRef(c.id, false);
-      if(!sent) toast('단계 이동은 완료됐지만 추천인 등록 안내 메일은 발송되지 않았습니다.', 'tw');
+      if(!sent) toast('단계 이동은 완료됐지만 추천인 등록 안내 메일은 발송되지 않았습니다. 레퍼런스 화면에서 [재요청]으로 다시 보내 주세요.', 'tw');
     } else {
-      toast('2차면접 단계로 이동했습니다. 추천인 등록 안내 메일은 발송하지 않았습니다.', 'tw');
+      toast('추천인 등록 안내 메일은 보내지 않았습니다. 필요할 때 레퍼런스 화면에서 요청하세요.', 'tinfo');
     }
   }
 
@@ -1488,7 +1488,7 @@ async function markRefRegistered(id){
   const refs=ensureRefDetails(c);
   if(!refs.length){toast('추천인 접수는 구글폼 동기화로 반영됩니다. 접수된 정보가 없습니다.','terr');return;}
   const pend=refDetails[id].find(r=>r.status==='대기');
-  if(!pend){toast('모든 추천인이 이미 접수됐습니다.','tw');return;}
+  if(!pend){toast('모든 추천인이 이미 접수됐습니다.','tinfo');return;}
   pend.status='등록';
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
   const registered=refDetails[id].filter(r=>r.status==='등록'||r.status==='응답').length;
@@ -1558,7 +1558,7 @@ async function sendRefRequest(id){
 }
 async function startAllEligible(){
   const el=candidates.filter(c=>isActiveReferenceCand_(c)&&c.stage>=2&&c.stage<=5&&c.ref==='미시작');
-  if(!el.length){toast('일괄 시작할 대상이 없습니다.','tw');return;}
+  if(!el.length){toast('일괄 시작할 대상이 없습니다.','tinfo');return;}
   const confirmed = await confirmActionModal({
     title:'레퍼런스 안내 일괄 발송',
     message:`아래 ${el.length}명에게 추천인 등록 안내 메일을 순차 발송합니다. 수신 대상을 확인해 주세요.`,
@@ -1626,7 +1626,6 @@ function unmarkReferenceReportSent(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   c.refReportSentAt='';
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();
-  toast(`${esc(c.name)}님 전달 표시를 취소했습니다.`,'tw');
 }
 function parseAIRefSections(rawText) {
   const result = { overall:'', expertise:'', character:'', leadership:'', reason:'' };
@@ -1652,7 +1651,7 @@ function parseAIRefSections(rawText) {
 function applyAISectionsToRefReport(cid, rawText) {
   const sections = parseAIRefSections(rawText);
   const hasValue = Object.values(sections).some(Boolean);
-  if(!hasValue) { toast('결과표에 반영할 항목을 찾지 못했습니다.', 'tw'); return false; }
+  if(!hasValue) { toast('결과표에 반영할 항목을 찾지 못했습니다. AI 요약 형식을 확인하거나 결과표에 직접 입력해 주세요.', 'terr'); return false; }
   const reportSel = document.getElementById('ref-report-cand');
   if(reportSel) reportSel.value = String(cid);
   renderRefReport(cid);
@@ -1675,17 +1674,17 @@ function applyAISectionsToRefReport(cid, rawText) {
 }
 function applyAIToRefReport() {
   const rawText = document.getElementById('ref-ai-text')?.textContent || '';
-  if(!rawText) { toast('먼저 AI 요약을 생성하세요.', 'tw'); return; }
+  if(!rawText) { toast('먼저 AI 요약을 생성하세요.', 'terr'); return; }
   if(rawText.trim().startsWith('오류:') || rawText.trim().startsWith('AI 요약 생성 실패')) { toast('오류 결과는 결과표에 반영할 수 없습니다.', 'terr'); return; }
   const cid = parseInt(document.getElementById('ref-ai-cand')?.value);
-  if(!cid) { toast('AI 요약 대상 지원자를 확인할 수 없습니다.', 'tw'); return; }
+  if(!cid) { toast('AI 요약 대상 지원자를 선택하세요.', 'terr'); return; }
   applyAISectionsToRefReport(cid, rawText); // 정리표와 저장 상태 문구에 바로 반영된다
 }
 async function generateAI(){
   const cid=parseInt(document.getElementById('ref-ai-cand')?.value);
   const c=candidates.find(x=>x.id===cid);
   if(!c){toast('지원자를 선택하세요.','terr');return;}
-  if(c.ref==='미시작'){toast('레퍼런스 체크가 시작되지 않았습니다.','tw');return;}
+  if(c.ref==='미시작'){toast('레퍼런스 체크가 시작되지 않아 요약할 응답이 없습니다.','terr');return;}
   const syncedRefs=ensureRefDetails(c);
   if(!syncedRefs.length){toast('접수된 추천인 정보가 없습니다. Google Sheets 동기화를 먼저 실행하세요.','terr');return;}
   const prog=document.getElementById('ref-ai-progress');

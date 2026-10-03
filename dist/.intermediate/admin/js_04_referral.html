@@ -631,7 +631,7 @@ function rewardExportRows(payMonth='') {
 }
 function exportReferralRewardsCsv(payMonth='') {
   const rows = rewardExportRows(payMonth);
-  if(!rows.length) { toast('내보낼 포상금 건이 없습니다.','tw'); return; }
+  if(!rows.length) { toast('내보낼 포상금 건이 없습니다.','tinfo'); return; }
   const header = ['급여월','마감일','마일스톤','상태','추천번호','후보자','추천인','추천인 이메일','입사일','CL','금액','재직확인자','재직확인일','지급요청일','지급완료일'];
   const lines = [header.map(rewardCsvValue).join(',')];
   rows.forEach(r=>{
@@ -788,7 +788,7 @@ function editReferralEmployee(email) {
 }
 function refreshEmployeesFromGS() {
   return loadEmployeesFromGS({forceFull:true, force:true}).then(ok=>{
-    toast(ok?'인증 DB를 동기화했습니다.':'인증 DB 동기화 실패', ok?'tok':'tw');
+    toast(ok?'인증 DB를 동기화했습니다.':'인증 DB 동기화에 실패했습니다. 연결 상태를 확인하고 다시 시도해 주세요.', ok?'tok':'terr');
   });
 }
 function parseReferralItems(raw) { try { return JSON.parse(raw||'{}') || {}; } catch(e) { return {recommendationReason:String(raw||'')}; } }

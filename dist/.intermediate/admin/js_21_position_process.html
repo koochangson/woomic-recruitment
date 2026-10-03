@@ -489,7 +489,7 @@ async function executePositionProcessTask(positionId, actionKey) {
     const offerIndex=flow.indexOf(4);
     const previousStage=offerIndex>0?flow[offerIndex-1]:-1;
     if(previousStage>=0 && d.list.some(c=>c.stage===previousStage)) return changePositionProcessStage(positionId,4);
-    return toast('처우협의 결과가 이미 확정되었거나 이동할 대상자가 없습니다.','tw');
+    return toast('처우협의 결과가 이미 확정되었거나 이동할 대상자가 없습니다.','tinfo');
   }
   if(actionKey === 'final') return openPositionResultModal(positionId, 4);
   if(actionKey === 'onboard') return openOnboardingFromPosition(positionId);
