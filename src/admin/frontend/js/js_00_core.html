@@ -1290,7 +1290,7 @@ function executeBulkAdd() {
 function renderFunnel() {
   const el = document.getElementById('dash-funnel');
   if(!el) return;
-  const pool = candidates.filter(c => c.stage < 6 && (c.posId != null && c.posId !== ''));
+  const pool = candidates.filter(c => c.stage < 6 && (c.posId != null && c.posId !== '') && isActivePipelineCand(c));
   const counts = FLOW.map(idx => pool.filter(c => c.stage === idx).length);
   const max = Math.max(...counts, 1);
   el.innerHTML = `<div class="funnel-bar">${FLOW.map((idx, i) => `

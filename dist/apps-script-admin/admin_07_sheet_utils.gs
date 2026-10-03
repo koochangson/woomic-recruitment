@@ -231,12 +231,10 @@ function weeklyOps() {
   return { ok: true, changeArchive: archiveResult };
 }
 
-// 트리거 등록은 운영자가 별도로 수행한다. 이 함수는 매일 09:00 실행을 전제로 하며,
-// eventKey가 이미 성공 기록된 메일은 다시 보내지 않는다.
 // 진행이 끝난 지원자 id 집합 — 불합격, 보류(held), 또는 진행중이 아닌 포지션 소속.
 function stoppedPipelineCandidateIds_() {
   const closedPositions = new Set(readRowsIfSheetExists_('Positions')
-    .filter(row => ['filled', 'done', 'partial', 'nohire', 'stopped'].includes(String(row.status || '').trim()))
+    .filter(row => CLOSED_POSITION_STATUSES_.includes(String(row.status || '').trim()))
     .map(row => String(row.id)));
   const ids = new Set();
   readRowsIfSheetExists_('Candidates').forEach(row => {
@@ -248,6 +246,8 @@ function stoppedPipelineCandidateIds_() {
   return ids;
 }
 
+// 트리거 등록은 운영자가 별도로 수행한다. 이 함수는 매일 09:00 실행을 전제로 하며,
+// eventKey가 이미 성공 기록된 메일은 다시 보내지 않는다.
 function dailyOps() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return { ok: false, error: 'ops_already_running' };

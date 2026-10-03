@@ -333,7 +333,9 @@
         });
         const data = await res.json();
         if (!data.ok) {
-          if (data.error === 'token_expired') {
+          if (data.error === 'process_closed') {
+            showError('채용 절차가 종료되었습니다', '해당 채용 절차가 마감되어 더 이상 응답을 받지 않습니다. 참여해 주셔서 감사합니다.');
+          } else if (data.error === 'token_expired') {
             showError('링크가 만료되었습니다', '채용 담당자에게 새 링크 발송을 요청해 주세요.');
           } else {
             showError('링크를 확인할 수 없습니다', '링크가 올바르지 않습니다. 채용 담당자에게 문의해 주세요.');
@@ -379,7 +381,9 @@
         });
         const data = await res.json();
         if (!data.ok) {
-          if (data.error === 'already_submitted') {
+          if (data.error === 'process_closed') {
+            document.getElementById('formMessage').textContent = '해당 채용 절차가 마감되어 더 이상 응답을 받지 않습니다. 참여해 주셔서 감사합니다.';
+          } else if (data.error === 'already_submitted') {
             document.getElementById('formMessage').textContent = '이미 추천인 등록이 완료되었습니다. 다시 제출할 수 없습니다.';
           } else if (data.error === 'token_expired') {
             document.getElementById('formMessage').textContent = '링크가 만료되었습니다. 담당자에게 새 링크 발송을 요청해 주세요.';

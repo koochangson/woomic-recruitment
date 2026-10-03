@@ -85,7 +85,7 @@
       if(!token) return showError('응답 링크의 토큰이 없습니다.');
       try {
         const data = await api(audience === 'panel' ? 'verifyPanelAvailabilityToken' : 'verifyInterviewAvailabilityToken', {token});
-        if(!data.ok) return showError(data.error === 'token_expired' ? '응답 기간이 종료되었습니다. 피플팀에 문의해 주세요.' : '유효하지 않은 응답 링크입니다.');
+        if(!data.ok) return showError(data.error === 'process_closed' ? '해당 채용 절차가 마감되어 더 이상 응답을 받지 않습니다. 참여해 주셔서 감사합니다.' : data.error === 'token_expired' ? '응답 기간이 종료되었습니다. 피플팀에 문의해 주세요.' : '유효하지 않은 응답 링크입니다.');
         const isPanel = data.participantRole === 'panel' || audience === 'panel';
         const isHeadhunter = !isPanel && data.responseBy === 'headhunter';
         responseBy = isHeadhunter ? 'headhunter' : 'candidate';
@@ -132,7 +132,7 @@
         if(!result.ok) throw new Error(result.error || 'save_failed');
         form.classList.add('hidden'); complete.classList.remove('hidden'); complete.focus({ preventScroll: true });
       } catch(err) {
-        formMessage.textContent=err.message === 'token_expired' ? '응답 기간이 종료되었습니다.' : '응답을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+        formMessage.textContent=err.message === 'process_closed' ? '해당 채용 절차가 마감되어 더 이상 응답을 받지 않습니다. 참여해 주셔서 감사합니다.' : err.message === 'token_expired' ? '응답 기간이 종료되었습니다.' : '응답을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
         form.removeAttribute('aria-busy');
         button.disabled=false; button.textContent=responseBy === 'headhunter' ? '후보자 가능 일정 제출' : '가능 일정 제출';
       }

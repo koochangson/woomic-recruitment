@@ -202,6 +202,27 @@ function readEmployeeDirectoryCache_(cache) {
   }
 }
 
+
+// ── 종료된 채용 프로세스 차단 ──────────────────────────────────
+// 충원완료·부분충원 마감·미채용·채용중단 포지션, 불합격·보류 지원자의 공개 링크(면접 가능일, 면접관 일정,
+// 추천인 등록, 레퍼런스 설문)는 더 이상 받지 않는다. 특히 추천인 등록은 제출 즉시 외부 추천인에게
+// 설문 메일이 자동 발송되므로 반드시 막아야 한다.
+const CLOSED_POSITION_STATUSES_ = ['filled', 'done', 'partial', 'nohire', 'stopped'];
+
+function positionProcessClosed_(positionId) {
+  if (positionId === '' || positionId == null) return false;
+  const pos = readRowsIfSheetExists_('Positions').find(row => String(row.id) === String(positionId));
+  return !!pos && CLOSED_POSITION_STATUSES_.includes(String(pos.status || '').trim());
+}
+
+function candidateProcessClosed_(candId) {
+  if (candId === '' || candId == null) return false;
+  const cand = readRowsIfSheetExists_('Candidates').find(row => String(row.id) === String(candId));
+  if (!cand) return false;
+  if (String(cand.stage || '') === '불합격' || String(cand.held || '') === 'Y') return true;
+  return positionProcessClosed_(cand.posId);
+}
+
 function readRowsIfSheetExists_(sheetName) {
   const ss = getMainSpreadsheet_();
   const sheet = ss.getSheetByName(sheetName);

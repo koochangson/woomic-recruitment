@@ -138,6 +138,7 @@ function verifyPanelAvailabilityToken_(payload) {
   if (!token) return json_({ ok: false, error: 'token_required' });
   const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
   if (panelAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   return json_({
     ok: true,
@@ -172,6 +173,7 @@ function submitPanelAvailability_(payload) {
     const rowIndex = findRowIndex_(sheet, 'token', token, headers);
     if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
     const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
+    if (row && positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
     if (!row) return json_({ ok: false, error: 'invalid_token' });
     if (panelAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
 

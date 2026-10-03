@@ -699,6 +699,7 @@ function verifyInterviewAvailabilityToken_(payload) {
   if (!token) return json_({ ok:false, error:'token_required' });
   const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
   if (!row) return json_({ ok:false, error:'invalid_token' });
+  if (candidateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
   if (interviewAvailabilityExpired_(row)) return json_({ ok:false, error:'token_expired' });
   let selections = [];
   try { selections = JSON.parse(row.availabilitySelections || '[]'); } catch (err) {}
@@ -730,6 +731,7 @@ function submitInterviewAvailability_(payload) {
     const rowIndex = findRowIndex_(sheet, 'availabilityToken', token, headers);
     if (rowIndex < 0) return json_({ ok:false, error:'invalid_token' });
     const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
+    if (row && candidateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
     if (!row || interviewAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
     if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok:false, error:'proxy_confirmation_required' });
     const allowed = {};
@@ -864,6 +866,7 @@ function verifyPanelAvailabilityToken_(payload) {
   if (!token) return json_({ ok:false, error:'token_required' });
   const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
   if (!row) return json_({ ok:false, error:'invalid_token' });
+  if (positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
   if (panelAvailabilityExpired_(row)) return json_({ ok:false, error:'token_expired' });
   return json_({ ok:true, participantRole:'panel', participantName:row.panelistName || '', positionText:row.positionTitle || '', interviewType:row.round || '', location:row.loc || '',
     options:normalizeInterviewAvailabilityOptions_(row.availabilityOptions), alreadySubmitted:row.status === 'RESPONDED' || row.status === 'UNAVAILABLE',
@@ -886,6 +889,7 @@ function submitPanelAvailability_(payload) {
     const rowIndex = findRowIndex_(sheet, 'token', token, headers);
     if (rowIndex < 0) return json_({ ok:false, error:'invalid_token' });
     const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
+    if (row && positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
     if (!row || panelAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => option.periods.forEach(period => { allowed[option.date + '|' + period] = true; }));
@@ -1031,6 +1035,7 @@ function verifyReferenceCandidateToken_(payload) {
   if (!token) return json_({ ok: false, error: 'token_required' });
   const row = readRows_('ReferenceCandidates').find(r => r.token === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (candidateProcessClosed_(row.pipelineCandId)) return json_({ ok: false, error: 'process_closed' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   return json_({
     ok: true,
@@ -1065,6 +1070,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
   const candRow = readRows_('ReferenceCandidates').find(row => String(row.token || '') === token);
   if (!candRow) return json_({ error: 'invalid_token' });
+  if (candidateProcessClosed_(candRow.pipelineCandId)) return json_({ error: 'process_closed' });
   if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
 
   const normalizedReferees = referees.map(ref => ({
@@ -1163,6 +1169,7 @@ function verifyReferenceRefereeToken_(payload) {
   if (!token) return json_({ ok: false, error: 'token_required' });
   const row = readRows_('ReferenceResponses').find(r => r.token === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (candidateProcessClosed_(row.pipelineCandId)) return json_({ ok: false, error: 'process_closed' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
   return json_({ ok: true });
@@ -1215,6 +1222,7 @@ function verifyRefereeIdentity_(payload) {
   if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
   const row = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (candidateProcessClosed_(row.pipelineCandId)) return json_({ ok: false, error: 'process_closed' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
 
@@ -1253,6 +1261,7 @@ function submitReferenceResponseUnlocked_(payload) {
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
   const existing = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
   if (!existing) return json_({ error: 'invalid_token' });
+  if (candidateProcessClosed_(existing.pipelineCandId)) return json_({ error: 'process_closed' });
   if (existing.submittedAt) return json_({ error: 'already_submitted' });
   if (referenceLinkExpired_(existing)) return json_({ error: 'token_expired' });
   if (!existing.verifiedAt) return json_({ error: 'identity_not_verified' });
@@ -1479,6 +1488,27 @@ function readEmployeeDirectoryCache_(cache) {
   } catch (err) {
     return null;
   }
+}
+
+
+// ── 종료된 채용 프로세스 차단 ──────────────────────────────────
+// 충원완료·부분충원 마감·미채용·채용중단 포지션, 불합격·보류 지원자의 공개 링크(면접 가능일, 면접관 일정,
+// 추천인 등록, 레퍼런스 설문)는 더 이상 받지 않는다. 특히 추천인 등록은 제출 즉시 외부 추천인에게
+// 설문 메일이 자동 발송되므로 반드시 막아야 한다.
+const CLOSED_POSITION_STATUSES_ = ['filled', 'done', 'partial', 'nohire', 'stopped'];
+
+function positionProcessClosed_(positionId) {
+  if (positionId === '' || positionId == null) return false;
+  const pos = readRowsIfSheetExists_('Positions').find(row => String(row.id) === String(positionId));
+  return !!pos && CLOSED_POSITION_STATUSES_.includes(String(pos.status || '').trim());
+}
+
+function candidateProcessClosed_(candId) {
+  if (candId === '' || candId == null) return false;
+  const cand = readRowsIfSheetExists_('Candidates').find(row => String(row.id) === String(candId));
+  if (!cand) return false;
+  if (String(cand.stage || '') === '불합격' || String(cand.held || '') === 'Y') return true;
+  return positionProcessClosed_(cand.posId);
 }
 
 function readRowsIfSheetExists_(sheetName) {

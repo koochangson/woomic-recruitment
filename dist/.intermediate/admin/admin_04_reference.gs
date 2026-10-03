@@ -115,6 +115,7 @@ function verifyInterviewAvailabilityToken_(payload) {
   if (!token) return json_({ ok: false, error: 'token_required' });
   const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (candidateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
   if (interviewAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   let selections = [];
   try { selections = JSON.parse(row.availabilitySelections || '[]'); } catch (err) {}
@@ -157,6 +158,7 @@ function submitInterviewAvailability_(payload) {
     const rowIndex = findRowIndex_(sheet, 'availabilityToken', token, headers);
     if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
     const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
+    if (row && candidateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
     if (!row) return json_({ ok: false, error: 'invalid_token' });
     if (interviewAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
     if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok: false, error: 'proxy_confirmation_required' });
@@ -325,6 +327,7 @@ function verifyReferenceCandidateToken_(payload) {
   if (!token) return json_({ ok: false, error: 'token_required' });
   const row = readRows_('ReferenceCandidates').find(r => r.token === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (candidateProcessClosed_(row.pipelineCandId)) return json_({ ok: false, error: 'process_closed' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   return json_({
     ok: true,
@@ -359,6 +362,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
   const candRow = readRows_('ReferenceCandidates').find(row => String(row.token || '') === token);
   if (!candRow) return json_({ error: 'invalid_token' });
+  if (candidateProcessClosed_(candRow.pipelineCandId)) return json_({ error: 'process_closed' });
   if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
   if (candRow.refereesSubmittedAt) return json_({ error: 'already_submitted' });
 
@@ -470,6 +474,7 @@ function verifyReferenceRefereeToken_(payload) {
   if (!token) return json_({ ok: false, error: 'token_required' });
   const row = readRows_('ReferenceResponses').find(r => r.token === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (candidateProcessClosed_(row.pipelineCandId)) return json_({ ok: false, error: 'process_closed' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
   return json_({ ok: true });
@@ -525,6 +530,7 @@ function verifyRefereeIdentity_(payload) {
   if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
   const row = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
   if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (candidateProcessClosed_(row.pipelineCandId)) return json_({ ok: false, error: 'process_closed' });
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
 
@@ -563,6 +569,7 @@ function submitReferenceResponseUnlocked_(payload) {
   if (rowIndex < 0) return json_({ error: 'invalid_token' });
   const existing = readRows_('ReferenceResponses').find(item => String(item.token || '') === token);
   if (!existing) return json_({ error: 'invalid_token' });
+  if (candidateProcessClosed_(existing.pipelineCandId)) return json_({ error: 'process_closed' });
   if (existing.submittedAt) return json_({ error: 'already_submitted' });
   if (referenceLinkExpired_(existing)) return json_({ error: 'token_expired' });
   if (!existing.verifiedAt) return json_({ error: 'identity_not_verified' });

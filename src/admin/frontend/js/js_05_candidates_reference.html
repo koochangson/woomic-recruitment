@@ -990,7 +990,11 @@ async function sendIntNotify(ch) {
 function renderIntTable() {
   renderInterviewPositionCards();
   const f    = document.getElementById('int-filter')?.value||'';
-  const list = interviews.filter(i=>!f||i.type===f);
+  // 종료된 채용(불합격·보류·마감 포지션) 면접은 기록으로만 남기고 아래로 보낸다 — 발송 버튼은 숨긴다.
+  const candById = new Map(candidates.map(c => [Number(c.id), c]));
+  const intClosed = i => { const c = candById.get(Number(i.candId)); return !!c && !isActivePipelineCand(c); };
+  const list = interviews.filter(i=>!f||i.type===f).map((i, idx) => ({ i, idx, closed:intClosed(i) }))
+    .sort((a,b) => Number(a.closed) - Number(b.closed) || a.idx - b.idx).map(x => x.i);
   const wrap = document.getElementById('int-table');
   if(!list.length) { wrap.innerHTML = empty('등록된 면접 일정이 없습니다.'); return; }
   wrap.innerHTML = `<div class="tw"><table>
@@ -1005,11 +1009,12 @@ function renderIntTable() {
       <td style="font-size:12px;color:var(--t2)">${esc(i.panel)}</td>
       <td>${i.result ? esc(i.result) : '<span style="color:var(--t3)">-</span>'}</td>
       <td>${i.notified?'<span class="b bgreen">발송완료</span>':(i.mailPending?'<span class="b bamber">전송확인대기</span>':'<span class="b bgray">미발송</span>')}</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap">
+      <td style="display:flex;gap:4px;flex-wrap:wrap">${intClosed(i)?`<span class="b bgray" title="불합격·보류 또는 마감된 포지션 — 진행 종료">종료</span>
+        <button class="btn btn-xs btn-red" data-action="call" data-call="delInt(${i.id})">삭제</button>`:`
         <button class="btn btn-xs btn-outlook" data-action="call" data-call="sendIntById(${i.id},'outlook')">메일</button>
         ${i.mailPending&&!i.notified?`<button class="btn btn-xs btn-primary" data-action="call" data-call="pendingMailMeta={type:'int',id:${i.id}};confirmPendingMail()">발송완료</button>`:''}
         <button class="btn btn-xs btn-green" data-action="call" data-call="openIntResult(${i.id})">결과</button>
-        <button class="btn btn-xs btn-red" data-action="call" data-call="delInt(${i.id})">삭제</button>
+        <button class="btn btn-xs btn-red" data-action="call" data-call="delInt(${i.id})">삭제</button>`}
       </td>
     </tr>`).join('')}</tbody>
   </table></div>`;
