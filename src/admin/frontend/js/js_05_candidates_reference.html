@@ -866,26 +866,6 @@ async function quickNotify(id, ch) {
 // ══════════════════════════════════════════════════════════════
 // 면접 관리
 // ══════════════════════════════════════════════════════════════
-function buildIntMsg(type, name, dt, loc, panel, memo) {
-  const tpl = document.getElementById(type==='1차'?'tpl-int1':'tpl-int2')?.value||'';
-  return tpl.replace('{지원자명}',name).replace('{면접일시}',dt).replace('{장소}',loc).replace('{면접관}',panel).replace('{메모}',memo?'안내: '+memo:'').trim();
-}
-
-function updateIntPreview() {
-  const cid  = parseInt(document.getElementById('int-cand')?.value);
-  const cand = candidates.find(c=>c.id===cid);
-  const type = document.getElementById('int-type')?.value||'1차';
-  const dt   = (document.getElementById('int-dt')?.value||'').replace('T',' ');
-  const loc  = document.getElementById('int-loc')?.value||'{장소}';
-  const panel= document.getElementById('int-panel')?.value||'{면접관}';
-  const memo = document.getElementById('int-memo')?.value||'';
-  const name = cand?cand.name:'{지원자명}';
-  const msg  = buildIntMsg(type, name, dt, loc, panel, memo);
-  const target = cand ? getCandidateMailTarget(cand) : { label:name, to:'' };
-  const po = document.getElementById('int-preview-outlook');
-  if(po) po.textContent = `수신: ${target.label} <${target.to || ''}>\n제목: [우미건설] ${type} 면접 일정 안내${cand&&isHeadhuntingCandidate(cand)?' (헤드헌팅 경유)':''}\n\n${cand&&isHeadhuntingCandidate(cand)?wrapHeadhunterBody(cand, `${type} 면접 일정`, msg):msg}`;
-}
-
 async function addInterview() {
   const cid  = parseInt(document.getElementById('int-cand').value);
   const cand = candidates.find(c=>c.id===cid);

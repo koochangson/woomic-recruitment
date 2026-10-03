@@ -30,7 +30,7 @@ const DELEGATED_CALLS = Object.freeze({
   refreshOnboardingDeptRecipients, saveSettings, searchRecruitPlanTargets, selectRefCand, selectRefPosition, selectTemplateEditor, insertTemplateSnippet, sendBulk, sendCollectSlots, sendCurrentOnboardInternal, sendIntById, sendIntNotify,
   sendAllCandSchedule, sendInterviewNoticeCandidates, markInterviewNoticeCandidatesDone, sendInterviewNoticePanel, sendJoinNotice, sendObById, sendObNotify, sendPanelAvailabilityRequest, refreshCurrentPanelAvailability, sendPanelNotice, sendRefRequest, setDashPipeFilter, confirmPanelAvailabilityAndContinue, setRefFilter, showUnlinkedList, scrollPositionDetail,
   closeAddTeam, createCandidateFromReferral, deleteTeam, editReferralEmployee, importInterviewersFromEmployeeFile, refreshEmployeesFromGS, refreshReferralsFromGS, skipCollectSend, startAllEligible, startRef, stopPosition, syncCoreFromGS, syncRefFromGS, syncTeamMasterFromInterviewers, testGSConnection, testInterviewerConnection,
-  setReferenceStageMailChoice, testRefAutoConnection, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateHeadhunterHint, updateIntPreview, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
+  setReferenceStageMailChoice, testRefAutoConnection, toggleHeadhunterFields, togglePositionProcessGroup, toggleTeamVisibility, unlockPrivacyScreen, updateAddCandSeatHint, updateBulkPreview, updateBulkSeatHint, updateHeadhunterHint, updateObPreview, updateRecruitPlanDraft, updateRewardStatusFromSelect,
   populateHeadhunterSelect, renderHeadhunterDbPreview, syncHeadhunterEditor, addHeadhunterRow, removeHeadhunterRow,
 });
 const delegatedCallFailureNotices_ = new Set();
@@ -317,7 +317,6 @@ try {
   renderActivityLog();
   populateSel('int-cand');
   populateSel('ob-cand');
-  updateIntPreview();
   updateObPreview();
   updateBulkPreview();
   renderExpiredPii();

@@ -292,21 +292,21 @@
       <details class="int-exception-details">
         <summary>개별 지원자 예외 일정 등록·수정</summary>
         <div class="int-exception-body">
-      <div class="grid onboarding-main-layout">
+      <div>
         <div class="card">
           <div class="ch"><div class="ch-l">개별 예외 일정 등록</div></div>
           <div class="fgrid f2" style="gap:10px">
-            <div class="fg full"><label>지원자</label><select id="int-cand" data-onchange="updateIntPreview()"><option value="">-- 선택 --</option></select></div>
+            <div class="fg full"><label>지원자</label><select id="int-cand"><option value="">-- 선택 --</option></select></div>
             <div class="fg"><label>면접 유형</label>
-              <select id="int-type" data-onchange="updateIntPreview()">
+              <select id="int-type">
                 <option value="1차">1차 실무면접</option>
                 <option value="2차">2차 임원면접</option>
               </select>
             </div>
-            <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" data-onchange="snapTo10(this);updateIntPreview()"/></div>
-            <div class="fg full"><label>장소 / 방식</label><input id="int-loc" value="린스퀘어" placeholder="본사 3층 A실 / Teams 화상" data-oninput="updateIntPreview()"/></div>
-            <div class="fg full"><label>면접관</label><input id="int-panel" placeholder="김부장, 이팀장" data-oninput="updateIntPreview()"/></div>
-            <div class="fg full"><label>지원자 안내 메모</label><textarea id="int-memo" placeholder="포트폴리오 지참, 기술 테스트 포함 등" data-oninput="updateIntPreview()"></textarea></div>
+            <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" data-onchange="snapTo10(this)"/></div>
+            <div class="fg full"><label>장소 / 방식</label><input id="int-loc" value="린스퀘어" placeholder="본사 3층 A실 / Teams 화상"/></div>
+            <div class="fg full"><label>면접관</label><input id="int-panel" placeholder="김부장, 이팀장"/></div>
+            <div class="fg full"><label>지원자 안내 메모</label><textarea id="int-memo" placeholder="포트폴리오 지참, 기술 테스트 포함 등"></textarea></div>
           </div>
           <div class="brow">
             <button class="btn btn-primary" data-action="call" data-call="addInterview()">등록</button>
@@ -314,20 +314,6 @@
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12l-1 8H3L2 4z"/><path d="M6 4V3a2 2 0 014 0v1"/></svg>
               메일 발송
             </button>
-          </div>
-        </div>
-        <!-- 미리보기 -->
-        <div>
-          <div class="card">
-            <div class="ch"><div class="ch-l">이메일 미리보기</div></div>
-            <div class="notify-card">
-              <div class="nc-header">
-                <div class="nc-icon" style="background:var(--outlook)"><svg viewBox="0 0 14 14"><path d="M2 3h10v8H2zM2 3l5 5 5-5"/></svg></div>
-                <div><div class="nc-title" style="color:var(--outlook)">발송 이메일</div><div class="nc-sub">지원자 본인 발송</div></div>
-              </div>
-              <div class="nc-body" id="int-preview-outlook">면접 정보를 입력하면 미리보기가 표시됩니다.</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:6px;padding:0 14px">[메일 발송] 버튼 클릭 시 등록된 발신 계정으로 즉시 발송됩니다.</div>
-            </div>
           </div>
         </div>
       </div>
