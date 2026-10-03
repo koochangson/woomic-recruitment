@@ -1217,7 +1217,7 @@ function applyBatchSchedulePlanLocal_(ctx) {
     if(existing) {
       snapshot.itvs.push(JSON.parse(JSON.stringify(existing)));
       Object.assign(existing, {
-        date:item.datetime, loc, candidateLoc:loc, panelLoc, panel:panel || '미정', status:'confirmed',
+        date:item.datetime, loc, candidateLoc:loc, panelLoc, panel:panel || '미정', status:'confirmed', memo:`공통일정 확정 (${posTitle})`,
         notified:false, panelNotified:false, candidateNotified:false, candNotified:false,
       });
       touched.itvs.push(existing);

@@ -691,10 +691,38 @@ function openMailto(toEmail, subject, body, sequential) {
   return true;
 }
 
+// 지원자 면접 안내 메일 공통 데이터.
+// · 면접 메모(itv.memo)는 "응답 대기·일괄 배치" 같은 내부 업무 기록이라 지원자 메일에 넣지 않는다.
+// · 가능 시간대를 회신받아 확정한 일정이면 "선정 안내"가 아니라 "확정 안내" 문구를 쓰도록 표시한다.
+function interviewMailDateTime_(value) {
+  const raw = String(value || '').trim().replace('T', ' ');
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if(!m) return raw;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const wk = ['일','월','화','수','목','금','토'][d.getDay()];
+  return `${Number(m[1])}년 ${Number(m[2])}월 ${Number(m[3])}일(${wk})${m[4] ? ` ${m[4].padStart(2,'0')}:${m[5]}` : ''}`;
+}
+function interviewAvailabilityConfirmed_(itv) {
+  return itv?.availabilityStatus === 'RESPONDED';
+}
+function candidateInterviewMailData_(itv, cand) {
+  return {
+    templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
+    candidateName: cand?.name || itv.candName || '',
+    positionText: cand?.pos || '',
+    interviewDateTime: interviewMailDateTime_(itv.date),
+    location: itv.candidateLoc || itv.loc || '강남사옥 14F (린스퀘어)',
+    panelNames: itv.panel || '',
+    availabilityConfirmed: interviewAvailabilityConfirmed_(itv) ? 'Y' : '',
+  };
+}
 function buildIntEmail(itv, cand) {
   const type = itv.type === '1차' ? '1차 실무면접' : '2차 임원면접';
   const candidateLoc = itv.candidateLoc || itv.loc || '강남사옥 14F (린스퀘어)';
-  return `안녕하세요 ${cand?.name || ''}님,\n\n${type} 일정을 안내드립니다.\n\n일시: ${itv.date || '별도 안내 예정'}\n장소: ${candidateLoc}${itv.memo ? '\n안내: ' + itv.memo : ''}`;
+  const intro = interviewAvailabilityConfirmed_(itv)
+    ? `회신해 주신 가능 시간대를 반영하여 ${type} 일정이 아래와 같이 확정되었습니다.`
+    : `${type} 일정을 안내드립니다.`;
+  return `안녕하세요 ${cand?.name || ''}님,\n\n${intro}\n\n일시: ${itv.date ? interviewMailDateTime_(itv.date) : '별도 안내 예정'}\n장소: ${candidateLoc}`;
 }
 
 function buildOfferEmail(ob, cand) {

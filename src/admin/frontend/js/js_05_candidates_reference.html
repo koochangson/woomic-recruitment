@@ -978,11 +978,7 @@ async function sendIntNotify(ch) {
     const subject = `[우미건설] ${cand.name}님 ${type} 일정 안내`;
     await dispatchCandidateMail_(cand, {
       subject, purpose: `${type} 일정`, directBody: buildIntEmail(itv, cand), logType: `${itv.type}면접업체경유안내`,
-      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, cand), `${itv.type}면접지원자안내`, cand.name, {
-        templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
-        candidateName: cand.name, positionText: cand.pos,
-        interviewDateTime: itv.date || '', location: itv.loc || '', panelNames: itv.panel || '', memo: itv.memo || ''
-      })
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, cand), `${itv.type}면접지원자안내`, cand.name, candidateInterviewMailData_(itv, cand))
     });
     itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
     return;
@@ -1033,11 +1029,7 @@ async function sendIntById(id, ch) {
     const subject = `[우미건설] ${esc(i.candName)}님 ${type} 일정 안내`;
     await dispatchCandidateMail_(c, {
       subject, purpose: `${type} 일정`, directBody: buildIntEmail(i, c), logType: `${i.type}면접업체경유안내`,
-      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(i, c), `${i.type}면접지원자안내`, i.candName, {
-        templateType: i.type === '1차' ? 'interview_first' : 'interview_second',
-        candidateName: c?.name || i.candName, positionText: c?.pos || '',
-        interviewDateTime: i.date || '', location: i.loc || '', panelNames: i.panel || '', memo: i.memo || ''
-      })
+      sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(i, c), `${i.type}면접지원자안내`, i.candName, candidateInterviewMailData_(i, c))
     });
     i.candidateNotified = true; i.candNotified = true; if(c) c.notified = true;
     return;

@@ -298,6 +298,16 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
     }
   }
 
+  // 도입 문구 — 가능 시간대를 회신받아 확정한 일정이면 '확정 안내', 아니면 기본(선정·일정 안내) 문구.
+  // (가능 시간대까지 받은 지원자에게 다시 '대상자로 선정되어'라고 보내던 어색한 문구 방지)
+  if (templateKey === 'interview_first' || templateKey === 'interview_second') {
+    const confirmedIntro = String(data.availabilityConfirmed || '') === 'Y';
+    const drop = confirmedIntro ? 'default' : 'confirmed';
+    rendered = rendered
+      .replace(new RegExp('\\s*<tr data-mail-intro="' + drop + '">[\\s\\S]*?<\\/tr>', 'g'), '')
+      .replace(/<tr data-mail-intro="(?:default|confirmed)">/g, '<tr>');
+  }
+
   if (templateKey === 'interview_first') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','interviewDateTime']);
     rendered = replaceMailPlaceholders_(rendered, {

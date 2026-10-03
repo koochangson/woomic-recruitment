@@ -208,11 +208,7 @@ async function sendCandSchedule(intId, sequential) {
 
   const sent = await dispatchCandidateMail_(c, {
     subject, purpose: `${roundLabel} 일정`, directBody: buildIntEmail(itv, c), logType: `${itv.type}면접업체경유안내`,
-    sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, c), `${itv.type}면접지원자안내`, c.name, {
-      templateType: itv.type === '1차' ? 'interview_first' : 'interview_second',
-      candidateName: c.name, positionText: c.pos,
-      interviewDateTime: itv.date || '', location: itv.candidateLoc || itv.loc || '강남사옥 14F (린스퀘어)', panelNames: itv.panel || '', memo: itv.memo || ''
-    })
+    sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, buildIntEmail(itv, c), `${itv.type}면접지원자안내`, c.name, candidateInterviewMailData_(itv, c))
   });
   if(sent === false) return false;
 
