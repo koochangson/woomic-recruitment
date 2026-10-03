@@ -75,20 +75,25 @@ function updateSidebarUrgency() {
 }
 
 let lazyInterviewerLoadPromise_ = null;
+let lazyInterviewerLoadAttempted_ = false;
 let lazyReferenceLoadPromise_ = null;
 let lazyReferenceLoaded_ = false;
 
 function loadSectionDataLazily_(id) {
   const needsInterviewers = ['position','posdetail','interview','settings'].includes(id);
-  if(needsInterviewers && !interviewers.length && GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function' && !lazyInterviewerLoadPromise_) {
-    lazyInterviewerLoadPromise_ = withGlobalSyncProgress('면접관 DB를 불러오고 있습니다.', async () => {
+  // 면접관 DB는 화면 표시에 필요하지 않은 보조 데이터다 — 전체 화면 로딩창으로 막지 않고 뒤에서
+  // 한 번만 불러온다. 결과가 0건이어도 매번 다시(최대 3곳 순차 조회) 부르지 않도록 시도 여부를
+  // 기억하고, 다시 불러오려면 '면접관 새로고침' 버튼을 쓴다.
+  if(needsInterviewers && !interviewers.length && GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function' && !lazyInterviewerLoadPromise_ && !lazyInterviewerLoadAttempted_) {
+    lazyInterviewerLoadAttempted_ = true;
+    lazyInterviewerLoadPromise_ = (async () => {
       await loadInterviewers();
       renderTeamMaster();
       renderIntTable();
       renderPositions();
       if(currentPosDetailId != null) refreshOpenPositionDetail(currentPosDetailId);
       return interviewers.length > 0;
-    }).catch(error => {
+    })().catch(error => {
       console.warn('면접관 DB 지연 로드 실패:', error);
       return false;
     }).finally(() => { lazyInterviewerLoadPromise_ = null; });
