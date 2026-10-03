@@ -491,21 +491,61 @@ function populatePosSelect(selectedId) {
 // 토스트
 // ══════════════════════════════════════════════════════════════
 // options.sticky: 클릭할 때까지 유지 / options.onClick: 클릭 시 동작(이후 닫힘)
+// ── 우측 상단 알림(toast) 기준 ───────────────────────────────────
+// 화면 자체로는 알 수 없는 것만 알린다.
+//  · 오류(terr)   : 8초, 마우스를 올리면 유지 — 무엇이 안 됐는지와 할 일
+//  · 경고(tw)     : 6초 — 일부 실패·지연·주의(예: 저장 재시도 중, n명 실패)
+//  · 완료(tok 등) : 3초 — 창이 닫히거나 화면이 바뀌지 않아 결과가 보이지 않을 때만
+//  · 이벤트(sticky): 직접 닫을 때까지 — 다른 사람이 한 일(면접관·지원자 회신 등), 누르면 해당 작업으로 이동
+//  · 처리 중(진행) 상황은 알림으로 띄우지 않는다 — 누른 버튼(처리 중…)·진행창·상태 문구에서 보여 준다.
+// 같은 문구가 이미 떠 있으면 새로 쌓지 않고 시간만 연장하며, 최대 4개까지만 쌓는다.
+const TOAST_DURATION_MS_ = { terr:8000, tw:6000, default:3000 };
+const TOAST_MAX_VISIBLE_ = 4;
 function toast(msg, type='', options={}) {
   const w = document.getElementById('toast-wrap');
+  if(!w) return;
+  const text = String(msg ?? '');
+  // 진행 상황 알림은 기준상 띄우지 않는다(진행창·버튼 상태로 표시).
+  if(['toutlook','tteams'].includes(type) || (!['terr','tw'].includes(type) && /(중입니다|중\.\.\.|중…)\.?$/.test(text.trim()))) return;
+  const duration = options.sticky ? 0 : (TOAST_DURATION_MS_[type] || TOAST_DURATION_MS_.default);
+  const existing = [...w.children].find(el => el.dataset.msg === text && el.dataset.type === String(type));
+  if(existing) { existing._restartTimer?.(); return; }
   const t = document.createElement('div');
   t.className = `toast ${type}`;
+  t.dataset.msg = text; t.dataset.type = String(type);
+  t.setAttribute('role', type === 'terr' ? 'alert' : 'status');
   const s = document.createElement('span');
-  s.textContent = msg;
+  s.textContent = text;
+  s.style.flex = '1';
   t.appendChild(s);
-  if(options.sticky || options.onClick) {
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'toast-close';
+  close.setAttribute('aria-label', '알림 닫기');
+  close.textContent = '×';
+  close.addEventListener('click', event => { event.stopPropagation(); t.remove(); });
+  t.appendChild(close);
+  if(options.onClick) {
     t.style.cursor = 'pointer';
     t.setAttribute('role', 'button');
-    t.title = options.onClick ? '클릭하면 이동합니다' : '클릭하면 닫힙니다';
-    t.addEventListener('click', () => { t.remove(); if(options.onClick) options.onClick(); });
+    t.title = '클릭하면 이동합니다';
+    t.addEventListener('click', () => { t.remove(); options.onClick(); });
   }
+  let timer = null;
+  t._restartTimer = () => {
+    if(!duration) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => t.remove(), duration);
+  };
+  // 읽는 동안(마우스를 올린 동안)은 사라지지 않게 한다.
+  t.addEventListener('mouseenter', () => clearTimeout(timer));
+  t.addEventListener('mouseleave', () => t._restartTimer());
   w.appendChild(t);
-  if(!options.sticky) setTimeout(() => t.remove(), 4200);
+  t._restartTimer();
+  // 너무 많이 쌓이면 오래된 일반 알림부터 정리한다(직접 닫아야 하는 이벤트 알림은 유지).
+  const removable = [...w.children].filter(el => el !== t && !el.classList.contains('toast-sticky'));
+  while(w.children.length > TOAST_MAX_VISIBLE_ && removable.length) removable.shift().remove();
+  if(options.sticky) t.classList.add('toast-sticky');
 }
 
 // ══════════════════════════════════════════════════════════════
