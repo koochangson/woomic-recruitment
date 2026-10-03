@@ -1,6 +1,12 @@
 // ══════════════════════════════════════════════════════════════
 // 단계 변경 확인 팝업 (핵심 기능)
 // ══════════════════════════════════════════════════════════════
+// 레퍼런스 안내/독촉 메일을 순차 발송하는 동안, 지금 처리 중인 지원자를
+// renderReference()에서 "발송중"으로 표시하기 위한 집합.
+const referenceSendingIds = new Set();
+// 추천인 리마인드를 순차 발송하는 동안, 지금 처리 중인 추천인(이메일 기준)을
+// selectRefCand()의 추천인 패널에서 "발송중"으로 표시하기 위한 집합.
+const refereeSendingEmails = new Set();
 
 // ── 단계 전환 모달 미리보기 업데이트 ────────────────────────
 // 후보 일정 datetime-local 값 ("2026-06-05T14:30" 형식, 없으면 '')
@@ -1145,9 +1151,11 @@ function renderReference() {
         const refs=refDetails[c.id]||[];
         const done=Number(c.refD)||0;
         const tot=Number(c.refT)||refs.length||3;
-        const urgC=c.ref==='완료'?'var(--green)':c.ref==='생략'?'var(--t3)':done===0?'var(--red)':'var(--amber)';
+        const sending=referenceSendingIds.has(c.id);
+        const urgC=sending?'var(--amber)':c.ref==='완료'?'var(--green)':c.ref==='생략'?'var(--t3)':done===0?'var(--red)':'var(--amber)';
         const isSel=selectedRefCandId===c.id;
-        const statusText=c.ref==='완료'?'응답 완료'
+        const statusText=sending?'발송중'
+          : c.ref==='완료'?'응답 완료'
           : c.ref==='생략'?'레퍼런스 생략'
           : c.ref==='진행중'?(done<tot?`추천인 ${Math.max(tot-done,0)}명 응답 대기`:'응답 확인 중')
           : '추천인 요청 필요';
@@ -1185,7 +1193,8 @@ function renderReference() {
   wrap.innerHTML=`<div class="tw"><table>
     <thead><tr><th>지원자</th><th>채용형태</th><th>단계</th><th>상태</th><th>추천인 접수</th><th>응답 수집</th><th>액션</th></tr></thead>
     <tbody>${tableList.map(c=>{
-      const rb=c.ref==='완료'?'bgreen':c.ref==='진행중'?(c.refD===0?'bred':'bamber'):'bgray';
+      const tableSending=referenceSendingIds.has(c.id);
+      const rb=tableSending?'bamber':c.ref==='완료'?'bgreen':c.ref==='진행중'?(c.refD===0?'bred':'bamber'):'bgray';
       const pct3=c.refT>0?Math.round(c.refD/c.refT*100):0;
       // 추천인 접수(등록) 현황 계산
       const refs = refDetails[c.id] || [];
@@ -1202,7 +1211,7 @@ function renderReference() {
         <td><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.email)}</div></td>
         <td>${etypePill(c.etype)}</td>
         <td>${badge(c.stage)}</td>
-        <td><span class="b ${rb}"${c.ref==='생략'&&c.refSkipReason?` title="생략 사유: ${esc(c.refSkipReason)}"`:''}>${c.ref==='진행중'&&c.refD===0?'⚠ 전무응답':c.ref}</span></td>
+        <td><span class="b ${rb}"${c.ref==='생략'&&c.refSkipReason?` title="생략 사유: ${esc(c.refSkipReason)}"`:''}>${tableSending?'발송중':c.ref==='진행중'&&c.refD===0?'⚠ 전무응답':c.ref}</span></td>
         <td style="min-width:110px">${regBadge}
           <div class="prog" style="height:3px;margin-top:4px"><div class="pf-bar pfa" style="width:${regPct}%"></div></div>
         </td>
@@ -1324,11 +1333,18 @@ function selectRefCand(id){
   const panel=document.getElementById('ref-referee-panel');
   if(!panel)return;
   panel.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:10px">${esc(c.name)} · ${c.refD}/${c.refT} 응답</div>
-    ${refs.length ? refs.map((r,ri)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="width:26px;height:26px;border-radius:50%;background:${r.status==='응답'?'var(--gbg)':'var(--rbg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${r.status==='응답'?'var(--green)':'var(--red)'}">${ri+1}</div>
+    ${refs.length ? refs.map((r,ri)=>{
+      const refereeSending = refereeSendingEmails.has(String(r.email||'').toLowerCase());
+      const refereeLabel = refereeSending ? '발송중' : r.status;
+      const refereeColor = refereeSending ? 'var(--amber)' : r.status==='응답' ? 'var(--green)' : 'var(--red)';
+      const refereeBg = refereeSending ? 'var(--abg)' : r.status==='응답' ? 'var(--gbg)' : 'var(--rbg)';
+      const refereeBadgeClass = refereeSending ? 'bamber' : r.status==='응답' ? 'bgreen' : 'bred';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:26px;height:26px;border-radius:50%;background:${refereeBg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${refereeColor}">${ri+1}</div>
       <div style="flex:1"><div style="font-weight:600;font-size:12px">${esc(r.name||'이름 미등록')} <span class="tag">${esc(r.relation||'')}</span></div><div style="font-size:11px;color:var(--t3)">${esc(r.email||'')}</div></div>
-      <span class="b ${r.status==='응답'?'bgreen':'bred'}">${r.status}</span>
-    </div>`).join('') : '<div style="padding:18px 10px;text-align:center;color:var(--t3);font-size:11.5px;background:var(--s2);border-radius:var(--rsm)">추천인 정보가 아직 접수되지 않았습니다.</div>'}`;
+      <span class="b ${refereeBadgeClass}">${esc(refereeLabel)}</span>
+    </div>`;
+    }).join('') : '<div style="padding:18px 10px;text-align:center;color:var(--t3);font-size:11.5px;background:var(--s2);border-radius:var(--rsm)">추천인 정보가 아직 접수되지 않았습니다.</div>'}`;
   const reportSel=document.getElementById('ref-report-cand');
   if(reportSel) { reportSel.value=String(id); renderRefReport(id); }
   renderReference();
@@ -1556,7 +1572,10 @@ async function startAllEligible(){
   if(!confirmed)return;
   let idx=0;
   for(const c of el){
+    referenceSendingIds.add(c.id);
+    renderReference();
     const sent = await startRef(c.id, false);
+    referenceSendingIds.delete(c.id);
     if(sent) idx++;
   }
   saveState();renderReference();updateMetrics();
@@ -1571,6 +1590,9 @@ async function remindRef(id){
   if(!pendingRefs.length){toast('미응답 추천인이 없습니다.');return;}
   let sentCount = 0;
   for(const r of pendingRefs){
+    const emailKey=String(r.email||'').toLowerCase();
+    refereeSendingEmails.add(emailKey);
+    if(selectedRefCandId===id)selectRefCand(id);
     r.remindCnt=(r.remindCnt||0)+1;
     const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
     const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
@@ -1583,6 +1605,7 @@ async function remindRef(id){
       link:refLink,
       deadline:refDisplayDeadline(r)
     });
+    refereeSendingEmails.delete(emailKey);
     if(sent) sentCount++;
   }
   toast(`${sentCount}명 리마인드 메일 발송 완료`,'tok');

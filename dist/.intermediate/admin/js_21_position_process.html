@@ -571,8 +571,13 @@ async function requestPositionReferences(positionId) {
     confirmLabel:`${targets.length}명에게 발송`,
   });
   if(!confirmed) return;
-  targets.forEach((c,i)=>setTimeout(()=>startRef(c.id, c.ref === '진행중'),i*600));
-  setTimeout(()=>refreshOpenPositionDetail(positionId),targets.length*600+200);
+  for(const c of targets) {
+    referenceSendingIds.add(c.id);
+    refreshOpenPositionDetail(positionId);
+    await startRef(c.id, c.ref === '진행중');
+    referenceSendingIds.delete(c.id);
+  }
+  refreshOpenPositionDetail(positionId);
 }
 
 async function completePositionReferences(positionId) {
@@ -604,7 +609,8 @@ function renderPositionCandidates(positionId) {
     const itv = round ? interviews.find(i=>Number(i.candId)===Number(c.id)&&i.type===round) : null;
     const intState = !round ? '-' : !itv ? '미등록' : itv.status==='done'?'면접완료':itv.status==='confirmed'?'일정확정':'회신대기';
     const notice = itv ? (itv.candNotified?'지원자 발송완료':'미발송') : (c.notified?'발송':'-');
-    const refCell = short ? '<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>해당없음</div>' : `<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>${esc(c.ref||'미시작')}${c.refT?` ${c.refD||0}/${c.refT}`:''}</div>`;
+    const refSending = referenceSendingIds.has(c.id);
+    const refCell = short ? '<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>해당없음</div>' : `<div class="pp-cand-cell pp-secondary"><strong>레퍼런스</strong>${refSending?'발송중':`${esc(c.ref||'미시작')}${c.refT?` ${c.refD||0}/${c.refT}`:''}`}</div>`;
     const dec = c.decision ? (c.decision==='pass'?' · 합격표시':' · 불합격표시') : '';
     return `<div class="pp-cand">
       <div><div class="pp-cand-name">${esc(c.name)}${headhunterSearchPill(c)}</div><div class="pp-cand-email">${esc(c.email||'-')}</div></div>
