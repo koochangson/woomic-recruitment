@@ -720,7 +720,7 @@ async function sendCollectSlots() {
     return true;
   });
   if(!targets.length) {
-    toast(skipped.length ? `보낼 대상이 없습니다 — ${skipped.join(', ')}` : '대상이 없습니다.', skipped.length ? 'tinfo' : 'terr');
+    toast(skipped.length ? `일정 요청을 보낼 지원자가 없습니다 — ${skipped.join(', ')}` : '이 단계에 일정 요청을 보낼 지원자가 없습니다.', 'tinfo');
     return;
   }
 
