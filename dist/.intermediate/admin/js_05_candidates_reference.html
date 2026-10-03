@@ -160,6 +160,7 @@ function cancelStageChange() {
 }
 
 async function confirmStageChange() {
+  let stageMailSent = false; // 단계 변경과 함께 안내 메일이 실제로 나갔는지(화면에 보이지 않으므로 알림으로 알린다)
   if(!pendingStageChange) return;
   const { candId, newStage, referenceMailChoice } = pendingStageChange;
   const c = candidates.find(x => x.id === candId);
@@ -312,6 +313,7 @@ async function confirmStageChange() {
     }
     let mailSent = false;
     try {
+      stageMailSent = false;
       mailSent = await dispatchCandidateMail_(c, {
         subject, purpose: `${STAGES[newStage]} 단계`, directBody: body, logType: STAGES[newStage]+'안내(업체경유)',
         sendDirect: () => sendGeneralEmailViaGmail(target.to, subject, body, STAGES[newStage]+'안내', c.name, generalParams)
@@ -319,6 +321,7 @@ async function confirmStageChange() {
     } catch(error) {
       console.warn('단계 변경 안내 메일 발송 오류:', error);
     }
+    stageMailSent = mailSent === true;
     if(mailSent === false) {
       c.mailPending = true;
       c.mailPendingLabel = `${STAGES[newStage]} 안내 재발송 필요`;
@@ -401,7 +404,7 @@ async function confirmStageChange() {
   pendingStageChange = null;
   renderTracker(); renderDashboard(); renderPositions(); renderReferralSection();
   refreshOpenPositionDetail(c.posId);
-  toast(`${esc(c.name)} → ${STAGES[newStage]}`, 'tok');
+  if(stageMailSent) toast(`${esc(c.name)} → ${STAGES[newStage]} · 안내 메일을 발송했습니다.`, 'tok');
   saveState();
   // 포지션 상세에서 진입한 경우 복귀
   if(returnToPosId != null) {
@@ -494,7 +497,6 @@ async function saveIntResult() {
   renderDashboard();
   renderTracker();
   renderPositions();
-  toast(`${itv.candName} 면접 결과 저장 완료`, 'tok');
 }
 
 async function addCandidate() {
@@ -577,7 +579,8 @@ async function addCandidate() {
     closeModal('modal-add');
     renderDashboard(); renderTracker();
     populateSel('int-cand'); populateSel('ob-cand');
-    toast(`${name}님 정보 수정 완료${editAligned ? ` · 면접이 시작된 포지션이라 '${stageLabel(existing.stage)}' 단계로 이동` : ''}`, 'tok');
+    // 저장 결과는 목록에 바로 보이므로, 단계가 자동으로 바뀐 경우에만 알린다.
+    if(editAligned) toast(`${name}님 저장 · 면접이 시작된 포지션이라 '${stageLabel(existing.stage)}' 단계로 이동했습니다.`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(existing);
     saveState();
   } else {
@@ -610,7 +613,7 @@ async function addCandidate() {
     closeModal('modal-add');
     renderDashboard(); renderTracker(); renderPositions();
     populateSel('int-cand'); populateSel('ob-cand');
-    toast(`${name}님 등록 완료${newAligned ? ` · 면접이 시작된 포지션이라 '${stageLabel(newCand.stage)}' 단계로 등록` : ''}`, 'tok');
+    if(newAligned) toast(`${name}님 등록 · 면접이 시작된 포지션이라 '${stageLabel(newCand.stage)}' 단계로 등록했습니다.`, 'tok');
     if(GS_CONFIG.scriptUrl) syncCandToGS(newCand);
     saveState();
     // 포지션 상세에서 추가한 경우 → 포지션 상세로 복귀
@@ -891,7 +894,6 @@ async function addInterview() {
     if(result.failed) return;
   }
   renderIntTable(); updateMetrics(); populateSel('int-cand');
-  toast(`${cand.name}님 ${type} 면접 등록 완료`, 'tok');
   if(type === '2차') warnReferenceBeforeSecondInterview([cand]);
 }
 
@@ -1311,7 +1313,6 @@ function saveRefReport() {
   };
   saveState();
   renderRefReport(c.id);
-  toast(`${esc(c.name)}님 레퍼런스 결과 저장 완료`,'tok');
 }
 
 function selectRefPosition(positionId){
@@ -1471,7 +1472,6 @@ function markRefResponse(candId,ri){
   c.refD=refDetails[candId].filter(r=>r.status==='응답').length;
   if(c.refD>=c.refT)c.ref='완료';
   saveState();renderReference();selectRefCand(candId);updateMetrics();
-  toast(`응답 처리 (${c.refD}/${c.refT})`,'tok');
 }
 function markOneResponse(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
@@ -1482,7 +1482,6 @@ function markOneResponse(id){
   if(target){target.status='응답';c.refD++;}
   if(c.refD>=c.refT)c.ref='완료';
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
-  toast(`${esc(c.name)} +1응답 (${c.refD}/${c.refT})`,'tok');
 }
 // 추천인 접수(등록) 처리: 대기 상태 추천인 1명을 등록으로 + 설문 자동 발송
 async function markRefRegistered(id){
@@ -1515,7 +1514,6 @@ async function markRefRegistered(id){
     toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT}) · 설정에서 레퍼런스 설문 URL을 입력하면 자동 발송됩니다.`,'tw');
     return;
   }
-  toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT})`,'tok');
 }
 async function startRef(id, resend=false){
   const c=candidates.find(x=>x.id===id);if(!c)return false;
@@ -1618,14 +1616,12 @@ function completeRef(id){
   c.ref='완료';c.refD=c.refT;
   refs.forEach(r=>r.status='응답');
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
-  toast(`${esc(c.name)}님 완료 처리`,'tok');
 }
 // 2차 면접관 안내 후 레퍼런스가 완료된 경우 보고서를 별도 전달한 이력을 남긴다.
 function markReferenceReportSent(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   c.refReportSentAt=new Date().toISOString();
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();
-  toast(`${esc(c.name)}님 레퍼런스 보고서 면접관 전달로 표시했습니다.`,'tok');
 }
 function unmarkReferenceReportSent(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
@@ -1684,7 +1680,7 @@ function applyAIToRefReport() {
   if(rawText.trim().startsWith('오류:') || rawText.trim().startsWith('AI 요약 생성 실패')) { toast('오류 결과는 결과표에 반영할 수 없습니다.', 'terr'); return; }
   const cid = parseInt(document.getElementById('ref-ai-cand')?.value);
   if(!cid) { toast('AI 요약 대상 지원자를 확인할 수 없습니다.', 'tw'); return; }
-  if(applyAISectionsToRefReport(cid, rawText)) toast('결과 정리표에 다시 반영되었습니다.', 'tok');
+  applyAISectionsToRefReport(cid, rawText); // 정리표와 저장 상태 문구에 바로 반영된다
 }
 async function generateAI(){
   const cid=parseInt(document.getElementById('ref-ai-cand')?.value);

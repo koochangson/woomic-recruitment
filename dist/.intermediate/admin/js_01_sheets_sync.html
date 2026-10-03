@@ -1751,7 +1751,6 @@ async function importInterviewersFromEmployeeFile() {
     syncTeamMasterFromInterviewers(false);
     if(referralView === 'employees') renderReferralSection();
     if(status) status.textContent = `면접관 DB를 ${rows.length}명으로 업데이트했습니다.`;
-    toast(`면접관 DB ${rows.length}명을 업데이트했습니다.`, 'tok');
   } catch(error) {
     console.warn('[importInterviewersFromEmployeeFile] 실패:', error);
     if(status) status.textContent = error.message === 'xlsx_library_missing'

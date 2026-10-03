@@ -114,7 +114,6 @@ async function markInterviewDone(intId) {
   saveState();
   if(typeof renderIntTable === 'function') renderIntTable();
   closeModal('modal-detail');
-  toast(`${itv.candName} ${itv.type} 면접 완료 처리`, 'tok');
 }
 
 // 확정된 지원자 전체에게 개인별 일정 안내 대상 조회 (발송은 js_32_interview_mail.html)

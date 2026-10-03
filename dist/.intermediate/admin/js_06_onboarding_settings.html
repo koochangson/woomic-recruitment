@@ -54,7 +54,8 @@ function refreshOnboardingDeptRecipients() {
   const leadInput = document.getElementById('ob-dept-lead');
   if(leadInput) leadInput.value = groupMailRecipients(leads.map(x=>x.email));
   updateObPreview();
-  toast(leads.length ? `${dept} 팀장/소장 ${leads.length}명 자동 선택` : `${dept || '배치부서'}의 팀장/소장 이메일을 찾지 못했습니다.`, leads.length ? 'tok' : 'terr');
+  // 찾은 이메일은 입력칸에 바로 채워지므로 못 찾았을 때만 알린다.
+  if(!leads.length) toast(`${dept || '배치부서'}의 팀장/소장 이메일을 찾지 못했습니다.`, 'terr');
 }
 
 function renderOnboardingPositionFinalists(positionId, selectedId) {
@@ -92,7 +93,6 @@ function openOnboardingFromPosition(positionId) {
   populateSel('ob-cand');
   fillOnboardingDefaults(candidate.id);
   document.getElementById('sect-onboarding')?.scrollIntoView({behavior:'smooth',block:'start'});
-  toast(`${candidate.name}님을 선택하고 포지션 기본정보를 불러왔습니다.`, 'tok');
 }
 
 function updateObPreview(){
@@ -209,7 +209,6 @@ function addOnboarding(){
   syncReferralFromCandidate(c, {joinDate:jd});
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderOnboarding();updateMetrics();
   renderOnboardingPositionFinalists(c.posId,c.id);
-  toast(`${esc(c.name)}님 입사 등록 완료`,'tok');
 }
 
 // 입사 안내(오퍼) 메일 첨부 — 입사 안내 등록 폼에서 고른 파일을 지원자(또는 헤드헌팅 업체) 메일에 붙인다.
@@ -472,7 +471,7 @@ function saveSettings() {
       saveSettingsToGS(cfg).then(()=>{
         toast('설정이 저장되었습니다 (GS 동기화 완료).','tok');
       }).catch(()=>{
-        toast('설정이 저장되었습니다 (localStorage만).','tok');
+        toast('설정은 이 브라우저에만 저장되었습니다 (Google Sheets 동기화 실패).','tw');
       });
     } else {
       toast('설정이 저장되었습니다. 새로고침 후에도 유지됩니다.','tok');

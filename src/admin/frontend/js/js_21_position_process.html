@@ -488,7 +488,7 @@ async function executePositionProcessTask(positionId, actionKey) {
     const offerIndex=flow.indexOf(4);
     const previousStage=offerIndex>0?flow[offerIndex-1]:-1;
     if(previousStage>=0 && d.list.some(c=>c.stage===previousStage)) return changePositionProcessStage(positionId,4);
-    return toast('처우협의 결과가 이미 확정되었거나 이동할 대상자가 없습니다.','tok');
+    return toast('처우협의 결과가 이미 확정되었거나 이동할 대상자가 없습니다.','tw');
   }
   if(actionKey === 'final') return openPositionResultModal(positionId, 4);
   if(actionKey === 'onboard') return openOnboardingFromPosition(positionId);
@@ -555,7 +555,6 @@ async function savePositionResults(confirmAndMove) {
   if(GS_CONFIG.scriptUrl) await settleSync(list.map(c=>()=>syncCandToGS(c)), stageIdx===4?'처우협의 결과 저장 동기화':'면접 결과 저장 동기화');
   closeModal('modal-position-result');
   refreshOpenPositionDetail(positionId);
-  toast(`${stageIdx===4?'처우협의 결과':stageLabel(stageIdx)+' 판정'} 저장 완료`, 'tok');
 }
 
 async function completePositionInterviews(positionId, stageIdx) {
@@ -574,7 +573,6 @@ async function completePositionInterviews(positionId, stageIdx) {
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>()=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
   refreshOpenPositionDetail(positionId); renderDashboard();
-  toast(`${round} 면접 ${targets.length}건 완료 처리`, 'tok');
 }
 
 async function requestPositionReferences(positionId) {
@@ -617,7 +615,6 @@ async function completePositionReferences(positionId) {
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(eligible.map(c=>()=>syncCandToGS(c)), '레퍼런스 완료 동기화');
   refreshOpenPositionDetail(positionId); updateMetrics();
-  toast(`${eligible.length}명 레퍼런스 완료 처리`, 'tok');
 }
 
 function renderPositionCandidates(positionId) {

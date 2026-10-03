@@ -456,7 +456,6 @@ function saveReferralDraft() {
   saveState();
   syncReferralToGS(ref);
   renderReferralSection();
-  toast('사내추천 건을 등록했습니다.','tok');
 }
 function selectReferral(id) { selectedReferralId = id; renderReferralSection(); }
 function saveReferralStatus(id) {
@@ -499,7 +498,6 @@ function saveReferralStatus(id) {
   }
   renderReferralSection();
   updateMetrics();
-  toast('추천 상태를 저장했습니다.','tok');
 }
 function createCandidateFromReferral(id) {
   const ref = referrals.find(r=>String(r.id)===String(id));
@@ -615,7 +613,6 @@ function updateRewardStatus(id,status) {
   saveState();
   syncRewardToGS(row);
   renderReferralSection();
-  toast('포상금 상태를 저장했습니다.','tok');
 }
 function updateRewardStatusFromSelect(id, select) {
   updateRewardStatus(id, select?.value || '');

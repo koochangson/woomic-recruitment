@@ -126,7 +126,6 @@ async function markInterviewNoticeCandidatesDone() {
     schedule.forEach(itv => { itv.candidateNotified = true; itv.candNotified = true; });
     saveState();
     if(GS_CONFIG.scriptUrl) await settleSync(schedule.map(itv => syncIntToGS(itv)), '지원자 안내 완료 처리');
-    toast(`지원자 ${schedule.length}명을 안내 완료로 기록했습니다.`, 'tok');
   } finally {
     interviewNoticeBusy.candidates = false;
     renderInterviewNoticeFlow();
@@ -283,7 +282,8 @@ async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, attachm
   panelists.forEach(p => logNotify('Gmail', `${round}면접관일정안내`, p.name, p.email));
   saveState();
   if(GS_CONFIG.scriptUrl) schedule.forEach(i => syncIntToGS(i));
-  toast(`면접위원 ${panelists.length}명에게 ${roundLabel} 안내 메일 발송 완료`, 'tok');
+  // 안내 발송 창에서 보냈다면 창의 결과 표시(✓ 면접관 n명)로 충분하다.
+  if(returnToPosition) toast(`면접위원 ${panelists.length}명에게 ${roundLabel} 안내 메일 발송 완료`, 'tok');
   if(returnToPosition) setTimeout(() => openPosDetail(posId), 300);
   return true;
 }
@@ -496,7 +496,6 @@ async function testInterviewerConnection() {
     if (interviewers.length) {
       if(status) status.textContent = `✅ 연결 성공 — 면접관 ${interviewers.length}명 로드`;
       saveSettings();
-      toast(`면접관 ${interviewers.length}명 로드 완료`, 'tok');
     } else {
       if(status) status.textContent = '❌ 면접관 데이터를 불러오지 못했습니다. 관리자 Apps Script 배포/권한을 확인하세요.';
     }

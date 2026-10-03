@@ -150,7 +150,6 @@ function linkCandToPos(candId, posId) {
     renderPositions();
     openPosDetail(Number(posId));
   }
-  toast(`${esc(c.name)}님을 '${esc(pos.title)}'에 연결했습니다.`, 'tok');
 }
 
 // ── 포지션 상태 필터 ──
@@ -349,11 +348,9 @@ function savePosition() {
   if(editingPosId) {
     const idx = positions.findIndex(p => p.id === editingPosId);
     if(idx >= 0) positions[idx] = posData;
-    toast(`${title} 수정 완료`, 'tok');
   } else {
     positions.push(posData);
     logActivity('포지션 등록', title, 'position', posData.id);
-    toast(`${title} 등록 완료`, 'tok');
   }
 
   closeModal('modal-position');
