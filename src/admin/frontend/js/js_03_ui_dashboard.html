@@ -128,6 +128,57 @@ function loadSectionDataLazily_(id) {
   }
 }
 
+// ── 데이터 변경 → 화면 즉시 반영 (공통) ─────────────────────────
+// 처리 함수마다 다시 그릴 화면을 직접 챙기던 방식은 빠지는 곳이 생겨(예: 면접안내 발송 후 프로세스 진행현황)
+// 다음 동기화 때까지 이전 상태가 보였다. 로컬 데이터가 실제로 바뀌면(saveState) 짧게 모아서
+// 대시보드·사이드바 배지·현재 화면·열린 포지션 상세를 함께 다시 그린다.
+// · 화면 안 입력칸에 입력 중이면 입력이 지워지지 않도록 포커스가 빠질 때까지 미룬다.
+// · 다시 그리는 도중의 saveState는 무시해 무한 반복을 막는다.
+let viewRefreshTimer_ = null;
+let viewRefreshRendering_ = false;
+let viewRefreshWaitingBlur_ = false;
+function scheduleViewRefresh_() {
+  if(viewRefreshRendering_) return;
+  clearTimeout(viewRefreshTimer_);
+  viewRefreshTimer_ = setTimeout(runViewRefresh_, 80);
+}
+function viewRefreshEditingElement_() {
+  const active = document.activeElement;
+  if(!active || !active.matches || !active.matches('input,textarea,select,[contenteditable="true"]')) return null;
+  if(['button','checkbox','radio','file','submit'].includes(String(active.type || '').toLowerCase())) return null;
+  // 모달 안 입력은 다시 그리는 대상(.sect)이 아니므로 막지 않는다.
+  return active.closest('.sect') ? active : null;
+}
+function runViewRefresh_() {
+  viewRefreshTimer_ = null;
+  const editing = viewRefreshEditingElement_();
+  if(editing) {
+    if(!viewRefreshWaitingBlur_) {
+      viewRefreshWaitingBlur_ = true;
+      editing.addEventListener('blur', () => { viewRefreshWaitingBlur_ = false; scheduleViewRefresh_(); }, { once:true });
+    }
+    return;
+  }
+  viewRefreshRendering_ = true;
+  try {
+    if(typeof renderGsPolledChanges_ === 'function') renderGsPolledChanges_();
+    const current = document.querySelector('.sect.on')?.id || '';
+    if(current === 'sect-reference' && typeof renderReference === 'function') {
+      renderReference();
+      if(typeof autoGrowRefReportTextareas_ === 'function') autoGrowRefReportTextareas_();
+    }
+    if(current === 'sect-onboarding' && typeof renderOnboarding === 'function') renderOnboarding();
+    if(current === 'sect-notifylog') {
+      if(typeof renderNotifyLog === 'function') renderNotifyLog();
+      if(typeof renderActivityLog === 'function') renderActivityLog();
+    }
+  } catch(error) {
+    console.warn('[view refresh] 화면 갱신 실패', error);
+  } finally {
+    viewRefreshRendering_ = false;
+  }
+}
+
 function nav(id, btn) {
   document.querySelectorAll('.sect').forEach(s => s.classList.remove('on'));
   document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));

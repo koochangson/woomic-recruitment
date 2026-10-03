@@ -101,6 +101,8 @@ function saveState() {
     if(data !== lastLocalStateJson) {
       localStorage.setItem(LS_KEY, data);
       lastLocalStateJson = data;
+      // 데이터가 바뀌면 보이는 화면(프로세스 진행현황·대시보드·배지 등)을 한 번에 다시 그린다.
+      if(typeof scheduleViewRefresh_ === 'function') scheduleViewRefresh_();
     }
     if(auxChanged) scheduleAuxStateSync();
   } catch(e) {
