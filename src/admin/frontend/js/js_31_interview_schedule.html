@@ -708,32 +708,53 @@ async function sendCollectSlots() {
   pos[panelKeys.confirmed] = pos[panelKeys.confirmed] || new Date().toISOString();
 
   const targetStages = stageIdx === 1 ? [0,1] : [2,3];
-  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage));
-  if(!targets.length) { toast('대상이 없습니다.', 'terr'); return; }
+  const stageCands = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage) && isActivePipelineCand(c));
+  // 이미 일정이 확정됐거나(확정·완료) 같은 후보일정에 회신한 지원자는 다시 보내지 않는다 —
+  // 예전에는 전원에게 다시 보내면서 기존 회신과 확정 일정까지 '미확정'으로 초기화했다.
+  const sameOptions = (a, b) => JSON.stringify(mergeAvailabilityOptions_([a || []])) === JSON.stringify(mergeAvailabilityOptions_([b || []]));
+  const skipped = [];
+  const targets = stageCands.filter(c => {
+    const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
+    if(itv && ['confirmed','done'].includes(itv.status)) { skipped.push(`${c.name}(일정 확정)`); return false; }
+    if(itv && ['RESPONDED','UNAVAILABLE'].includes(itv.availabilityStatus) && sameOptions(itv.availabilityOptions, options)) { skipped.push(`${c.name}(회신 완료)`); return false; }
+    return true;
+  });
+  if(!targets.length) {
+    toast(skipped.length ? `보낼 대상이 없습니다 — ${skipped.join(', ')}` : '대상이 없습니다.', skipped.length ? 'tw' : 'terr');
+    return;
+  }
 
   // 클릭 즉시 발송 진행창을 띄우고, 면접 정보 저장(준비) 단계부터 그 안에서 보여준다.
   // (예전에는 전체 로딩창 뒤에서 저장을 마친 다음에야 진행창이 떠서 한참 멈춘 것처럼 보였다)
   collectSendQueue = {
-    posId, round, roundLabel, slotText, loc, options, deadline, preparing:true,
+    posId, round, roundLabel, slotText, loc, options, deadline, preparing:true, prepareStep:'', skipped,
     list: targets.map(c => ({ id: c.id, name: c.name, email: c.email, pos: c.pos, sendStatus:'preparing', error:'' })),
   };
   closeModal('modal-collect-slots');
   openModal('modal-collect-send');
   renderCollectSendStep();
+  collectSendQueue.prepare = () => prepareCollectSend_(pos, targets);
+  await prepareCollectSend_(pos, targets);
+}
+
+// 발송 전 준비: 포지션(후보일정)과 지원자별 면접 기록을 저장한다. 실패하면 진행창에서 바로 다시 시도할 수 있다.
+async function prepareCollectSend_(pos, targets) {
+  const q = collectSendQueue;
+  if(!q) return;
+  const { round, options, loc } = q;
+  q.preparing = true; q.prepareFailed = false; q.prepareError = '';
+  q.list.forEach(item => { item.sendStatus = 'preparing'; item.error = ''; });
+  const step = text => { q.prepareStep = text; renderCollectSendStep(); };
   const failPrepare = message => {
-    collectSendQueue.preparing = false;
-    collectSendQueue.prepareFailed = true;
-    collectSendQueue.list.forEach(item => { item.sendStatus = 'failed'; item.error = message; });
+    q.preparing = false;
+    q.prepareFailed = true;
+    q.prepareError = message;
+    q.list.forEach(item => { item.sendStatus = 'failed'; item.error = message; });
     renderCollectSendStep();
   };
   try {
+    step('면접 정보 준비 중…');
     await waitForUiPaint_();
-    saveState();
-    if(GS_CONFIG.scriptUrl) {
-      const positionSync = await syncPosToGS(pos);
-      if(positionSync == null || positionSync?.error) { failPrepare('포지션 정보 저장에 실패했습니다. 닫고 다시 시도하세요.'); return; }
-    }
-
     // 각 지원자 pending 면접 생성/갱신 (가능 시간대 응답 전)
     targets.forEach(c => {
       let itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
@@ -756,14 +777,20 @@ async function sendCollectSlots() {
       }
     });
     saveState();
-    // 진행창이 이미 떠 있으므로 전체 로딩창(settleSync) 대신 직접 저장하고 결과만 확인한다.
+    // 포지션과 지원자별 면접 기록은 서로 독립이라 함께 저장한다(예전에는 포지션 저장이 끝난 뒤 면접을 저장).
     if(GS_CONFIG.scriptUrl) {
-      const results = await Promise.allSettled(targets.map(c => {
-        const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
-        return itv ? syncIntToGS(itv) : Promise.resolve(null);
-      }));
-      const failed = results.filter(r => r.status === 'rejected' || r.value == null || r.value?.error).length;
-      if(failed) { failPrepare(`면접 가능 시간대 저장 실패 ${failed}건 — 닫고 다시 시도하세요.`); return; }
+      step(`서버에 저장 중… (포지션 1건 · 면접 ${targets.length}건)`);
+      const [posResult, ...itvResults] = await Promise.allSettled([
+        syncPosToGS(pos),
+        ...targets.map(c => {
+          const itv = interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round);
+          return itv ? syncIntToGS(itv) : Promise.resolve(null);
+        }),
+      ]);
+      const bad = r => r.status === 'rejected' || r.value == null || r.value?.error;
+      if(bad(posResult)) { failPrepare('포지션(후보일정) 저장에 실패했습니다. [다시 시도]를 눌러 주세요.'); return; }
+      const failed = itvResults.filter(bad).length;
+      if(failed) { failPrepare(`면접 정보 저장 실패 ${failed}건 — [다시 시도]를 눌러 주세요.`); return; }
     }
   } catch(error) {
     console.error('[sendCollectSlots] prepare failed', error);
@@ -772,10 +799,12 @@ async function sendCollectSlots() {
   }
 
   // 후보별 고유 응답 링크를 발급한 뒤 제한된 동시 처리로 자동 발송한다.
-  collectSendQueue.preparing = false;
-  collectSendQueue.list.forEach(item => { item.sendStatus = 'waiting'; });
+  q.preparing = false;
+  q.prepareStep = '';
+  q.list.forEach(item => { item.sendStatus = 'waiting'; });
   doCollectSendCurrent();
 }
+
 
 // 지원자 일정요청 일괄 발송 상태
 let collectSendQueue = null;
@@ -802,6 +831,7 @@ function renderCollectSendStep() {
       </div>
       <div class="prog" style="height:6px"><div class="pf-bar" style="width:${total ? finished/total*100 : 0}%;background:var(--outlook)"></div></div>
     </div>
+    ${q.skipped?.length ? `<div style="font-size:11px;color:var(--t3);margin-bottom:10px">발송 제외 ${q.skipped.length}명 — ${esc(q.skipped.join(', '))}</div>` : ''}
     <div style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">
       ${q.list.map(item => {
         const cand = candidates.find(c => Number(c.id) === Number(item.id));
@@ -811,7 +841,7 @@ function renderCollectSendStep() {
           : item.sendStatus === 'failed'
             ? '<span class="b bred">발송 실패</span>'
             : item.sendStatus === 'sending'
-              ? '<span class="b bblue"><span class="spin" aria-hidden="true">⏳</span> 발송 중</span>'
+              ? `<span class="b bblue"><span class="spin" aria-hidden="true">⏳</span> ${esc(item.step || '발송 중')}</span>`
               : item.sendStatus === 'preparing'
                 ? '<span class="b bblue"><span class="spin" aria-hidden="true">⏳</span> 준비 중</span>'
               : '<span class="b bgray">대기</span>';
@@ -825,9 +855,9 @@ function renderCollectSendStep() {
 
   if(!footer) return;
   if(q.preparing) {
-    footer.innerHTML = `<span style="font-size:11.5px;color:var(--t2);align-self:center;display:flex;align-items:center;gap:6px"><span class="spin" aria-hidden="true">⏳</span> 면접 정보를 저장하고 있습니다. 곧 발송을 시작합니다.</span>`;
+    footer.innerHTML = `<span style="font-size:11.5px;color:var(--t2);align-self:center;display:flex;align-items:center;gap:6px"><span class="spin" aria-hidden="true">⏳</span> ${esc(q.prepareStep || '면접 정보를 저장하고 있습니다.')} 곧 발송을 시작합니다.</span>`;
   } else if(q.prepareFailed) {
-    footer.innerHTML = `<button class="btn" data-action="call" data-call="closeCollectSend()">닫기</button>`;
+    footer.innerHTML = `<button class="btn" data-action="call" data-call="closeCollectSend()">닫기</button><button class="btn btn-primary" data-action="call" data-call="retryCollectSendPrepare()">다시 시도</button>`;
   } else if(collectSendBusy) {
     footer.innerHTML = `<span style="font-size:11.5px;color:var(--t2);align-self:center;display:flex;align-items:center;gap:6px"><span class="spin" aria-hidden="true">⏳</span> 지원자 일정요청 메일을 발송하고 있습니다.</span>`;
   } else if(failed) {
@@ -837,12 +867,13 @@ function renderCollectSendStep() {
   }
 }
 
-async function sendCollectCandidateRequest_(cur, q) {
+async function sendCollectCandidateRequest_(cur, q, onStep = () => {}) {
   const cand = candidates.find(c => Number(c.id) === Number(cur.id));
   const itv = interviews.find(i => Number(i.candId) === Number(cur.id) && i.type === q.round);
   if(!itv) throw new Error('면접 응답 정보를 찾을 수 없습니다.');
   const target = getCandidateMailTarget(cand || cur);
   const headhunter = cand && isHeadhuntingCandidate(cand) ? getHeadhunterFirmByCandidate(cand) : null;
+  onStep('응답 링크 생성 중');
   const issue = await gsFetch('issueInterviewAvailabilityLink', '', {
     interviewId: itv.id,
     candId: cur.id,
@@ -872,6 +903,7 @@ async function sendCollectCandidateRequest_(cur, q) {
   const subject = `[우미건설] ${cur.name}님 ${q.roundLabel} 가능 일정 확인`;
   const body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜와 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
   let sent = false;
+  onStep('메일 발송 중');
   try {
     sent = await dispatchCandidateMail_(cand || cur, {
       subject, purpose: `${q.roundLabel} 후보일정 협의`, directBody: body, logType: `${q.round}후보일정(업체경유)`,
@@ -904,12 +936,10 @@ async function sendCollectCandidateRequest_(cur, q) {
     throw error;
   }
   itv.availabilityStatus = 'SENT';
-  try {
-    const delivery = await gsFetch('setInterviewAvailabilityDeliveryStatus', '', { interviewId:itv.id, status:'SENT' }, { allowQueue:false });
-    if(!delivery?.ok) console.warn('면접 가능일정 메일 발송 상태 저장 실패:', delivery?.error || delivery);
-  } catch(statusError) {
-    console.warn('면접 가능일정 메일 발송 상태 저장 오류:', statusError);
-  }
+  // 메일은 이미 나갔으므로 발송 기록 저장은 기다리지 않는다(진행창이 '발송 중'에 머물지 않게).
+  gsFetch('setInterviewAvailabilityDeliveryStatus', '', { interviewId:itv.id, status:'SENT' }, { allowQueue:false })
+    .then(delivery => { if(!delivery?.ok) console.warn('면접 가능일정 메일 발송 상태 저장 실패:', delivery?.error || delivery); })
+    .catch(statusError => console.warn('면접 가능일정 메일 발송 상태 저장 오류:', statusError));
   saveState();
   logNotify('Gmail', `${q.round}후보일정${cand&&isHeadhuntingCandidate(cand)?'업체경유':'안내'}`, cur.name, target.to || cur.email);
 }
@@ -930,9 +960,10 @@ async function doCollectSendCurrent() {
     while(cursor < pending.length) {
       const item = pending[cursor++];
       item.sendStatus = 'sending';
+      item.step = '';
       renderCollectSendStep();
       try {
-        await sendCollectCandidateRequest_(item, q);
+        await sendCollectCandidateRequest_(item, q, text => { item.step = text; renderCollectSendStep(); });
         item.sendStatus = 'done';
       } catch(error) {
         console.error('[sendCollectCandidateRequest_]', item.id, error);
@@ -951,6 +982,10 @@ async function doCollectSendCurrent() {
   toast(failed
     ? `지원자 일정요청 ${completed}명 발송 완료 · ${failed}명 실패`
     : `지원자 ${completed}명에게 면접일정 요청 메일을 발송했습니다.`, failed ? 'tw' : 'tok');
+}
+
+function retryCollectSendPrepare() {
+  if(collectSendQueue?.prepare && !collectSendQueue.preparing) collectSendQueue.prepare();
 }
 
 // 이전 마크업과의 호환용. 현재 화면에서는 건너뛰기 버튼을 사용하지 않는다.
