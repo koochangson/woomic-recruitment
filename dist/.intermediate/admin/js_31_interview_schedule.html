@@ -135,7 +135,35 @@ function openCollectSlots(posId, stageIdx) {
     }
   }
   openModal('modal-collect-slots');
-  if(panelMode && pos[requestedKey]) refreshPanelAvailabilityResponses(posId, stageIdx);
+  if(panelMode && pos[requestedKey]) {
+    refreshPanelAvailabilityResponses(posId, stageIdx);
+    startPanelAvailabilityWatch_(posId, stageIdx);
+  }
+}
+
+// 면접관 회신 대기 중 일정 확인 창을 열어 두면, 전체 변경 확인(1분 주기)을 기다리지 않고
+// 20초마다 이 포지션·차수의 회신만 직접 확인한다. 창을 닫거나 전원 회신하면 멈춘다.
+let panelAvailabilityWatchTimer_ = null;
+function stopPanelAvailabilityWatch_() {
+  if(panelAvailabilityWatchTimer_) clearInterval(panelAvailabilityWatchTimer_);
+  panelAvailabilityWatchTimer_ = null;
+}
+function startPanelAvailabilityWatch_(posId, stageIdx) {
+  stopPanelAvailabilityWatch_();
+  panelAvailabilityWatchTimer_ = setInterval(async () => {
+    const modalOpen = document.getElementById('modal-collect-slots')?.style.display === 'flex';
+    const sameTarget = collectSlotsCtx.mode === 'panel' && Number(collectSlotsCtx.posId) === Number(posId) && Number(collectSlotsCtx.stageIdx) === Number(stageIdx);
+    if(!modalOpen || !sameTarget) { stopPanelAvailabilityWatch_(); return; }
+    if(document.hidden) return;
+    const pos = positions.find(p => Number(p.id) === Number(posId));
+    const responses = await refreshPanelAvailabilityResponses(posId, stageIdx);
+    const expected = pos ? parsePanelists(pos[panelAvailabilityKeys(stageIdx).panel]).filter(p => p.email) : [];
+    const byEmail = new Map((responses || []).map(r => [String(r.panelistEmail || '').toLowerCase(), r]));
+    if(expected.length && expected.every(p => ['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(p.email).toLowerCase())?.status))) {
+      stopPanelAvailabilityWatch_();
+      if(typeof rerenderAfterPanelAvailabilitySave_ === 'function') rerenderAfterPanelAvailabilitySave_(posId);
+    }
+  }, 20000);
 }
 
 // 면접관 확인 범위의 시작일 기본값 — 모레부터 시작하되 주말이면 다음 평일로 민다.

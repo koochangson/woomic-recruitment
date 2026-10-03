@@ -1072,6 +1072,19 @@ function flushAvailabilityReplyNotices_() {
 
 // 면접관이 일정 선택 링크에서 회신하면 PanelAvailability 변경이 들어온다 — 예전에는 이 변경을
 // 버려서, 일정 확인 창의 "응답새로고침"을 누르기 전까지 회신이 화면에 보이지 않았다.
+// 면접관 회신 캐시는 새로고침하면 비워지므로, 같은 회신이 다시 내려와도 알림을 한 번만 띄우도록
+// 이미 알린 회신을 이 브라우저에 기록해 둔다(최근 300건).
+const AVAILABILITY_REPLY_SEEN_KEY = 'recruit_availability_reply_seen_v1';
+function markAvailabilityReplyNotified_(key) {
+  try {
+    const seen = JSON.parse(localStorage.getItem(AVAILABILITY_REPLY_SEEN_KEY) || '[]');
+    if(seen.includes(key)) return false;
+    seen.push(key);
+    localStorage.setItem(AVAILABILITY_REPLY_SEEN_KEY, JSON.stringify(seen.slice(-300)));
+  } catch(e) { /* 저장소를 못 쓰면 알림만 띄운다 */ }
+  return true;
+}
+
 function applyPanelAvailabilityChange_(change) {
   const row = change.data || {};
   const id = String(change.id ?? row.id ?? '');
@@ -1090,7 +1103,8 @@ function applyPanelAvailabilityChange_(change) {
   if(!Array.isArray(options)) { try { options = JSON.parse(options || '[]'); } catch(e) { options = []; } }
   const next = Object.assign({}, row, { selections:Array.isArray(selections) ? selections : [], availabilityOptions:Array.isArray(options) ? options : [] });
   panelAvailabilityCache[key] = [...rest, next];
-  if(isAvailabilityReplied_(next.status) && !isAvailabilityReplied_(prev?.status)) {
+  if(isAvailabilityReplied_(next.status) && !isAvailabilityReplied_(prev?.status)
+    && markAvailabilityReplyNotified_(`panel|${id}|${next.status}|${next.submittedAt || next.updatedAt || ''}`)) {
     pendingAvailabilityReplies_.push({ name: `면접관 ${next.panelistName || ''}`.trim(), posId, type: round });
   }
   const pos = positions.find(p => Number(p.id) === posId);

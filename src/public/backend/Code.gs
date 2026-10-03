@@ -383,16 +383,17 @@ function deleteRow_(sheetName, id) {
 function getChanges_(query) {
   const cursor = Number(query && query.cursor) || 0;
   const limit = Math.min(Number(query && query.limit) || 500, 1000);
-  const latestCursor = getChangeCursor_();
-  const changes = readChangesAfter_(cursor, limit);
-  const nextCursor = changes.length ? Number(changes[changes.length - 1].cursor) : latestCursor;
+  const page = readChangePageAfter_(cursor, limit);
+  const changes = page.changes;
+  const latestCursor = page.latestCursor;
+  const nextCursor = changes.length ? Number(changes[changes.length - 1].cursor) : Math.max(cursor, latestCursor);
   return json_({
     changes,
     cursor: nextCursor,
     latestCursor,
     serverTime: nowIso_(),
     resyncRequired: false,
-    hasMore: nextCursor < latestCursor
+    hasMore: page.hasMore
   });
 }
 
@@ -1729,15 +1730,28 @@ function getMainSpreadsheet_() {
 }
 
 function getChangeCursor_() {
-  return getStoredChangeCursor_(ensureChangeLogSheet_());
+  const sheet = ensureChangeLogSheet_();
+  return Math.max(getStoredChangeCursor_(sheet), maxLoggedChangeCursor_(sheet));
 }
 
 function reserveChangeCursors_(sheet, count) {
+  // 관리자용·공개용 두 Apps Script 프로젝트가 같은 _Changes 시트에 기록하는데, 커서 카운터를
+  // 각자의 ScriptProperties에 따로 두어 번호가 서로 엇갈렸다(공개 페이지 회신이 늦게 반영되거나
+  // 같은 변경이 매번 다시 내려오던 원인). 시트에 실제로 기록된 최댓값을 함께 기준으로 삼는다.
   const size = Math.max(0, Number(count) || 0);
-  const current = getStoredChangeCursor_(sheet);
+  const current = Math.max(getStoredChangeCursor_(sheet), maxLoggedChangeCursor_(sheet));
   if (!size) return current + 1;
   PropertiesService.getScriptProperties().setProperty(CHANGE_CURSOR_PROPERTY, String(current + size));
   return current + 1;
+}
+
+function maxLoggedChangeCursor_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  return sheet.getRange(2, 1, lastRow - 1, 1).getValues().reduce(function(max, row) {
+    const value = Number(row[0]) || 0;
+    return value > max ? value : max;
+  }, 0);
 }
 
 function getStoredChangeCursor_(sheet) {
@@ -1755,28 +1769,48 @@ function getStoredChangeCursor_(sheet) {
 }
 
 function readChangesAfter_(cursor, limit) {
+  return readChangePageAfter_(cursor, limit).changes;
+}
+
+// 커서 번호가 행 순서와 어긋난 기존 기록이 있어도 빠짐·반복 없이 읽도록, "앞에서 처음 큰 값부터
+// 순서대로"가 아니라 요청 커서보다 큰 행을 모두 골라 커서 순으로 정렬해 돌려준다.
+function readChangePageAfter_(cursor, limit) {
   const sheet = ensureChangeLogSheet_();
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
+  if (lastRow < 2) return { changes: [], latestCursor: 0, hasMore: false };
   const requestedCursor = Number(cursor) || 0;
+  const pageSize = Math.max(1, Number(limit) || 500);
   const cursorValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const startOffset = cursorValues.findIndex(function(row) {
-    return Number(row[0]) > requestedCursor;
+  let latestCursor = 0;
+  const matches = [];
+  cursorValues.forEach(function(row, index) {
+    const value = Number(row[0]) || 0;
+    if (value > latestCursor) latestCursor = value;
+    if (Number(row[0]) > requestedCursor) matches.push({ index: index, cursor: value });
   });
-  if (startOffset < 0) return [];
-  const startDataRow = startOffset + 2;
-  const count = Math.min(Number(limit) || 500, lastRow - startDataRow + 1);
-  const values = sheet.getRange(startDataRow, 1, count, 8).getValues();
-  return values.map(row => ({
-    cursor: Number(row[0]),
-    timestamp: normalizeCell_(row[1]),
-    sheet: String(row[2] || ''),
-    action: String(row[3] || ''),
-    id: String(row[4] || ''),
-    actorEmail: String(row[5] || ''),
-    result: String(row[6] || ''),
-    data: parseJsonObject_(row[7])
-  }));
+  if (!matches.length) return { changes: [], latestCursor: latestCursor, hasMore: false };
+  matches.sort(function(a, b) { return a.cursor - b.cursor || a.index - b.index; });
+  // 같은 커서 번호가 여러 행에 있으면(두 프로젝트가 동시에 기록한 경우) 페이지 경계에서 잘리지 않게 함께 넣는다.
+  let pageEnd = Math.min(pageSize, matches.length);
+  while (pageEnd < matches.length && matches[pageEnd].cursor === matches[pageEnd - 1].cursor) pageEnd++;
+  const page = matches.slice(0, pageEnd);
+  const firstIndex = Math.min.apply(null, page.map(function(item) { return item.index; }));
+  const lastIndex = Math.max.apply(null, page.map(function(item) { return item.index; }));
+  const values = sheet.getRange(firstIndex + 2, 1, lastIndex - firstIndex + 1, 8).getValues();
+  const changes = page.map(function(item) {
+    const row = values[item.index - firstIndex];
+    return {
+      cursor: Number(row[0]),
+      timestamp: normalizeCell_(row[1]),
+      sheet: String(row[2] || ''),
+      action: String(row[3] || ''),
+      id: String(row[4] || ''),
+      actorEmail: String(row[5] || ''),
+      result: String(row[6] || ''),
+      data: parseJsonObject_(row[7])
+    };
+  });
+  return { changes: changes, latestCursor: Math.max(latestCursor, getStoredChangeCursor_(sheet)), hasMore: matches.length > page.length };
 }
 
 function referralCodeKey_(email) {

@@ -320,16 +320,17 @@ function changeRowContainsCandidatePii_(row, sheetIndex, idIndex, dataIndex, can
 function getChanges_(query) {
   const cursor = Number(query && query.cursor) || 0;
   const limit = Math.min(Number(query && query.limit) || 500, 1000);
-  const latestCursor = getChangeCursor_();
-  const changes = readChangesAfter_(cursor, limit);
-  const nextCursor = changes.length ? Number(changes[changes.length - 1].cursor) : latestCursor;
+  const page = readChangePageAfter_(cursor, limit);
+  const changes = page.changes;
+  const latestCursor = page.latestCursor;
+  const nextCursor = changes.length ? Number(changes[changes.length - 1].cursor) : Math.max(cursor, latestCursor);
   return json_({
     changes,
     cursor: nextCursor,
     latestCursor,
     serverTime: nowIso_(),
     resyncRequired: false,
-    hasMore: nextCursor < latestCursor
+    hasMore: page.hasMore
   });
 }
 
