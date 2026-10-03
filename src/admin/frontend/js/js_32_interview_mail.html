@@ -93,6 +93,16 @@ function renderInterviewNoticePanelResult_() {
   return `<div style="font-size:11px;color:var(--red);font-weight:700;margin-top:8px">발송되지 않았습니다${r.error ? `: ${esc(r.error)}` : ''}</div>`;
 }
 
+// 안내 발송 창에서 보낸 결과를 뒤의 포지션 상세(프로세스 진행현황)·대시보드에 즉시 반영한다.
+// (예전에는 창 안의 카드만 갱신해 '면접안내'가 다음 동기화 때까지 진행중으로 남았다)
+function refreshAfterInterviewNotice_(posId) {
+  try {
+    refreshOpenPositionDetail(posId);
+    if(typeof renderDashboard === 'function') renderDashboard();
+    if(typeof renderIntTable === 'function') renderIntTable();
+  } catch(error) { console.warn('[interview notice] 화면 갱신 실패', error); }
+}
+
 async function sendInterviewNoticeCandidates() {
   if(interviewNoticeBusy.candidates) return;
   const { posId, stageIdx } = interviewNoticeFlowCtx;
@@ -103,6 +113,7 @@ async function sendInterviewNoticeCandidates() {
   } finally {
     interviewNoticeBusy.candidates = false;
     renderInterviewNoticeFlow();
+    refreshAfterInterviewNotice_(posId);
   }
 }
 
@@ -128,6 +139,7 @@ async function markInterviewNoticeCandidatesDone() {
   } finally {
     interviewNoticeBusy.candidates = false;
     renderInterviewNoticeFlow();
+    refreshAfterInterviewNotice_(posId);
   }
 }
 
@@ -177,6 +189,7 @@ async function sendInterviewNoticePanel() {
   } finally {
     interviewNoticeBusy.panel = false;
     renderInterviewNoticeFlow();
+    refreshAfterInterviewNotice_(posId);
   }
 }
 
