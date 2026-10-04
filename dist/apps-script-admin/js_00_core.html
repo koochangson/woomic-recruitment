@@ -1150,7 +1150,9 @@ function getMailPendingItems() {
     items.push({ type:'int', id:i.id, candId:i.candId, posId: cand?.posId ?? null, label:`${i.candName} ${i.type} 면접 안내` });
   });
   // 불합격 안내 미발송은 종료(6단계) 지원자라 위 진행중 필터에 걸러져 목록에 나오지 않았다 — 별도로 포함한다.
-  candidates.filter(c => Number(c.stage) === 6 && c.mailPending).forEach(c => {
+  // 단, 포지션이 충원완료·미채용·채용중단으로 종료되면 발송 실패 건도 함께 종료로 본다(필요하면 지원자 상세에서 개별 안내).
+  const closedPositionIds = new Set(positions.filter(p => !isPositionOpen_(p)).map(p => Number(p.id)));
+  candidates.filter(c => Number(c.stage) === 6 && c.mailPending && !closedPositionIds.has(Number(c.posId))).forEach(c => {
     items.push({ type:'cand', id:c.id, candId:c.id, posId: c.posId ?? null, rejection:true, logType:'불합격안내', label:`${c.name} 불합격 안내 재발송 필요` });
   });
   candidates.filter(c => c.mailPending && !c.notified && c.stage < 6 && isActivePipelineCand(c)).forEach(c => {
@@ -1263,9 +1265,10 @@ async function executeNohireWizard() {
   if(rejected.length) {
     // 실패 건은 '불합격 안내 재발송 필요'로 남아 처리 필요 목록에서 재발송할 수 있다.
     const mail = await sendRejectionNotices_(rejected);
-    residualNote = mail.failed ? ` · 불합격 ${rejected.length}명(안내 ${mail.sent}건 발송, ${mail.failed}건 재발송 필요)` : ` · 불합격 ${rejected.length}명 안내 발송`;
+    const failedNames = rejected.filter(c => c.mailPending).map(c => c.name);
+    residualNote = mail.failed ? ` · 불합격 ${rejected.length}명(안내 ${mail.sent}건 발송, ${mail.failed}건 실패: ${failedNames.join(', ')} — 필요하면 개별 안내)` : ` · 불합격 ${rejected.length}명 안내 발송`;
   }
-  toast(`'${pos.title}' 미채용 종료 · '${newTitle}' 생성${residualNote}`, residualNote.includes('재발송') ? 'tw' : 'tok');
+  toast(`'${pos.title}' 미채용 종료 · '${newTitle}' 생성${residualNote}`, residualNote.includes('실패') ? 'tw' : 'tok');
 }
 
 // 일괄 등록 (P1)

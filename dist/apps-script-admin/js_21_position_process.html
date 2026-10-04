@@ -164,7 +164,8 @@ function getPositionActionItems(positionId) {
     }
     else if(final.length && remain > 0) add('partial_fill','low','부분충원 상태',`최종합격 ${final.length}명 · 잔여 seat ${remain}명`,'지원자 추가','addCandToPos',`addCandToPos(${positionId})`);
   }
-  if(!isOpen && allList.some(c => Number(c.stage) < 5 && !c.held)) add('residual_candidates','high','종료 포지션 잔여 지원자 정리 필요','진행 상태로 남아 있는 지원자를 확인·정리하세요.','지원자 확인','scrollPositionDetail',`scrollPositionDetail('pp-position-candidates')`);
+  // 종료(충원완료·미채용·채용중단) 포지션은 남은 지원자·발송 실패 건까지 모두 종료로 보고 처리 안내를 만들지 않는다.
+  // 계속 진행하려면 포지션을 진행중으로 복원하거나 지원자를 다른 포지션으로 옮긴다.
 
   const pri = { high:0, medium:1, low:2 };
   return items.sort((a,b) => pri[a.priority] - pri[b.priority]);

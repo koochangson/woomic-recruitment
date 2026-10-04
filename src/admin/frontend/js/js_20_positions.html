@@ -238,8 +238,10 @@ async function offerClosingRejection_(pos, ids, closeLabel) {
   });
   saveState();
   const mail = await sendRejectionNotices_(targets);
+  // 포지션이 종료됐으므로 실패 건은 처리 필요 목록에 남기지 않는다 — 실패자 이름을 알려 개별 안내할 수 있게 한다.
+  const failedNames = targets.filter(c => c.mailPending).map(c => c.name);
   toast(mail.failed
-    ? `모집 마감 안내: ${mail.sent}명 발송, ${mail.failed}명 재발송 필요(처리 필요 목록 확인)`
+    ? `모집 마감 안내 ${mail.sent}명 발송 · ${mail.failed}명 발송 실패(${failedNames.join(', ')}) — 필요하면 개별로 안내해 주세요.`
     : `모집 마감 안내 ${mail.sent}명 발송 완료`, mail.failed ? 'tw' : 'tok');
 }
 
