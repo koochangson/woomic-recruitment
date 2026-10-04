@@ -1475,36 +1475,7 @@ async function loadPositionsFromGS(options={}) {
       return result.isDelta || !!options.forceFull;
     }
     rememberGsBaseRows_('Positions', data);
-    const remote = data.map(row => {
-      const org = inferPositionOrg(row);
-      return {
-        id:        Number(row.id),
-        title:     row.title || '',
-        etype:     row.etype || '정규직',
-        role:      normalizeRole(row.role),
-        headcount: parseInt(row.headcount) || 1,
-        hireReason: row.hireReason || '충원',
-        dept:      row.dept || org.team || org.jobType || '',
-        location:  org.location,
-        team:      org.team,
-        jobType:   org.jobType,
-        targetGradeBand: normalizeGradeBand(row.targetGradeBand, true),
-        panel1:    row.panel1 || '',
-        panel2:    row.panel2 || '',
-        loc:       row.loc || '',
-        owner:     row.owner || '',
-        targetDate: row.targetDate || '',
-        memo:      row.memo || '',
-        createdAt: row.createdAt || '',
-        status:    (row.status==='done' ? 'filled' : (row.status || 'active')),
-        closedAt:  row.closedAt || '',
-        parentPosId: row.parentPosId ? Number(row.parentPosId) : null,
-        closeReason: row.closeReason || '',
-        closeMemo:   row.closeMemo || '',
-        rev:         Number(row.rev) || 0,
-        updatedAt:   row.updatedAt || '',
-      };
-    });
+    const remote = data.map(normalizeGsPosition);
     positions = result.isDelta
       ? mergeGsDeltaRecords('Positions', remote, positions)
       : mergeGsRecords('Positions', remote, positions);
@@ -1525,42 +1496,7 @@ async function loadInterviewsFromGS(options={}) {
       return result.isDelta || !!options.forceFull;
     }
     rememberGsBaseRows_('Interviews', data);
-    const remote = data.map(row => ({
-      id:       Number(row.id),
-      candId:   row.candId !== '' && row.candId != null ? Number(row.candId) : null,
-      candName: row.candName,
-      type:     row.type,
-      date:     row.date,
-      loc:      row.loc,
-      candidateLoc: row.candidateLoc || row.loc || '',
-      panelLoc: row.panelLoc || '',
-      panel:    row.panel,
-      memo:     row.memo,
-      notified: row.notified === 'Y',
-      candidateNotified: row.candidateNotified === 'Y',
-      panelNotified: row.panelNotified === 'Y',
-      mailPending: row.mailPending === 'Y',
-      status:   row.status || 'pending',
-      slots:    (()=>{try{return JSON.parse(row.slots||'[]')}catch(e){return []}})(),
-      availabilityOptions: (()=>{try{return JSON.parse(row.availabilityOptions||'[]')}catch(e){return []}})(),
-      availabilityToken: row.availabilityToken || '',
-      availabilityExpiresAt: row.availabilityExpiresAt || '',
-      availabilityLink: row.availabilityLink || '',
-      availabilitySelections: (()=>{try{return JSON.parse(row.availabilitySelections||'[]')}catch(e){return []}})(),
-      availabilityStatus: row.availabilityStatus || '',
-      availabilityRespondedAt: row.availabilityRespondedAt || '',
-      availabilityNote: row.availabilityNote || '',
-      availabilityResponseBy: row.availabilityResponseBy || 'candidate',
-      availabilityResponderName: row.availabilityResponderName || '',
-      availabilityResponderEmail: row.availabilityResponderEmail || '',
-      availabilityResponderOrg: row.availabilityResponderOrg || '',
-      availabilityProxyConfirmedAt: row.availabilityProxyConfirmedAt || '',
-      result:   row.result || '',
-      note:     row.note || '',
-      evaluatedAt: row.evaluatedAt || '',
-      rev:       Number(row.rev) || 0,
-      updatedAt: row.updatedAt || '',
-    }));
+    const remote = data.map(normalizeGsInterview);
     interviews = uniqueInterviewRecords(result.isDelta
       ? mergeGsDeltaRecords('Interviews', remote, interviews)
       : mergeGsRecords('Interviews', remote, interviews));
