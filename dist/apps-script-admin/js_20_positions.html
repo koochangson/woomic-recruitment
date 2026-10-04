@@ -185,18 +185,29 @@ async function closePosition(posId) {
   if(!pos) return;
   const hc = parseInt(pos.headcount) || 1;
   const passed = candidates.filter(c => Number(c.posId) === Number(posId) && isSeatFilledCand_(c)).length;
+  // 최종합격자 없이 '충원완료'로 마감되던 문제(상태가 filled로 저장됨) — 미채용/중단으로 안내한다.
+  if(passed === 0) {
+    toast('최종합격자가 없어 충원완료로 마감할 수 없습니다. 미채용 완료 또는 채용 중단을 이용해 주세요.', 'tw');
+    return;
+  }
   const active = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held).length;
+  // 마감하면 최종합격자는 입사 완료로 간주돼 '입사 안내 발송 필요'가 다시 나오지 않는다 — 미발송자를 미리 알린다.
+  const noticeMissing = candidates.filter(c => Number(c.posId) === Number(posId) && Number(c.stage) === 5
+    && !onboardings.some(o => Number(o.candId) === Number(c.id) && o.notified));
   const items = [`최종합격 ${passed}명 / 목표 ${hc}명`];
-  if(passed > 0) items.push(`최종합격자 ${passed}명은 입사 완료로 처리 (입사일 미입력이어도 입사 목록에서 제외)`);
-  if(active > 0) items.push(`진행 중 지원자 ${active}명은 보류 처리`);
+  if(noticeMissing.length) items.push(`⚠ 입사 안내 미발송 ${noticeMissing.length}명 (${noticeMissing.map(c => c.name).join(', ')}) — 마감 후에는 처리 필요 목록에 다시 나오지 않습니다`);
+  items.push(`최종합격자 ${passed}명은 입사 완료로 처리 (입사일 미입력이어도 입사 목록에서 제외)`);
+  if(active > 0) items.push(`진행 중 지원자 ${active}명은 보류 처리 (다음 단계에서 불합격 안내 여부 선택)`);
   if(passed < hc) items.push('목표 미달 상태로 부분 충원 마감');
   const confirmed = await confirmActionModal({
     title:'포지션 충원 완료',
     message:`'${pos.title}' 모집을 완료 처리합니다.`,
     items,
-    confirmLabel:passed < hc ? '부분 충원 마감' : '충원 완료',
+    confirmLabel:noticeMissing.length ? '입사 안내 없이 마감' : passed < hc ? '부분 충원 마감' : '충원 완료',
+    danger:noticeMissing.length > 0,
   });
   if(!confirmed) return;
+  const heldIds = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held).map(c => Number(c.id));
   await holdResidualCandidates(posId, pos.title, {confirm:false});
   pos.status = (passed > 0 && passed < hc) ? 'partial' : 'filled';
   pos.closedAt = new Date().toISOString().slice(0,10);
@@ -204,7 +215,33 @@ async function closePosition(posId) {
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
   renderPositions(); renderDashboard();
-  toast(`'${esc(pos.title)}' ${pos.status === 'partial' ? '부분충원' : '충원완료'} 처리`, 'tok');
+  toast(`'${pos.title}' ${pos.status === 'partial' ? '부분충원' : '충원완료'} 처리`, 'tok');
+  // 보류만 하면 진행 중이던 지원자는 결과를 통보받지 못한다 — 마감 안내(불합격) 발송을 선택하게 한다.
+  if(heldIds.length) await offerClosingRejection_(pos, heldIds, pos.status === 'partial' ? '부분충원' : '충원완료');
+}
+
+async function offerClosingRejection_(pos, ids, closeLabel) {
+  const targets = candidates.filter(c => ids.includes(Number(c.id)) && c.held && Number(c.stage) < 5);
+  if(!targets.length) return;
+  const confirmed = await confirmActionModal({
+    title:'진행 중이던 지원자 결과 안내',
+    message:`모집이 마감되어 보류된 지원자 ${targets.length}명을 불합격(모집 마감)으로 처리하고 안내 메일을 보낼까요?\n취소하면 보류 상태로 남고, 포지션을 다시 진행중으로 복원할 때 되살릴 수 있습니다.`,
+    items:targets.map(c => `${c.name} · ${stageLabel(c.stage)}`),
+    confirmLabel:`${targets.length}명 불합격 안내`,
+    danger:true,
+  });
+  if(!confirmed) return;
+  targets.forEach(c => {
+    c.stage = 6; c.held = false; c.decision = '';
+    recordRejection(c, '포지션취소', `${josa_(closeLabel, '으로', '로')} 모집 마감`);
+    interviews = interviews.filter(i => !(Number(i.candId) === Number(c.id) && (i.status || 'pending') === 'pending'));
+    if(typeof syncReferralFromCandidate === 'function') syncReferralFromCandidate(c);
+  });
+  saveState();
+  const mail = await sendRejectionNotices_(targets);
+  toast(mail.failed
+    ? `모집 마감 안내: ${mail.sent}명 발송, ${mail.failed}명 재발송 필요(처리 필요 목록 확인)`
+    : `모집 마감 안내 ${mail.sent}명 발송 완료`, mail.failed ? 'tw' : 'tok');
 }
 
 // 미채용 — 마법사로 위임 (P0)
@@ -223,21 +260,34 @@ async function stopPosition(posId) {
     danger:true,
   });
   if(!confirmed) return;
+  const heldIds = residual.map(c => Number(c.id));
   await holdResidualCandidates(posId, pos.title, {confirm:false});
   pos.status = 'stopped';
   pos.closedAt = today();
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
   renderPositions(); renderDashboard();
-  toast(`'${esc(pos.title)}' 채용 중단 처리`, 'tok');
+  toast(`'${pos.title}' 채용 중단 처리`, 'tok');
+  if(heldIds.length) await offerClosingRejection_(pos, heldIds, '채용 중단');
 }
 
 // 진행중으로 복원
-function reopenPosition(posId) {
+async function reopenPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   pos.status = 'active';
   delete pos.closedAt;
+  // 마감·중단 때 보류된 지원자를 되살릴 방법이 없었다 — 복원할 때 함께 진행 상태로 되돌릴지 묻는다.
+  const held = candidates.filter(c => Number(c.posId) === Number(posId) && c.held && Number(c.stage) < 5);
+  if(held.length) {
+    const resume = await confirmActionModal({
+      title:'보류된 지원자 복원',
+      message:`포지션 마감·중단 때 보류된 지원자 ${held.length}명을 다시 진행 상태로 되돌릴까요?`,
+      items:held.map(c => `${c.name} · ${stageLabel(c.stage)}`),
+      confirmLabel:`${held.length}명 진행 재개`,
+    });
+    if(resume) held.forEach(c => { c.held = false; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
+  }
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
   renderPositions(); renderDashboard();

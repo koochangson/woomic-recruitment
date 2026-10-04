@@ -881,6 +881,8 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
     if(c.ref === '진행중') { c.ref = '미시작'; c.refD = 0; c.refT = 0; delete refDetails[c.id]; }
     failCnt++;
   });
+  // 사내추천 상태(합격/불합격)도 함께 맞춘다 — 개별 단계 변경에서만 반영되던 문제.
+  if(typeof syncReferralFromCandidate === 'function') [...passers, ...failers].forEach(c => syncReferralFromCandidate(c));
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync([
     ...[...passers, ...failers].map(c => () => syncCandToGS(c)),
