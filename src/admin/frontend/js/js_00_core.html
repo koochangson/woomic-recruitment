@@ -1165,8 +1165,14 @@ function openNohireWizard(posId) {
   pendingNohirePosId = posId;
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
-  const remain = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 6);
+  const remain = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5);
   const passed = candidates.filter(c => Number(c.posId) === Number(posId) && isSeatFilledCand_(c)).length;
+  // 최종합격자가 있으면 '미채용'이 아니라 부분충원 마감이다. 예전에는 잔여 처리 대상(stage<6)에 최종합격자까지
+  // 들어가 '전원 불합격' 선택 시 합격자도 불합격 처리·안내 메일이 나갔다.
+  if(passed > 0) {
+    toast(`최종합격자 ${passed}명이 있는 포지션입니다. 미채용이 아니라 [충원완료]로 처리하면 부분충원 마감됩니다.`, 'tw');
+    return;
+  }
   const info = document.getElementById('nh-wiz-info');
   if(info) {
     info.innerHTML = `<b>${esc(pos.title)}</b><br>목표 ${pos.headcount||1}명 · 최종합격 ${passed}명 · 진행중 ${remain.length}명<br>잔여 seat ${Math.max(0,(parseInt(pos.headcount)||1)-passed)}명`;
@@ -1184,30 +1190,36 @@ async function executeNohireWizard() {
   const reason = document.getElementById('nh-reason')?.value || '';
   const action = document.getElementById('nh-remain-action')?.value || 'keep';
   const memo = document.getElementById('nh-memo')?.value?.trim() || '';
-  const remain = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 6);
+  // 최종합격(5)·입사(7)는 잔여 지원자가 아니다.
+  const remain = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5);
+  if(candidates.some(c => Number(c.posId) === Number(posId) && isSeatFilledCand_(c))) {
+    toast('최종합격자가 있는 포지션은 [충원완료]로 처리해 주세요.', 'tw');
+    return;
+  }
+  const reasonLabel = document.getElementById('nh-reason')?.selectedOptions?.[0]?.textContent || reason;
   let residualNote = ''; // 잔여 지원자 처리 결과는 마지막 알림 하나에 합쳐 보여 준다
+  let rejected = [];
 
   if(action === 'reject' && remain.length) {
     const confirmed = await confirmActionModal({
       title:'잔여 지원자 불합격 처리',
       message:`진행 중인 지원자 ${remain.length}명을 불합격 처리하고 안내 메일을 발송합니다.`,
-      items:remain.map(c => `${c.name} · ${c.email || '이메일 없음'}`),
+      items:remain.map(c => `${c.name} · ${stageLabel(c.stage)} · ${c.email || '이메일 없음'}`),
       confirmLabel:`${remain.length}명 불합격 처리`,
       danger:true,
     });
     if(!confirmed) return;
-    for(const c of remain) {
-      c.stage = 6; c.decision = '';
-      recordRejection(c, '포지션취소', memo || reason);
-      if(GS_CONFIG.scriptUrl) syncCandToGS(c);
-      const subject = `[우미건설] ${c.name}님 채용 결과 안내`;
-      await dispatchCandidateMail_(c, {
-        subject, purpose: '불합격 안내', directBody: buildRejectEmail(c), logType: '불합격안내(업체경유)',
-        sendDirect: () => sendGeneralEmailViaGmail(c.email, subject, buildRejectEmail(c), '불합격안내', c.name, {
-          templateType: 'rejection', candidateName: c.name, positionText: c.pos
-        })
-      });
-    }
+    // 불합격 처리는 결과 확정과 같은 기준으로 정리한다(대기 면접 제거·진행중 레퍼런스 중단·추천 상태 반영).
+    remain.forEach(c => {
+      c.stage = 6; c.decision = ''; c.held = false;
+      recordRejection(c, '포지션취소', `미채용 완료(${reasonLabel})${memo ? ' · ' + memo : ''}`);
+      interviews = interviews.filter(i => !(Number(i.candId) === Number(c.id) && (i.status || 'pending') === 'pending'));
+      if(c.ref === '진행중') { c.ref = '미시작'; c.refD = 0; c.refT = 0; delete refDetails[c.id]; }
+      if(typeof syncReferralFromCandidate === 'function') syncReferralFromCandidate(c);
+    });
+    rejected = remain;
+  } else if(action === 'move' && remain.length) {
+    residualNote = ` · 진행중 ${remain.length}명 새 포지션으로 이관`;
   } else if(action === 'unlink' && remain.length) {
     remain.forEach(c => { c.posId = null; if(GS_CONFIG.scriptUrl) syncCandToGS(c); });
     residualNote = ` · 진행중 ${remain.length}명 포지션 연결 해제`;
@@ -1226,21 +1238,33 @@ async function executeNohireWizard() {
   const np = {
     id: nextId(), title: newTitle,
     etype: pos.etype, targetGradeBand: pos.targetGradeBand || '', role: pos.role, headcount: pos.headcount, hireReason: pos.hireReason || '충원', dept: pos.dept,
+    // 조직 구분(소재지·팀·직무)도 이어받아야 포지션 목록 필터·부서 매핑이 끊기지 않는다.
+    location: pos.location || '', team: pos.team || '', jobType: pos.jobType || '',
     panel1: pos.panel1, panel2: pos.panel2, loc: pos.loc, owner: pos.owner || '',
     targetDate: pos.targetDate || '', memo: pos.memo,
     status: 'active', createdAt: today(), parentPosId: pos.id,
   };
   positions.push(np);
+  // 재채용 포지션으로 이관 — 진행 단계·면접 기록은 그대로 두고 소속만 옮긴다.
+  if(action === 'move' && remain.length) remain.forEach(c => { c.posId = np.id; c.pos = newTitle; c.held = false; });
 
   saveState();
-  if(GS_CONFIG.scriptUrl) { syncPosToGS(pos); syncPosToGS(np); }
+  if(GS_CONFIG.scriptUrl) {
+    syncPosToGS(pos); syncPosToGS(np);
+    if(['move','reject'].includes(action)) remain.forEach(c => syncCandToGS(c));
+  }
   logActivity('미채용 완료', `${pos.title} → ${newTitle} (${reason})`, 'position', posId);
   closeModal('modal-nohire-wizard');
   if(Number(currentPosDetailId) === Number(posId)) nav('position');
   pendingNohirePosId = null;
   renderPositions(); renderDashboard();
-  toast(`'${esc(pos.title)}' 미채용 종료 · '${esc(newTitle)}' 생성${residualNote}`, 'tok');
   if(document.getElementById('sect-posdetail')?.classList.contains('on')) nav('position');
+  if(rejected.length) {
+    // 실패 건은 '불합격 안내 재발송 필요'로 남아 처리 필요 목록에서 재발송할 수 있다.
+    const mail = await sendRejectionNotices_(rejected);
+    residualNote = mail.failed ? ` · 불합격 ${rejected.length}명(안내 ${mail.sent}건 발송, ${mail.failed}건 재발송 필요)` : ` · 불합격 ${rejected.length}명 안내 발송`;
+  }
+  toast(`'${pos.title}' 미채용 종료 · '${newTitle}' 생성${residualNote}`, residualNote.includes('재발송') ? 'tw' : 'tok');
 }
 
 // 일괄 등록 (P1)
