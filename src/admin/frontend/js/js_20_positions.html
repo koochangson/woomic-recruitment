@@ -250,19 +250,28 @@ function nohirePosition(posId) { openNohireWizard(posId); }
 async function stopPosition(posId) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
+  // 최종합격자가 있는 채로 중단하면 합격자가 '입사 진행 중'으로 남아 입사 목록·처리 필요에 계속 나온다.
+  const finals = candidates.filter(c => Number(c.posId) === Number(posId) && isSeatFilledCand_(c));
+  if(finals.length) {
+    toast(`최종합격자 ${finals.length}명(${finals.map(c => c.name).join(', ')})이 있는 포지션입니다. 입사를 진행하면 [충원완료]로 마감하고, 합격을 취소한다면 지원자 상세에서 먼저 불합격 처리한 뒤 중단해 주세요.`, 'tw');
+    return;
+  }
   const residual = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held);
   const confirmed = await confirmActionModal({
     title:'포지션 채용 중단',
     message:`'${pos.title}' 포지션을 재모집 없이 종료합니다.`,
-    items:residual.length ? [`진행 중 지원자 ${residual.length}명 보류 처리`] : ['진행 중 지원자 없음'],
+    items:residual.length ? [`진행 중 지원자 ${residual.length}명 보류 처리 (다음 단계에서 불합격 안내 여부 선택)`] : ['진행 중 지원자 없음'],
+    input:{ label:'중단 사유', placeholder:'예: 조직 개편으로 채용 계획 취소, 내부 인력 이동으로 충원', required:true },
     confirmLabel:'채용 중단',
     danger:true,
   });
   if(!confirmed) return;
+  pos.closeReason = typeof confirmed === 'string' ? confirmed : '';
   const heldIds = residual.map(c => Number(c.id));
   await holdResidualCandidates(posId, pos.title, {confirm:false});
   pos.status = 'stopped';
   pos.closedAt = today();
+  logActivity('채용 중단', `${pos.title}${pos.closeReason ? ' · ' + pos.closeReason : ''}`, 'position', posId);
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
   renderPositions(); renderDashboard();
@@ -276,6 +285,9 @@ async function reopenPosition(posId) {
   if(!pos) return;
   pos.status = 'active';
   delete pos.closedAt;
+  // 이전 종료 사유는 활동 기록에 남아 있으므로 비운다(다음 마감 때 엉뚱한 사유가 표시되지 않게).
+  pos.closeReason = ''; pos.closeMemo = '';
+  logActivity('포지션 복원', pos.title, 'position', posId);
   // 마감·중단 때 보류된 지원자를 되살릴 방법이 없었다 — 복원할 때 함께 진행 상태로 되돌릴지 묻는다.
   const held = candidates.filter(c => Number(c.posId) === Number(posId) && c.held && Number(c.stage) < 5);
   if(held.length) {

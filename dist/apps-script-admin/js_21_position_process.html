@@ -264,7 +264,7 @@ function renderPositionSummary(positionId) {
   const short = isShortProcessEtype(pos.etype);
   return `<section class="pp-section">
     <div class="pp-summary-top">
-      <div class="pp-meta" style="margin-top:0"><span>${esc(pos.dept||'부서 미지정')}</span><span>${esc(pos.loc||'근무지 미지정')}</span><span class="etype ${ETYPE_CLS[pos.etype]||''}">${esc(pos.etype||'-')}</span><span>채용사유 ${esc(pos.hireReason||'충원')}</span><span>${esc(pos.role||'-')}</span><span>담당자 ${esc(owner)}</span><span>요청/생성일 ${fmtDate(requested)||'-'}</span><span>목표 충원일 ${fmtDate(targetDate)||esc(targetDate)}</span>${short?'<span style="color:var(--acc);font-weight:650">1차면접 프로세스</span>':''}</div>
+      <div class="pp-meta" style="margin-top:0"><span>${esc(pos.dept||'부서 미지정')}</span><span>${esc(pos.loc||'근무지 미지정')}</span><span class="etype ${ETYPE_CLS[pos.etype]||''}">${esc(pos.etype||'-')}</span><span>채용사유 ${esc(pos.hireReason||'충원')}</span><span>${esc(pos.role||'-')}</span><span>담당자 ${esc(owner)}</span><span>요청/생성일 ${fmtDate(requested)||'-'}</span><span>목표 충원일 ${fmtDate(targetDate)||esc(targetDate)}</span>${short?'<span style="color:var(--acc);font-weight:650">1차면접 프로세스</span>':''}${!isPositionOpen_(pos) && (pos.closeReason || pos.closeMemo) ? `<span style="color:var(--t2);font-weight:650">종료 사유 ${esc([pos.closeReason, pos.closeMemo].filter(Boolean).join(' · '))}</span>` : ''}</div>
       <div style="text-align:right"><span class="pp-status ${projectStatus}">${statusLabel}</span></div>
     </div>
     <div class="pp-kpis">
