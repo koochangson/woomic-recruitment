@@ -159,7 +159,29 @@ function cancelStageChange() {
   }
 }
 
+// [단계 변경 확인]을 누르면 즉시 버튼에 진행 상태를 보여 주고 중복 클릭을 막는다.
+// 전체 진행창(global-sync-overlay, z-index 5000)은 이 창(z-index 9999) 뒤에 가려져 보이지 않아
+// 메일 발송 등으로 몇 초 걸리는 동안 아무 반응이 없는 것처럼 보였다.
+let stageChangeBusy_ = false;
+function setStageConfirmBusy_(busy) {
+  const btn = document.getElementById('cs-confirm-btn');
+  if(!btn) return;
+  btn.disabled = busy;
+  btn.innerHTML = busy ? '<span class="spin" aria-hidden="true">⏳</span> 단계 변경 중…' : '단계 변경 확인';
+}
 async function confirmStageChange() {
+  if(stageChangeBusy_) return;
+  stageChangeBusy_ = true;
+  setStageConfirmBusy_(true);
+  try {
+    await confirmStageChangeInner_();
+  } finally {
+    stageChangeBusy_ = false;
+    setStageConfirmBusy_(false);
+  }
+}
+
+async function confirmStageChangeInner_() {
   let stageMailSent = false; // 단계 변경과 함께 안내 메일이 실제로 나갔는지(화면에 보이지 않으므로 알림으로 알린다)
   if(!pendingStageChange) return;
   const { candId, newStage, referenceMailChoice } = pendingStageChange;

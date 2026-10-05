@@ -15,6 +15,7 @@ function persistPanelAvailabilityCache_() {
 }
 // 면접관 확인 메일을 순차 발송하는 동안, 지금 처리 중인 면접관을 "발송중"으로 표시하기 위한 집합.
 const panelAvailabilitySendingEmails = new Set();
+let panelAvailabilitySendBusy_ = false; // 면접관 확인 메일 중복 발송 방지
 
 function localDateInputValue(date) {
   const year = date.getFullYear();
@@ -538,22 +539,38 @@ async function sendPanelAvailabilityRequest() {
   if(!deadline) { fieldError_('csl-panel-deadline', '면접관 응답 마감일을 입력해 주세요.'); return; }
   const expiresAt = new Date(`${deadline}T23:59:59+09:00`).toISOString();
   const optionText = formatAvailabilityOptions(options);
-  const existing = await refreshPanelAvailabilityResponses(posId, stageIdx);
-  const responseByEmail = new Map(existing.map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
+  if(panelAvailabilitySendBusy_) return;
+  panelAvailabilitySendBusy_ = true;
+  // 누르는 즉시 버튼과 대상 면접관을 '발송 중'으로 바꾼다. 예전에는 기존 회신 확인과 면접관 DB
+  // 불러오기(서버 왕복 두 번)를 기다린 뒤에야 바뀌어 한참 반응이 없는 것처럼 보였다.
+  const primaryBtn = document.getElementById('csl-primary-action');
+  const primaryLabelBefore = primaryBtn?.textContent;
+  if(primaryBtn) { primaryBtn.disabled = true; primaryBtn.textContent = '발송 중...'; }
+  const restoreSendUi_ = () => {
+    if(primaryBtn) { primaryBtn.disabled = false; primaryBtn.textContent = primaryLabelBefore; }
+    panelists.forEach(p => panelAvailabilitySendingEmails.delete(String(p.email || '').toLowerCase()));
+    renderPanelAvailabilityTargets(pos, stageIdx);
+  };
+  panelists.forEach(p => panelAvailabilitySendingEmails.add(String(p.email || '').toLowerCase()));
+  renderPanelAvailabilityTargets(pos, stageIdx);
+  try {
+  // 기존 회신 확인과 면접관 DB(메일의 면접관 이름에 직급을 붙이기 위해)는 동시에 불러온다.
+  const [existing] = await Promise.all([refreshPanelAvailabilityResponses(posId, stageIdx), ensureInterviewersLoaded_()]);
+  const responseByEmail = new Map((existing || []).map(response => [String(response.panelistEmail || '').toLowerCase(), response]));
   const pendingPanelists = panelists.filter(panelist => !['RESPONDED','UNAVAILABLE'].includes(responseByEmail.get(String(panelist.email).toLowerCase())?.status));
+  // 이미 회신한 면접관은 발송 중 표시를 바로 거둔다.
+  panelists.filter(p => !pendingPanelists.includes(p)).forEach(p => panelAvailabilitySendingEmails.delete(String(p.email || '').toLowerCase()));
   if(!pendingPanelists.length) {
+    restoreSendUi_();
     const resend = document.getElementById('csl-panel-resend');
     if(resend) resend.style.display = 'none';
     toast(`면접관 응답 ${panelists.length}/${panelists.length} 완료 · 재발송 대상이 없습니다.`, 'tinfo');
     return;
   }
+  renderPanelAvailabilityTargets(pos, stageIdx);
   const panelLoc = document.getElementById('csl-loc')?.value || pos.loc || '';
-  await ensureInterviewersLoaded_(); // 메일의 면접관 이름에 직급을 붙이기 위해
   let sentCount = 0;
   const failed = [];
-  const primaryBtn = document.getElementById('csl-primary-action');
-  const primaryLabelBefore = primaryBtn?.textContent;
-  if(primaryBtn) { primaryBtn.disabled = true; primaryBtn.textContent = '발송 중...'; }
   for(const panelist of pendingPanelists) {
     const iv = interviewers.find(x => x.email === panelist.email);
     const panelistDisplayName = iv && iv.rank ? `${iv.name} ${iv.rank}` : panelist.name;
@@ -600,8 +617,7 @@ async function sendPanelAvailabilityRequest() {
     panelAvailabilitySendingEmails.delete(String(panelist.email || '').toLowerCase());
   }
   if(!sentCount && failed.length) {
-    if(primaryBtn) { primaryBtn.disabled = false; primaryBtn.textContent = primaryLabelBefore; }
-    renderPanelAvailabilityTargets(pos, stageIdx);
+    restoreSendUi_();
     toast(`면접관 확인 메일을 보내지 못했습니다: ${failed.join(', ')} — 잠시 후 [미응답자 재발송]으로 다시 보내 주세요.`, 'terr');
     return;
   }
@@ -618,8 +634,18 @@ async function sendPanelAvailabilityRequest() {
   }
   await refreshPanelAvailabilityResponses(posId, stageIdx);
   rerenderAfterPanelAvailabilitySave_(posId);
-  toast(`면접관 ${sentCount}명에게 일정 선택 링크를 발송했습니다.${failed.length ? ` 실패 ${failed.length}명` : ''}`, failed.length ? 'tw' : 'tok');
-  openCollectSlots(posId, stageIdx);
+  // 발송이 끝나면 창을 닫는다. 회신은 바로 오지 않으므로 창을 띄워 두면 더 눌러야 할 것처럼 보인다.
+  // 면접관이 회신하면 알림(누르면 이 창이 다시 열림)과 처리 필요 업무로 알려 준다.
+  restoreSendUi_();
+  closeModal('modal-collect-slots');
+  toast(`면접관 ${sentCount}명에게 일정 확인 메일을 보냈습니다.${failed.length ? ` 실패 ${failed.length}명(${failed.join(', ')})은 [미응답자 재발송]으로 다시 보내 주세요.` : ''} 회신이 오면 알림으로 알려 드립니다.`, failed.length ? 'tw' : 'tok');
+  } catch(error) {
+    console.error('[sendPanelAvailabilityRequest]', error);
+    restoreSendUi_();
+    toast(friendlyError_(error, '면접관 확인 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'), 'terr');
+  } finally {
+    panelAvailabilitySendBusy_ = false;
+  }
 }
 
 // 면접관 일정 요청·확인을 저장한 뒤 뒤쪽 화면(처리 필요 업무, 포지션 상세, 칸반)도 바로 갱신한다.

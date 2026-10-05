@@ -566,17 +566,17 @@ function fieldError_(target, message) {
   el.addEventListener('change', clear, { once:true });
 }
 
-const TOAST_DURATION_MS_ = { terr:8000, tw:6000, tinfo:4000, default:3000 };
-const TOAST_MAX_VISIBLE_ = 4;
+// 잠깐 떴다 사라지면 놓치기 쉬워서 모든 알림은 사용자가 누를(또는 ×) 때까지 유지한다.
+// 너무 많이 쌓이면 가장 오래된 일반 알림부터 정리한다(회신 등 이벤트 알림은 유지).
+const TOAST_MAX_VISIBLE_ = 5;
 function toast(msg, type='', options={}) {
   const w = document.getElementById('toast-wrap');
   if(!w) return;
   const text = String(msg ?? '');
   // 진행 상황 알림은 기준상 띄우지 않는다(진행창·버튼 상태로 표시).
   if(['toutlook','tteams'].includes(type) || (!['terr','tw'].includes(type) && /(중입니다|중\.\.\.|중…)\.?$/.test(text.trim()))) return;
-  const duration = options.sticky ? 0 : (TOAST_DURATION_MS_[type] || TOAST_DURATION_MS_.default);
   const existing = [...w.children].find(el => el.dataset.msg === text && el.dataset.type === String(type));
-  if(existing) { existing._restartTimer?.(); return; }
+  if(existing) { w.appendChild(existing); return; } // 같은 문구는 쌓지 않고 최신 위치로 옮긴다
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.dataset.msg = text; t.dataset.type = String(type);
@@ -592,24 +592,16 @@ function toast(msg, type='', options={}) {
   close.textContent = '×';
   close.addEventListener('click', event => { event.stopPropagation(); t.remove(); });
   t.appendChild(close);
+  t.style.cursor = 'pointer';
   if(options.onClick) {
-    t.style.cursor = 'pointer';
     t.setAttribute('role', 'button');
     t.title = '클릭하면 이동합니다';
     t.addEventListener('click', () => { t.remove(); options.onClick(); });
+  } else {
+    t.title = '클릭하면 닫힙니다';
+    t.addEventListener('click', () => t.remove());
   }
-  let timer = null;
-  t._restartTimer = () => {
-    if(!duration) return;
-    clearTimeout(timer);
-    timer = setTimeout(() => t.remove(), duration);
-  };
-  // 읽는 동안(마우스를 올린 동안)은 사라지지 않게 한다.
-  t.addEventListener('mouseenter', () => clearTimeout(timer));
-  t.addEventListener('mouseleave', () => t._restartTimer());
   w.appendChild(t);
-  t._restartTimer();
-  // 너무 많이 쌓이면 오래된 일반 알림부터 정리한다(직접 닫아야 하는 이벤트 알림은 유지).
   const removable = [...w.children].filter(el => el !== t && !el.classList.contains('toast-sticky'));
   while(w.children.length > TOAST_MAX_VISIBLE_ && removable.length) removable.shift().remove();
   if(options.sticky) t.classList.add('toast-sticky');

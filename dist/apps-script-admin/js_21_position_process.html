@@ -238,7 +238,9 @@ function getPositionProcessStatus(positionId) {
   let firstOpen = -1, firstOpenRef = -1;
   checks.forEach((x, i) => {
     if(x.skip || x.done) return;
-    if(REF_TRACK.has(x.key)) { if(firstOpenRef < 0) firstOpenRef = i; }
+    // 레퍼런스 트랙은 2차면접(레퍼런스) 단계에 들어간 지원자가 있을 때만 '현재 단계'가 된다.
+    // (예전에는 전원 서류합격인데도 레퍼런스 요청이 '현재 단계'라 2차 면접 카드가 '현재 진행'으로 보였다)
+    if(REF_TRACK.has(x.key)) { if(firstOpenRef < 0 && refCands.length) firstOpenRef = i; }
     else if(firstOpen < 0) firstOpen = i;
   });
   return checks.map((x, i) => {
@@ -309,9 +311,13 @@ function renderPositionProcessChecklist(positionId) {
   const alignGroupStatusWithCandidates = (groupStatus, groupStage) => {
     // A completed workflow group must not become current again just because a
     // candidate still carries that group's stage value.
-    if(groupStatus === 'complete' || groupStatus === 'skipped') return groupStatus;
     const targetIndex = flow.indexOf(groupStage);
+    // 서류합격은 등록만 되면 업무가 끝나지만, 지원자가 아직 서류합격에 있으면 그 카드가 현재 단계다.
+    if(targetIndex === 0 && candidateFlowIndexes.some(idx => idx === 0)) return 'current';
+    if(groupStatus === 'complete' || groupStatus === 'skipped') return groupStatus;
     if(targetIndex < 0 || !candidateFlowIndexes.length) return groupStatus;
+    // 아직 아무도 이 단계에 오지 않았는데 준비 업무(면접관 일정 확인 등)만 시작된 경우 — '현재 진행'이 아니라 '준비 중'.
+    if(candidateFlowIndexes.every(idx => idx < targetIndex) && ['current','delayed','active'].includes(groupStatus)) return 'preparing';
     if(candidateFlowIndexes.every(idx => idx > targetIndex)) return 'complete';
     if(candidateFlowIndexes.some(idx => idx === targetIndex)) return groupStatus === 'delayed' ? 'delayed' : 'current';
     if(candidateFlowIndexes.some(idx => idx > targetIndex)) return groupStatus === 'delayed' ? 'delayed' : 'active';
@@ -331,12 +337,13 @@ function renderPositionProcessChecklist(positionId) {
         : activeTasks.some(s=>s.status==='current') ? 'current'
         : activeTasks.some(s=>s.status==='complete') ? 'active' : 'upcoming';
       const groupStatus = alignGroupStatusWithCandidates(taskGroupStatus, g.stage);
-      const groupStatusLabel = groupStatus==='complete'?'완료':groupStatus==='current'?'현재 진행':groupStatus==='delayed'?'현재 진행':groupStatus==='active'?'진행 보유':groupStatus==='skipped'?'생략':'예정';
+      const groupStatusLabel = groupStatus==='complete'?'완료':groupStatus==='current'?'현재 진행':groupStatus==='delayed'?'현재 진행':groupStatus==='preparing'?'준비 중':groupStatus==='active'?'진행 보유':groupStatus==='skipped'?'생략':'예정';
+      const groupClass = groupStatus === 'preparing' ? 'active' : groupStatus;
       const targetIndex = flow.indexOf(g.stage);
       const fromStage = targetIndex > 0 ? flow[targetIndex-1] : -1;
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
       const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" data-action="call" data-call="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
-      return `<div class="pp-process-group ${groupStatus}"><div class="pp-group-head" data-action="call" data-call="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel}</span>${moveButton}</div>
+      return `<div class="pp-process-group ${groupClass}"><div class="pp-group-head" data-action="call" data-call="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel}</span>${moveButton}</div>
         <div class="pp-group-tasks">${tasks.map(s=>{ const clickable = s.status!=='skipped' && s.status!=='complete'; return `<div class="pp-task ${s.status}${clickable?' actionable':''}" ${clickable?`data-action="call" data-call="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`; }).join('')}</div>
       </div>`;
     }).join('')}</div>
