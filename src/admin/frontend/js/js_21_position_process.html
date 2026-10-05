@@ -281,6 +281,9 @@ function renderPositionSummary(positionId) {
   </section>`;
 }
 
+// 완료된 업무 중 결과를 다시 볼 수 있는 항목 → 조회용 작업 키
+const PROCESS_REVIEW_TASKS_ = { int1_panel:'int1_panel_review', int2_panel:'int2_panel_review' };
+
 function renderPositionProcessChecklist(positionId) {
   const d = getPositionProjectData(positionId);
   const steps = getPositionProcessStatus(positionId);
@@ -343,7 +346,7 @@ function renderPositionProcessChecklist(positionId) {
       const moveCount = fromStage >= 0 ? d.list.filter(c=>c.stage===fromStage).length : 0;
       const moveButton = g.stage > 0 && groupStatus!=='skipped' && moveCount ? `<button class="btn btn-xs pp-group-move" title="${moveCount}명을 ${g.title} 단계로 이동" data-action="call" data-call="event.stopPropagation();changePositionProcessStage(${positionId},${g.stage})">다음</button>` : '';
       return `<div class="pp-process-group ${groupClass}"><div class="pp-group-head" data-action="call" data-call="togglePositionProcessGroup(this)" title="클릭하여 세부 업무 보기"><span class="pp-group-status"></span><span class="pp-group-title">${g.title}</span><span class="pp-group-count">${groupStatusLabel}</span>${moveButton}</div>
-        <div class="pp-group-tasks">${tasks.map(s=>{ const clickable = s.status!=='skipped' && s.status!=='complete'; return `<div class="pp-task ${s.status}${clickable?' actionable':''}" ${clickable?`data-action="call" data-call="executePositionProcessTask(${positionId},'${s.actionKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`; }).join('')}</div>
+        <div class="pp-group-tasks">${tasks.map(s=>{ const reviewKey = s.status==='complete' && PROCESS_REVIEW_TASKS_[s.actionKey]; const clickable = (s.status!=='skipped' && s.status!=='complete') || !!reviewKey; const callKey = reviewKey || s.actionKey; return `<div class="pp-task ${s.status}${clickable?' actionable':''}" ${reviewKey?'title="클릭하면 회신 내역을 볼 수 있습니다"':''} ${clickable?`data-action="call" data-call="executePositionProcessTask(${positionId},'${callKey}')"`:''}><span class="pp-task-dot"></span><span class="pp-task-title">${esc(s.title)}</span><span class="pp-task-state">${s.label}</span></div>`; }).join('')}</div>
       </div>`;
     }).join('')}</div>
   </section>`;
@@ -475,6 +478,7 @@ async function executePositionProcessTask(positionId, actionKey) {
   const stageIdx = round === 1 ? 1 : round === 2 ? 3 : -1;
   if(actionKey === 'candidate_register') return addCandToPos(positionId);
   if(actionKey === 'int1_panel' || actionKey === 'int2_panel') return openCollectSlots(positionId, stageIdx);
+  if(actionKey === 'int1_panel_review' || actionKey === 'int2_panel_review') return openPanelAvailabilityReview_(positionId, stageIdx);
   if(actionKey === 'int1_slots' || actionKey === 'int2_slots') {
     const roundData = positionRoundData(positionId, stageIdx);
     return isRoundAvailabilityComplete(roundData)

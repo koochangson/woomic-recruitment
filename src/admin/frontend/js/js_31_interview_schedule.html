@@ -340,6 +340,34 @@ function panelAvailabilityResponseText(response) {
   return '미발송';
 }
 
+// 면접관 회신 확인을 마친 뒤에도 회신 내역(누가 어느 날짜·시간대가 가능한지)을 다시 볼 수 있게 한다.
+// 저장된 회신이 있으면 바로 보여 주고, 없을 때만 서버에서 불러온다.
+async function openPanelAvailabilityReview_(posId, stageIdx) {
+  const pos = positions.find(p => Number(p.id) === Number(posId));
+  if(!pos) return;
+  const keys = panelAvailabilityKeys(stageIdx);
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const panelists = parsePanelists(pos[keys.panel]).filter(p => p.email);
+  if(!panelists.length) { toast('이 포지션에 이메일이 등록된 면접관이 없습니다. 포지션 수정에서 면접관을 확인해 주세요.', 'tinfo'); return; }
+  const cacheKey = panelAvailabilityCacheKey(pos.id, stageIdx);
+  let responses = panelAvailabilityCache[cacheKey];
+  if(!Array.isArray(responses) || !responses.length) responses = await refreshPanelAvailabilityResponses(posId, stageIdx);
+  const byEmail = new Map((responses || []).map(r => [String(r.panelistEmail || '').toLowerCase(), r]));
+  const items = panelists.map(p => {
+    const r = byEmail.get(String(p.email).toLowerCase());
+    return `${p.name || p.email} · ${r ? panelAvailabilityResponseText(r) : '회신 기록 없음'}`;
+  });
+  const options = Array.isArray(pos[keys.options]) ? pos[keys.options] : [];
+  const confirmedAt = pos[keys.confirmed] ? fmtDate(pos[keys.confirmed]) : '';
+  const optionText = options.length ? formatAvailabilityOptions(options).split('\n').join(' / ') : '저장된 후보일정 없음';
+  await confirmActionModal({
+    title:`${round} 면접관 회신 내역 — ${pos.title}`,
+    message:`${confirmedAt ? `${confirmedAt} 회신 확인 완료 · ` : ''}후보일정: ${optionText}`,
+    items,
+    confirmLabel:'닫기',
+  });
+}
+
 function renderPanelAvailabilityTargets(pos, stageIdx) {
   const target = document.getElementById('csl-targets');
   if(!target) return;
