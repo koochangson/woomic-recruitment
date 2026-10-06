@@ -271,15 +271,15 @@ function isInternalGeneralMail_(templateKey) {
   return templateKey === 'panel_schedule' || templateKey === 'onboarding_internal';
 }
 
+// 공용 문의 블록(mail_shared_contact_qr)에 들어 있는 기본 문구 — 메일 종류에 맞는 문구로 바꿔 넣는다.
+const KAKAO_CONTACT_FRAGMENT_TEXT_ = '레퍼런스 체크와 관련해 궁금한 점이 있으시면 카카오톡 채널로 문의해 주세요.';
+
+// 문의는 메일 회신이 아니라 카카오톡 채널로 받는다(레퍼런스 메일과 같은 문의 블록·QR 사용).
+// 내부 직원에게 가는 메일(면접관 안내, 사내 입사 안내, 면접관 일정 확인)에는 붙이지 않는다.
 function generalMailContactHtml_(templateKey, data) {
-  if (isInternalGeneralMail_(templateKey)) return '';
-  const message = String((data && data.contactMessage) || '채용 절차와 관련해 궁금한 점이 있으시면 본 메일에 회신해 주세요.');
-  return '        <tr>\n' +
-    '          <td style="padding-top:24px;border-top:1px solid #dde7f1;">\n' +
-    '            <div style="font-size:15px;line-height:1.4;font-weight:700;color:#1b2027;padding-bottom:6px;word-break:keep-all;overflow-wrap:break-word;">문의사항</div>\n' +
-    '            <div style="font-size:14px;line-height:1.6;color:#5c6875;word-break:keep-all;overflow-wrap:break-word;">' + nlToBr_(message) + '</div>\n' +
-    '          </td>\n' +
-    '        </tr>\n';
+  if (isInternalGeneralMail_(templateKey) || (data && data.internalRecipient)) return '';
+  const message = String((data && data.contactMessage) || '채용 절차와 관련해 궁금한 점이 있으시면 카카오톡 채널로 문의해 주세요.');
+  return loadMailFragment_('mail_shared_contact_qr').split(KAKAO_CONTACT_FRAGMENT_TEXT_).join(nlToBr_(message));
 }
 
 function renderGeneralMailTemplate_(html, templateKey, data) {

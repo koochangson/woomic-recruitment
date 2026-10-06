@@ -299,8 +299,8 @@
             <div class="fg full"><label>지원자</label><select id="int-cand"><option value="">-- 선택 --</option></select></div>
             <div class="fg"><label>면접 유형</label>
               <select id="int-type">
-                <option value="1차">1차 실무면접</option>
-                <option value="2차">2차 임원면접</option>
+                <option value="1차">1차 면접</option>
+                <option value="2차">2차 면접</option>
               </select>
             </div>
             <div class="fg"><label>면접 일시</label><input type="datetime-local" id="int-dt" step="600" data-onchange="snapTo10(this)"/></div>
@@ -1388,7 +1388,7 @@
       <button class="mclose" aria-label="닫기" data-action="close-modal" data-id="modal-interview-notice-flow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
     </div>
     <div class="modal-body">
-      <div class="alert aw"><span>지원자·면접관 메일 모두 시스템에서 바로 발송합니다. 면접관 메일에는 면접조서 등 파일을 첨부할 수 있습니다.</span></div>
+      <div id="inf-banner" class="alert aw"><span>지원자·면접관 메일 모두 시스템에서 바로 발송합니다. 면접관 메일에는 면접조서 등 파일을 첨부할 수 있습니다.</span></div>
       <div id="inf-status" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"></div>
     </div>
     <div class="modal-ft">

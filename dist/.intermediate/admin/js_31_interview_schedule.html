@@ -638,7 +638,7 @@ async function sendPanelAvailabilityRequest() {
       `응답 마감: ${deadline}`
     ].join('\n');
     const sent = await sendGeneralEmailViaGmail(panelist.email, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, panelistDisplayName || pos.title, {
-      templateType:'general_notice', candidateName:panelistDisplayName || '면접위원', positionText:pos.title,
+      templateType:'general_notice', internalRecipient:true, candidateName:panelistDisplayName || '면접위원', positionText:pos.title,
       headerTitle:`${round} 면접 가능 일정 확인`, noticeBody, actionLink:issued.link, actionLabel:'면접 가능 일정 선택'
     });
     if(sent) sentCount++; else failed.push(panelistDisplayName || panelist.email);
@@ -749,7 +749,7 @@ async function sendCollectSlots() {
     return;
   }
   const round = stageIdx === 1 ? '1차' : '2차';
-  const roundLabel = round === '1차' ? '1차 실무면접' : '2차 임원면접';
+  const roundLabel = round === '1차' ? '1차 면접' : '2차 면접';
 
   const options = collectAvailabilityOptions();
   if(!options.length) { fieldError_('csl-date-list', '후보 날짜와 오전·오후를 1개 이상 선택해 주세요.'); return; }
@@ -1395,11 +1395,11 @@ async function applyBatchSchedule() {
     }
     renderDashboard(); renderTracker(); renderPositions();
     if(typeof renderIntTable === 'function') renderIntTable();
-    toast(`${round} 면접 일정 확정 완료 · ${slots.length}명. 안내 메일은 아래 화면에서 발송해 주세요.`, 'tok');
+    // 확정 결과는 바로 이어서 열리는 안내 발송 창 상단에 보여 준다(우측 상단 알림을 따로 띄우지 않음).
     if(round === '2차') warnReferenceBeforeSecondInterview(plan.map(item => candidates.find(c => Number(c.id) === item.candId)).filter(Boolean));
     closeModal('modal-batch-schedule');
     refreshOpenPositionDetail(posId);
-    openInterviewNoticeFlow(posId, stageIdx, round === '1차' ? 1 : 2);
+    openInterviewNoticeFlow(posId, stageIdx, round === '1차' ? 1 : 2, { justConfirmed: slots.length });
   } catch(error) {
     console.error('[applyBatchSchedule]', error);
     toast(`면접 일정을 저장하지 못했습니다. ${friendlyError_(error)}`, 'terr');
