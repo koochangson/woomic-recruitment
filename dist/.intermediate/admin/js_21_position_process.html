@@ -531,7 +531,7 @@ function openPositionResultModal(positionId, stageIdx) {
       <div>
         <div style="font-size:12.5px;font-weight:700">${esc(c.name)}${headhunterSearchPill(c)}</div>
         <div style="font-size:10.5px;color:var(--t3)">${esc(c.email||'-')}</div>
-        ${isFinal?`<label style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--t2);font-weight:700">입사예정일 <input class="pr-join-date" data-cand-id="${c.id}" type="date" value="${esc(fmtDate(getCandidateJoinDate(c)))}" style="height:28px;width:132px;border:1px solid var(--border2);border-radius:6px;padding:0 7px;font-size:11px"></label>`:''}
+        ${isFinal?`<label style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--t2);font-weight:700">입사예정일 <input class="pr-join-date" data-cand-id="${c.id}" type="date" value="${esc(String(getCandidateJoinDate(c) || '').slice(0, 10))}" style="height:28px;width:132px;border:1px solid var(--border2);border-radius:6px;padding:0 7px;font-size:11px"></label>`:''}
       </div>
       <div style="display:flex;gap:5px">
         <label class="btn btn-sm ${c.decision==='pass'?'btn-fill-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>

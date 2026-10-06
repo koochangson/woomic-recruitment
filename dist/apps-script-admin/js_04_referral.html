@@ -255,7 +255,7 @@ function renderReferralDetail(r) {
           <div class="fg"><label>입사 CL</label><select id="rf-edit-cl"><option value="">선택</option>${['CL1','CL2','CL3','CL4','CL5'].map(cl=>`<option ${r.hireCL===cl?'selected':''}>${cl}</option>`).join('')}</select></div>
         </div>
         <div class="referral-status-row">
-          <div class="fg"><label>입사일</label><input id="rf-edit-hire-date" type="date" value="${esc(r.hireDate ? fmtDate(r.hireDate) : '')}"></div>
+          <div class="fg"><label>입사일</label><input id="rf-edit-hire-date" type="date" value="${esc(String(r.hireDate || '').slice(0, 10))}"></div>
           <div class="fg"><label>불합격/불인정/취소 사유</label><input id="rf-edit-reason" value="${esc(r.rejectReason||'')}"></div>
         </div>
         <div class="referral-form-actions">
