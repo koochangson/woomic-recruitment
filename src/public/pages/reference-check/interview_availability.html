@@ -8,6 +8,7 @@
   <style>
     *{box-sizing:border-box}body{margin:0;background:#edf5fa;color:#17202a;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif}.page{width:min(640px,100%);margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 0 28px rgba(29,63,92,.1)}.header{padding:18px 28px 16px;border-top:4px solid #003087;background:#f4f8fc}.brand{display:block;margin-bottom:12px}.brand img{display:block;width:104px;height:39px;border:0}.header h1{margin:0;font-size:22px;line-height:1.25;color:#003087;letter-spacing:0}.header p{margin:6px 0 0;color:#607080;font-size:13px}.body{padding:20px 28px 26px}.hello{font-size:16px;font-weight:800;margin:0 0 8px}.intro{font-size:14px;line-height:1.6;margin:0 0 14px}.meta{padding:10px 14px;background:#f5f8fb;border:1px solid #dce6ef;border-radius:8px;margin-bottom:14px;font-size:13px;line-height:1.6}.meta b{color:#003087}.availability-fieldset{min-width:0;margin:0;padding:0;border:0}.availability-fieldset legend{margin-bottom:9px;font-size:14px;font-weight:800}.options{display:grid;gap:5px}.option{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 12px;border:1px solid #cddae5;border-radius:8px}.date{font-weight:800;font-size:14px;white-space:nowrap}.periods{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.period{display:flex;align-items:center;gap:5px;padding:3px 9px;background:#f5f8fb;border:1px solid #d6e0e9;border-radius:6px;font-size:13px;cursor:pointer}.period input{width:16px;height:16px;accent-color:#003087}.unavailable{margin-top:12px;padding-top:12px;border-top:1px solid #e2e8ee}.unavailable label{font-size:13px;font-weight:700}.note{display:none;margin-top:8px;width:100%;min-height:76px;padding:10px;border:1px solid #cddae5;border-radius:7px;font:inherit;resize:vertical}.note.on{display:block}.proxy-confirm{margin-top:14px;padding:11px 13px;border:1px solid #b8d2ec;border-radius:8px;background:#eff6ff;font-size:13px;line-height:1.55}.proxy-confirm label{display:flex;align-items:flex-start;gap:8px;font-weight:700;cursor:pointer}.proxy-confirm input{width:17px;height:17px;margin-top:2px;accent-color:#003087;flex:0 0 auto}.notice{margin-top:14px;color:#607080;font-size:12px;line-height:1.6}.form-message{min-height:20px;margin-top:12px;color:#b42318;font-size:13px;font-weight:700}.actions{margin-top:16px}.submit{width:100%;border:0;border-radius:7px;background:#003087;color:#fff;padding:12px 18px;font-size:15px;font-weight:800;cursor:pointer}.submit:disabled{opacity:.55;cursor:wait}.state{padding:44px 20px;text-align:center;line-height:1.7}.state h2{margin:0 0 10px;color:#003087}.error{color:#b42318}.footer{padding:16px 28px;background:#172d43;color:#dce6ef;font-size:12px;line-height:1.6}.hidden{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:560px){.header,.body,.footer{padding-left:20px;padding-right:20px}.header h1{font-size:20px}.option{align-items:flex-start;flex-direction:column;gap:8px}.periods{justify-content:flex-start}}
       /* 스크린리더 안내용으로 프로그램이 옮긴 포커스는 테두리를 그리지 않음 */
+    .cal-range{font-size:13px;color:#607080;margin:0 0 8px}.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.cal-head{text-align:center;font-size:12px;font-weight:800;color:#607080;padding:4px 0}.cal-head.sun{color:#c2410c}.cal-head.sat{color:#1d4ed8}.cal-day{min-height:76px;border:1px solid #dce6ef;border-radius:8px;padding:5px 4px;background:#fff;display:flex;flex-direction:column;gap:4px}.cal-day.off{background:#f3f5f8;border-color:#eef1f4}.cal-date{font-size:12px;font-weight:800;color:#17202a;text-align:center}.cal-day.off .cal-date{color:#b6bfca;font-weight:600}.cal-slot{position:relative;display:block;cursor:pointer}.cal-slot input{position:absolute;opacity:0;width:1px;height:1px;margin:0}.cal-slot span{display:block;text-align:center;font-size:12px;font-weight:700;padding:5px 0;border:1px solid #cddae5;border-radius:6px;background:#f5f8fb;color:#33475b}.cal-slot input:checked+span{background:#003087;border-color:#003087;color:#fff}.cal-slot input:focus-visible+span{outline:2px solid #2563eb;outline-offset:1px}.cal-slot input:disabled+span{opacity:.45;cursor:not-allowed}@media(max-width:560px){.cal{gap:3px}.cal-day{min-height:68px;padding:4px 2px}.cal-slot span{font-size:11px;padding:4px 0}}
     .done-box{text-align:left;padding:28px 0 6px}.done-box h2{margin:0 0 8px;color:#003087;font-size:20px}.done-box .done-msg{margin:0 0 14px;font-size:14px;line-height:1.6;color:#334155}.done-summary{padding:12px 14px;background:#f5f8fb;border:1px solid #dce6ef;border-radius:8px;font-size:14px;line-height:1.7}.done-summary b{color:#003087}.done-summary ul{margin:6px 0 0;padding-left:18px}.done-actions{margin-top:14px}.edit-btn{border:1px solid #cddae5;background:#fff;color:#003087;border-radius:7px;padding:9px 14px;font-size:14px;font-weight:700;cursor:pointer}.kakao{display:flex;gap:16px;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid #e2e8ee}.kakao-text{flex:1;font-size:13px;line-height:1.6;color:#5c6875}.kakao-text strong{display:block;font-size:14px;color:#1b2027;margin-bottom:4px}.kakao-link{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:8px 13px;border:1px solid #dde7f1;border-radius:999px;color:#003087;font-weight:700;text-decoration:none;font-size:13px}.kakao-link img{width:18px;height:18px}.kakao-qr{text-align:center;font-size:11px;color:#8a94a1;line-height:1.5}.kakao-qr img{display:block;width:84px;height:84px;margin:0 auto 6px}@media(max-width:560px){.kakao-qr{display:none}}
     /* 일부 브라우저는 :focus-visible 테두리를 따로 그려서, 페이지를 열 때 폼 전체에 검은 테두리가 보였다 */
     [tabindex="-1"]:focus,[tabindex="-1"]:focus-visible,form:focus,form:focus-visible{outline:none;box-shadow:none}
@@ -29,7 +30,8 @@
         <div id="guide" class="meta"><b>안내</b><br>정확한 면접시간과 장소, 순서는 응답 취합 후 피플팀에서 별도로 안내드립니다.</div>
         <fieldset class="availability-fieldset">
           <legend>가능한 일정을 모두 선택해 주세요</legend>
-          <div id="options" class="options" tabindex="-1"></div>
+          <p id="cal-range" class="cal-range"></p>
+          <div id="options" class="cal" tabindex="-1"></div>
         </fieldset>
         <div class="unavailable">
           <label><input id="unavailable" type="checkbox" aria-controls="note" aria-expanded="false"> 제시된 일정이 모두 어렵습니다</label>
@@ -102,6 +104,33 @@
     document.getElementById('edit-response').addEventListener('click', () => {
       complete.classList.add('hidden'); form.classList.remove('hidden'); form.focus({ preventScroll: true });
     });
+    // 후보 날짜를 일~토 달력으로 그린다(첫 후보일이 속한 주의 일요일부터 마지막 후보일이 속한 주의 토요일까지).
+    // 후보가 아닌 날·주말은 흐리게, 후보일은 오전·오후 칸을 눌러 선택한다. 값 형식(날짜|AM/PM)은 기존과 같다.
+    function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function renderCalendar(options, selected) {
+      const grid = document.getElementById('options');
+      const byDate = new Map(options.map(item => [item.date, item.periods || []]));
+      const dates = [...byDate.keys()].sort();
+      if(!dates.length) { grid.innerHTML = ''; document.getElementById('cal-range').textContent = ''; return; }
+      const cur = new Date(dates[0] + 'T00:00:00'); cur.setDate(cur.getDate() - cur.getDay());
+      const end = new Date(dates[dates.length-1] + 'T00:00:00'); end.setDate(end.getDate() + (6 - end.getDay()));
+      document.getElementById('cal-range').textContent = `후보 기간: ${dateLabel(dates[0])} ~ ${dateLabel(dates[dates.length-1])} · 가능한 오전·오후 칸을 모두 눌러 주세요.`;
+      const heads = ['일','월','화','수','목','금','토'].map((w,i) => `<div class="cal-head${i===0?' sun':i===6?' sat':''}" aria-hidden="true">${w}</div>`).join('');
+      const cells = [];
+      while(cur <= end) {
+        const key = isoDate(cur);
+        const periods = byDate.get(key);
+        const label = `${cur.getMonth()+1}/${cur.getDate()}`;
+        if(periods && periods.length) {
+          const slots = ['AM','PM'].filter(p => periods.includes(p)).map(p => { const value=`${key}|${p}`; const name=p==='AM'?'오전':'오후'; return `<label class="cal-slot"><input type="checkbox" name="availability" value="${value}" aria-label="${dateLabel(key)} ${name}" ${selected.has(value)?'checked':''}><span>${name}</span></label>`; }).join('');
+          cells.push(`<div class="cal-day" role="group" aria-label="${dateLabel(key)}"><div class="cal-date" aria-hidden="true">${label}</div>${slots}</div>`);
+        } else {
+          cells.push(`<div class="cal-day off" aria-hidden="true"><div class="cal-date">${label}</div></div>`);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      grid.innerHTML = heads + cells.join('');
+    }
     async function api(action, data) {
       const res = await fetch(SCRIPT_URL, {method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...data})});
       if(!res.ok) throw new Error('network_error');
@@ -140,7 +169,7 @@
           document.getElementById('complete-message').textContent = '헤드헌터 대리 회신으로 저장되었습니다. 면접시간이 확정되면 별도 메일로 안내드리겠습니다.';
         }
         const selected = new Set(data.selections || []);
-        document.getElementById('options').innerHTML = (data.options || []).map(item => `<div class="option" role="group" aria-label="${dateLabel(item.date)}"><div class="date" aria-hidden="true">${dateLabel(item.date)}</div><div class="periods">${item.periods.map(period => { const value=`${item.date}|${period}`; return `<label class="period"><input type="checkbox" name="availability" value="${value}" ${selected.has(value)?'checked':''}> ${period==='AM'?'오전':'오후'}</label>`; }).join('')}</div></div>`).join('');
+        renderCalendar(data.options || [], selected);
         unavailable.checked = !!data.unavailable;
         note.value = data.note || '';
         note.classList.toggle('on', unavailable.checked);

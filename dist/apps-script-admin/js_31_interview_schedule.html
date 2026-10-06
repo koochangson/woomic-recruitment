@@ -119,7 +119,7 @@ function openCollectSlots(posId, stageIdx) {
   if(primary) {
     primary.disabled = false;
     primary.textContent = panelMode
-      ? (pos[requestedKey] ? '면접관 회신 확인 완료' : '면접관 확인 메일 발송')
+      ? (pos[requestedKey] ? '면접관 일정 확정' : '면접관 확인 메일 발송')
       : '지원자 면접일정 요청 발송';
     primary.dataset.call = panelMode
       ? (pos[requestedKey] ? 'confirmPanelAvailabilityAndContinue()' : 'sendPanelAvailabilityRequest()')
@@ -304,6 +304,14 @@ function formatAvailabilityOptions(options) {
   }).join('\n');
 }
 
+// 메일 본문용 후보 기간 요약 — 날짜 전체 목록은 메일에 싣지 않고 선택 화면의 달력에서 보여 준다.
+function formatAvailabilityPeriod(options) {
+  const dates = (options || []).map(item => item.date).filter(Boolean).sort();
+  if(!dates.length) return '';
+  const label = value => { const d = new Date(`${value}T00:00:00`); return `${d.getMonth()+1}월 ${d.getDate()}일(${['일','월','화','수','목','금','토'][d.getDay()]})`; };
+  return dates.length === 1 ? label(dates[0]) : `${label(dates[0])} ~ ${label(dates[dates.length-1])} 중 ${dates.length}일`;
+}
+
 function formatAvailabilitySelections(values) {
   if(!Array.isArray(values) || !values.length) return '';
   return values.map(value => {
@@ -363,7 +371,7 @@ async function openPanelAvailabilityReview_(posId, stageIdx) {
   const optionText = options.length ? formatAvailabilityOptions(options).split('\n').join(' / ') : '저장된 후보일정 없음';
   await confirmActionModal({
     title:`${round} 면접관 회신 내역 — ${pos.title}`,
-    message:`${confirmedAt ? `${confirmedAt} 회신 확인 완료 · ` : ''}후보일정: ${optionText}`,
+    message:`${confirmedAt ? `${confirmedAt} 면접관 일정 확정 · ` : ''}후보일정: ${optionText}`,
     items,
     confirmLabel:'닫기',
   });
@@ -437,7 +445,10 @@ function applyPanelResponsesToModal_(posId, stageIdx, responses) {
   if(primary) primary.disabled = false;
   if(primary && requested) {
     const allReplied = expected.length && responded === expected.length;
-    primary.textContent = allReplied ? '지원자 면접일정 요청' : '면접관 회신 확인 완료';
+    // 이 버튼은 면접관 공통 일정을 확정하는 동작이다. 누르면 이어서 '지원자 면접일정 요청' 창이 열린다.
+    // (예전 문구 '지원자 면접일정 요청'은 다음 창의 발송 버튼과 같아 같은 일을 두 번 하는 것처럼 보였다)
+    primary.textContent = '면접관 일정 확정';
+    primary.title = allReplied ? '선택한 공통 일정으로 면접관 일정을 확정하고 지원자 일정 요청으로 넘어갑니다.' : '모든 면접관이 회신하면 확정할 수 있습니다.';
     primary.dataset.call = 'confirmPanelAvailabilityAndContinue()';
   }
   const refresh = document.getElementById('csl-panel-refresh');
@@ -566,7 +577,7 @@ async function sendPanelAvailabilityRequest() {
   const deadline = document.getElementById('csl-panel-deadline')?.value || '';
   if(!deadline) { fieldError_('csl-panel-deadline', '면접관 응답 마감일을 입력해 주세요.'); return; }
   const expiresAt = new Date(`${deadline}T23:59:59+09:00`).toISOString();
-  const optionText = formatAvailabilityOptions(options);
+  const optionText = formatAvailabilityPeriod(options);
   if(panelAvailabilitySendBusy_) return;
   panelAvailabilitySendBusy_ = true;
   // 누르는 즉시 버튼과 대상 면접관을 '발송 중'으로 바꾼다. 예전에는 기존 회신 확인과 면접관 DB
@@ -622,8 +633,8 @@ async function sendPanelAvailabilityRequest() {
     const body = [
       `안녕하세요 ${panelistDisplayName || '면접위원'}님,`, '',
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
-      '아래 후보 일정을 확인하시고 링크에서 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
-      optionText, '',
+      '아래 링크에서 후보 기간 중 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
+      `후보 기간: ${optionText}`, '',
       `응답 마감: ${deadline}`, '',
       `일정 선택 링크: ${issued.link}`, '',
       '지원자 일정 확인 후 정확한 면접 시간과 순서를 다시 안내드리겠습니다.', '',
@@ -633,8 +644,8 @@ async function sendPanelAvailabilityRequest() {
     // (템플릿 상단에서 이미 candidateName으로 인사말을 렌더링하고, 링크는 actionLink 버튼으로 별도 렌더링됨)
     const noticeBody = [
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
-      '아래 후보 일정을 확인하시고 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
-      optionText, '',
+      '아래 버튼을 눌러 후보 기간 중 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
+      `후보 기간: ${optionText}`, '',
       `응답 마감: ${deadline}`
     ].join('\n');
     const sent = await sendGeneralEmailViaGmail(panelist.email, `[우미건설] ${pos.title} ${round} 면접 가능 일정 확인`, body, `${round}면접관후보일정확인`, panelistDisplayName || pos.title, {
@@ -758,7 +769,7 @@ async function sendCollectSlots() {
   const deadline = document.getElementById('csl-deadline')?.value || '';
   if(!deadline) { fieldError_('csl-deadline', '지원자 응답 마감일을 입력해 주세요.'); return; }
   const loc = document.getElementById('csl-loc')?.value || '';
-  const slotText = formatAvailabilityOptions(options);
+  const slotText = formatAvailabilityPeriod(options);
   pos[panelKeys.options] = options;
   pos[panelKeys.confirmed] = pos[panelKeys.confirmed] || new Date().toISOString();
 
@@ -956,7 +967,7 @@ async function sendCollectCandidateRequest_(cur, q, onStep = () => {}) {
   itv.availabilityResponderOrg = headhunter?.name || '';
   itv.availabilityProxyConfirmedAt = '';
   const subject = `[우미건설] ${cur.name}님 ${q.roundLabel} 가능 일정 확인`;
-  const body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 가능한 날짜와 시간대를 모두 선택해 주세요.\n\n${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
+  const body = `안녕하세요 ${cur.name}님,\n\n우미건설 ${cur.pos} 포지션 ${q.roundLabel}을 진행하고자 합니다.\n아래 링크에서 후보 기간 중 가능한 날짜와 시간대를 모두 선택해 주세요.\n\n■ 후보 기간: ${q.slotText}\n${q.loc ? '\n■ 장소: '+q.loc : ''}\n■ 응답 마감: ${q.deadline}\n\n응답 링크\n${issue.link}\n\n정확한 면접시간은 응답 취합 후 별도로 안내드리겠습니다.`;
   let sent = false;
   onStep('메일 발송 중');
   try {

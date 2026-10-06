@@ -792,7 +792,7 @@ function panelReplyTaskText_(pos, stageIdx) {
   const byEmail = new Map(cached.map(r => [String(r.panelistEmail || '').toLowerCase(), r]));
   const replied = panelists.filter(p => ['RESPONDED','UNAVAILABLE'].includes(byEmail.get(String(p.email).toLowerCase())?.status)).length;
   return replied === panelists.length
-    ? `면접관 응답 ${replied}/${panelists.length} 완료 · 공통 일정을 선택하고 확인 완료를 눌러주세요.`
+    ? `면접관 응답 ${replied}/${panelists.length} 완료 · 공통 일정을 선택하고 [면접관 일정 확정]을 눌러주세요.`
     : `면접관 응답 ${replied}/${panelists.length} · 응답을 기다리고 있습니다.`;
 }
 
@@ -832,6 +832,20 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
   const failers = posCands.filter(c => c.decision === 'fail');
   // 선택된 결과가 하나도 없으면 아무도 이동하지 않는 확인창 대신 결과 입력 창을 연다.
   if(!passers.length && !failers.length) return openPositionResultModal(posId, stageIdx);
+  // 2차 면접(레퍼런스 병행)으로 보내려면 합격자의 채용예정 직급군이 정해져 있어야 한다(개별 단계 변경과 같은 기준).
+  if(Number(stageIdx) === 1 && nextFlowStage(stageIdx, posId) === 3) {
+    const noBand = passers.filter(isGradeBandUnspecified);
+    if(noBand.length) {
+      const open = await confirmActionModal({
+        title:'채용예정 직급군 미지정',
+        message:'2차 면접으로 이동하려면 합격자의 채용예정 직급군(레퍼런스 대상 판정 기준)을 먼저 지정해 주세요.',
+        items:noBand.map(c => `${c.name} · 직급군 미지정`),
+        confirmLabel:'포지션 수정 열기',
+      });
+      if(open) editPosition(Number(posId));
+      return;
+    }
+  }
 
   if(undecided.length && !skipConfirm) {
     const confirmed = await confirmActionModal({
@@ -908,14 +922,23 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
     rejectMailNote = mail.failed ? ` · 불합격 안내 ${mail.sent}건 발송, ${mail.failed}건 재발송 필요` : ` · 불합격 안내 ${mail.sent}건 발송`;
   }
   renderPositions(); renderDashboard();
+  // 다음 작업 창으로 바로 이어지는 경우에는 결과 알림을 띄우지 않는다(창이 다음 할 일을 보여 줌).
+  // 단, 불합격 안내 메일 발송 실패는 다음 창에 나오지 않으므로 경고로 알린다.
+  const warnRejectMailFailure_ = () => { if(rejectMailNote.includes('재발송')) toast(`불합격 안내 메일 일부를 보내지 못했습니다${rejectMailNote}. 처리 필요 업무에서 다시 보내 주세요.`, 'tw'); };
   if(isFinalDecision && passCnt > 0) {
     openOnboardingFromPosition(Number(posId));
-    toast(`처우협의 결과 확정: 최종합격 ${passCnt}명 · 입사 안내로 이동${failCnt ? ` · 불합격 ${failCnt}명 종료` : ''}${rejectMailNote}`, rejectMailNote.includes('재발송') ? 'tw' : 'tok');
+    warnRejectMailFailure_();
   } else if(nx === 2 && passCnt > 0) {
     // 1차 면접 합격자는 레퍼런스 단계로 이동하는 즉시 추천인 등록 안내 발송 화면으로 이어간다.
     openPosDetail(Number(posId));
     toast(`결과 확정: 합격 ${passCnt}명 → ${STAGES[nx]}, 불합격 ${failCnt}명 종료${rejectMailNote}`, rejectMailNote.includes('재발송') ? 'tw' : 'tok');
     requestPositionReferences(Number(posId));
+  } else if(nx === 3 && passCnt > 0) {
+    // 1차 합격자가 2차 면접으로 넘어가면 바로 2차 면접관 일정 확인으로 이어간다
+    // (면접관 회신 확인이 이미 끝났다면 openCollectSlots가 지원자 일정 요청 창을 연다).
+    openPosDetail(Number(posId));
+    openCollectSlots(Number(posId), 3);
+    warnRejectMailFailure_();
   } else {
     openPosDetail(Number(posId));
     toast(isFinalDecision
