@@ -1258,7 +1258,7 @@ function renderBatchPreview() {
   el.innerHTML = slots.map((s,i) => `
     <div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border)">
       <span style="width:20px;color:var(--t3);font-size:11px">${i+1}</span>
-      <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--blue);min-width:54px">${s.time}</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--blue);min-width:54px">${s.time}</span>
       <span style="flex:1;font-weight:600">${s.cand.name}</span>
       <span class="b ${s.availability==='available'?'bgreen':s.availability==='conflict'||s.availability==='unavailable'||s.availability==='panel_conflict'?'bred':'bgray'}">${s.availability==='available'?'양측 가능':s.availability==='panel_conflict'?'면접관 불가':s.availability==='conflict'?'지원자 불가':s.availability==='unavailable'?'개별조율':'미응답'}</span>
       <span style="font-size:11px;color:var(--t3)">${s.cand.email}</span>

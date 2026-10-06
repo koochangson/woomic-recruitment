@@ -89,7 +89,7 @@ async function applyInterviewConfirm() {
   closeModal('modal-confirm-int');
   if(typeof renderIntTable === 'function') renderIntTable();
   renderTracker(); updateMetrics(); renderPositions();
-  toast(`${itv.candName} ${itv.type} 면접 일정 확정 (${itv.date}) · 안내 메일은 "면접 안내"에서 발송해 주세요.`, 'tok');
+  toast(`${itv.candName} ${itv.type} 면접 일정 확정 (${fmtItv(itv.date)}) · 안내 메일은 "면접 안내"에서 발송해 주세요.`, 'tok');
   // 포지션 상세에서 진입한 경우 다시 열기
   if(returnToPosId != null) {
     const pid = returnToPosId;

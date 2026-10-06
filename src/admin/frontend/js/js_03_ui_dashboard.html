@@ -112,10 +112,13 @@ function loadSectionDataLazily_(id) {
       renderTeamMaster();
       // 입사 안내 화면이 먼저 열려 부서장 칸이 비어 있었다면 불러온 뒤 조용히 채운다.
       const leadInput = document.getElementById('ob-dept-lead');
-      if(id === 'onboarding' && leadInput && !leadInput.value) {
-        const leads = getDeptLeadRecipients(document.getElementById('ob-dept')?.value || '');
-        if(leads.length) { leadInput.value = groupMailRecipients(leads.map(x => x.email)); updateObPreview(); }
-        if(typeof setObDeptLeadHint_ === 'function') setObDeptLeadHint_(document.getElementById('ob-dept')?.value || '', leads);
+      if(id === 'onboarding' && leadInput) {
+        const dept = document.getElementById('ob-dept')?.value || '';
+        const leads = getDeptLeadRecipients(dept);
+        if(!leadInput.value && leads.length) { leadInput.value = groupMailRecipients(leads.map(x => x.email)); updateObPreview(); }
+        // 이 시점에는 아직 '불러오는 중' 상태가 지워지기 전이라 완료 상태를 명시해서 안내를 갱신한다.
+        const shown = leads.length ? leads : (leadInput.value ? [{ email:leadInput.value }] : []);
+        if(typeof setObDeptLeadHint_ === 'function') setObDeptLeadHint_(dept, shown, false);
       }
       return interviewers.length > 0;
     })().catch(error => {
@@ -645,8 +648,10 @@ function now() { return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',mi
 function formatDate(val) {
   if(!val) return '';
   // ISO 형식 (2026-05-18T15:00:00.000Z) → YYYY-MM-DD
+  // ISO 시각은 한국 시간 날짜로 바꾼다(앞 10자리를 자르면 오전 9시 전 값이 하루 전 날짜가 된다).
   if(typeof val === 'string' && val.includes('T')) {
-    return val.split('T')[0];
+    const p = dateParts_(val);
+    return p ? p.y + '-' + pad2_(p.mo) + '-' + pad2_(p.d) : val.split('T')[0];
   }
   // Excel 날짜 숫자 (46160 등) → YYYY-MM-DD
   if(typeof val === 'number' || (typeof val === 'string' && /^\d{5}$/.test(val))) {
@@ -658,7 +663,8 @@ function formatDate(val) {
   return String(val).split('T')[0];
 }
 
-function today() { return new Date().toISOString().split('T')[0]; }
+// 한국 시간 기준 오늘(예전 UTC 기준은 오전 9시 전에 어제 날짜가 기록됐다)
+function today() { return localYmd_(); }
 
 function logNotify(ch, type, target, to) {
   notifyLog.unshift({ ch, type, target, to, time:now(), date:today() });
@@ -735,11 +741,11 @@ function buildIntEmail(itv, cand) {
 }
 
 function buildOfferEmail(ob, cand) {
-  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '린스퀘어 14F'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
+  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${fmtMailDate(ob.joinDate)}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '린스퀘어 14F'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
 }
 
 function buildInternalOnboardEmail(ob, cand) {
-  return `[입사안내] ${ob.joinDate || '미정'} ${ob.dept || '미정'} ${ob.candName || cand?.name || ''} ${ob.rank || ''}\n\n안녕하세요.\n${ob.joinDate || '미정'} 입사 예정인 신규입사자를 안내드립니다.\n\n[입사자 정보]\n성명        ${ob.candName || cand?.name || ''}\n포지션      ${ob.pos || cand?.pos || ''}\n배치 부서   ${ob.dept || '미정'}\n입사일      ${ob.joinDate || '미정'}\n직책/직급   ${ob.rank || '미정'}\n채용형태    ${ob.etype || cand?.etype || '정규직'}\n근무지      ${ob.loc || '미정'}\n연락처      ${cand?.phone || cand?.mobile || '별도 확인'}\n\n[현장 담당자 확인 요청]\n입사자와 사전 연락하여 숙소 필요 여부 및 제복 사이즈를 확인해 주시기 바랍니다.\n확인 결과는 입사일 전일까지 피플팀으로 회신 부탁드립니다.\n\n[입사 당일 일정 및 부서별 협조사항]\n입사 당일 일정: ${(ob.notes || '').trim() || '입사 당일 본사 출근 예정'}\n부서별 협조사항: 정보전략팀 전산 비품 준비 / 경영지원팀 전화기 설치 및 사원증 발급\n\n원활한 입사 준비를 위해 관련 부서에서는 입사일 전일까지 준비 사항을 완료해 주시기 바랍니다.\n\n우미건설 피플팀 드림\n\n※ 본 메일에는 입사 예정자의 개인정보가 포함되어 있습니다. 입사 준비 목적 외 이용 및 외부 전달을 금합니다.`;
+  return `[입사안내] ${ob.joinDate ? fmtShortDate(ob.joinDate) : '미정'} ${ob.dept || '미정'} ${ob.candName || cand?.name || ''} ${ob.rank || ''}\n\n안녕하세요.\n${ob.joinDate ? fmtMailDate(ob.joinDate) : '미정'} 입사 예정인 신규입사자를 안내드립니다.\n\n[입사자 정보]\n성명        ${ob.candName || cand?.name || ''}\n포지션      ${ob.pos || cand?.pos || ''}\n배치 부서   ${ob.dept || '미정'}\n입사일      ${ob.joinDate ? fmtMailDate(ob.joinDate) : '미정'}\n직책/직급   ${ob.rank || '미정'}\n채용형태    ${ob.etype || cand?.etype || '정규직'}\n근무지      ${ob.loc || '미정'}\n연락처      ${cand?.phone || cand?.mobile || '별도 확인'}\n\n[현장 담당자 확인 요청]\n입사자와 사전 연락하여 숙소 필요 여부 및 제복 사이즈를 확인해 주시기 바랍니다.\n확인 결과는 입사일 전일까지 피플팀으로 회신 부탁드립니다.\n\n[입사 당일 일정 및 부서별 협조사항]\n입사 당일 일정: ${(ob.notes || '').trim() || '입사 당일 본사 출근 예정'}\n부서별 협조사항: 정보전략팀 전산 비품 준비 / 경영지원팀 전화기 설치 및 사원증 발급\n\n원활한 입사 준비를 위해 관련 부서에서는 입사일 전일까지 준비 사항을 완료해 주시기 바랍니다.\n\n우미건설 피플팀 드림\n\n※ 본 메일에는 입사 예정자의 개인정보가 포함되어 있습니다. 입사 준비 목적 외 이용 및 외부 전달을 금합니다.`;
 }
 
 function buildRejectEmail(cand) {

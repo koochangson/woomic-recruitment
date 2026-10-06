@@ -255,7 +255,7 @@ function renderReferralDetail(r) {
           <div class="fg"><label>입사 CL</label><select id="rf-edit-cl"><option value="">선택</option>${['CL1','CL2','CL3','CL4','CL5'].map(cl=>`<option ${r.hireCL===cl?'selected':''}>${cl}</option>`).join('')}</select></div>
         </div>
         <div class="referral-status-row">
-          <div class="fg"><label>입사일</label><input id="rf-edit-hire-date" type="date" value="${esc(r.hireDate||'')}"></div>
+          <div class="fg"><label>입사일</label><input id="rf-edit-hire-date" type="date" value="${esc(r.hireDate ? fmtDate(r.hireDate) : '')}"></div>
           <div class="fg"><label>불합격/불인정/취소 사유</label><input id="rf-edit-reason" value="${esc(r.rejectReason||'')}"></div>
         </div>
         <div class="referral-form-actions">
@@ -396,7 +396,7 @@ function renderReferralRewardRows(refId, ref=null) {
   if(!rows.length) return `<div class="referral-empty">${esc(referralRewardEmptyMessage(ref))}</div>`;
   return rows.map(r=>`<div class="referral-reward-row">
     <div><b>${esc(r.milestone)}</b></div>
-    <div style="font-size:12px">${Number(r.amount||0).toLocaleString('ko-KR')}원<br><span style="color:var(--t3)">기준 ${esc(r.dueDate)} · 급여월 ${esc(r.payMonth)}</span></div>
+    <div style="font-size:12px">${Number(r.amount||0).toLocaleString('ko-KR')}원<br><span style="color:var(--t3)">기준 ${esc(fmtDate(r.dueDate))} · 급여월 ${esc(r.payMonth)}</span></div>
     <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">${rewardBadge(r.status)}
       <select style="font-size:11px;padding:3px 8px" data-onchange="updateRewardStatusFromSelect('${esc(r.id)}',this)">
         ${REWARD_STATUSES.map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${rewardStatusLabel(s)}</option>`).join('')}
@@ -701,7 +701,7 @@ function renderReferralRewardsView() {
         <div class="referral-reward-row"><div><b>합계</b></div><div>${items.length}건 · ${sum.toLocaleString('ko-KR')}원</div><div>${items.filter(r=>r.status==='RETENTION_OK').length}건 확인</div></div>
         ${items.map(r=>{
           const ref = referrals.find(x=>x.id===r.referralId);
-          return `<div class="referral-reward-row"><div><b>${esc(r.milestone)}</b><br><span style="color:var(--t3)">${esc(r.dueDate||'')}</span></div><div>${esc(ref?.candName||'-')} · ${esc(ref?.refName||r.refEmail||'-')}<br><span style="color:var(--t3)">${Number(r.amount||0).toLocaleString('ko-KR')}원 · ${esc(r.referralId)}</span></div><div>${rewardBadge(r.status)}</div></div>`;
+          return `<div class="referral-reward-row"><div><b>${esc(r.milestone)}</b><br><span style="color:var(--t3)">${esc(r.dueDate ? fmtDate(r.dueDate) : '')}</span></div><div>${esc(ref?.candName||'-')} · ${esc(ref?.refName||r.refEmail||'-')}<br><span style="color:var(--t3)">${Number(r.amount||0).toLocaleString('ko-KR')}원 · ${esc(r.referralId)}</span></div><div>${rewardBadge(r.status)}</div></div>`;
         }).join('')}
       </div>`;
     }).join(''):'<div class="referral-empty">표시할 포상금이 없습니다.</div>'}

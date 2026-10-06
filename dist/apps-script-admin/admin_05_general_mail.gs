@@ -282,6 +282,16 @@ function generalMailContactHtml_(templateKey, data) {
   return loadMailFragment_('mail_shared_contact_qr').split(KAKAO_CONTACT_FRAGMENT_TEXT_).join(nlToBr_(message));
 }
 
+// 메일 날짜 형식(전 메일 공통): 2026년 10월 6일(화). 'YYYY-MM-DD'가 아니면 받은 값을 그대로 쓴다.
+function mailDateLabel_(value) {
+  const raw = String(value || '').trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return raw;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  const wk = ['일','월','화','수','목','금','토'][new Date(y, mo - 1, d).getDay()];
+  return y + '년 ' + mo + '월 ' + d + '일(' + wk + ')';
+}
+
 function renderGeneralMailTemplate_(html, templateKey, data) {
   let rendered = String(html || '');
   const candidateName = String(data.candidateName || '이하늘');
@@ -343,7 +353,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
     rendered = replaceMailPlaceholders_(rendered, {
       candidateName: escapeMailHtml_(candidateName),
       positionText: escapeMailHtml_(positionText),
-      joinDate: escapeMailHtml_(data.joinDate || ''),
+      joinDate: escapeMailHtml_(mailDateLabel_(data.joinDate)),
       joinTime: escapeMailHtml_(data.joinTime || '09:00'),
       reportLocation: escapeMailHtml_(data.reportLocation || '린스퀘어 14F'),
       dept: escapeMailHtml_(data.dept || ''),
@@ -358,7 +368,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       candidateName: escapeMailHtml_(candidateName),
       positionText: escapeMailHtml_(positionText),
       dept: escapeMailHtml_(data.dept || ''),
-      joinDate: escapeMailHtml_(data.joinDate || ''),
+      joinDate: escapeMailHtml_(mailDateLabel_(data.joinDate)),
       rank: escapeMailHtml_(data.rank || ''),
       etype: escapeMailHtml_(data.etype || ''),
       location: escapeMailHtml_(data.location || ''),

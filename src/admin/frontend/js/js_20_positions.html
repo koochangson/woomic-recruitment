@@ -219,7 +219,7 @@ async function closePosition(posId) {
   const heldIds = candidates.filter(c => Number(c.posId) === Number(posId) && c.stage < 5 && !c.held).map(c => Number(c.id));
   await holdResidualCandidates(posId, pos.title, {confirm:false});
   pos.status = (passed > 0 && passed < hc) ? 'partial' : 'filled';
-  pos.closedAt = new Date().toISOString().slice(0,10);
+  pos.closedAt = today();
   logActivity(pos.status === 'partial' ? '부분충원 완료' : '충원완료', `${pos.title} ${passed}/${hc}명`, 'position', posId);
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);

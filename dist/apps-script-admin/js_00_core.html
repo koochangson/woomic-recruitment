@@ -1351,7 +1351,7 @@ function renderActivityLog() {
     <div class="activity-item">
       <span style="font-weight:700;color:var(--acc)">${esc(a.action)}</span>
       <span style="color:var(--t2)"> — ${esc(a.detail)}</span>
-      <span style="float:right;font-size:10.5px;color:var(--t3)">${a.date} ${a.time}</span>
+      <span style="float:right;font-size:10.5px;color:var(--t3)">${fmtDate(a.date)} ${a.time}</span>
     </div>`).join('');
 }
 
@@ -1613,7 +1613,53 @@ function getPositionCardProgress(pos, positionCandidates) {
 }
 // 포지션의 현재 단계는 아직 진행 중인 지원자 중 가장 앞선 단계 기준으로 표시한다.
 // YYYY-MM-DD → YYYY.MM.DD 표시용
-function fmtDate(d){ return d ? String(d).slice(0,10).replace(/-/g,'.') : ''; }
+// ── 날짜 표시 공통 ───────────────────────────────────────────
+// 'YYYY-MM-DD' / 'YYYY-MM-DD HH:mm'(면접 일정·입사일처럼 한국 시간으로 저장한 값)은 그대로 읽고,
+// 'Z'·시간대가 붙은 ISO 시각(발송·확정·기록 시각)은 브라우저(한국) 시간으로 바꿔 읽는다.
+// 예전에는 ISO 시각의 앞부분을 그대로 잘라 써서 시각이 9시간 이르게, 오전 9시 전 날짜가 하루 전으로 보였다.
+const WEEKDAYS_KO_ = ['일','월','화','수','목','금','토'];
+function dateParts_(value) {
+  if(value == null || value === '') return null;
+  const s = String(value).trim();
+  const hasZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  let y, mo, d, hh = null, mi = null;
+  if(m && !hasZone) {
+    y = +m[1]; mo = +m[2]; d = +m[3];
+    if(m[4] != null) { hh = +m[4]; mi = +m[5]; }
+  } else {
+    const dt = new Date(s);
+    if(Number.isNaN(dt.getTime())) return null;
+    y = dt.getFullYear(); mo = dt.getMonth() + 1; d = dt.getDate();
+    hh = dt.getHours(); mi = dt.getMinutes();
+    // 시트의 날짜 칸은 '한국 자정'이 ISO로 넘어온다 — 시각이 정확히 00:00이면 날짜만 있는 값으로 본다.
+    if(hh === 0 && mi === 0) { hh = null; mi = null; }
+  }
+  const wk = WEEKDAYS_KO_[new Date(y, mo - 1, d).getDay()];
+  return { y, mo, d, hh, mi, wk };
+}
+function pad2_(n) { return String(n).padStart(2, '0'); }
+// 화면용 날짜: 2026.10.06
+function fmtDate(v) {
+  const p = dateParts_(v);
+  return p ? p.y + '.' + pad2_(p.mo) + '.' + pad2_(p.d) : (v ? String(v) : '');
+}
+// 메일용 날짜(·시간): 2026년 10월 6일(화) 14:00
+function fmtMailDate(v) {
+  const p = dateParts_(v);
+  if(!p) return v ? String(v) : '';
+  return p.y + '년 ' + p.mo + '월 ' + p.d + '일(' + p.wk + ')' + (p.hh != null ? ' ' + pad2_(p.hh) + ':' + pad2_(p.mi) : '');
+}
+// 짧은 날짜(메일 제목 등): 10.6(화)
+function fmtShortDate(v) {
+  const p = dateParts_(v);
+  return p ? p.mo + '.' + p.d + '(' + p.wk + ')' : (v ? String(v) : '');
+}
+// 한국 시간 기준 YYYY-MM-DD (저장용)
+function localYmd_(date) {
+  const d = date || new Date();
+  return d.getFullYear() + '-' + pad2_(d.getMonth() + 1) + '-' + pad2_(d.getDate());
+}
 function getCandidateJoinDate(c) {
   const ob = onboardings.find(o => Number(o.candId) === Number(c && c.id));
   return String((c && c.joinDate) || (ob && ob.joinDate) || '').slice(0, 10);
@@ -1654,11 +1700,11 @@ function fmtMonthDay(d) {
   return `${Number(parts[1])}/${Number(parts[2])}`;
 }
 // 면접 일시 표시: "MM.DD HH:mm" (날짜만 있으면 MM.DD)
-function fmtItv(d){
-  if(!d) return '';
-  const [date, time] = String(d).split('T');
-  const md = String(date).slice(5,10).replace(/-/g,'.'); // MM.DD
-  return md + (time ? ' ' + time.slice(0,5) : '');
+// 화면용 날짜·시간: 10.06(화) 14:00 (시각이 없으면 10.06(화))
+function fmtItv(v){
+  const p = dateParts_(v);
+  if(!p) return v ? String(v) : '';
+  return pad2_(p.mo) + '.' + pad2_(p.d) + '(' + p.wk + ')' + (p.hh != null ? ' ' + pad2_(p.hh) + ':' + pad2_(p.mi) : '');
 }
 function interviewDateParts(value) {
   if(!value) return { date:'', time:'' };

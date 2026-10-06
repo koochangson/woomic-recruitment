@@ -228,8 +228,8 @@ textarea{resize:vertical;min-height:64px;}
 .cl-next-action.pri-low{color:var(--t2);}
 .cl-next-action.pri-none{color:var(--t3);}
 .tracker-int-date{display:flex;flex-direction:column;gap:2px;font-family:'DM Mono',monospace;line-height:1.15;white-space:nowrap;}
-.tracker-int-date .date{font-size:10.5px;font-weight:650;color:var(--text);}
-.tracker-int-date .time{font-size:10px;font-weight:700;color:var(--acc);letter-spacing:.2px;}
+.tracker-int-date .date{font-size:10.5px;font-weight:500;color:var(--text);}
+.tracker-int-date .time{font-size:10px;font-weight:500;color:var(--acc);letter-spacing:.2px;}
 .urg{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .urg-red{background:var(--red);}
 .urg-amber{background:var(--amber);}
@@ -276,7 +276,10 @@ textarea{resize:vertical;min-height:64px;}
 .ob-col-pos{min-width:90px;word-break:keep-all;}
 .ob-col-date,.ob-col-notify,.ob-col-action{white-space:nowrap;}
 .ob-col-date .b,.ob-col-notify .b{white-space:nowrap;}
-.ob-date{font-weight:700;color:var(--green);font-family:'DM Mono',monospace;font-size:12px;}
+/* DM Mono는 400·500 굵기만 불러온다. 더 굵게 지정하거나 굵은 부모를 상속하면 브라우저가 가짜 굵게(글자를 겹쳐 찍기)를 만들어
+   번져 보이므로, DM Mono를 쓰는 곳은 가짜 굵게를 끄고 500 이하로만 쓴다. */
+.tracker-int-date,.nc-body,.ob-date,[style*="DM Mono"]{font-synthesis:none;}
+.ob-date{font-weight:500;color:var(--green);font-family:'DM Mono',monospace;font-size:12px;}
 .ob-badges{display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
 .ob-actions{display:flex;flex-direction:column;align-items:stretch;gap:4px;}
 .ob-col-action{text-align:right;}

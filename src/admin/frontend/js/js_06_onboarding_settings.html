@@ -35,8 +35,6 @@ function fillOnboardingDefaults(candId) {
   updateObPreview();
   // 이미 등록된 사람이면 버튼이 '수정 저장'이 된다.
   updateObSendButton_();
-  const saveBtn = document.getElementById('ob-save-btn');
-  if(saveBtn) saveBtn.textContent = onboardings.some(o => Number(o.candId) === Number(c.id)) ? '수정 저장' : '등록';
 }
 
 // 왼쪽 입사 예정자 표에서 행을 누르면 오른쪽 입사 안내 등록 폼에 해당 지원자를 채운다.
@@ -53,11 +51,15 @@ function selectOnboardingRow(candId) {
 }
 
 // 지원자 입사안내를 이미 보냈으면 발송 버튼을 '재발송'으로 바꾸고 발송 완료를 함께 보여 준다.
+// 파란(주요) 버튼은 지금 해야 할 다음 작업 하나에만 쓴다: 처음엔 [등록], 등록 후엔 [지원자 입사안내 발송],
+// 발송까지 끝나면 파란 버튼 없음(수정 저장·재발송은 흰색).
 function updateObSendButton_() {
-  const btn = document.getElementById('ob-send-btn');
-  if(!btn) return;
   const id = Number(document.getElementById('ob-cand')?.value);
   const ob = onboardings.find(o => Number(o.candId) === id);
+  const saveBtn = document.getElementById('ob-save-btn');
+  if(saveBtn) { saveBtn.textContent = ob ? '수정 저장' : '등록'; saveBtn.className = ob ? 'btn' : 'btn btn-primary'; }
+  const btn = document.getElementById('ob-send-btn');
+  if(!btn) return;
   const sent = !!(ob && ob.notified);
   btn.textContent = sent ? '지원자 입사안내 재발송' : '지원자 입사안내 발송';
   btn.className = sent ? 'btn' : 'btn btn-primary';
@@ -78,14 +80,14 @@ function refreshOnboardingDeptRecipients() {
 }
 
 // 부서장 이메일 자동 입력 결과를 입력칸 아래에 보여 준다. 못 찾아도 직접 입력하면 되므로 오류 알림은 띄우지 않는다.
-function setObDeptLeadHint_(dept, leads) {
+function setObDeptLeadHint_(dept, leads, loading = (typeof lazyInterviewerLoadPromise_ !== 'undefined' && !!lazyInterviewerLoadPromise_)) {
   const hint = document.getElementById('ob-dept-lead-hint');
   if(!hint) return;
   if(!String(dept || '').trim()) { hint.textContent = ''; return; }
   if(leads && leads.length) {
     hint.textContent = `자동 입력: ${leads.map(x => x.name || x.email).join(', ')}`;
     hint.style.color = 'var(--t3)';
-  } else if(typeof lazyInterviewerLoadPromise_ !== 'undefined' && lazyInterviewerLoadPromise_) {
+  } else if(loading) {
     hint.textContent = '직원 DB를 불러오는 중입니다. 잠시 후 자동으로 채워집니다.';
     hint.style.color = 'var(--t3)';
   } else {
@@ -186,7 +188,7 @@ async function sendJoinNotice(obId) {
     });
     if(!confirmed) return;
   }
-  const subject = `[입사안내] ${ob.joinDate || '입사일 미정'} ${dept || ob.dept || '배치부서 미정'} ${cand.name} ${ob.rank || ''}`.trim();
+  const subject = `[입사안내] ${ob.joinDate ? fmtShortDate(ob.joinDate) : '입사일 미정'} ${dept || ob.dept || '배치부서 미정'} ${cand.name} ${ob.rank || ''}`.trim();
   const body = buildInternalOnboardEmail({...ob,dept,pos:cand.pos||ob.pos,etype:ob.etype||cand.etype}, cand);
 
   // 이메일 발송 (관련 부서 + 피플팀 일괄 수신)
@@ -269,7 +271,7 @@ function addOnboarding(){
   if(c.stage<5)c.stage=5;
   c.joinDate = jd;
   syncReferralFromCandidate(c, {joinDate:jd});
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderOnboarding();updateMetrics();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderOnboarding();updateMetrics();updateObSendButton_();
   renderOnboardingPositionFinalists(c.posId,c.id);
 }
 
@@ -346,7 +348,7 @@ function renderOnboarding(){
     ...candidates.filter(c=>isOnboardingDone_(c) && !registeredIds.has(Number(c.id))).map(c=>({ name:c.name, pos:c.pos, dept:c.dept, joinDate:getCandidateJoinDate(c) })),
   ];
   const doneHtml = doneList.length ? `<details class="ob-done-list"><summary>입사 완료 · ${doneList.length}명 <span>(충원완료 포지션 포함)</span></summary>
-    <div>${doneList.map(d=>`<div class="ob-done-item"><b>${esc(d.name||'-')}</b><span>${esc(d.pos||'-')}${d.dept?` · ${esc(d.dept)}`:''}</span><span>${d.joinDate?esc(d.joinDate):'입사일 미입력'}</span></div>`).join('')}</div></details>` : '';
+    <div>${doneList.map(d=>`<div class="ob-done-item"><b>${esc(d.name||'-')}</b><span>${esc(d.pos||'-')}${d.dept?` · ${esc(d.dept)}`:''}</span><span>${d.joinDate?esc(fmtDate(d.joinDate)):'입사일 미입력'}</span></div>`).join('')}</div></details>` : '';
   if(!pendingCands.length && !confirmedObs.length){wrap.innerHTML=empty('입사 진행 중인 최종합격자가 없습니다.')+doneHtml;return;}
   const selectedId = Number(document.getElementById('ob-cand')?.value) || 0;
   const rowAttrs = candId => `class="ob-row${Number(candId)===selectedId?' ob-row-active':''}" data-action="call" data-call="selectOnboardingRow(${Number(candId)})" title="클릭하면 오른쪽 입사 안내 등록에 불러옵니다"`;
@@ -364,7 +366,7 @@ function renderOnboarding(){
     return `<tr ${rowAttrs(o.candId)}>
       ${nameCell(o.candName, c?.email || '', o.etype)}
       ${posCell(o.pos, o.dept)}
-      <td class="ob-col-date"><div class="ob-date">${esc(o.joinDate||'-')}</div>${o.rank?`<div class="tsub">${esc(o.rank)}</div>`:''}</td>
+      <td class="ob-col-date"><div class="ob-date">${esc(o.joinDate?fmtDate(o.joinDate):'-')}</div>${o.rank?`<div class="tsub">${esc(o.rank)}</div>`:''}</td>
       <td class="ob-col-notify"><div class="ob-badges">${o.notified?'<span class="b bgreen">지원자 발송완료</span>':'<span class="b bgray">미발송</span>'}${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</div></td>
       <td class="ob-col-action"><div class="ob-actions">
         ${o.notified
@@ -426,7 +428,7 @@ function renderNotifyLog(){
       <td><span class="tag">${l.type}</span></td>
       <td>${esc(l.target)}</td>
       <td style="font-size:11px;color:var(--t3)">${esc(daysSince(l.date)>PRIVACY_POLICY.maskAfterDays?maskEmail(l.to):l.to)}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px">${l.date}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${fmtDate(l.date)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${l.time}</td>
     </tr>`).join('')}</tbody>
   </table></div>`;
