@@ -81,8 +81,14 @@ let lazyReferenceLoaded_ = false;
 
 // 면접관 DB가 꼭 필요한 순간(메일에 면접관 직급 표기 등)에만 한 번 불러온다. 이미 불러왔거나
 // 이번 페이지에서 이미 시도했다면 다시 부르지 않는다.
+// 직원(면접관) DB는 메인 시트의 Interviewers 시트나 Apps Script 서버에서도 읽을 수 있다 — 직원 DB URL 설정이
+// 비어 있다는 이유만으로 불러오기를 건너뛰면 입사 안내의 부서장 자동 입력이 항상 실패했다.
+function canLoadInterviewers_() {
+  return !!(GS_CONFIG.interviewerUrl || GS_CONFIG.scriptUrl || (typeof isAppsScriptDashboard_ === 'function' && isAppsScriptDashboard_()));
+}
+
 async function ensureInterviewersLoaded_() {
-  if(interviewers.length || !GS_CONFIG.interviewerUrl || typeof loadInterviewers !== 'function') return;
+  if(interviewers.length || !canLoadInterviewers_() || typeof loadInterviewers !== 'function') return;
   if(lazyInterviewerLoadPromise_) { await lazyInterviewerLoadPromise_; return; }
   if(lazyInterviewerLoadAttempted_) return;
   lazyInterviewerLoadAttempted_ = true;
@@ -100,7 +106,7 @@ function loadSectionDataLazily_(id) {
   // 면접관 DB는 화면 표시에 필요하지 않은 보조 데이터다 — 전체 화면 로딩창으로 막지 않고 뒤에서
   // 한 번만 불러온다. 결과가 0건이어도 매번 다시(최대 3곳 순차 조회) 부르지 않도록 시도 여부를
   // 기억하고, 다시 불러오려면 '면접관 새로고침' 버튼을 쓴다.
-  if(needsInterviewers && !interviewers.length && GS_CONFIG.interviewerUrl && typeof loadInterviewers === 'function' && !lazyInterviewerLoadPromise_ && !lazyInterviewerLoadAttempted_) {
+  if(needsInterviewers && !interviewers.length && canLoadInterviewers_() && typeof loadInterviewers === 'function' && !lazyInterviewerLoadPromise_ && !lazyInterviewerLoadAttempted_) {
     lazyInterviewerLoadAttempted_ = true;
     lazyInterviewerLoadPromise_ = (async () => {
       await loadInterviewers();
@@ -110,6 +116,7 @@ function loadSectionDataLazily_(id) {
       if(id === 'onboarding' && leadInput && !leadInput.value) {
         const leads = getDeptLeadRecipients(document.getElementById('ob-dept')?.value || '');
         if(leads.length) { leadInput.value = groupMailRecipients(leads.map(x => x.email)); updateObPreview(); }
+        if(typeof setObDeptLeadHint_ === 'function') setObDeptLeadHint_(document.getElementById('ob-dept')?.value || '', leads);
       }
       return interviewers.length > 0;
     })().catch(error => {
@@ -569,6 +576,8 @@ function fieldError_(target, message) {
 // 잠깐 떴다 사라지면 놓치기 쉬워서 모든 알림은 사용자가 누를(또는 ×) 때까지 유지한다.
 // 너무 많이 쌓이면 가장 오래된 일반 알림부터 정리한다(회신 등 이벤트 알림은 유지).
 const TOAST_MAX_VISIBLE_ = 5;
+// 완료·안내는 잠시 뒤 저절로 사라지고, 오류·경고·이벤트(회신 등)는 누르거나 ×를 누를 때까지 남긴다.
+const TOAST_AUTO_HIDE_MS_ = { tok:3000, tinfo:4000 };
 function toast(msg, type='', options={}) {
   const w = document.getElementById('toast-wrap');
   if(!w) return;
@@ -576,7 +585,7 @@ function toast(msg, type='', options={}) {
   // 진행 상황 알림은 기준상 띄우지 않는다(진행창·버튼 상태로 표시).
   if(['toutlook','tteams'].includes(type) || (!['terr','tw'].includes(type) && /(중입니다|중\.\.\.|중…)\.?$/.test(text.trim()))) return;
   const existing = [...w.children].find(el => el.dataset.msg === text && el.dataset.type === String(type));
-  if(existing) { w.appendChild(existing); return; } // 같은 문구는 쌓지 않고 최신 위치로 옮긴다
+  if(existing) { w.appendChild(existing); existing._restartHide?.(); return; } // 같은 문구는 쌓지 않고 최신 위치로 옮긴다
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.dataset.msg = text; t.dataset.type = String(type);
@@ -602,6 +611,15 @@ function toast(msg, type='', options={}) {
     t.addEventListener('click', () => t.remove());
   }
   w.appendChild(t);
+  const hideMs = options.sticky ? 0 : (TOAST_AUTO_HIDE_MS_[type] || 0);
+  if(hideMs) {
+    let timer = null;
+    t._restartHide = () => { clearTimeout(timer); timer = setTimeout(() => t.remove(), hideMs); };
+    // 읽는 동안(마우스를 올린 동안)은 사라지지 않게 한다.
+    t.addEventListener('mouseenter', () => clearTimeout(timer));
+    t.addEventListener('mouseleave', () => t._restartHide());
+    t._restartHide();
+  }
   const removable = [...w.children].filter(el => el !== t && !el.classList.contains('toast-sticky'));
   while(w.children.length > TOAST_MAX_VISIBLE_ && removable.length) removable.shift().remove();
   if(options.sticky) t.classList.add('toast-sticky');
@@ -718,7 +736,7 @@ function buildIntEmail(itv, cand) {
 }
 
 function buildOfferEmail(ob, cand) {
-  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '본사 3층 피플팀'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
+  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${ob.joinDate}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '린스퀘어 14F'}\n배치 부서: ${ob.dept || ''}\n직책: ${ob.rank || ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}${ob.notes ? '\n\n준비사항:\n' + ob.notes : ''}`;
 }
 
 function buildInternalOnboardEmail(ob, cand) {

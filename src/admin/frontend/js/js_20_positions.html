@@ -101,13 +101,23 @@ function renderPositions() {
 }
 
 // 포지션 상세에서 입사 안내 - 지원자 본인
+// 부서명은 공백을 정리해 비교하고, 상위 조직이 앞에 붙은 이름(예: "경영지원본부 피플팀")도 같은 부서로 본다.
+function sameDeptName_(a, b) {
+  const x = String(a || '').replace(/\s+/g, ' ').trim();
+  const y = String(b || '').replace(/\s+/g, ' ').trim();
+  if(!x || !y) return false;
+  return x === y || x.endsWith(' ' + y) || y.endsWith(' ' + x);
+}
+
 function getDeptLeadRecipients(dept) {
   const normalized = String(dept || '').trim();
   if(!normalized || !Array.isArray(interviewers)) return [];
   const seen = new Set();
+  // 직급·호칭·직책 중 어디에든 팀장/소장이 있으면 부서장으로 본다(직원 DB에 직책 칸이 있으면 함께 확인).
+  const isLead = iv => /팀장|소장/.test([iv.rank, iv.title, iv.position, iv.duty].filter(Boolean).join(' '));
   return interviewers.filter(iv =>
-    String(iv.dept || '').trim() === normalized &&
-    /팀장|소장/.test(iv.rank || '') &&
+    sameDeptName_(iv.dept, normalized) &&
+    isLead(iv) &&
     iv.email
   ).filter(iv => {
     const email = String(iv.email).trim().toLowerCase();

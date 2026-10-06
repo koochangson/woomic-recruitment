@@ -345,7 +345,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       positionText: escapeMailHtml_(positionText),
       joinDate: escapeMailHtml_(data.joinDate || ''),
       joinTime: escapeMailHtml_(data.joinTime || '09:00'),
-      reportLocation: escapeMailHtml_(data.reportLocation || '본사 3층 피플팀'),
+      reportLocation: escapeMailHtml_(data.reportLocation || '린스퀘어 14F'),
       dept: escapeMailHtml_(data.dept || ''),
       rank: escapeMailHtml_(data.rank || ''),
       etype: escapeMailHtml_(data.etype || ''),

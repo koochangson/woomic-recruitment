@@ -22,17 +22,19 @@ function fillOnboardingDefaults(candId) {
   set('ob-position',(pos&&pos.title) || c.pos || '');
   set('ob-dept',dept);
   set('ob-dept-lead',leadEmails);
+  setObDeptLeadHint_(dept, leads.length ? leads : (existing.deptLead ? [{ email:existing.deptLead }] : []));
   set('ob-loc',loc);
   set('ob-etype',etype);
   set('ob-date',existing.joinDate || c.joinDate || '');
   set('ob-rank',existing.rank || '');
   set('ob-jointime',existing.joinTime || '09:00');
-  set('ob-reportloc',existing.reportLocation || '본사 3층 피플팀');
+  set('ob-reportloc',existing.reportLocation || '린스퀘어 14F');
   set('ob-notes',existing.notes || '');
   renderOnboardingPositionFinalists(c.posId, c.id);
   renderOnboarding();
   updateObPreview();
   // 이미 등록된 사람이면 버튼이 '수정 저장'이 된다.
+  updateObSendButton_();
   const saveBtn = document.getElementById('ob-save-btn');
   if(saveBtn) saveBtn.textContent = onboardings.some(o => Number(o.candId) === Number(c.id)) ? '수정 저장' : '등록';
 }
@@ -50,14 +52,46 @@ function selectOnboardingRow(candId) {
   if(target && !target.value) target.focus({ preventScroll:true });
 }
 
+// 지원자 입사안내를 이미 보냈으면 발송 버튼을 '재발송'으로 바꾸고 발송 완료를 함께 보여 준다.
+function updateObSendButton_() {
+  const btn = document.getElementById('ob-send-btn');
+  if(!btn) return;
+  const id = Number(document.getElementById('ob-cand')?.value);
+  const ob = onboardings.find(o => Number(o.candId) === id);
+  const sent = !!(ob && ob.notified);
+  btn.textContent = sent ? '지원자 입사안내 재발송' : '지원자 입사안내 발송';
+  btn.className = sent ? 'btn' : 'btn btn-primary';
+  const status = document.getElementById('ob-send-status');
+  if(status) {
+    status.textContent = sent ? '✓ 지원자 입사안내 발송 완료' + (ob.notifiedAt ? ' · ' + fmtItv(ob.notifiedAt) : '') : '';
+    status.style.display = sent ? '' : 'none';
+  }
+}
+
 function refreshOnboardingDeptRecipients() {
   const dept = document.getElementById('ob-dept')?.value || '';
   const leads = getDeptLeadRecipients(dept);
   const leadInput = document.getElementById('ob-dept-lead');
   if(leadInput) leadInput.value = groupMailRecipients(leads.map(x=>x.email));
   updateObPreview();
-  // 찾은 이메일은 입력칸에 바로 채워지므로 못 찾았을 때만 알린다.
-  if(!leads.length) toast(`${dept || '배치부서'}의 팀장/소장 이메일을 찾지 못했습니다.`, 'terr');
+  setObDeptLeadHint_(dept, leads);
+}
+
+// 부서장 이메일 자동 입력 결과를 입력칸 아래에 보여 준다. 못 찾아도 직접 입력하면 되므로 오류 알림은 띄우지 않는다.
+function setObDeptLeadHint_(dept, leads) {
+  const hint = document.getElementById('ob-dept-lead-hint');
+  if(!hint) return;
+  if(!String(dept || '').trim()) { hint.textContent = ''; return; }
+  if(leads && leads.length) {
+    hint.textContent = `자동 입력: ${leads.map(x => x.name || x.email).join(', ')}`;
+    hint.style.color = 'var(--t3)';
+  } else if(typeof lazyInterviewerLoadPromise_ !== 'undefined' && lazyInterviewerLoadPromise_) {
+    hint.textContent = '직원 DB를 불러오는 중입니다. 잠시 후 자동으로 채워집니다.';
+    hint.style.color = 'var(--t3)';
+  } else {
+    hint.textContent = `직원 DB에서 ${dept}의 팀장/소장을 찾지 못했습니다. 이메일을 직접 입력해 주세요.`;
+    hint.style.color = 'var(--amber)';
+  }
 }
 
 function renderOnboardingPositionFinalists(positionId, selectedId) {
@@ -292,8 +326,9 @@ async function sendObNotify(ch){
     if(attachments.length) clearObAttachments_();
   }
   ob.notified=true;
+  ob.notifiedAt=new Date().toISOString();
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c.email);
-  saveState();renderOnboarding();renderDashboard();
+  saveState();renderOnboarding();renderDashboard();updateObSendButton_();
   toast(`${ob.candName}님에게 입사 안내 메일 발송 완료`,'tok');
 }
 
@@ -330,9 +365,11 @@ function renderOnboarding(){
       ${nameCell(o.candName, c?.email || '', o.etype)}
       ${posCell(o.pos, o.dept)}
       <td class="ob-col-date"><div class="ob-date">${esc(o.joinDate||'-')}</div>${o.rank?`<div class="tsub">${esc(o.rank)}</div>`:''}</td>
-      <td class="ob-col-notify"><div class="ob-badges">${o.notified?'<span class="b bgreen">지원자✓</span>':'<span class="b bgray">미발송</span>'}${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</div></td>
+      <td class="ob-col-notify"><div class="ob-badges">${o.notified?'<span class="b bgreen">지원자 발송완료</span>':'<span class="b bgray">미발송</span>'}${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</div></td>
       <td class="ob-col-action"><div class="ob-actions">
-        <button class="btn btn-xs btn-primary" data-action="call" data-call="sendObById(${o.id},'outlook')">입사안내 발송</button>
+        ${o.notified
+          ? '<button class="btn btn-xs" data-action="call" data-call="sendObById('+o.id+',\'outlook\')" title="이미 발송했습니다. 다시 보내려면 누르세요.">재발송</button>'
+          : '<button class="btn btn-xs btn-primary" data-action="call" data-call="sendObById('+o.id+',\'outlook\')">입사안내 발송</button>'}
         <button class="btn btn-xs btn-ghost" data-action="call" data-call="sendJoinNotice(${o.id})">내부 공유</button>
       </div></td>
     </tr>`;
@@ -371,8 +408,9 @@ async function sendObById(id,ch){
     if(attachments.length) clearObAttachments_();
   }
   ob.notified=true;
+  ob.notifiedAt=new Date().toISOString();
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c?.email||'');
-  saveState();renderOnboarding();renderDashboard();
+  saveState();renderOnboarding();renderDashboard();updateObSendButton_();
   toast(`${ob.candName}님에게 입사 안내 메일 발송 완료`,'tok');
 }
 
