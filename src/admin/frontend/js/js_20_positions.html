@@ -114,8 +114,11 @@ function getDeptLeadRecipients(dept) {
   if(!normalized || !Array.isArray(interviewers)) return [];
   const seen = new Set();
   // 직급·호칭·직책 중 어디에든 팀장/소장이 있으면 부서장으로 본다(직원 DB에 직책 칸이 있으면 함께 확인).
-  // 직책이 '담당'이 아니라 보직자(팀장·소장, 또는 '보직자'라고 적힌 경우)인 사람을 부서장으로 본다.
-  const isLead = iv => /팀장|소장|보직/.test([iv.rank, iv.title, iv.position, iv.duty].filter(Boolean).join(' '));
+  // 직책이 '담당'이 아니라 보직자(팀장·소장 또는 정확히 '보직자')인 사람을 부서장으로 본다.
+  // '비보직자'처럼 보직이라는 글자만 포함한 값은 제외한다.
+  const isLead = iv => [iv.rank, iv.title, iv.position, iv.duty]
+    .filter(Boolean)
+    .some(value => /팀장|소장/.test(String(value)) || String(value).trim() === '보직자');
   return interviewers.filter(iv =>
     sameDeptName_(iv.dept, normalized) &&
     isLead(iv) &&

@@ -149,6 +149,7 @@ function getInterviewers(typeFilter) {
       name: row.name || '',
       email: String(row.email || '').trim().toLowerCase(),
       rank: row.rank || '',
+      title: row.title || '',
       dept: row.dept || '',
       division: row.division || '',
       type: row.type || '',
@@ -202,6 +203,7 @@ function addInterviewer(body) {
     name: body.name || '',
     email,
     rank: body.rank || '',
+    title: body.title || '',
     dept: body.dept || '',
     division: body.division || '',
     type: body.type || '1차,2차',
@@ -224,7 +226,7 @@ function updateInterviewer(body) {
       headers.forEach((header, index) => {
         row[header] = values[i][index];
       });
-      ['empNo', 'name', 'email', 'rank', 'dept', 'division', 'type', 'active', 'status'].forEach(key => {
+      ['empNo', 'name', 'email', 'rank', 'title', 'dept', 'division', 'type', 'active', 'status'].forEach(key => {
         if (body[key] !== undefined) row[key] = body[key];
       });
       row.updatedAt = new Date().toISOString();
