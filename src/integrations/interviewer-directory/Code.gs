@@ -12,7 +12,7 @@ const SHEET_NAME = '면접관DB';
 const ADMIN_TOKEN_PROPERTY = 'INTERVIEWER_DB_ADMIN_TOKEN';
 const LOOKUP_TOKEN_PROPERTY = 'INTERVIEWER_DB_LOOKUP_TOKEN';
 
-const HEADERS = ['id', 'empNo', 'name', 'email', 'rank', 'dept', 'division', 'type', 'active', 'status', 'updatedAt'];
+const HEADERS = ['id', 'empNo', 'name', 'email', 'rank', 'dept', 'division', 'type', 'active', 'status', 'updatedAt', 'title'];
 
 function jsonResponse(data) {
   return ContentService
@@ -267,6 +267,7 @@ function replaceAllInterviewers(rows) {
       name: pick(row, ['name', '사용자명', '성명']),
       email: pick(row, ['email', '업무 이메일주소', '업무이메일주소', '업무 이메일', '업무이메일']),
       rank: pick(row, ['rank', '직급', '호칭']),
+      title: pick(row, ['title', '직책', '보직']),
       dept: pick(row, ['dept', '통합조직', '최종 소속 통합조직 통합그룹 조직명', '소속', '부서']),
       division: pick(row, ['division', '본부', '본부명', '소속본부', '소속 본부', '최종 소속 본부', '사업본부', '사업부', '부문']),
       type: pick(row, ['type']) || '1차,2차',
@@ -301,6 +302,7 @@ function normalizeInterviewerRow(row) {
     name: String(row.name || '').trim(),
     email: String(row.email || '').trim().toLowerCase(),
     rank: String(row.rank || '').trim(),
+    title: String(row.title || '').trim(),
     dept: String(row.dept || '').trim(),
     division: String(row.division || '').trim(),
     type: String(row.type || '').trim() || '1차,2차',

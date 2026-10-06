@@ -48,7 +48,7 @@ const GS_SCHEMA = {
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
   Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
   RefRules: ['id','recordType','key','value','clFrom','clTo','amount3M','amount6M','effectiveFrom','effectiveTo','isActive','updatedAt'],
-  Interviewers: ['email','name','empNo','dept','rank','status','updatedAt'],
+  Interviewers: ['email','name','empNo','dept','division','rank','title','status','updatedAt'],
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
 };
@@ -411,7 +411,11 @@ async function reloadAdminDataAfterLogin_() {
   }
   if(hasGsBridge_()) {
     try {
-      const loaded = await syncCoreFromGS({forceFull:true});
+      // 화면은 이 브라우저에 저장된 데이터로 이미 그려져 있다 — 저장된 데이터가 있으면 로딩창 없이 뒤에서
+      // 동기화하고(A), 마지막 동기화 이후 바뀐 부분만 받는다(B). 변경 기준점·병합 기준(base)이 없거나 변경 이력이
+      // 정리됐으면 syncCoreFromGSInternal이 알아서 전체 로드한다. 저장된 데이터가 전혀 없을 때만 로딩창을 띄운다.
+      const hasLocalData = candidates.length > 0 || positions.length > 0;
+      const loaded = await syncCoreFromGS({ background: hasLocalData });
       if(loaded) alignStartedInterviewStagesForActivePositions_();
       showSyncStatus(loaded ? 'Google Sheets 기준으로 로드됨' : '⚠ GS 응답 없음 — 로컬 캐시로 표시 중', loaded ? 'ok' : 'warn');
     } catch(e) {
@@ -1282,7 +1286,7 @@ function applyGsChanges(changes) {
 }
 
 // options.background: 화면이 이미 로컬 캐시로 그려져 있을 때(시작 시·주기 확인) 전체 로딩창 없이
-// 상단 상태 표시만 갱신한다. 로그인 직후 로드·수동 동기화·저장은 기존처럼 로딩창으로 조작을 막는다.
+// 상단 상태 표시만 갱신한다. 수동 동기화·저장, 저장된 데이터가 없는 로그인 직후 첫 로드는 로딩창으로 조작을 막는다.
 async function syncCoreFromGS(options={}) {
   if(options.background) return syncCoreFromGSInternal(options);
   return withGlobalSyncProgress('Google Sheets 데이터를 동기화하고 있습니다.', () => syncCoreFromGSInternal(options));
@@ -1716,6 +1720,8 @@ function normalizeUploadedEmployeeRow(row) {
   const name = employeeUploadValue(row, ['사용자명', '성명', 'name']);
   const email = normalizeReferralEmail(employeeUploadValue(row, ['업무 이메일주소', '업무이메일주소', '업무 이메일', '업무이메일', 'email', '이메일']));
   const rank = employeeUploadValue(row, ['직급', '호칭', 'rank']);
+  // 직책: 보직자(팀장·소장 등)와 '담당'을 구분한다 — 입사 안내의 부서장 자동 선택에 쓴다.
+  const title = employeeUploadValue(row, ['직책', '보직', 'title']);
   const dept = employeeUploadValue(row, ['통합조직', '최종 소속 통합조직 통합그룹 조직명', '최종소속통합조직통합그룹조직명', '소속', '부서', 'dept']);
   const status = employeeUploadValue(row, ['직원 상태', '직원상태', '상태', 'status']) || '재직';
   // 본부: 정확한 열 이름이 없으면 '본부'가 들어간 열을 찾는다(예: '최종 소속 본부명').
@@ -1728,6 +1734,7 @@ function normalizeUploadedEmployeeRow(row) {
     dept,
     division,
     rank,
+    title,
     status,
     updatedAt: new Date().toISOString(),
   };

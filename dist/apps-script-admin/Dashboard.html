@@ -516,7 +516,7 @@
               <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" data-onchange="refreshOnboardingDeptRecipients()" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label>해당부서 팀장/소장 이메일 <span style="color:var(--green)">자동 선택</span></label><input id="ob-dept-lead" placeholder="배치부서 기준 자동 매핑 · 필요 시 수정 가능" data-oninput="updateObPreview()"/><div id="ob-dept-lead-hint" class="field-hint"></div></div>
               <div class="fg full"><label>내부 공유 수신자</label><div id="ob-recipient-summary" style="padding:8px 10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);font-size:11px;color:var(--t2)">합격자를 선택하면 배치부서 팀장/소장과 관련부서 수신자를 확인할 수 있습니다.</div><button class="btn btn-xs" style="margin-top:5px;width:max-content" data-action="call" data-call="navBtn('settings')">관련부서 수신자 설정</button></div>
-              <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="대리 / 과장" data-oninput="updateObPreview()"/></div>
+              <div class="fg"><label>직책 / 직급</label><input id="ob-rank" placeholder="담당 / 과장" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label>근무지</label><input id="ob-loc" placeholder="서울 본사 / 현장명" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label>출근 시간</label><input type="time" id="ob-jointime" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label>집결 장소</label><input id="ob-reportloc" placeholder="린스퀘어 14F" data-oninput="updateObPreview()"/></div>
@@ -534,7 +534,7 @@
             <div class="brow">
               <button class="btn btn-primary" id="ob-save-btn" data-action="call" data-call="addOnboarding()">등록</button>
               <button class="btn btn-primary" id="ob-send-btn" data-action="call" data-call="sendObNotify('outlook')">지원자 입사안내 발송</button>
-              <button class="btn btn-ghost" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
+              <button class="btn" id="ob-internal-btn" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
             </div>
             <div id="ob-send-status" class="field-hint" style="display:none;color:var(--green);font-weight:700;margin-top:6px"></div>
           </div>
@@ -695,7 +695,7 @@
                 <input id="interviewer-employee-file" type="file" accept=".xlsx,.xls,.csv" style="font-size:12px;max-width:320px">
                 <button class="btn btn-sm" data-action="call" data-call="importInterviewersFromEmployeeFile()" style="background:#4A90D9;color:#fff;border-color:#4A90D9">엑셀 업로드 적용</button>
               </div>
-              <div id="interviewer-upload-status" style="font-size:11px;color:var(--t3);margin-top:6px">개인고유사번, 사용자명, 업무 이메일주소, 직급, 통합조직을 면접관 DB 항목으로 반영합니다.</div>
+              <div id="interviewer-upload-status" style="font-size:11px;color:var(--t3);margin-top:6px">개인고유사번, 사용자명, 업무 이메일주소, 직급, 직책(보직자·담당), 통합조직을 면접관 DB 항목으로 반영합니다. 직책은 입사 안내의 부서장 자동 선택에 쓰입니다.</div>
             </div>
           </div>
           <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #1D9E75">

@@ -72,7 +72,7 @@ const SHEET_SCHEMAS = {
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
   Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
   RefRules: ['id','recordType','key','value','clFrom','clTo','amount3M','amount6M','effectiveFrom','effectiveTo','isActive','updatedAt'],
-  Interviewers: ['email','name','empNo','dept','division','rank','status','updatedAt'],
+  Interviewers: ['email','name','empNo','dept','division','rank','title','status','updatedAt'],
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
   MailLog: ['id','eventKey','to','subject','status','error','sentAt'],

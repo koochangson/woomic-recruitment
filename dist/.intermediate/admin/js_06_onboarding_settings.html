@@ -59,6 +59,9 @@ function updateObSendButton_() {
   const ob = onboardings.find(o => Number(o.candId) === id);
   const saveBtn = document.getElementById('ob-save-btn');
   if(saveBtn) { saveBtn.textContent = ob ? '수정 저장' : '등록'; saveBtn.className = ob ? 'btn' : 'btn btn-primary'; }
+  // 내부 직원 공유도 다른 버튼과 같은 테두리 버튼으로 두고, 공유했으면 '재공유'로 바꾼다.
+  const internalBtn = document.getElementById('ob-internal-btn');
+  if(internalBtn) internalBtn.textContent = ob && ob.deptNotified ? '내부 직원 재공유' : '내부 직원 공유';
   const btn = document.getElementById('ob-send-btn');
   if(!btn) return;
   const sent = !!(ob && ob.notified);
@@ -209,6 +212,7 @@ async function sendJoinNotice(obId) {
   });
   if(sent === false) return;
   ob.deptNotified = true;
+  if(typeof updateObSendButton_ === 'function') setTimeout(updateObSendButton_, 0);
   toast(`내부 직원 단체 안내 — 고정 수신팀 ${teams.length}개 + 배치 부서 팀장/소장 ${leads.length}명`, 'tok');
   logNotify('Gmail', '입사안내(사내부서)', cand.name, toEmails);
   saveState();
@@ -373,7 +377,7 @@ function renderOnboarding(){
         ${o.notified
           ? '<button class="btn btn-xs" data-action="call" data-call="sendObById('+o.id+',\'outlook\')" title="이미 발송했습니다. 다시 보내려면 누르세요.">재발송</button>'
           : '<button class="btn btn-xs btn-primary" data-action="call" data-call="sendObById('+o.id+',\'outlook\')">입사안내 발송</button>'}
-        <button class="btn btn-xs btn-ghost" data-action="call" data-call="sendJoinNotice(${o.id})">내부 공유</button>
+        <button class="btn btn-xs" data-action="call" data-call="sendJoinNotice(${o.id})">${o.deptNotified ? '내부 재공유' : '내부 공유'}</button>
       </div></td>
     </tr>`;
   }).join('');
