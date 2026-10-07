@@ -1674,6 +1674,17 @@ function fmtShortDate(v) {
   return p ? p.mo + '.' + p.d + '(' + p.wk + ')' : (v ? String(v) : '');
 }
 // 한국 시간 기준 YYYY-MM-DD (저장용)
+// 직급(역량등급) 표기: 'CL2 1년차 (대리)' — 서버 onboardingRankCl_과 같은 규칙
+function formatRankCl_(rank, cl) {
+  const raw = String(rank || '').trim();
+  const grade = raw.includes('/') ? raw.split('/').pop().trim() : raw;
+  const yearMatch = grade.match(/\d+\s*년차/);
+  const years = yearMatch ? yearMatch[0].replace(/\s+/g, '') : '';
+  const title = grade.replace(/\d+\s*년차/, '').replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim();
+  const head = [String(cl || '').trim(), years].filter(Boolean).join(' ');
+  if(!head && !title) return '';
+  return title ? (head ? `${head} (${title})` : title) : head;
+}
 function localYmd_(date) {
   const d = date || new Date();
   return d.getFullYear() + '-' + pad2_(d.getMonth() + 1) + '-' + pad2_(d.getDate());

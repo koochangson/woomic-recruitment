@@ -280,8 +280,10 @@ textarea{resize:vertical;min-height:64px;}
    번져 보이므로, DM Mono를 쓰는 곳은 가짜 굵게를 끄고 500 이하로만 쓴다. */
 .tracker-int-date,.nc-body,.ob-date,[style*="DM Mono"]{font-synthesis:none;}
 .ob-date{font-weight:500;color:var(--green);font-family:'DM Mono',monospace;font-size:12px;}
-.ob-badges{display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+.ob-badges{display:flex;flex-direction:column;align-items:flex-start;gap:4px;}
 .ob-actions{display:flex;flex-direction:column;align-items:stretch;gap:4px;}
+/* 발송 현황 배지와 액션 버튼을 같은 높이·간격으로 맞춰 '지원자'·'부서' 줄이 나란히 보이게 한다 */
+.ob-table .ob-badges .b,.ob-table .ob-actions .btn{height:24px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;}
 .ob-col-action{text-align:right;}
 /* 화면 폭이 아니라 표가 들어간 카드 폭 기준으로 전환한다 — 폼과 나란히 있을 때(1100~1300px)도 좁아지기 때문 */
 #ob-table{container-type:inline-size;}
@@ -685,10 +687,14 @@ html,body{line-height:1.55;}
 #sect-interview .grid.g23{grid-template-columns:minmax(420px,1.25fr) minmax(320px,.75fr);}
 #sect-interview .notify-card,#sect-onboarding .notify-card{box-shadow:none;}
 #sect-onboarding .onboarding-main-layout{grid-template-columns:minmax(0,1fr) 400px;align-items:start;}
-#sect-onboarding .onboarding-preview-details{margin-top:12px;margin-bottom:0;}
-#sect-onboarding .onboarding-preview-details .help-details-body{padding-top:2px;}
-#sect-onboarding .onboarding-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-#sect-onboarding .onboarding-preview-grid .card{margin:0;}
+#sect-onboarding .onboarding-preview-details,#modal-onboarding .onboarding-preview-details{margin-top:12px;margin-bottom:0;}
+/* 입사 안내 입력 모달: 묶음 제목과 아래 고정 버튼 줄 */
+.ob-modal-sec{margin-top:6px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;font-weight:800;color:var(--acc);}
+.ob-modal .fgrid > .ob-modal-sec:first-child{margin-top:0;padding-top:0;border-top:0;}
+.ob-modal-ft{flex-wrap:wrap;gap:6px;}
+#sect-onboarding .onboarding-preview-details .help-details-body,#modal-onboarding .onboarding-preview-details .help-details-body{padding-top:2px;}
+#sect-onboarding .onboarding-preview-grid,#modal-onboarding .onboarding-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+#sect-onboarding .onboarding-preview-grid .card,#modal-onboarding .onboarding-preview-grid .card{margin:0;}
 .int-task-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px;}
 .int-task-card{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);box-shadow:var(--sh);}
 .int-task-card.is-high{border-top:2px solid var(--amber);}
@@ -737,7 +743,7 @@ html,body{line-height:1.55;}
   #sect-interview .grid.g23,.grid.g32{grid-template-columns:1fr;}
   #sect-reference .grid.g32{grid-template-columns:1fr;}
   #sect-onboarding .onboarding-main-layout{grid-template-columns:1fr;}
-  #sect-onboarding .onboarding-preview-grid{grid-template-columns:1fr;}
+  #sect-onboarding .onboarding-preview-grid,#modal-onboarding .onboarding-preview-grid{grid-template-columns:1fr;}
   .int-task-board{grid-template-columns:repeat(2,minmax(0,1fr));}
   .template-editor{grid-template-columns:180px minmax(0,1fr);}
   .pos-card-main{align-items:flex-start;flex-wrap:wrap;}

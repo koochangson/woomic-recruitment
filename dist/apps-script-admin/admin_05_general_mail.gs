@@ -306,12 +306,17 @@ function mailDateLabel_(value) {
 }
 
 // '담당 / 과장'처럼 직책/직급을 함께 적은 값에서 직급만 꺼내고, 역량등급이 있으면 '과장 (CL3)'처럼 붙인다.
+// 직급(역량등급) 표기: 'CL2 1년차 (대리)'. 직급 칸에 '대리 1년차'처럼 적으면 연차와 직급을 나눠 쓴다.
+// '담당 / 과장'처럼 직책을 함께 적었으면 '/' 뒤의 직급만 쓴다.
 function onboardingRankCl_(rank, cl) {
   const raw = String(rank || '').trim();
   const grade = raw.includes('/') ? raw.split('/').pop().trim() : raw;
-  const level = String(cl || '').trim();
-  if (!grade && !level) return '-';
-  return grade && level ? grade + ' (' + level + ')' : (grade || level);
+  const yearMatch = grade.match(/\d+\s*년차/);
+  const years = yearMatch ? yearMatch[0].replace(/\s+/g, '') : '';
+  const title = grade.replace(/\d+\s*년차/, '').replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim();
+  const head = [String(cl || '').trim(), years].filter(Boolean).join(' ');
+  if (!head && !title) return '-';
+  return title ? (head ? head + ' (' + title + ')' : title) : head;
 }
 
 // 표 안의 짧은 입사일자: 10.6(화)
@@ -539,13 +544,12 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','healthDeadline','salary']);
     const salaryDigits = String(data.salary || '').replace(/[^0-9]/g, '');
     const allowanceLines = String(data.allowances || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-    const rankText = [String(data.cl || '').trim(), String(data.rank || '').trim()].filter(Boolean);
     rendered = replaceMailPlaceholders_(rendered, {
       candidateName: escapeMailHtml_(candidateName),
       healthDeadline: escapeMailHtml_(shortMailDate_(data.healthDeadline)),
       org: escapeMailHtml_(data.org || '우미건설(주)'),
       etypeText: escapeMailHtml_(data.etypeText || data.etype || '-'),
-      offerRank: escapeMailHtml_(rankText.length === 2 ? rankText[0] + ' (' + rankText[1] + ')' : (rankText[0] || '-')),
+      offerRank: escapeMailHtml_(onboardingRankCl_(data.rank, data.cl)),
       salaryText: escapeMailHtml_((salaryDigits ? salaryDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : String(data.salary || '')) + '원/年'),
       salaryNote: data.salaryNote ? ' (' + escapeMailHtml_(data.salaryNote) + ')' : '',
       allowancesHtml: allowanceLines.length

@@ -597,7 +597,7 @@ async function reviewPositionTask_(positionId, reviewKey) {
     return show('처우·채용검진 안내 내역', '지원자별 처우 요약, 안내 발송과 검진 결과입니다.',
       offerList.map(c => {
         const o = getOffer_(c.id);
-        const terms = o ? [o.salary ? `연봉 ${Number(o.salary).toLocaleString('ko-KR')}원` : '', [o.cl, o.rank].filter(Boolean).join(' ')].filter(Boolean).join(' · ') : '';
+        const terms = o ? [o.salary ? `연봉 ${Number(o.salary).toLocaleString('ko-KR')}원` : '', formatRankCl_(o.rank, o.cl)].filter(Boolean).join(' · ') : '';
         return `${c.name}${terms ? ` · ${terms}` : ''} · ${o?.sentAt ? `안내 ${fmtShortDate(o.sentAt)} · ${OFFER_ACCEPT_LABELS_[o.acceptance || '']} · ${OFFER_HEALTH_LABELS_[o.healthStatus || '']}` : '안내 기록 없음'} · 현재 ${stageLabel(c.stage)}`;
       }));
   }
@@ -1356,6 +1356,7 @@ function openOfferHealthModal(candId) {
   set('oh-etype', offer.etypeText || (pos?.etype || c.etype || ''));
   set('oh-rank', offer.rank || ob.rank || '');
   set('oh-cl', offer.cl || ob.cl || '');
+  updateRankPreview_('oh');
   set('oh-salary', offer.salary ? Number(String(offer.salary).replace(/[^0-9]/g, '')).toLocaleString('ko-KR') : '');
   set('oh-salary-note', offer.salaryNote ?? OFFER_DEFAULTS_.salaryNote);
   // 고정 수당은 금액 칸으로, 그 밖의 수당은 '기타' 칸으로 나눠 채운다(예전에 한 칸에 적어 둔 값도 나눠 읽는다).
@@ -1468,7 +1469,7 @@ async function sendOfferHealth() {
       `1. 채용검진: ${fmtShortDate(offer.healthDeadline)}까지 지정기관에서 채용검진 (첨부파일 참조)`,
       '※ 채용검진 결과를 종합하여, 추후 최종합격 여부를 안내드리겠습니다.', '',
       '2. 근로조건 및 처우 제안', `- 소속: ${offer.org}`, `- 채용구분: ${offer.etypeText}`,
-      `- 직급: ${[offer.cl, offer.rank].filter(Boolean).join(' ')}`,
+      `- 직급: ${formatRankCl_(offer.rank, offer.cl)}`,
       `- 처우: 기본연봉 ${salaryText}${offer.salaryNote ? ` (${offer.salaryNote})` : ''}`,
       ...String(offer.allowances || '').split('\n').filter(x => x.trim()).map(x => `  - ${x.trim()}`),
       ...(offer.probation ? [`- 수습기간: ${offer.probation}`] : []),
