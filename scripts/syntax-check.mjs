@@ -6,6 +6,7 @@ const htmlFiles = [
   'src/public/pages/reference-check/reference_candidate_intake.html',
   'src/public/pages/reference-check/reference_check_intake.html',
   'src/public/pages/reference-check/interview_availability.html',
+  'src/public/pages/reference-check/join_date.html',
   '새 폴더/index.html',
 ];
 

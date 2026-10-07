@@ -67,6 +67,7 @@ const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','refReportSentAt','refSkipReason','gradeBandOverride','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
   PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','loc','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
+  JoinDateRequests: ['id','candId','candName','positionText','options','token','tokenExpiresAt','link','deadline','selection','status','note','respondedAt','responseBy','createdAt','updatedAt'],
   Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','site','targetGradeBand','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
@@ -589,6 +590,9 @@ function handleReferralSecurityAction_(payload) {
   if (payload.action === 'setInterviewAvailabilityDeliveryStatus') return setInterviewAvailabilityDeliveryStatus_(payload);
   if (payload.action === 'verifyInterviewAvailabilityToken') return verifyInterviewAvailabilityToken_(payload);
   if (payload.action === 'submitInterviewAvailability') return submitInterviewAvailability_(payload);
+  if (payload.action === 'issueJoinDateLink') return issueJoinDateLink_(payload);
+  if (payload.action === 'verifyJoinDateToken') return verifyJoinDateToken_(payload);
+  if (payload.action === 'submitJoinDate') return submitJoinDate_(payload);
   if (payload.action === 'issuePanelAvailabilityLink') return issuePanelAvailabilityLink_(payload);
   if (payload.action === 'getPanelAvailabilityResponses') return getPanelAvailabilityResponses_(payload);
   if (payload.action === 'verifyPanelAvailabilityToken') return verifyPanelAvailabilityToken_(payload);
@@ -947,6 +951,122 @@ function submitInterviewAvailability_(payload) {
 }
 
 // 담당자 알림을 받을 주소 — 설정(Settings 시트) 'notifyEmail' 값을 사용한다.
+// ── 최종합격 통보 · 입사 가능일 회신 ─────────────────────────────
+// 피플팀이 제안한 입사 가능 날짜 중 하나를 지원자가 공개 페이지(join_date.html)에서 고른다.
+// 지원자 한 명당 한 줄(JoinDateRequests, id = 지원자 id)이며 다시 보내면 새 토큰으로 덮어쓴다.
+const JOIN_DATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/join_date.html';
+const JOIN_DATE_LINK_TTL_DAYS = 21;
+
+function normalizeJoinDateOptions_(value) {
+  let source = value;
+  if (typeof source === 'string') {
+    try { source = JSON.parse(source || '[]'); } catch (err) { source = []; }
+  }
+  if (!Array.isArray(source)) return [];
+  return source.map(v => String(v || '').trim().slice(0, 10))
+    .filter((v, i, arr) => /^\d{4}-\d{2}-\d{2}$/.test(v) && arr.indexOf(v) === i)
+    .sort()
+    .slice(0, 31);
+}
+
+function joinDateRequestExpired_(row) {
+  return !!(row.tokenExpiresAt && new Date(row.tokenExpiresAt).getTime() < Date.now());
+}
+
+// 최종합격(5) 단계인 지원자만 회신할 수 있다(불합격·보류·입사 처리 후에는 받지 않는다).
+function joinDateProcessClosed_(candId) {
+  const cand = readRows_('Candidates').find(row => String(row.id) === String(candId));
+  if (!cand) return false;
+  if (String(cand.held || '') === 'Y') return true;
+  return !['5', '최종합격'].includes(String(cand.stage == null ? '' : cand.stage).trim());
+}
+
+function issueJoinDateLink_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const candId = String(body.candId || '').trim();
+  const candName = String(body.candName || '').trim();
+  const options = normalizeJoinDateOptions_(body.options);
+  if (!candId || !candName || !options.length) return json_({ error: 'missing_join_date_fields' });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = ensureSheet_('JoinDateRequests');
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.JoinDateRequests);
+    const rowIndex = findRowIndex_(sheet, 'id', candId, headers);
+    const existing = readRows_('JoinDateRequests').find(row => String(row.id) === candId) || {};
+    const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+    const expiresAt = new Date(Date.now() + JOIN_DATE_LINK_TTL_DAYS * 86400000).toISOString();
+    const link = buildUrlWithParams_(JOIN_DATE_PAGE_URL, { token });
+    const row = schemaRow_('JoinDateRequests', Object.assign({}, existing, {
+      id: candId, candId, candName, positionText: String(body.positionText || '').trim(),
+      options: JSON.stringify(options), token, tokenExpiresAt: expiresAt, link,
+      deadline: String(body.deadline || '').trim().slice(0, 10),
+      selection: '', status: 'SENT', note: '', respondedAt: '',
+      responseBy: body.responseBy === 'headhunter' ? 'headhunter' : 'candidate',
+      createdAt: existing.createdAt || nowIso_(), updatedAt: nowIso_()
+    }));
+    const values = headers.map(header => row[header] == null ? '' : row[header]);
+    if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]); else sheet.appendRow(values);
+    appendChange_('JoinDateRequests', 'upsert', candId, row);
+    return json_({ ok: true, id: candId, link, tokenExpiresAt: expiresAt });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function verifyJoinDateToken_(payload) {
+  const token = String(payload && (payload.token || payload.data && payload.data.token) || '').trim();
+  if (!token) return json_({ ok: false, error: 'token_required' });
+  const row = readRows_('JoinDateRequests').find(item => String(item.token || '') === token);
+  if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (joinDateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
+  if (joinDateRequestExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+  return json_({
+    ok: true, candName: row.candName || '', positionText: row.positionText || '',
+    options: normalizeJoinDateOptions_(row.options), deadline: row.deadline || '',
+    alreadySubmitted: row.status === 'RESPONDED' || row.status === 'UNAVAILABLE',
+    unavailable: row.status === 'UNAVAILABLE', selection: row.selection || '', note: row.note || '',
+    responseBy: row.responseBy || 'candidate'
+  });
+}
+
+function submitJoinDate_(payload) {
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const token = String(body.token || '').trim();
+  const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
+  const selection = String(body.selection || '').trim().slice(0, 10);
+  const note = String(body.note || '').trim().slice(0, 500);
+  if (!token) return json_({ ok: false, error: 'token_required' });
+  if (!unavailable && !selection) return json_({ ok: false, error: 'selection_required' });
+  if (unavailable && !note) return json_({ ok: false, error: 'alternative_note_required' });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = ensureSheet_('JoinDateRequests');
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.JoinDateRequests);
+    const rowIndex = findRowIndex_(sheet, 'token', token, headers);
+    const row = readRows_('JoinDateRequests').find(item => String(item.token || '') === token);
+    if (rowIndex < 0 || !row) return json_({ ok: false, error: 'invalid_token' });
+    if (joinDateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
+    if (joinDateRequestExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    if (!unavailable && normalizeJoinDateOptions_(row.options).indexOf(selection) < 0) return json_({ ok: false, error: 'invalid_selection' });
+    const next = schemaRow_('JoinDateRequests', Object.assign({}, row, {
+      selection: unavailable ? '' : selection, status: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
+      note, respondedAt: nowIso_(), updatedAt: nowIso_()
+    }));
+    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => next[header] == null ? '' : next[header])]);
+    appendChange_('JoinDateRequests', 'upsert', row.id, next);
+    // 담당자 알림(설정의 '일정 응답 완료 알림 받을 이메일')
+    const choice = unavailable ? '제안 날짜 모두 어려움 · 희망: ' + note : '입사 가능일 ' + selection + (note ? ' · 메모: ' + note : '');
+    sendCohortCompleteNotice_('[입사일 회신] ' + (row.candName || '') + '님 ' + (unavailable ? '날짜 조정 요청' : selection),
+      (row.candName || '') + '님이 입사일을 회신했습니다.\n\n' + choice + '\n\n채용 관리 화면의 입사 안내에서 확인해 주세요.');
+    return json_({ ok: true, status: next.status, respondedAt: next.respondedAt });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function getNotifyEmail_() {
   return getFirstSettingValue_(['notifyEmail']);
 }
@@ -1687,6 +1807,7 @@ const GENERAL_MAIL_TEMPLATE_FILES = {
   onboarding: 'mail_body_onboarding',
   onboarding_internal: 'mail_body_onboarding_internal',
   offer_health: 'mail_body_offer_health',
+  final_pass: 'mail_body_final_pass',
   rejection: 'mail_body_rejection',
   interview_slot_request: 'mail_body_interview_slot_request',
   headhunter_forward: 'mail_body_headhunter_forward',
@@ -1699,7 +1820,8 @@ const GENERAL_MAIL_PREHEADER = {
   panel_schedule: () => '면접 일정 및 대상자를 안내드립니다.',
   onboarding: data => `입사를 진심으로 축하드립니다. 입사일 ${data.joinDate || ''}`,
   onboarding_internal: data => `신규입사자 안내 — ${data.joinDate || ''} 입사 예정`,
-  offer_health: () => '협의된 처우와 채용검진 일정을 안내드립니다.',
+  offer_health: () => '처우 제안과 채용검진 일정을 안내드립니다.',
+  final_pass: () => '최종 합격을 축하드립니다. 입사 가능일을 선택해 주세요.',
   rejection: () => '채용 결과를 안내드립니다.',
   interview_slot_request: () => '가능한 면접 날짜와 시간대를 선택해 주세요.',
   headhunter_forward: data => `헤드헌팅 후보자 ${data.candidateName || ''}님의 ${data.purpose || '채용 진행'} 안내입니다.`,
@@ -1712,7 +1834,8 @@ const GENERAL_MAIL_HEADER_TITLES = {
   panel_schedule: '면접 일정 안내',
   onboarding: '입사 안내',
   onboarding_internal: '신규입사자 안내',
-  offer_health: '처우 및 채용검진 안내',
+  offer_health: '채용검진 및 근로조건 안내',
+  final_pass: '최종합격 안내',
   rejection: '채용 결과 안내',
   interview_slot_request: '면접 후보 일정 요청',
   headhunter_forward: '헤드헌팅 후보자 안내',
@@ -2166,6 +2289,8 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       location: escapeMailHtml_(data.location || ''),
       preDeadline: escapeMailHtml_(onboardingPreDeadlineLabel_(data))
     });
+    // 현장직 입사자에게만 개인 짐 준비 안내를 남긴다.
+    if (!data.siteGear) rendered = rendered.replace(/<tr id="siteGearRow">[\s\S]*?<\/tr>/, '');
   } else if (templateKey === 'onboarding_internal') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','joinDate']);
     rendered = replaceMailPlaceholders_(rendered, {
@@ -2193,7 +2318,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       rendered = rendered.replace(/<tr id="siteOnboardingRequestRow">[\s\S]*?<\/tr>/, '');
     }
   } else if (templateKey === 'offer_health') {
-    // 처우 확정 후 채용검진 안내: 검진 결과를 본 뒤 최종합격(입사 안내)으로 이어진다.
+    // 처우제안·채용검진 안내: 최종합격 전 단계라 합격·입사일 내용은 넣지 않는다(검진 적합 → 최종합격 통보).
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','healthDeadline','salary']);
     const salaryDigits = String(data.salary || '').replace(/[^0-9]/g, '');
     const allowanceLines = String(data.allowances || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
@@ -2210,17 +2335,22 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
         ? '<div style="padding-top:4px;color:#334155;">' + allowanceLines.map(line => '- ' + escapeMailHtml_(line)).join('<br>') + '</div>'
         : '',
       benefitsText: escapeMailHtml_(data.benefits || '내규에 따름'),
-      joinDate: escapeMailHtml_(shortMailDate_(data.joinDate) || '추후 안내'),
       // 수습기간은 비워 두면 표에서 줄째로 뺀다.
       probationRow: data.probation
         ? '<tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">수습기간</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">' + escapeMailHtml_(data.probation) + '</td></tr>'
-        : '',
-      joinTime: escapeMailHtml_(data.joinTime || '09:00'),
-      reportLocation: escapeMailHtml_(data.reportLocation || '서울 강남구 언주로 30길 39, 14층')
+        : ''
     });
-    if (!data.siteGear) {
-      rendered = rendered.replace(/<tr id="offerSiteGearRow">[\s\S]*?<\/tr>/, '');
-    }
+  } else if (templateKey === 'final_pass') {
+    // 최종합격 통보 + 입사 가능일 회신 요청(제안 날짜 중 선택하는 공개 페이지 링크)
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','link']);
+    const dates = String(data.options || '').split(',').map(x => x.trim()).filter(Boolean);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      optionsText: escapeMailHtml_(dates.map(shortMailDate_).join(', ') || '-'),
+      replyDeadline: escapeMailHtml_(data.replyDeadline ? mailDateLabel_(data.replyDeadline) : '가능한 빨리'),
+      link: escapeMailHtml_(data.link)
+    });
   } else if (templateKey === 'rejection') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText']);
     rendered = replaceMailPlaceholders_(rendered, {
@@ -2280,7 +2410,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
   // 조사 표기는 값이 채워진 뒤에 받침을 보고 고른다(남은 {{...}} 검사보다 먼저).
   rendered = applyKoreanJosa_(rendered);
 
-  if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal', 'offer_health',
+  if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal', 'offer_health', 'final_pass',
        'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&
       /\{\{[^}]+\}\}/.test(rendered)) {
     throw new Error('unresolved_general_mail_placeholder');

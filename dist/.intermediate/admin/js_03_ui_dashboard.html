@@ -211,7 +211,7 @@ function nav(id, btn) {
   if(id==='interview') { populateSel('int-cand'); renderIntTable(); }
   if(id==='reference') { renderReference(); if(typeof autoGrowRefReportTextareas_ === 'function') autoGrowRefReportTextareas_(); }
   if(id==='referral') { renderReferralSection(); }
-  if(id==='onboarding') { populateSel('ob-cand'); renderOnboarding(); loadCommonAttachments_(); }
+  if(id==='onboarding') { populateSel('ob-cand'); renderOnboarding(); loadCommonAttachments_(); loadJoinDateRequests_(); }
   if(id==='notifylog') { renderNotifyLog(); renderActivityLog(); }
   if(id==='notifylog') renderPeriodReport();
   if(id==='position') renderPositions();

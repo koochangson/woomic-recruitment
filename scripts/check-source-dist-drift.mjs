@@ -67,7 +67,7 @@ expectSame(publicGsSource, path.join(publicDistDir, 'Code.gs'));
 expectSame(sharedBackendSource, path.join(publicDistDir, 'shared_00_runtime.gs'));
 expectSame(path.join(configDir, 'appsscript.public.json'), path.join(publicDistDir, 'appsscript.json'));
 expectSame(path.join(publicPagesDir, 'referral', 'index.html'), path.join(referralDistDir, 'index.html'));
-for (const name of ['reference_candidate_intake.html', 'reference_check_intake.html', 'interview_availability.html']) {
+for (const name of ['reference_candidate_intake.html', 'reference_check_intake.html', 'interview_availability.html', 'join_date.html']) {
   expectSame(path.join(publicPagesDir, 'reference-check', name), path.join(referenceDistDir, name));
 }
 

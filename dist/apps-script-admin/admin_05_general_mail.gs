@@ -5,6 +5,7 @@ const GENERAL_MAIL_TEMPLATE_FILES = {
   onboarding: 'mail_body_onboarding',
   onboarding_internal: 'mail_body_onboarding_internal',
   offer_health: 'mail_body_offer_health',
+  final_pass: 'mail_body_final_pass',
   rejection: 'mail_body_rejection',
   interview_slot_request: 'mail_body_interview_slot_request',
   headhunter_forward: 'mail_body_headhunter_forward',
@@ -17,7 +18,8 @@ const GENERAL_MAIL_PREHEADER = {
   panel_schedule: () => '면접 일정 및 대상자를 안내드립니다.',
   onboarding: data => `입사를 진심으로 축하드립니다. 입사일 ${data.joinDate || ''}`,
   onboarding_internal: data => `신규입사자 안내 — ${data.joinDate || ''} 입사 예정`,
-  offer_health: () => '협의된 처우와 채용검진 일정을 안내드립니다.',
+  offer_health: () => '처우 제안과 채용검진 일정을 안내드립니다.',
+  final_pass: () => '최종 합격을 축하드립니다. 입사 가능일을 선택해 주세요.',
   rejection: () => '채용 결과를 안내드립니다.',
   interview_slot_request: () => '가능한 면접 날짜와 시간대를 선택해 주세요.',
   headhunter_forward: data => `헤드헌팅 후보자 ${data.candidateName || ''}님의 ${data.purpose || '채용 진행'} 안내입니다.`,
@@ -30,7 +32,8 @@ const GENERAL_MAIL_HEADER_TITLES = {
   panel_schedule: '면접 일정 안내',
   onboarding: '입사 안내',
   onboarding_internal: '신규입사자 안내',
-  offer_health: '처우 및 채용검진 안내',
+  offer_health: '채용검진 및 근로조건 안내',
+  final_pass: '최종합격 안내',
   rejection: '채용 결과 안내',
   interview_slot_request: '면접 후보 일정 요청',
   headhunter_forward: '헤드헌팅 후보자 안내',
@@ -484,6 +487,8 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       location: escapeMailHtml_(data.location || ''),
       preDeadline: escapeMailHtml_(onboardingPreDeadlineLabel_(data))
     });
+    // 현장직 입사자에게만 개인 짐 준비 안내를 남긴다.
+    if (!data.siteGear) rendered = rendered.replace(/<tr id="siteGearRow">[\s\S]*?<\/tr>/, '');
   } else if (templateKey === 'onboarding_internal') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','joinDate']);
     rendered = replaceMailPlaceholders_(rendered, {
@@ -511,7 +516,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       rendered = rendered.replace(/<tr id="siteOnboardingRequestRow">[\s\S]*?<\/tr>/, '');
     }
   } else if (templateKey === 'offer_health') {
-    // 처우 확정 후 채용검진 안내: 검진 결과를 본 뒤 최종합격(입사 안내)으로 이어진다.
+    // 처우제안·채용검진 안내: 최종합격 전 단계라 합격·입사일 내용은 넣지 않는다(검진 적합 → 최종합격 통보).
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','healthDeadline','salary']);
     const salaryDigits = String(data.salary || '').replace(/[^0-9]/g, '');
     const allowanceLines = String(data.allowances || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
@@ -528,17 +533,22 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
         ? '<div style="padding-top:4px;color:#334155;">' + allowanceLines.map(line => '- ' + escapeMailHtml_(line)).join('<br>') + '</div>'
         : '',
       benefitsText: escapeMailHtml_(data.benefits || '내규에 따름'),
-      joinDate: escapeMailHtml_(shortMailDate_(data.joinDate) || '추후 안내'),
       // 수습기간은 비워 두면 표에서 줄째로 뺀다.
       probationRow: data.probation
         ? '<tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">수습기간</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">' + escapeMailHtml_(data.probation) + '</td></tr>'
-        : '',
-      joinTime: escapeMailHtml_(data.joinTime || '09:00'),
-      reportLocation: escapeMailHtml_(data.reportLocation || '서울 강남구 언주로 30길 39, 14층')
+        : ''
     });
-    if (!data.siteGear) {
-      rendered = rendered.replace(/<tr id="offerSiteGearRow">[\s\S]*?<\/tr>/, '');
-    }
+  } else if (templateKey === 'final_pass') {
+    // 최종합격 통보 + 입사 가능일 회신 요청(제안 날짜 중 선택하는 공개 페이지 링크)
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','link']);
+    const dates = String(data.options || '').split(',').map(x => x.trim()).filter(Boolean);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      positionText: escapeMailHtml_(positionText),
+      optionsText: escapeMailHtml_(dates.map(shortMailDate_).join(', ') || '-'),
+      replyDeadline: escapeMailHtml_(data.replyDeadline ? mailDateLabel_(data.replyDeadline) : '가능한 빨리'),
+      link: escapeMailHtml_(data.link)
+    });
   } else if (templateKey === 'rejection') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText']);
     rendered = replaceMailPlaceholders_(rendered, {
@@ -598,7 +608,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
   // 조사 표기는 값이 채워진 뒤에 받침을 보고 고른다(남은 {{...}} 검사보다 먼저).
   rendered = applyKoreanJosa_(rendered);
 
-  if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal', 'offer_health',
+  if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal', 'offer_health', 'final_pass',
        'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&
       /\{\{[^}]+\}\}/.test(rendered)) {
     throw new Error('unresolved_general_mail_placeholder');

@@ -14,7 +14,7 @@ function fillOnboardingDefaults(candId) {
   if(select) select.value = String(c.id);
   const pos = positions.find(p=>Number(p.id)===Number(c.posId));
   const existing = onboardings.find(o=>Number(o.candId)===Number(c.id)) || {};
-  // 처우·채용검진 안내에서 정한 입사일·직급·역량등급·집결 시간을 입사 안내 기본값으로 이어 쓴다.
+  // 처우·채용검진 안내에서 정한 직급·역량등급을 입사 안내 기본값으로 이어 쓴다(입사일은 지원자 회신으로 정한다).
   const offer = offers.find(o=>Number(o.candId)===Number(c.id)) || {};
   // 현장 포지션은 직종(건축 등) 대신 현장명을 배치 부서로 써서 그 현장의 소장을 찾는다.
   const siteName = pos && pos.location === '현장' ? String(pos.site || '').trim() : '';
@@ -30,19 +30,20 @@ function fillOnboardingDefaults(candId) {
   setObDeptLeadHint_(dept, leads.length ? leads : (existing.deptLead ? [{ email:existing.deptLead }] : []));
   set('ob-loc',loc);
   set('ob-etype',etype);
-  set('ob-date',existing.joinDate || c.joinDate || offer.joinDate || '');
+  set('ob-date',existing.joinDate || c.joinDate || '');
   set('ob-pre-deadline',existing.preDeadline || '');
   set('ob-rank',existing.rank || offer.rank || '');
   set('ob-name-en',existing.nameEn || '');
   set('ob-cl',existing.cl || offer.cl || '');
   set('ob-phone',existing.phone || c.phone || c.mobile || '');
-  set('ob-jointime',existing.joinTime || offer.joinTime || '09:00');
+  set('ob-jointime',existing.joinTime || '09:00');
   set('ob-reportloc',existing.reportLocation || '린스퀘어 14F');
   renderOnboardingPositionFinalists(c.posId, c.id);
   renderOnboarding();
   updateObPreview();
   // 이미 등록된 사람이면 버튼이 '수정 저장'이 된다.
   updateObSendButton_();
+  updateObJoinDateHint_();
 }
 
 // 왼쪽 입사 예정자 표에서 행을 누르면 오른쪽 입사 안내 등록 폼에 해당 지원자를 채운다.
@@ -540,6 +541,190 @@ async function confirmCommonAttachmentReady_(kind) {
   });
 }
 
+// ── 최종합격 통보 · 입사 가능일 회신 ─────────────────────────────
+// 검진 적합으로 최종합격이 확정되면 [최종합격 통보]로 합격 사실과 함께 입사 가능 날짜를 제안하고,
+// 지원자가 공개 페이지에서 고른 날짜를 입사일로 반영한다. 회신 기록은 서버 JoinDateRequests 시트가 원본이고
+// 여기서는 화면용으로 지원자 id별로 들고 있는다(반영한 회신 시각은 다시 덮어쓰지 않도록 따로 기억한다).
+const JOIN_DATE_CACHE_KEY_ = 'woomic_join_date_requests_v1';
+let joinDateRequests_ = {};
+let joinDateApplied_ = {};
+let finalPassCandId_ = null;
+let finalPassDates_ = [];
+try {
+  const saved = JSON.parse(localStorage.getItem(JOIN_DATE_CACHE_KEY_) || '{}');
+  joinDateRequests_ = saved.requests || {};
+  joinDateApplied_ = saved.applied || {};
+} catch(e) {}
+
+function persistJoinDateRequests_() {
+  try { localStorage.setItem(JOIN_DATE_CACHE_KEY_, JSON.stringify({ requests:joinDateRequests_, applied:joinDateApplied_ })); } catch(e) {}
+}
+
+function normalizeJoinDateRequest_(row) {
+  let options = row.options;
+  if(typeof options === 'string') { try { options = JSON.parse(options || '[]'); } catch(e) { options = []; } }
+  return {
+    candId:Number(row.candId || row.id), status:String(row.status || ''), options:Array.isArray(options) ? options : [],
+    deadline:String(row.deadline || '').slice(0, 10), selection:String(row.selection || '').slice(0, 10),
+    note:String(row.note || ''), respondedAt:String(row.respondedAt || ''), link:String(row.link || ''),
+    updatedAt:String(row.updatedAt || ''),
+  };
+}
+
+// 회신이 들어왔으면 입사일로 반영한다(이미 입사 안내를 보낸 입사 등록은 건드리지 않는다).
+function applyJoinDateReply_(req, { quiet=false } = {}) {
+  if(req.status !== 'RESPONDED' || !req.selection || joinDateApplied_[req.candId] === req.respondedAt) return false;
+  const c = candidates.find(x => Number(x.id) === Number(req.candId));
+  if(!c) return false;
+  joinDateApplied_[req.candId] = req.respondedAt;
+  c.joinDate = req.selection;
+  const ob = onboardings.find(o => Number(o.candId) === Number(c.id));
+  if(ob && !ob.notified) ob.joinDate = req.selection;
+  if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+  if(!quiet) toast(`${c.name}님이 입사 가능일을 ${fmtShortDate(req.selection)}로 회신했습니다. 입사일로 반영했습니다.`, 'tok');
+  return true;
+}
+
+function storeJoinDateRequest_(row, options) {
+  const req = normalizeJoinDateRequest_(row);
+  if(!Number.isFinite(req.candId)) return false;
+  joinDateRequests_[req.candId] = req;
+  const applied = applyJoinDateReply_(req, options);
+  persistJoinDateRequests_();
+  if(applied) saveState();
+  return true;
+}
+
+async function loadJoinDateRequests_() {
+  if(!hasGsBridge_()) return;
+  try {
+    const rows = await gsGetAll('JoinDateRequests', { force:true });
+    rows.forEach(row => storeJoinDateRequest_(row));
+    renderOnboarding();
+    updateObJoinDateHint_();
+  } catch(e) {
+    console.warn('입사일 회신 목록을 불러오지 못했습니다:', e);
+  }
+}
+
+// 다른 PC·지원자 회신으로 들어온 변경(getChanges)을 바로 반영한다.
+function applyJoinDateRequestChange_(change) {
+  if(change.action === 'delete') return false;
+  const ok = storeJoinDateRequest_(change.data || {});
+  if(ok) { renderOnboarding(); updateObJoinDateHint_(); }
+  return ok;
+}
+
+function joinDateStatusHtml_(candId) {
+  const req = joinDateRequests_[Number(candId)];
+  if(!req) return '';
+  if(req.status === 'RESPONDED') return `<span class="b bgreen" title="${esc(req.note || '')}">회신 ${esc(fmtShortDate(req.selection))}</span>`;
+  if(req.status === 'UNAVAILABLE') return `<span class="b bamber" title="${esc(req.note || '')}">날짜 조정 요청</span>`;
+  return `<span class="b bgray" title="${esc(req.options.map(fmtShortDate).join(', '))}">회신 대기</span>`;
+}
+
+// 입사 예정일 칸 아래에 지원자 회신 내용을 보여 준다.
+function updateObJoinDateHint_() {
+  const hint = document.getElementById('ob-date-hint');
+  if(!hint) return;
+  const req = joinDateRequests_[Number(document.getElementById('ob-cand')?.value)];
+  if(!req) { hint.textContent = ''; return; }
+  hint.innerHTML = req.status === 'RESPONDED' ? `지원자 회신: <b>${esc(fmtShortDate(req.selection))}</b>${req.note ? ` · ${esc(req.note)}` : ''}`
+    : req.status === 'UNAVAILABLE' ? `<b style="color:var(--amber)">제안 날짜가 모두 어렵다는 회신</b> · ${esc(req.note || '')}`
+    : `최종합격 통보 발송 · 회신 대기 (${esc(req.options.map(fmtShortDate).join(', '))})`;
+}
+
+function openFinalPassModal(candId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) { toast('지원자 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return; }
+  finalPassCandId_ = Number(c.id);
+  const req = joinDateRequests_[c.id];
+  finalPassDates_ = req && req.status !== 'RESPONDED' ? [...req.options] : [];
+  document.getElementById('fp-title').textContent = `최종합격 통보 · 입사일 확인 — ${c.name}`;
+  document.getElementById('fp-target').textContent = `${c.pos || '-'} · ${getCandidateMailTarget(c).to || c.email || '이메일 없음'}${isHeadhuntingCandidate(c) ? ' (헤드헌팅 업체 경유)' : ''}`;
+  const deadline = new Date(); deadline.setDate(deadline.getDate() + 3);
+  document.getElementById('fp-deadline').value = (req && req.deadline) || localYmd_(deadline);
+  document.getElementById('fp-date-input').value = '';
+  const status = document.getElementById('fp-status');
+  if(status) status.innerHTML = req ? `이전 발송: ${joinDateStatusHtml_(c.id)}${req.note ? ` · ${esc(req.note)}` : ''}` : '';
+  renderFinalPassDates_();
+  openModal('modal-final-pass');
+}
+
+function renderFinalPassDates_() {
+  const box = document.getElementById('fp-dates');
+  if(!box) return;
+  finalPassDates_ = [...new Set(finalPassDates_)].sort();
+  box.innerHTML = finalPassDates_.length
+    ? finalPassDates_.map((d, i) => `<span class="notify-chip"><b>${esc(fmtShortDate(d))}</b><button type="button" aria-label="${esc(fmtShortDate(d))} 빼기" data-action="call" data-call="removeFinalPassDate(${i})">×</button></span>`).join('')
+    : '<span class="field-hint" style="margin:0">제안할 입사 가능 날짜를 추가해 주세요. (여러 개 가능)</span>';
+}
+
+function addFinalPassDate() {
+  const input = document.getElementById('fp-date-input');
+  const value = String(input?.value || '').slice(0, 10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value)) { fieldError_('fp-date-input', '추가할 날짜를 선택해 주세요.'); return; }
+  if(value < today()) { fieldError_('fp-date-input', '오늘 이후 날짜를 선택해 주세요.'); return; }
+  finalPassDates_.push(value);
+  input.value = '';
+  renderFinalPassDates_();
+}
+
+function removeFinalPassDate(index) {
+  finalPassDates_.splice(Number(index), 1);
+  renderFinalPassDates_();
+}
+
+async function sendFinalPassNotice() {
+  const c = candidates.find(x => Number(x.id) === Number(finalPassCandId_));
+  if(!c) return;
+  if(!finalPassDates_.length) { fieldError_('fp-date-input', '제안할 입사 가능 날짜를 하나 이상 추가해 주세요.'); return; }
+  const deadline = document.getElementById('fp-deadline')?.value || '';
+  const btn = document.getElementById('fp-send-btn');
+  const prevLabel = btn ? btn.textContent : '';
+  if(btn) { btn.disabled = true; btn.textContent = '발송 중…'; }
+  try {
+    const target = getCandidateMailTarget(c);
+    const issued = await gsFetch('issueJoinDateLink', '', {
+      candId:c.id, candName:c.name, positionText:c.pos || '', options:finalPassDates_, deadline,
+      responseBy:isHeadhuntingCandidate(c) ? 'headhunter' : 'candidate',
+    }, { allowQueue:false });
+    if(!issued?.ok || !issued.link) { toast(`입사일 회신 링크를 만들지 못했습니다. ${friendlyError_(issued?.error, '잠시 후 다시 시도해 주세요.')}`, 'terr'); return; }
+    const subject = `[우미건설] ${c.name}님 최종합격 안내 및 입사일 확인`;
+    const body = [
+      `${c.name}님, 최종 합격을 진심으로 축하드립니다.`, '',
+      `우미건설 ${c.pos || ''} 포지션에 최종 합격하셨음을 알려드립니다.`,
+      '입사일을 확정하기 위해 아래 링크에서 입사 가능한 날짜를 선택해 주세요.', '',
+      `제안 날짜: ${finalPassDates_.map(fmtShortDate).join(', ')}`,
+      `회신 기한: ${deadline ? fmtShortDate(deadline) : '가능한 빨리'}까지`, '',
+      `입사 가능일 선택하기: ${issued.link}`, '',
+      '회신해 주신 날짜로 입사일을 확정한 뒤, 입사 준비사항과 함께 입사 안내 메일을 보내드리겠습니다.',
+    ].join('\n');
+    const sent = await dispatchCandidateMail_(c, {
+      subject, purpose:'최종합격 안내 및 입사일 확인', logType:'최종합격통보(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to || c.email, subject, body, '최종합격통보', c.name, {
+        templateType:'final_pass', candidateName:c.name, positionText:c.pos || '',
+        options:finalPassDates_.join(','), replyDeadline:deadline, link:issued.link,
+      })
+    });
+    if(!sent) return;
+    joinDateRequests_[c.id] = { candId:Number(c.id), status:'SENT', options:[...finalPassDates_], deadline, selection:'', note:'', respondedAt:'', link:issued.link, updatedAt:new Date().toISOString() };
+    persistJoinDateRequests_();
+    logActivity('최종합격 통보', `${c.name} · 제안 ${finalPassDates_.map(fmtShortDate).join(', ')}`, 'candidate', String(c.id));
+    closeModal('modal-final-pass');
+    renderOnboarding(); updateObJoinDateHint_();
+    toast(`${c.name}님에게 최종합격 안내를 보냈습니다. 입사 가능일을 회신하면 입사일로 자동 반영됩니다.`, 'tok');
+  } finally {
+    if(btn) { btn.disabled = false; btn.textContent = prevLabel; }
+  }
+}
+
+// 현장 포지션 입사자에게만 입사안내 메일에 현장숙소 개인 짐 안내를 넣는다.
+function isSiteOnboarding_(cand) {
+  const pos = cand ? positions.find(p => Number(p.id) === Number(cand.posId)) : null;
+  return pos?.location === '현장';
+}
+
 async function sendObNotify(ch){
   const cid=parseInt(document.getElementById('ob-cand').value);
   const c=candidates.find(x=>x.id===cid);
@@ -559,7 +744,8 @@ async function sendObNotify(ch){
       sendDirect: () => sendGeneralEmailViaGmail(target.to||c.email,subject,body,'입사안내-지원자',ob.candName,{
         templateType:'onboarding', candidateName:ob.candName||c.name, positionText:ob.pos||c.pos,
         joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', cl:ob.cl||'', etype:ob.etype||c.etype||'',
-        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||''
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||'',
+        siteGear:isSiteOnboarding_(c)
       }, attachments)
     });
     if(!sent)return;
@@ -570,6 +756,16 @@ async function sendObNotify(ch){
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c.email);
   saveState();renderOnboarding();renderDashboard();updateObSendButton_();
   toast(`${ob.candName}님에게 입사 안내 메일 발송 완료`,'tok');
+}
+
+// 입사일 미확정(최종합격) 지원자의 다음 할 일: 최종합격 통보 → 회신 대기 → 회신 반영 후 입사일 등록
+function pendingJoinAction_(c) {
+  const req = joinDateRequests_[Number(c.id)];
+  const status = joinDateStatusHtml_(c.id);
+  if(!req) return `<button class="btn btn-xs btn-primary" data-action="call" data-call="openFinalPassModal(${c.id})">최종합격 통보</button>`;
+  if(req.status === 'RESPONDED') return `<div class="ob-actions">${status}<button class="btn btn-xs btn-primary" data-action="call" data-call="selectOnboardingRow(${c.id})">입사일 등록</button></div>`;
+  if(req.status === 'UNAVAILABLE') return `<div class="ob-actions">${status}<button class="btn btn-xs btn-primary" data-action="call" data-call="openFinalPassModal(${c.id})">다시 제안</button></div>`;
+  return `<div class="ob-actions">${status}<button class="btn btn-xs" data-action="call" data-call="openFinalPassModal(${c.id})">재발송</button></div>`;
 }
 
 function renderOnboarding(){
@@ -600,7 +796,7 @@ function renderOnboarding(){
       ${posCell(c.pos, c.dept)}
       <td class="ob-col-date"></td>
       <td class="ob-col-notify"></td>
-      <td class="ob-col-action"><button class="btn btn-xs btn-primary" data-action="call" data-call="selectOnboardingRow(${c.id})">입사일 등록</button></td>
+      <td class="ob-col-action">${pendingJoinAction_(c)}</td>
     </tr>`).join('');
   const confirmedRows = confirmedObs.map(o=>{
     const c = candidates.find(x=>Number(x.id)===Number(o.candId));
@@ -645,7 +841,8 @@ async function sendObById(id,ch){
       sendDirect: () => sendGeneralEmailViaGmail(target.to||c?.email||'',subject,body,'입사안내-지원자',ob.candName,{
         templateType:'onboarding', candidateName:ob.candName||c?.name||'', positionText:ob.pos||c?.pos||'',
         joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', cl:ob.cl||'', etype:ob.etype||c?.etype||'',
-        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||''
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||'',
+        siteGear:isSiteOnboarding_(c)
       }, attachments)
     });
     if(!sent)return;

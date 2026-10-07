@@ -512,7 +512,7 @@
             <div class="fgrid f2" style="gap:10px">
               <div class="fg full"><label>최종 합격자</label><select id="ob-cand" data-onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
               <div class="fg full"><label>포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
-              <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="updateObPreview()"/></div>
+              <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="updateObPreview()"/><div id="ob-date-hint" class="field-hint"></div></div>
               <div class="fg"><label for="ob-pre-deadline">사전 정보 입력 기한</label><input type="date" id="ob-pre-deadline" data-onchange="updateObPreview()"/></div>
               <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" data-onchange="refreshOnboardingDeptRecipients()" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label for="ob-dept-lead">해당부서 팀장/소장 이메일</label><input id="ob-dept-lead" placeholder="배치부서 기준 자동 매핑 · 필요 시 수정 가능" data-oninput="updateObPreview();onObDeptLeadInput_()"/><div id="ob-dept-lead-hint" class="field-hint"></div></div>
@@ -1164,7 +1164,6 @@
       <div id="oh-target" style="font-size:11px;color:var(--t3);padding:8px 10px;background:var(--s2);border-radius:var(--rsm);margin-bottom:10px"></div>
       <div class="fgrid">
         <div class="fg"><label for="oh-health-deadline">채용검진 기한 *</label><input id="oh-health-deadline" type="date"/></div>
-        <div class="fg"><label for="oh-join-date">입사 예정일</label><input id="oh-join-date" type="date"/></div>
         <div class="fg full"><label for="oh-org">소속</label><input id="oh-org" placeholder="우미건설(주) 구리갈매1차"/></div>
         <div class="fg full"><label for="oh-etype">채용구분</label><input id="oh-etype" placeholder="전문직(프로젝트 계약직, ~29년 07월)"/></div>
         <div class="fg full"><label for="oh-rank">직급(역량등급)</label>
@@ -1172,12 +1171,17 @@
         </div>
         <div class="fg"><label for="oh-salary">기본연봉(원) *</label><input id="oh-salary" inputmode="numeric" placeholder="90,000,000" data-oninput="formatOfferSalaryInput(this)"/></div>
         <div class="fg"><label for="oh-salary-note">연봉 구성</label><input id="oh-salary-note" placeholder="월급여 12회 / 명절상여금 2회 포함"/></div>
-        <div class="fg full"><label for="oh-allowances">수당 <span style="font-weight:400;color:var(--t3)">(한 줄에 하나씩)</span></label><textarea id="oh-allowances" placeholder="휴일수당 : 838,205원/月&#10;직무수당 : 100,000원/月"></textarea></div>
+        <div class="fg full"><label>수당 <span style="font-weight:400;color:var(--t3)">(월 금액 · 비워 두면 메일에 표시하지 않습니다)</span></label>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:12px"><span style="width:56px">휴일수당</span><input id="oh-allow-holiday" inputmode="numeric" placeholder="0" data-oninput="formatOfferSalaryInput(this)" style="flex:1;min-width:0;text-align:right"/><span style="color:var(--t3);font-weight:400">원/月</span></label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:12px"><span style="width:56px">직무수당</span><input id="oh-allow-job" inputmode="numeric" placeholder="0" data-oninput="formatOfferSalaryInput(this)" style="flex:1;min-width:0;text-align:right"/><span style="color:var(--t3);font-weight:400">원/月</span></label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:12px"><span style="width:56px">자격수당</span><input id="oh-allow-cert" inputmode="numeric" placeholder="0" data-oninput="formatOfferSalaryInput(this)" style="flex:1;min-width:0;text-align:right"/><span style="color:var(--t3);font-weight:400">원/月</span></label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:12px"><span style="width:56px">AI수당</span><input id="oh-allow-ai" inputmode="numeric" placeholder="0" data-oninput="formatOfferSalaryInput(this)" style="flex:1;min-width:0;text-align:right"/><span style="color:var(--t3);font-weight:400">원/月</span></label>
+          </div>
+          <textarea id="oh-allowances" rows="2" aria-label="기타 수당" placeholder="기타 수당이 있으면 한 줄에 하나씩 (예: 현장수당 : 100,000원/月)" style="margin-top:6px"></textarea>
+        </div>
         <div class="fg full"><label for="oh-benefits">경영성과급 및 복지제도</label><input id="oh-benefits" placeholder="내규에 따름"/></div>
         <div class="fg full"><label for="oh-probation">수습기간</label><input id="oh-probation" placeholder="수습기간 3개월(급여차감 없음)"/></div>
-        <div class="fg"><label for="oh-join-time">입사일 집결 시간</label><input id="oh-join-time" placeholder="09:00"/></div>
-        <div class="fg"><label for="oh-report-loc">집결 장소</label><input id="oh-report-loc" placeholder="서울 강남구 언주로 30길 39, 14층"/></div>
-        <div class="fg full"><label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="checkbox" id="oh-site-gear" style="width:auto"/> 현장직 안내 포함 (부서교육 후 현장 이동 · 개인 짐 준비)</label></div>
         <div class="fg full"><label for="oh-attach">추가 첨부파일 <span style="font-weight:400;color:var(--t3)">(선택, 전체 15MB 이하)</span></label>
           <input type="file" id="oh-attach" multiple accept=".pdf,.doc,.docx,.hwp,.hwpx,.xls,.xlsx,.jpg,.jpeg,.png,.zip" data-onchange="renderOfferAttachList()">
           <div id="oh-attach-list" class="field-hint"></div>
@@ -1190,6 +1194,30 @@
       <button class="btn" data-action="close-modal" data-id="modal-offer-health">취소</button>
       <button class="btn" data-action="call" data-call="saveOfferHealth()">저장</button>
       <button class="btn btn-primary" id="oh-send-btn" data-action="call" data-call="sendOfferHealth()">안내 메일 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 최종합격 통보 · 입사 가능일 확인 모달 ─────────────────── -->
+<div class="overlay" id="modal-final-pass">
+  <div class="modal" style="width:540px;max-height:90vh">
+    <div class="modal-hd">
+      <div class="modal-title" id="fp-title">최종합격 통보 · 입사일 확인</div>
+      <button class="mclose" aria-label="닫기" data-action="close-modal" data-id="modal-final-pass"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="fp-target" style="font-size:11px;color:var(--t3);padding:8px 10px;background:var(--s2);border-radius:var(--rsm);margin-bottom:10px"></div>
+      <div class="field-hint" style="margin:0 0 10px">최종 합격을 알리고, 아래에서 제안한 날짜 중 입사 가능한 날짜를 지원자가 링크에서 고르게 합니다. 회신하면 입사 예정일로 자동 반영됩니다.</div>
+      <div class="fg"><label for="fp-date-input">제안할 입사 가능 날짜 *</label>
+        <div style="display:flex;gap:6px"><input id="fp-date-input" type="date" style="flex:1"/><button type="button" class="btn btn-sm" data-action="call" data-call="addFinalPassDate()">추가</button></div>
+        <div id="fp-dates" class="notify-chips" style="margin-top:8px"></div>
+      </div>
+      <div class="fg" style="margin-top:10px"><label for="fp-deadline">회신 기한</label><input id="fp-deadline" type="date"/></div>
+      <div id="fp-status" class="field-hint" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-final-pass">취소</button>
+      <button class="btn btn-primary" id="fp-send-btn" data-action="call" data-call="sendFinalPassNotice()">최종합격 통보 발송</button>
     </div>
   </div>
 </div>

@@ -190,6 +190,122 @@ function submitInterviewAvailability_(payload) {
 }
 
 // 담당자 알림을 받을 주소 — 설정(Settings 시트) 'notifyEmail' 값을 사용한다.
+// ── 최종합격 통보 · 입사 가능일 회신 ─────────────────────────────
+// 피플팀이 제안한 입사 가능 날짜 중 하나를 지원자가 공개 페이지(join_date.html)에서 고른다.
+// 지원자 한 명당 한 줄(JoinDateRequests, id = 지원자 id)이며 다시 보내면 새 토큰으로 덮어쓴다.
+const JOIN_DATE_PAGE_URL = 'https://wmpeopleteam.github.io/reference-check/join_date.html';
+const JOIN_DATE_LINK_TTL_DAYS = 21;
+
+function normalizeJoinDateOptions_(value) {
+  let source = value;
+  if (typeof source === 'string') {
+    try { source = JSON.parse(source || '[]'); } catch (err) { source = []; }
+  }
+  if (!Array.isArray(source)) return [];
+  return source.map(v => String(v || '').trim().slice(0, 10))
+    .filter((v, i, arr) => /^\d{4}-\d{2}-\d{2}$/.test(v) && arr.indexOf(v) === i)
+    .sort()
+    .slice(0, 31);
+}
+
+function joinDateRequestExpired_(row) {
+  return !!(row.tokenExpiresAt && new Date(row.tokenExpiresAt).getTime() < Date.now());
+}
+
+// 최종합격(5) 단계인 지원자만 회신할 수 있다(불합격·보류·입사 처리 후에는 받지 않는다).
+function joinDateProcessClosed_(candId) {
+  const cand = readRows_('Candidates').find(row => String(row.id) === String(candId));
+  if (!cand) return false;
+  if (String(cand.held || '') === 'Y') return true;
+  return !['5', '최종합격'].includes(String(cand.stage == null ? '' : cand.stage).trim());
+}
+
+function issueJoinDateLink_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const candId = String(body.candId || '').trim();
+  const candName = String(body.candName || '').trim();
+  const options = normalizeJoinDateOptions_(body.options);
+  if (!candId || !candName || !options.length) return json_({ error: 'missing_join_date_fields' });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = ensureSheet_('JoinDateRequests');
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.JoinDateRequests);
+    const rowIndex = findRowIndex_(sheet, 'id', candId, headers);
+    const existing = readRows_('JoinDateRequests').find(row => String(row.id) === candId) || {};
+    const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+    const expiresAt = new Date(Date.now() + JOIN_DATE_LINK_TTL_DAYS * 86400000).toISOString();
+    const link = buildUrlWithParams_(JOIN_DATE_PAGE_URL, { token });
+    const row = schemaRow_('JoinDateRequests', Object.assign({}, existing, {
+      id: candId, candId, candName, positionText: String(body.positionText || '').trim(),
+      options: JSON.stringify(options), token, tokenExpiresAt: expiresAt, link,
+      deadline: String(body.deadline || '').trim().slice(0, 10),
+      selection: '', status: 'SENT', note: '', respondedAt: '',
+      responseBy: body.responseBy === 'headhunter' ? 'headhunter' : 'candidate',
+      createdAt: existing.createdAt || nowIso_(), updatedAt: nowIso_()
+    }));
+    const values = headers.map(header => row[header] == null ? '' : row[header]);
+    if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]); else sheet.appendRow(values);
+    appendChange_('JoinDateRequests', 'upsert', candId, row);
+    return json_({ ok: true, id: candId, link, tokenExpiresAt: expiresAt });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function verifyJoinDateToken_(payload) {
+  const token = String(payload && (payload.token || payload.data && payload.data.token) || '').trim();
+  if (!token) return json_({ ok: false, error: 'token_required' });
+  const row = readRows_('JoinDateRequests').find(item => String(item.token || '') === token);
+  if (!row) return json_({ ok: false, error: 'invalid_token' });
+  if (joinDateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
+  if (joinDateRequestExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+  return json_({
+    ok: true, candName: row.candName || '', positionText: row.positionText || '',
+    options: normalizeJoinDateOptions_(row.options), deadline: row.deadline || '',
+    alreadySubmitted: row.status === 'RESPONDED' || row.status === 'UNAVAILABLE',
+    unavailable: row.status === 'UNAVAILABLE', selection: row.selection || '', note: row.note || '',
+    responseBy: row.responseBy || 'candidate'
+  });
+}
+
+function submitJoinDate_(payload) {
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const token = String(body.token || '').trim();
+  const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
+  const selection = String(body.selection || '').trim().slice(0, 10);
+  const note = String(body.note || '').trim().slice(0, 500);
+  if (!token) return json_({ ok: false, error: 'token_required' });
+  if (!unavailable && !selection) return json_({ ok: false, error: 'selection_required' });
+  if (unavailable && !note) return json_({ ok: false, error: 'alternative_note_required' });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = ensureSheet_('JoinDateRequests');
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.JoinDateRequests);
+    const rowIndex = findRowIndex_(sheet, 'token', token, headers);
+    const row = readRows_('JoinDateRequests').find(item => String(item.token || '') === token);
+    if (rowIndex < 0 || !row) return json_({ ok: false, error: 'invalid_token' });
+    if (joinDateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
+    if (joinDateRequestExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    if (!unavailable && normalizeJoinDateOptions_(row.options).indexOf(selection) < 0) return json_({ ok: false, error: 'invalid_selection' });
+    const next = schemaRow_('JoinDateRequests', Object.assign({}, row, {
+      selection: unavailable ? '' : selection, status: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
+      note, respondedAt: nowIso_(), updatedAt: nowIso_()
+    }));
+    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => next[header] == null ? '' : next[header])]);
+    appendChange_('JoinDateRequests', 'upsert', row.id, next);
+    // 담당자 알림(설정의 '일정 응답 완료 알림 받을 이메일')
+    const choice = unavailable ? '제안 날짜 모두 어려움 · 희망: ' + note : '입사 가능일 ' + selection + (note ? ' · 메모: ' + note : '');
+    sendCohortCompleteNotice_('[입사일 회신] ' + (row.candName || '') + '님 ' + (unavailable ? '날짜 조정 요청' : selection),
+      (row.candName || '') + '님이 입사일을 회신했습니다.\n\n' + choice + '\n\n채용 관리 화면의 입사 안내에서 확인해 주세요.');
+    return json_({ ok: true, status: next.status, respondedAt: next.respondedAt });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function getNotifyEmail_() {
   return getFirstSettingValue_(['notifyEmail']);
 }

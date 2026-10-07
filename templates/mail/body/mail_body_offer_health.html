@@ -13,7 +13,7 @@
           </td>
         </tr>
 
-        <!-- 2. 근로조건 및 처우 -->
+        <!-- 2. 근로조건 및 처우 (최종합격 전 안내라 입사일·집결 안내는 넣지 않는다) -->
         <tr>
           <td style="padding-bottom:22px;">
             <div style="font-size:15px;line-height:1.5;font-weight:700;color:#1b2027;padding-bottom:8px;word-break:keep-all;">2. 근로조건 및 처우</div>
@@ -22,23 +22,9 @@
               <tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">채용구분</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{etypeText}}</td></tr>
               <tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">직급</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#003087;word-break:keep-all;overflow-wrap:break-word;">{{offerRank}}</td></tr>
               <tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">처우</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.7;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">기본연봉 <strong style="color:#003087;">{{salaryText}}</strong>{{salaryNote}}{{allowancesHtml}}</td></tr>
+              {{probationRow}}
               <tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">경영성과급 및 복지제도</td><td valign="top" style="padding:10px 12px;font-size:14px;line-height:1.5;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{benefitsText}}</td></tr>
             </table>
           </td>
         </tr>
 
-        <!-- 3. 입사 시기: 입사 예정일·수습기간·집결 일시·장소 표, 현장직 개인 짐 안내 -->
-        <tr>
-          <td>
-            <div style="font-size:15px;line-height:1.5;font-weight:700;color:#1b2027;padding-bottom:8px;word-break:keep-all;">3. 입사 시기</div>
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #dbe5ef;border-radius:12px;border-collapse:separate;overflow:hidden;table-layout:fixed;">
-              <tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">입사 예정일</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#003087;word-break:keep-all;overflow-wrap:break-word;">{{joinDate}}</td></tr>
-              {{probationRow}}
-              <tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">집결 시간</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">최종합격 시 입사일 {{joinTime}}</td></tr>
-              <tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">집결 장소</td><td valign="top" style="padding:10px 12px;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{reportLocation}}</td></tr>
-            </table>
-          </td>
-        </tr>
-        <tr id="offerSiteGearRow">
-          <td style="padding-top:8px;font-size:13.5px;line-height:1.7;color:#5c6875;word-break:keep-all;overflow-wrap:break-word;">※ 현장직의 경우 당일 오전 부서교육 후 각 현장으로 이동할 예정이오니, 현장숙소 생활에 필요한 개인 짐(수건, 세면도구, 여벌 옷 등)을 챙겨 오시기 바랍니다.</td>
-        </tr>

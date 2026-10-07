@@ -36,6 +36,7 @@ for (const name of [
   'reference_candidate_intake.html',
   'reference_check_intake.html',
   'interview_availability.html',
+  'join_date.html',
 ]) {
   fs.copyFileSync(path.join(publicPagesDir, 'reference-check', name), path.join(referenceDistDir, name));
 }

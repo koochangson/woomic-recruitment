@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests">
+  <title>입사 가능일 확인 | 우미건설</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#edf5fa;color:#17202a;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif}.page{width:min(640px,100%);margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 0 28px rgba(29,63,92,.1)}.header{padding:18px 28px 16px;border-top:4px solid #003087;background:#f4f8fc}.brand{display:block;margin-bottom:12px}.brand img{display:block;width:104px;height:39px;border:0}.header h1{margin:0;font-size:22px;line-height:1.25;color:#003087;letter-spacing:0}.header p{margin:6px 0 0;color:#607080;font-size:13px}.body{padding:20px 28px 26px}.hello{font-size:16px;font-weight:800;margin:0 0 8px}.intro{font-size:14px;line-height:1.6;margin:0 0 14px}.meta{padding:10px 14px;background:#f5f8fb;border:1px solid #dce6ef;border-radius:8px;margin-bottom:14px;font-size:13px;line-height:1.6}.meta b{color:#003087}.availability-fieldset{min-width:0;margin:0;padding:0;border:0}.availability-fieldset legend{margin-bottom:9px;font-size:14px;font-weight:800}.options{display:grid;gap:5px}.option{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 12px;border:1px solid #cddae5;border-radius:8px}.date{font-weight:800;font-size:14px;white-space:nowrap}.periods{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.period{display:flex;align-items:center;gap:5px;padding:3px 9px;background:#f5f8fb;border:1px solid #d6e0e9;border-radius:6px;font-size:13px;cursor:pointer}.period input{width:16px;height:16px;accent-color:#003087}.unavailable{margin-top:12px;padding-top:12px;border-top:1px solid #e2e8ee}.unavailable label{font-size:13px;font-weight:700}.note{display:none;margin-top:8px;width:100%;min-height:76px;padding:10px;border:1px solid #cddae5;border-radius:7px;font:inherit;resize:vertical}.note.on{display:block}.proxy-confirm{margin-top:14px;padding:11px 13px;border:1px solid #b8d2ec;border-radius:8px;background:#eff6ff;font-size:13px;line-height:1.55}.proxy-confirm label{display:flex;align-items:flex-start;gap:8px;font-weight:700;cursor:pointer}.proxy-confirm input{width:17px;height:17px;margin-top:2px;accent-color:#003087;flex:0 0 auto}.notice{margin-top:14px;color:#607080;font-size:12px;line-height:1.6}.form-message{min-height:20px;margin-top:12px;color:#b42318;font-size:13px;font-weight:700}.actions{margin-top:16px}.submit{width:100%;border:0;border-radius:7px;background:#003087;color:#fff;padding:12px 18px;font-size:15px;font-weight:800;cursor:pointer}.submit:disabled{opacity:.55;cursor:wait}.state{padding:44px 20px;text-align:center;line-height:1.7}.state h2{margin:0 0 10px;color:#003087}.error{color:#b42318}.footer{padding:16px 28px;background:#172d43;color:#dce6ef;font-size:12px;line-height:1.6}.hidden{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:560px){.header,.body,.footer{padding-left:20px;padding-right:20px}.header h1{font-size:20px}.option{align-items:flex-start;flex-direction:column;gap:8px}.periods{justify-content:flex-start}}
+      /* 스크린리더 안내용으로 프로그램이 옮긴 포커스는 테두리를 그리지 않음 */
+    .cal-range{font-size:13px;color:#607080;margin:0 0 8px}.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.cal-head{text-align:center;font-size:12px;font-weight:800;color:#607080;padding:4px 0}.cal-head.sun{color:#c2410c}.cal-head.sat{color:#1d4ed8}.cal-day{min-height:76px;border:1px solid #dce6ef;border-radius:8px;padding:5px 4px;background:#fff;display:flex;flex-direction:column;gap:4px}.cal-day.off{background:#f3f5f8;border-color:#eef1f4}.cal-date{font-size:12px;font-weight:800;color:#17202a;text-align:center}.cal-day.off .cal-date{color:#b6bfca;font-weight:600}.cal-slot{position:relative;display:block;cursor:pointer}.cal-slot input{position:absolute;opacity:0;width:1px;height:1px;margin:0}.cal-slot span{display:block;text-align:center;font-size:12px;font-weight:700;padding:5px 0;border:1px solid #cddae5;border-radius:6px;background:#f5f8fb;color:#33475b}.cal-slot input:checked+span{background:#003087;border-color:#003087;color:#fff}.cal-slot input:focus-visible+span{outline:2px solid #2563eb;outline-offset:1px}.cal-slot input:disabled+span{opacity:.45;cursor:not-allowed}@media(max-width:560px){.cal{gap:3px}.cal-day{min-height:68px;padding:4px 2px}.cal-slot span{font-size:11px;padding:4px 0}}
+    .done-box{text-align:left;padding:28px 0 6px}.done-box h2{margin:0 0 8px;color:#003087;font-size:20px}.done-box .done-msg{margin:0 0 14px;font-size:14px;line-height:1.6;color:#334155}.done-summary{padding:12px 14px;background:#f5f8fb;border:1px solid #dce6ef;border-radius:8px;font-size:14px;line-height:1.7}.done-summary b{color:#003087}.done-summary ul{margin:6px 0 0;padding-left:18px}.done-actions{margin-top:14px}.edit-btn{border:1px solid #cddae5;background:#fff;color:#003087;border-radius:7px;padding:9px 14px;font-size:14px;font-weight:700;cursor:pointer}.kakao{display:flex;gap:16px;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid #e2e8ee}.kakao-text{flex:1;font-size:13px;line-height:1.6;color:#5c6875}.kakao-text strong{display:block;font-size:14px;color:#1b2027;margin-bottom:4px}.kakao-link{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:8px 13px;border:1px solid #dde7f1;border-radius:999px;color:#003087;font-weight:700;text-decoration:none;font-size:13px}.kakao-link img{width:18px;height:18px}.kakao-qr{text-align:center;font-size:11px;color:#8a94a1;line-height:1.5}.kakao-qr img{display:block;width:84px;height:84px;margin:0 auto 6px}@media(max-width:560px){.kakao-qr{display:none}}
+    /* 일부 브라우저는 :focus-visible 테두리를 따로 그려서, 페이지를 열 때 폼 전체에 검은 테두리가 보였다 */
+    [tabindex="-1"]:focus,[tabindex="-1"]:focus-visible,form:focus,form:focus-visible{outline:none;box-shadow:none}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div class="brand"><img src="woomi-ci.png" width="104" height="39" alt="우미건설"></div>
+      <h1 id="page-title">입사 가능일 확인</h1>
+      <p>우미건설 채용 안내</p>
+    </header>
+    <section class="body">
+      <div id="loading" class="state" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"><h2>입사 일정을 확인하고 있습니다</h2><div>잠시만 기다려 주세요.</div></div>
+      <div id="error" class="state hidden" role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1"><h2 class="error">입사 일정을 확인할 수 없습니다</h2><div id="error-message">링크가 유효하지 않거나 만료되었습니다.</div></div>
+      <form id="form" class="hidden" aria-labelledby="page-title" tabindex="-1">
+        <p class="hello">안녕하세요 <span id="participant-name"></span>님,</p>
+        <p id="intro" class="intro">최종 합격을 진심으로 축하드립니다. <b id="position-text"></b> 입사일을 확정하기 위해 아래 날짜 중 입사 가능한 날짜 하나를 선택해 주세요.</p>
+        <div id="guide" class="meta"><b>안내</b><br>선택해 주신 날짜로 입사일을 확정한 뒤, 입사 준비사항과 함께 입사 안내 메일을 보내드립니다.<span id="deadline-line"></span></div>
+        <fieldset class="availability-fieldset">
+          <legend>입사 가능한 날짜를 하나 선택해 주세요</legend>
+          <p id="cal-range" class="cal-range"></p>
+          <div id="options" class="cal" tabindex="-1"></div>
+        </fieldset>
+        <div class="unavailable">
+          <label><input id="unavailable" type="checkbox" aria-controls="note" aria-expanded="false"> 제안 날짜가 모두 어렵습니다</label>
+          <label for="note" class="sr-only">희망 입사일과 사유</label>
+          <textarea id="note" class="note" maxlength="500" placeholder="희망 입사일과 사유를 적어 주세요. (예: 11월 3일 이후 가능 — 현 직장 인수인계)"></textarea>
+        </div>
+        <div class="notice">회신 기한 전까지는 다시 제출해 날짜를 바꿀 수 있습니다. 이후 변경이 필요하면 피플팀에 알려 주세요.</div>
+        <div id="form-message" class="form-message" role="alert" aria-live="assertive" aria-atomic="true"></div>
+        <div class="actions"><button id="submit" class="submit" type="submit">입사 가능일 제출</button></div>
+      </form>
+      <div id="complete" class="done-box hidden" role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
+        <h2 id="complete-title">회신이 저장되었습니다</h2>
+        <p id="complete-message" class="done-msg">입사일이 확정되면 입사 준비사항과 함께 입사 안내 메일을 보내드리겠습니다.</p>
+        <div id="complete-summary" class="done-summary"></div>
+        <div class="done-actions"><button id="edit-response" class="edit-btn" type="button">선택 내용 수정하기</button></div>
+        <div id="kakao-contact" class="kakao">
+          <div class="kakao-text"><strong>문의사항</strong>입사 일정이나 궁금한 점이 있으시면 카카오톡 채널로 문의해 주세요.<br><a class="kakao-link" href="https://pf.kakao.com/_sZjin/chat" target="_blank" rel="noopener"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkBAMAAAATLoWrAAAAMFBMVEX////+/v78/P37+/vj5OWsrrBjZms8QEYgJSweIyodIikbICcaICcZHiUSFx4NEhmC9WpdAAACGklEQVR42m2STUgUYQCGn++bTXdC3W8UDMJsdqMiSJLoj0qlxIN16FJKEARGF+sYRJcCL0JBERWdvESUQggKrUFJaREFUrKUCdXuuOomWzozu1ttws50GKNDvcfn8B7e5xUAptUW27h/MPlAegSplh2Dix9Hk9nTZhTQQPzsGCi8/eUn0+czD1URDcxN/Xd1HfTwxMlvr300ZL4rvzZo0F9eeIGjEWm69XWlFCNeOYIQsRMVjX8QpZZ9SU0W4ssAdlEHZJwFYTY3meClWyMTM1Hwtq6Tmgl4ZV0Dl8u6LEA2ilX55zC75+LSTGzD9WHFu7GQIcE/3v4MPj8tPwxmQrT3OBSG7pg2hjefmURMa3vLlXews94qd+xcQ6JKeS1SKQpXTct3wEs/OoIQIQXpT1XaAUZ9XFkFQkYUyiXYySeHcEPNDoD/BAClYE4CRBwMAxCuB8hxqDs3i20D9dvTUCddB6+moRGgJrV7DD+ibVsfFm9KcYgZmV33XajVNq9RVHR/+LI6Y+88lFL4taK9x4FEZ73XZmzpToCYFrVzY5Cb6vvxKpodV1AYDtkeIJy5MxOPqxVg2VrU9RXZhcq+rBEGvNbbsmQB4nvvjRUh3qSWm+pPQ36HHpD39+xAmh+dVH+l4XMtLayAMDU0WNRYtkSFHg5I6tQVHIlXN9KWCsjS0bPjFhq481bv4oKOvXzs0s1I8X+XE/8e8zdrcN6IInSkHwAAAABJRU5ErkJggg==" alt="" width="18" height="18">카카오톡 문의하기 →</a></div>
+          <div class="kakao-qr"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsAQAAAABRBrPYAAADaklEQVR42u2aP27jRhTGf49DgKpMlVssQqZKFcDldtSRfAPRN/ARcogcQOpc+gIBKGCBbBdxK9Eg+aUYKms7CeKI5KxlaBoRo4cZzpv37/seTbxi1BGvGhexi9hFbC4x82NZm1lMBGxLoBvmy9nfrfM/d+emXknSBpxakFlJbZb7+Tbou30hAXDlnJteT38E5/56/DD3nZrZCtImpqWnKEmrrALMokk3VfkuY4hrOzP/mG3zia33DBWiHMBpc7uC7BBm06+f32UyshNcxodeOkt8qC12lvv5PsQRXFi9PUywWgzgXTjFNQl0Ue/d+bfGz69DXL1W5+X1Ps/7scdJR2yT6ek/l9ryDRW0sLXlUMT2UJTQmFkEtyMLWtvAzagj5MGtFwlI96mklh4opAqSAxbeepMTV6uCx17BD6S7JZ3FYENiSarG1EM9GzKyzfUzewP4+AQknYefPhzB3RDwT7depE26T9UCPcC6ImmhN5WsQ1nv2eFTBNTZzmIn/ShJuzyrY0CmcVCx2i7Cn7RZNcsA0bIl0SGV9uAkwAY0D6RzRUtHw/31syrJVeAOYPtxJ20mvYX77PDp7+XoDElc+CTu2i6muUpKyKqkWaCe2zKEvVWP2k+y2hC7H8dmwFflLINC2mUVruWnHmCXQ3IA1gHYPD59eby/+3k5mdcvxr1b97L2sF/5ZW7rjRHbVZ3tLGlsUcHVQ11mdVKbJqabnoK7F15vf0RPWCkLkoyK/usonIWqQpIqp5bfpbIoPbsinZTr86MDOs8w3sweuL4LPvW635O2PmWxlnyNJEnl+pzw6ecXPjvNpnch8ILItEm1y+lipE1txzCoUziu/42MJlktf8HV3ASwXlFsgCO7spaGMwWt8N/ELTyjm5wkUUiSqkQ6WCi66Yg7Zy5XvqvY1ceJ6CYzs6VVncX0bG1V59AtUIQvVcc1RsPqLRyzPfRPa0vU+r5zts1xB9CpNdL1P3tU+b6sd2hlqsW35NJ9VjVmZhqA/Wmbdv+iw/PV21WATTtLWnoKbeqcRPqGGc/GTyftKta5a8EiblfpNqcbaPeScK2lgPbWjQo18TeaDlxLTB9ttwXQJIfF6WHwBK8fv9rDeygJ/kvMzAffzhIpgvWmLlSRHEwayakex4d3VnHZ5VvQi9hF7M2L/QlKLrxiYUh3lAAAAABJRU5ErkJggg==" alt="카카오톡 채널 QR" width="84" height="84">QR코드를 스캔하시면<br>바로 연결됩니다.</div>
+        </div>
+      </div>
+    </section>
+    <footer class="footer">우미건설 피플팀<br>본 링크는 수신자 본인만 사용해 주세요.</footer>
+  </main>
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwMa89IxQvjWODNqkYkR8xbDU6llnOUeSPf8GN9LnYSMIhLfDGmMOGvtdVs4t9tImFL/exec';
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+    // 날짜 선택 라디오는 달력과 함께 #options(fieldset 안)에 그려진다.
+    const RADIO_NAME = 'join-date';
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    const form = document.getElementById('form');
+    const complete = document.getElementById('complete');
+    const unavailable = document.getElementById('unavailable');
+    const note = document.getElementById('note');
+
+    function showError(message) {
+      loading.classList.add('hidden'); form.classList.add('hidden'); complete.classList.add('hidden');
+      error.classList.remove('hidden');
+      document.getElementById('error-message').textContent = message;
+      error.focus({ preventScroll: true });
+    }
+    function escHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    function dateLabel(value) {
+      const d = new Date(value + 'T00:00:00');
+      return `${d.getMonth()+1}월 ${d.getDate()}일(${['일','월','화','수','목','금','토'][d.getDay()]})`;
+    }
+    function summaryHtml(selection, isUnavailable, noteText) {
+      if(isUnavailable) return `<b>제안 날짜가 모두 어렵다고 회신하셨습니다.</b>${noteText ? `<br>희망 입사일: ${escHtml(noteText)}` : ''}`;
+      return selection ? `<b>선택하신 입사 가능일</b><ul><li>${dateLabel(selection)}</li></ul>` : '<b>선택한 날짜가 없습니다.</b>';
+    }
+    function showComplete(title, selection, isUnavailable, noteText) {
+      document.getElementById('complete-title').textContent = title;
+      document.getElementById('complete-summary').innerHTML = summaryHtml(selection, isUnavailable, noteText);
+      loading.classList.add('hidden'); form.classList.add('hidden'); error.classList.add('hidden');
+      complete.classList.remove('hidden'); complete.focus({ preventScroll: true });
+    }
+    document.getElementById('edit-response').addEventListener('click', () => {
+      complete.classList.add('hidden'); form.classList.remove('hidden'); form.focus({ preventScroll: true });
+    });
+    // 제안 날짜를 일~토 달력으로 그린다. 제안일만 '선택' 칸이 있고 하나만 고를 수 있다.
+    function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function renderCalendar(options, selected) {
+      const grid = document.getElementById('options');
+      const dates = [...new Set(options)].sort();
+      if(!dates.length) { grid.innerHTML = ''; document.getElementById('cal-range').textContent = ''; return; }
+      const cur = new Date(dates[0] + 'T00:00:00'); cur.setDate(cur.getDate() - cur.getDay());
+      const end = new Date(dates[dates.length-1] + 'T00:00:00'); end.setDate(end.getDate() + (6 - end.getDay()));
+      document.getElementById('cal-range').textContent = `제안 날짜: ${dates.map(dateLabel).join(', ')}`;
+      const heads = ['일','월','화','수','목','금','토'].map((w,i) => `<div class="cal-head${i===0?' sun':i===6?' sat':''}" aria-hidden="true">${w}</div>`).join('');
+      const cells = [];
+      while(cur <= end) {
+        const key = isoDate(cur);
+        const label = `${cur.getMonth()+1}/${cur.getDate()}`;
+        if(dates.includes(key)) {
+          cells.push(`<div class="cal-day"><div class="cal-date" aria-hidden="true">${label}</div><label class="cal-slot"><input type="radio" name="${RADIO_NAME}" value="${key}" aria-label="${dateLabel(key)}" ${selected===key?'checked':''}><span>선택</span></label></div>`);
+        } else {
+          cells.push(`<div class="cal-day off" aria-hidden="true"><div class="cal-date">${label}</div></div>`);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      grid.innerHTML = heads + cells.join('');
+    }
+    async function api(action, data) {
+      const res = await fetch(SCRIPT_URL, {method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...data})});
+      if(!res.ok) throw new Error('network_error');
+      return res.json();
+    }
+    function errorText(code) {
+      return code === 'process_closed' ? '입사 일정 확인이 이미 마무리되어 더 이상 회신을 받지 않습니다. 변경이 필요하면 피플팀에 알려 주세요.'
+        : code === 'token_expired' ? '회신 기간이 종료되었습니다. 피플팀에 문의해 주세요.'
+        : '유효하지 않은 링크입니다.';
+    }
+    unavailable.addEventListener('change', () => {
+      note.classList.toggle('on', unavailable.checked);
+      unavailable.setAttribute('aria-expanded', unavailable.checked ? 'true' : 'false');
+      document.querySelectorAll('input[name="join-date"]').forEach(el => { el.disabled = unavailable.checked; if(unavailable.checked) el.checked = false; });
+    });
+    async function load() {
+      if(!token) return showError('회신 링크의 토큰이 없습니다.');
+      try {
+        const data = await api('verifyJoinDateToken', {token});
+        if(!data.ok) return showError(errorText(data.error));
+        document.getElementById('participant-name').textContent = data.candName || '';
+        document.getElementById('position-text').textContent = data.positionText ? `${data.positionText} 포지션` : '';
+        if(data.deadline) document.getElementById('deadline-line').innerHTML = `<br>회신 기한: <b>${escHtml(dateLabel(data.deadline))}까지</b>`;
+        renderCalendar(data.options || [], data.selection || '');
+        unavailable.checked = !!data.unavailable;
+        note.value = data.note || '';
+        note.classList.toggle('on', unavailable.checked);
+        unavailable.setAttribute('aria-expanded', unavailable.checked ? 'true' : 'false');
+        if(unavailable.checked) document.querySelectorAll('input[name="join-date"]').forEach(el => { el.disabled=true; el.checked=false; });
+        if(data.alreadySubmitted) return showComplete('이미 회신하셨습니다', data.selection, !!data.unavailable, data.note || '');
+        loading.classList.add('hidden'); form.classList.remove('hidden'); form.focus({ preventScroll: true });
+      } catch(err) { showError('네트워크 연결을 확인한 뒤 다시 시도해 주세요.'); }
+    }
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const formMessage = document.getElementById('form-message');
+      formMessage.textContent = '';
+      const selection = document.querySelector('input[name="join-date"]:checked')?.value || '';
+      if(!unavailable.checked && !selection) { formMessage.textContent='입사 가능한 날짜를 하나 선택해 주세요.'; document.getElementById('options').focus?.(); return; }
+      if(unavailable.checked && !note.value.trim()) { formMessage.textContent='희망 입사일과 사유를 입력해 주세요.'; note.focus(); return; }
+      form.setAttribute('aria-busy','true');
+      const button = document.getElementById('submit'); button.disabled=true; button.textContent='저장 중...';
+      try {
+        const result = await api('submitJoinDate', {token,selection,unavailable:unavailable.checked,note:note.value.trim()});
+        if(!result.ok) throw new Error(result.error || 'save_failed');
+        showComplete('회신이 저장되었습니다', selection, unavailable.checked, note.value.trim());
+      } catch(err) {
+        formMessage.textContent = ['process_closed','token_expired'].includes(err.message) ? errorText(err.message) : '회신을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      } finally {
+        form.removeAttribute('aria-busy');
+        button.disabled=false; button.textContent='입사 가능일 제출';
+      }
+    });
+    load();
+  </script>
+</body>
+</html>

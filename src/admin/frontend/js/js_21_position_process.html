@@ -519,7 +519,7 @@ function openPositionResultModal(positionId, stageIdx) {
   document.getElementById('pr-title').textContent = `${isFinal?'처우협의 결과 입력':stageLabel(stageIdx)+' 결과 입력'} — ${pos.title} (${list.length}명)`;
   const help=document.getElementById('pr-help');
   if(help) help.textContent=isFinal
-    ? '처우가 확정되면 [처우·검진 안내]로 처우와 채용검진을 안내하고, 검진 결과가 적합이면 최종합격을 선택하세요. 최종합격자는 충원 seat에 반영된 후 입사 안내 화면으로 이어지고, 불합격자는 전형 종료되며, 협의중인 지원자는 처우협의 단계에 남습니다.'
+    ? '처우가 확정되면 [처우·검진 안내]로 처우와 채용검진을 안내하고, 검진 결과가 적합이면 최종합격을 선택하세요. 최종합격자는 충원 seat에 반영된 후 입사 안내 화면에서 [최종합격 통보]로 입사 가능일을 회신받고, 불합격자는 전형 종료되며, 협의중인 지원자는 처우협의 단계에 남습니다.'
     : `지원자별 결과를 선택하세요. 확정하면 합격자는 ${josa_(STAGES[nextFlowStage(Number(stageIdx), positionId)] || '다음 단계','으로','로')}, 불합격자는 전형 종료로 바로 반영됩니다. 미정인 지원자는 현재 단계에 남습니다.`;
   // 결과는 '확정' 한 번으로 반영한다. (예전 '판정 저장'은 단계 이동 없이 판정만 남겨, 처리 필요 목록에서
   // '결과 입력'이 사라진 채 지원자가 단계에 멈춰 있는 중간 상태를 만들었다)
@@ -530,8 +530,7 @@ function openPositionResultModal(positionId, stageIdx) {
       <div>
         <div style="font-size:12.5px;font-weight:700">${esc(c.name)}${headhunterSearchPill(c)}</div>
         <div style="font-size:10.5px;color:var(--t3)">${esc(c.email||'-')}</div>
-        ${isFinal?`<label style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--t2);font-weight:700">입사예정일 <input class="pr-join-date" data-cand-id="${c.id}" type="date" value="${esc(String(getCandidateJoinDate(c) || '').slice(0, 10))}" style="height:28px;width:132px;border:1px solid var(--border2);border-radius:6px;padding:0 7px;font-size:11px"></label>
-        <div id="pr-offer-${c.id}" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px">${prOfferStatusHtml_(c)}</div>`:''}
+        ${isFinal?`<div id="pr-offer-${c.id}" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px">${prOfferStatusHtml_(c)}</div>`:''}
       </div>
       <div style="display:flex;gap:5px">
         <label class="btn btn-sm ${c.decision==='pass'?'btn-fill-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
@@ -1167,8 +1166,6 @@ const OFFER_DEFAULTS_ = {
   salaryNote:'월급여 12회 / 명절상여금 2회 포함',
   benefits:'내규에 따름',
   probation:'수습기간 3개월(급여차감 없음)',
-  joinTime:'09:00',
-  reportLocation:'서울 강남구 언주로 30길 39, 14층',
 };
 let offerHealthCandId_ = null;
 
@@ -1213,15 +1210,13 @@ function openOfferHealthModal(candId) {
   set('oh-cl', offer.cl || ob.cl || '');
   set('oh-salary', offer.salary ? Number(String(offer.salary).replace(/[^0-9]/g, '')).toLocaleString('ko-KR') : '');
   set('oh-salary-note', offer.salaryNote ?? OFFER_DEFAULTS_.salaryNote);
-  set('oh-allowances', offer.allowances || '');
+  // 고정 수당은 금액 칸으로, 그 밖의 수당은 '기타' 칸으로 나눠 채운다(예전에 한 칸에 적어 둔 값도 나눠 읽는다).
+  const allow = splitOfferAllowances_(offer);
+  OFFER_ALLOWANCE_ITEMS_.forEach(([key]) => set(`oh-allow-${key}`, allow.items[key] ? Number(allow.items[key]).toLocaleString('ko-KR') : ''));
+  set('oh-allowances', allow.extra);
   set('oh-benefits', offer.benefits || OFFER_DEFAULTS_.benefits);
-  set('oh-join-date', offer.joinDate || getCandidateJoinDate(c) || '');
   set('oh-probation', offer.probation ?? OFFER_DEFAULTS_.probation);
-  set('oh-join-time', offer.joinTime || OFFER_DEFAULTS_.joinTime);
-  set('oh-report-loc', offer.reportLocation || OFFER_DEFAULTS_.reportLocation);
   set('oh-health-deadline', offer.healthDeadline || '');
-  const gear = document.getElementById('oh-site-gear');
-  if(gear) gear.checked = offer.siteGear ?? isSite;
   const attach = document.getElementById('oh-attach');
   if(attach) attach.value = '';
   renderOfferAttachList();
@@ -1231,6 +1226,32 @@ function openOfferHealthModal(candId) {
   const sendBtn = document.getElementById('oh-send-btn');
   if(sendBtn) sendBtn.textContent = offer.sentAt ? '안내 메일 재발송' : '안내 메일 발송';
   openModal('modal-offer-health');
+}
+
+// 고정 수당 항목: 금액만 입력하고, 비어 있거나 0이면 메일에 표시하지 않는다.
+const OFFER_ALLOWANCE_ITEMS_ = [['holiday','휴일수당'], ['job','직무수당'], ['cert','자격수당'], ['ai','AI수당']];
+
+function splitOfferAllowances_(offer) {
+  const items = Object.assign({}, offer.allowanceItems || {});
+  const extra = [];
+  String(offer.allowanceItems ? (offer.allowanceExtra || '') : (offer.allowances || '')).split('\n').map(x => x.trim()).filter(Boolean).forEach(line => {
+    const hit = !offer.allowanceItems && OFFER_ALLOWANCE_ITEMS_.find(([, label]) => line.replace(/\s/g, '').startsWith(label));
+    const amount = hit ? line.slice(line.indexOf(hit[1]) + hit[1].length).replace(/[^0-9]/g, '') : '';
+    if(hit && amount) items[hit[0]] = amount;
+    else extra.push(line);
+  });
+  return { items, extra:extra.join('\n') };
+}
+
+function readOfferAllowances_() {
+  const items = {};
+  const lines = [];
+  OFFER_ALLOWANCE_ITEMS_.forEach(([key, label]) => {
+    const digits = String(document.getElementById(`oh-allow-${key}`)?.value || '').replace(/[^0-9]/g, '');
+    if(Number(digits) > 0) { items[key] = digits; lines.push(`${label} : ${Number(digits).toLocaleString('ko-KR')}원/月`); }
+  });
+  const extra = String(document.getElementById('oh-allowances')?.value || '').trim();
+  return { allowanceItems:items, allowanceExtra:extra, allowances:[...lines, ...extra.split('\n').map(x => x.trim()).filter(Boolean)].join('\n') };
 }
 
 function formatOfferSalaryInput(input) {
@@ -1248,7 +1269,7 @@ function renderOfferAttachList() {
     : '이 지원자에게만 추가로 보낼 파일이 있으면 고르세요. (선택)';
 }
 
-// 화면 값을 offers에 저장한다. 입사 예정일은 지원자에도 넣어 처우협의 결과·입사 안내로 이어지게 한다.
+// 화면 값을 offers에 저장한다. 최종합격 전 안내라 입사일은 받지 않는다(최종합격 통보에서 지원자에게 회신받는다).
 function readOfferForm_() {
   const c = candidates.find(x => Number(x.id) === Number(offerHealthCandId_));
   if(!c) return null;
@@ -1259,19 +1280,11 @@ function readOfferForm_() {
     candName:c.name,
     org:val('oh-org'), etypeText:val('oh-etype'), rank:val('oh-rank'), cl:val('oh-cl'),
     salary:val('oh-salary').replace(/[^0-9]/g, ''), salaryNote:val('oh-salary-note'),
-    allowances:String(document.getElementById('oh-allowances')?.value || '').trim(),
-    benefits:val('oh-benefits'), joinDate:val('oh-join-date'), probation:val('oh-probation'),
-    joinTime:val('oh-join-time'), reportLocation:val('oh-report-loc'),
-    siteGear:!!document.getElementById('oh-site-gear')?.checked,
+    ...readOfferAllowances_(),
+    benefits:val('oh-benefits'), probation:val('oh-probation'),
     healthDeadline:val('oh-health-deadline'),
     updatedAt:new Date().toISOString(),
   });
-  if(offer.joinDate && offer.joinDate !== String(c.joinDate || '').slice(0, 10)) {
-    c.joinDate = offer.joinDate;
-    if(GS_CONFIG.scriptUrl) syncCandToGS(c);
-    const joinInput = document.querySelector(`.pr-join-date[data-cand-id="${Number(c.id)}"]`);
-    if(joinInput) joinInput.value = offer.joinDate;
-  }
   return { c, offer };
 }
 
@@ -1300,7 +1313,7 @@ async function sendOfferHealth() {
   try {
     const attachments = await Promise.all(files.map(readFileAsMailAttachment_));
     const target = getCandidateMailTarget(c);
-    const subject = `[우미건설] ${c.name}님 처우 및 채용검진 안내`;
+    const subject = `[우미건설] ${c.name}님 채용검진 및 근로조건 안내`;
     const salaryText = `${Number(offer.salary).toLocaleString('ko-KR')}원/年`;
     const body = [
       `안녕하세요. ${c.name}님,`, '협의해 주신 처우와 채용검진에 대해 아래와 같이 안내드립니다.', '',
@@ -1310,18 +1323,16 @@ async function sendOfferHealth() {
       `- 직급: ${[offer.cl, offer.rank].filter(Boolean).join(' ')}`,
       `- 처우: 기본연봉 ${salaryText}${offer.salaryNote ? ` (${offer.salaryNote})` : ''}`,
       ...String(offer.allowances || '').split('\n').filter(x => x.trim()).map(x => `  - ${x.trim()}`),
-      `- 경영성과급 및 복지제도: ${offer.benefits}`, '',
-      `3. 입사 시기: ${offer.joinDate ? fmtShortDate(offer.joinDate) : '추후 안내'}${offer.probation ? ` ※ ${offer.probation}` : ''}`,
-      `최종합격 시 입사일 ${offer.joinTime}에 아래 장소에서 뵙겠습니다.`, `장소: ${offer.reportLocation}`,
+      ...(offer.probation ? [`- 수습기간: ${offer.probation}`] : []),
+      `- 경영성과급 및 복지제도: ${offer.benefits}`,
     ].join('\n');
     const sent = await dispatchCandidateMail_(c, {
-      subject, purpose:'처우 및 채용검진 안내', logType:'처우·검진안내(업체경유)',
+      subject, purpose:'채용검진 및 근로조건 안내', logType:'처우·검진안내(업체경유)',
       sendDirect: () => sendGeneralEmailViaGmail(target.to || c.email, subject, body, '처우·검진안내', c.name, {
         templateType:'offer_health', candidateName:c.name, positionText:c.pos || '',
         healthDeadline:offer.healthDeadline, org:offer.org, etypeText:offer.etypeText, rank:offer.rank, cl:offer.cl,
         salary:offer.salary, salaryNote:offer.salaryNote, allowances:offer.allowances, benefits:offer.benefits,
-        joinDate:offer.joinDate, probation:offer.probation, joinTime:offer.joinTime, reportLocation:offer.reportLocation,
-        siteGear:offer.siteGear,
+        probation:offer.probation,
       }, attachments)
     });
     if(!sent) return;

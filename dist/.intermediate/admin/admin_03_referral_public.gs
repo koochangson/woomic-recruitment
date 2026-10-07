@@ -10,6 +10,9 @@ function handleReferralSecurityAction_(payload) {
   if (payload.action === 'setInterviewAvailabilityDeliveryStatus') return setInterviewAvailabilityDeliveryStatus_(payload);
   if (payload.action === 'verifyInterviewAvailabilityToken') return verifyInterviewAvailabilityToken_(payload);
   if (payload.action === 'submitInterviewAvailability') return submitInterviewAvailability_(payload);
+  if (payload.action === 'issueJoinDateLink') return issueJoinDateLink_(payload);
+  if (payload.action === 'verifyJoinDateToken') return verifyJoinDateToken_(payload);
+  if (payload.action === 'submitJoinDate') return submitJoinDate_(payload);
   if (payload.action === 'issuePanelAvailabilityLink') return issuePanelAvailabilityLink_(payload);
   if (payload.action === 'getPanelAvailabilityResponses') return getPanelAvailabilityResponses_(payload);
   if (payload.action === 'verifyPanelAvailabilityToken') return verifyPanelAvailabilityToken_(payload);
