@@ -719,9 +719,13 @@ function getCandidateNextAction(cand) {
     // 처우협의: 처우·채용검진 안내 → 검진 결과 확인 → 최종합격 확정
     const offer = getOffer_(cand.id);
     const call = cand.posId != null ? `openPositionResultModal(${cand.posId},4)` : null;
+    const decision = offerDecision_(cand);
+    if(decision === 'pass') return { text:'최종합격 확정 필요', priority:'medium', call };
+    if(decision === 'fail') return { text:'불합격 확정 필요', priority:'medium', call };
     if(!offer?.sentAt) return { text:'처우·채용검진 안내 필요', priority:'medium', call };
-    if(offer.healthStatus === 'pass') return { text:'최종합격 확정 필요', priority:'medium', call };
-    return { text:offer.healthStatus === 'fail' ? '검진 부적합 · 결과 판정 필요' : '채용검진 결과 확인', priority:'medium', call };
+    if(offer.acceptance === 'accepted') return { text:'채용검진 결과 확인', priority:'medium', call };
+    if(offer.healthStatus === 'pass') return { text:'처우 합의 확인', priority:'medium', call };
+    return { text:'처우 합의·검진 결과 확인', priority:'medium', call };
   }
   const types = CANDIDATE_STAGE_ACTION_TYPES[cand.stage];
   if(!types || cand.posId == null || cand.posId === '') return null;

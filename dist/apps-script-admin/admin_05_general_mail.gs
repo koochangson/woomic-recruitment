@@ -17,7 +17,7 @@ const GENERAL_MAIL_PREHEADER = {
   interview_second: data => `2차 면접 일정을 안내드립니다. ${data.interviewDateTime || ''}`,
   panel_schedule: () => '면접 일정 및 대상자를 안내드립니다.',
   onboarding: data => `입사를 진심으로 축하드립니다. 입사일 ${data.joinDate || ''}`,
-  onboarding_internal: data => `신규입사자 안내 — ${data.joinDate || ''} 입사 예정`,
+  onboarding_internal: data => `신규입사자 안내 — ${data.joinDate || ''} 입사 예정${Array.isArray(data.joiners) && data.joiners.length > 1 ? ' ' + data.joiners.length + '명' : ''}`,
   offer_health: () => '처우 제안과 채용검진 일정을 안내드립니다.',
   final_pass: () => '최종 합격을 축하드립니다. 입사 가능일을 선택해 주세요.',
   rejection: () => '채용 결과를 안내드립니다.',
@@ -232,6 +232,12 @@ function assertGeneralMailFields_(templateKey, data, fields) {
   }
 }
 
+// 제목 칸(머리글 왼쪽 56%)에 한 줄로 들어가도록 긴 제목은 글자를 줄인다(예: '채용검진 및 근로조건 안내').
+function mailHeaderTitleSize_(title) {
+  const len = String(title || '').replace(/&[a-z]+;/g, ' ').length;
+  return len <= 9 ? '28px' : len <= 11 ? '25px' : '22px';
+}
+
 function renderGeneralMailHeader_(templateKey, data) {
   const ctx = data || {};
   const title = escapeMailHtml_(ctx.headerTitle || GENERAL_MAIL_HEADER_TITLES[templateKey] || ctx.subject || '채용 진행 안내');
@@ -239,6 +245,7 @@ function renderGeneralMailHeader_(templateKey, data) {
   return loadMailFragment_('mail_shared_header_bottom')
     .replace(/{{ciSrc}}/g, loadMailAsset_('mail_asset_ci_src'))
     .replace(/{{headerArtSrc}}/g, loadMailAsset_('mail_asset_header_art_src'))
+    .replace(/{{headerTitleSize}}/g, mailHeaderTitleSize_(title))
     .replace(/{{headerTitle}}/g, title)
     .replace(/{{headerSubtitle}}/g, subtitle);
 }
@@ -316,10 +323,15 @@ function shortMailDate_(value) {
   return mo + '.' + d + '(' + wk + ')';
 }
 
-// 입사 사전 정보 입력(SAP) 제출 기한: 지정값이 없으면 '입사일 전까지'로 안내한다.
+// 입사 사전 정보 입력(SAP) 제출 기한: 지정값이 없으면 입사일 전날, 입사일도 없으면 '입사일 전까지'로 안내한다.
 function onboardingPreDeadlineLabel_(data) {
   const explicit = String(data.preDeadline || '').trim();
-  return explicit ? mailDateLabel_(explicit) : '입사일 전';
+  if (explicit) return mailDateLabel_(explicit);
+  const m = String(data.joinDate || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '입사일 전';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 1);
+  const pad = n => (n < 10 ? '0' : '') + n;
+  return mailDateLabel_(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
 }
 
 // ── 메일 종류별 공통 첨부(사전 입사 절차 매뉴얼·채용검진 안내) ─────────────
@@ -491,30 +503,37 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
     if (!data.siteGear) rendered = rendered.replace(/<tr id="siteGearRow">[\s\S]*?<\/tr>/, '');
   } else if (templateKey === 'onboarding_internal') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','joinDate']);
+    // 같은 날 같은 부서 입사자는 한 메일로 보낸다(data.joiners). 없으면 이 메일의 입사자 한 명.
+    const joiners = Array.isArray(data.joiners) && data.joiners.length ? data.joiners : [data];
+    const joinerFields = j => ({
+      candidateName: escapeMailHtml_(j.candidateName || ''),
+      positionText: escapeMailHtml_(j.positionText || ''),
+      dept: escapeMailHtml_(j.dept || data.dept || ''),
+      category: escapeMailHtml_(j.category || ''),
+      nameEn: escapeMailHtml_(j.nameEn || '-'),
+      etype: escapeMailHtml_(j.etype || ''),
+      rankCl: escapeMailHtml_(onboardingRankCl_(j.rank, j.cl)),
+      joinDateShort: escapeMailHtml_(shortMailDate_(j.joinDate || data.joinDate)),
+      phone: escapeMailHtml_(j.phone || '연락처 미입력')
+    });
+    const repeatBlock = (startTag, endTag, list, tweak) => {
+      const re = new RegExp('<!--' + startTag + '-->([\\s\\S]*?)<!--' + endTag + '-->');
+      const m = rendered.match(re);
+      if (!m) return;
+      rendered = rendered.replace(m[0], list.map((j, i) => replaceMailPlaceholders_(tweak ? tweak(m[1], i) : m[1], joinerFields(j))).join(''));
+    };
+    // 두 번째 표부터는 위 표와 간격을 둔다.
+    repeatBlock('JOINER_TABLE_START', 'JOINER_TABLE_END', joiners, (html, i) => i ? html.replace('<td style="padding:0;">', '<td style="padding:10px 0 0;">') : html);
+    // 현장 입사자에게만 '숙소·제복 확인 요청'을 남긴다(구분이 현장이거나 근무지가 현장으로 보이는 경우).
+    const siteJoiners = joiners.filter(j => j.category === '현장' || /현장|공사|사업소|프로젝트|PJ/i.test(String(j.location || j.workplace || j.site || '')));
+    if (siteJoiners.length) repeatBlock('SITE_CONTACT_START', 'SITE_CONTACT_END', siteJoiners);
+    else rendered = rendered.replace(/<tr id="siteOnboardingRequestRow">[\s\S]*?<\/tr>/, '');
     rendered = replaceMailPlaceholders_(rendered, {
-      candidateName: escapeMailHtml_(candidateName),
-      positionText: escapeMailHtml_(positionText),
-      dept: escapeMailHtml_(data.dept || ''),
       joinDate: escapeMailHtml_(mailDateLabel_(data.joinDate)),
-      rank: escapeMailHtml_(data.rank || ''),
-      etype: escapeMailHtml_(data.etype || ''),
-      location: escapeMailHtml_(data.location || ''),
-      phone: escapeMailHtml_(data.phone || '연락처 미입력'),
+      joinerPhrase: joiners.length > 1 ? '신규 입사자 ' + joiners.length + '명을' : '신규 입사자를',
       replyDeadline: escapeMailHtml_(data.replyDeadline || ''),
-      // 사내 공유 표: 구분(본사/현장)·영문 성명·직급(역량등급)·짧은 입사일자·비고
-      category: escapeMailHtml_(data.category || ''),
-      nameEn: escapeMailHtml_(data.nameEn || '-'),
-      rankCl: escapeMailHtml_(onboardingRankCl_(data.rank, data.cl)),
-      joinDateShort: escapeMailHtml_(shortMailDate_(data.joinDate)),
-      remark: escapeMailHtml_(data.remark || ''),
-      joinDaySchedule: escapeMailHtml_(data.joinDaySchedule || ''),
       deptCooperation: nlToBr_(data.deptCooperation || '')
     });
-    const workLocation = String(data.location || data.workplace || data.site || '');
-    // 현장 입사자에게만 '숙소·제복 확인 요청'을 남긴다(구분이 현장이거나 근무지가 현장으로 보이는 경우).
-    if (data.category !== '현장' && !/현장|공사|사업소|프로젝트|PJ/i.test(workLocation)) {
-      rendered = rendered.replace(/<tr id="siteOnboardingRequestRow">[\s\S]*?<\/tr>/, '');
-    }
   } else if (templateKey === 'offer_health') {
     // 처우제안·채용검진 안내: 최종합격 전 단계라 합격·입사일 내용은 넣지 않는다(검진 적합 → 최종합격 통보).
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','healthDeadline','salary']);

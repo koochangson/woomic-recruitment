@@ -1,6 +1,33 @@
 // ══════════════════════════════════════════════════════════════
 // 입사 안내
 // ══════════════════════════════════════════════════════════════
+// ── 사전 정보 입력 기한: 입사 예정일 전날을 기본값으로 넣고, 담당자가 직접 바꾸면 그 값을 유지한다 ──
+function dayBeforeYmd_(ymd) {
+  const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? localYmd_(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 1)) : '';
+}
+function setObPreDeadline_(saved, joinDate) {
+  const pre = document.getElementById('ob-pre-deadline');
+  if(!pre) return;
+  const auto = dayBeforeYmd_(joinDate);
+  pre.value = saved || auto;
+  // 저장값이 없거나 '입사일 전날'과 같으면 자동 값으로 보고 입사일을 바꿀 때 함께 바꾼다.
+  pre.dataset.auto = !saved || saved === auto ? '1' : '0';
+}
+function onObDateChange_() {
+  const pre = document.getElementById('ob-pre-deadline');
+  if(!pre || (pre.value && pre.dataset.auto === '0')) return;
+  pre.value = dayBeforeYmd_(document.getElementById('ob-date')?.value);
+  pre.dataset.auto = '1';
+}
+function onObPreDeadlineInput_() {
+  const pre = document.getElementById('ob-pre-deadline');
+  if(!pre) return;
+  // 비우면 다시 입사일 전날로 채운다.
+  if(!pre.value) { pre.dataset.auto = '1'; onObDateChange_(); return; }
+  pre.dataset.auto = pre.value === dayBeforeYmd_(document.getElementById('ob-date')?.value) ? '1' : '0';
+}
+
 function fillOnboardingDefaults(candId) {
   const select = document.getElementById('ob-cand');
   const id = Number(candId || select?.value);
@@ -30,7 +57,8 @@ function fillOnboardingDefaults(candId) {
   set('ob-loc',loc);
   set('ob-etype',etype);
   set('ob-date',existing.joinDate || c.joinDate || '');
-  set('ob-pre-deadline',existing.preDeadline || '');
+  // 사전 정보 입력 기한: 따로 정한 값이 없으면 입사 예정일 전날
+  setObPreDeadline_(existing.preDeadline || '', existing.joinDate || c.joinDate || '');
   set('ob-rank',existing.rank || offer.rank || '');
   set('ob-name-en',existing.nameEn || '');
   set('ob-cl',existing.cl || offer.cl || '');
@@ -66,18 +94,25 @@ function updateObSendButton_() {
   const ob = onboardings.find(o => Number(o.candId) === id);
   const saveBtn = document.getElementById('ob-save-btn');
   if(saveBtn) { saveBtn.textContent = ob ? '수정 저장' : '등록'; saveBtn.className = ob ? 'btn' : 'btn btn-primary'; }
-  // 내부 직원 공유도 다른 버튼과 같은 테두리 버튼으로 두고, 공유했으면 '재공유'로 바꾼다.
-  const internalBtn = document.getElementById('ob-internal-btn');
-  if(internalBtn) internalBtn.textContent = ob && ob.deptNotified ? '내부 직원 재공유' : '내부 직원 공유';
-  const btn = document.getElementById('ob-send-btn');
-  if(!btn) return;
+  // 발송 전: 채운 버튼(할 일). 발송 후: 점선 테두리 + ↻ '재발송/재공유'(이미 보낸 메일을 다시 보냄).
   const sent = !!(ob && ob.notified);
-  btn.textContent = sent ? '지원자 입사안내 재발송' : '지원자 입사안내 발송';
-  btn.className = sent ? 'btn' : 'btn btn-primary';
+  const shared = !!(ob && ob.deptNotified);
+  const setBtn = (el, done, firstLabel, againLabel) => {
+    if(!el) return;
+    el.textContent = done ? '↻ ' + againLabel : firstLabel;
+    el.className = done ? 'btn btn-resend' : (ob ? 'btn btn-primary' : 'btn');
+    el.title = done ? '이미 보냈습니다. 누르면 같은 내용으로 다시 보냅니다.' : '';
+  };
+  setBtn(document.getElementById('ob-send-btn'), sent, '지원자 입사안내 발송', '지원자 입사안내 재발송');
+  setBtn(document.getElementById('ob-internal-btn'), shared, '내부 직원 공유', '내부 직원 재공유');
+  // 버튼 아래에 두 메일의 발송 상태를 함께 보여 준다(완료는 초록, 미발송은 회색).
   const status = document.getElementById('ob-send-status');
   if(status) {
-    status.textContent = sent ? '✓ 지원자 입사안내 발송 완료' + (ob.notifiedAt ? ' · ' + fmtItv(ob.notifiedAt) : '') : '';
-    status.style.display = sent ? '' : 'none';
+    const chip = (done, label, at) => done
+      ? `<span class="b bgreen">✓ ${label} 발송완료${at ? ' · ' + esc(fmtItv(at)) : ''}</span>`
+      : `<span class="b bgray">${label} 미발송</span>`;
+    status.innerHTML = ob ? chip(sent, '지원자 입사안내', ob.notifiedAt) + chip(shared, '내부 직원 공유', ob.deptNotifiedAt) : '';
+    status.style.display = ob ? 'flex' : 'none';
   }
 }
 
@@ -287,14 +322,60 @@ function onNotifyTeamSearchKey(event) {
 }
 
 // 입사 안내 메일 + Teams 발송
+// 내부 직원 공유용 입사자 한 명 정보(메일 표 한 칸)
+function internalJoinerData_(ob) {
+  const cand = candidates.find(c => c.id === ob.candId) || {};
+  const dept = ob.dept || cand.dept || '';
+  return {
+    candidateName: ob.candName || cand.name || '',
+    positionText: cand.pos || ob.pos || '',
+    dept, joinDate: ob.joinDate || '', rank: ob.rank || '', cl: ob.cl || '',
+    etype: ob.etype || cand.etype || '', location: ob.loc || '', nameEn: ob.nameEn || '',
+    phone: ob.phone || cand.phone || cand.mobile || '',
+    category: (positions.find(p => Number(p.id) === Number(cand.posId))?.location) || (/현장/.test(dept || ob.loc || '') ? '현장' : '본사'),
+  };
+}
+
+// 같은 입사일·같은 배치 부서이면서 아직 내부 공유를 안 한 다른 입사자
+function sameDayDeptOnboardings_(ob) {
+  const key = o => `${String(o.joinDate || '').slice(0, 10)}|${String(o.dept || '').trim()}`;
+  if(!ob.joinDate || !String(ob.dept || '').trim()) return [];
+  return onboardings.filter(o => o.id !== ob.id && !o.deptNotified && key(o) === key(ob)
+    && candidates.some(c => c.id === o.candId && Number(c.stage) !== 6));
+}
+
+// 입사 안내 메일(관련 부서 공유). 같은 날 같은 부서 입사자가 더 있으면 한 메일로 묶을지 묻는다.
 async function sendJoinNotice(obId) {
   const ob = onboardings.find(o => o.id === obId);
   if(!ob) return;
   const cand = candidates.find(c => c.id === ob.candId);
   if(!cand) return;
 
-  const internal = getOnboardInternalRecipients(cand, ob);
-  const { dept, leads, teams, recipients:toEmails } = internal;
+  let group = [ob];
+  const others = sameDayDeptOnboardings_(ob);
+  if(others.length) {
+    const together = await confirmActionModal({
+      title:'같은 날 같은 부서 입사자 함께 공유',
+      message:`${fmtShortDate(ob.joinDate)} ${ob.dept} 입사자가 ${others.length + 1}명입니다. 한 메일로 함께 보낼까요?`,
+      items:[ob, ...others].map(o => `${o.candName} · ${o.rank || '직급 미정'}`),
+      confirmLabel:`${others.length + 1}명 함께 보내기`,
+    });
+    if(together) group = [ob, ...others];
+    else {
+      const onlyOne = await confirmActionModal({
+        title:'이 입사자만 공유',
+        message:`${ob.candName}님만 따로 보낼까요? 다른 ${others.length}명은 각자 [내부 공유]로 보내야 합니다.`,
+        confirmLabel:`${ob.candName}님만 보내기`,
+      });
+      if(!onlyOne) return;
+    }
+  }
+
+  // 수신자: 묶인 입사자 각각의 부서장·고정 수신자를 합친다(같은 부서라 대부분 같다).
+  const internals = group.map(o => getOnboardInternalRecipients(candidates.find(c => c.id === o.candId) || cand, o));
+  const { dept, teams } = internals[0];
+  const leads = [...new Map(internals.flatMap(x => x.leads).map(l => [String(l.email).toLowerCase(), l])).values()];
+  const toEmails = groupMailRecipients(internals.map(x => x.recipients));
   if(!toEmails) {
     toast(`통보할 부서 이메일이 없습니다. '${dept||'부서 미정'}'의 팀장/소장 또는 입사 안내 수신 팀을 설정해 주세요.`, 'terr');
     return;
@@ -308,33 +389,26 @@ async function sendJoinNotice(obId) {
     });
     if(!confirmed) return;
   }
-  const subject = `[입사안내] ${ob.joinDate ? fmtShortDate(ob.joinDate) : '입사일 미정'} ${dept || ob.dept || '배치부서 미정'} ${cand.name} ${ob.rank || ''}`.trim();
-  const body = buildInternalOnboardEmail({...ob,dept,pos:cand.pos||ob.pos,etype:ob.etype||cand.etype}, cand);
+  const joiners = group.map(internalJoinerData_);
+  const names = group.length > 1 ? `${group[0].candName} 외 ${group.length - 1}명` : `${cand.name} ${ob.rank || ''}`.trim();
+  const subject = `[입사안내] ${ob.joinDate ? fmtShortDate(ob.joinDate) : '입사일 미정'} ${dept || ob.dept || '배치부서 미정'} ${names}`.trim();
+  const body = group.map(o => buildInternalOnboardEmail({...o, dept:o.dept || dept}, candidates.find(c => c.id === o.candId) || cand)).join('\n\n────────\n\n');
 
   // 이메일 발송 (관련 부서 + 피플팀 일괄 수신)
-  const sent = await sendGeneralEmailViaGmail(toEmails, subject, body, '입사안내(사내부서)', cand.name, {
+  const first = joiners[0];
+  const sent = await sendGeneralEmailViaGmail(toEmails, subject, body, '입사안내(사내부서)', names, {
     templateType: 'onboarding_internal',
-    candidateName: ob.candName || cand.name,
-    positionText: cand.pos || ob.pos || '',
-    dept: dept || ob.dept || '',
-    joinDate: ob.joinDate || '',
-    rank: ob.rank || '',
-    etype: ob.etype || cand.etype || '',
-    location: ob.loc || '',
-    phone: ob.phone || cand.phone || cand.mobile || '',
-    category: (positions.find(p => Number(p.id) === Number(cand.posId))?.location) || (/현장/.test(dept || ob.loc || '') ? '현장' : '본사'),
-    nameEn: ob.nameEn || '',
-    cl: ob.cl || '',
-    remark: '',
+    ...first,
+    joiners,
     replyDeadline: (ob.joinDate ? ob.joinDate + ' 전일까지' : '입사일 전일까지'),
-    joinDaySchedule: (ob.notes || '').trim() || '입사 당일 본사 출근 예정',
-    deptCooperation: '정보전략팀(전산비품), 경영지원팀(전화기 설치(본사만 해당), 사원증 발급)'
+    // 부서별 준비 요청(한 줄에 한 부서)
+    deptCooperation: 'ㅇ 정보전략팀 : 전산비품 준비\nㅇ 경영지원팀 : 사원증 발급, 전화기 설치(본사만 해당)'
   });
   if(sent === false) return;
-  ob.deptNotified = true;
+  const at = new Date().toISOString();
+  group.forEach(o => { o.deptNotified = true; o.deptNotifiedAt = at; logNotify('Gmail', '입사안내(사내부서)', o.candName, toEmails); });
   if(typeof updateObSendButton_ === 'function') setTimeout(updateObSendButton_, 0);
-  toast(`내부 직원 단체 안내 — 고정 수신팀 ${teams.length}개 + 배치 부서 팀장/소장 ${leads.length}명`, 'tok');
-  logNotify('Gmail', '입사안내(사내부서)', cand.name, toEmails);
+  toast(`내부 직원 공유 완료${group.length > 1 ? ` — ${group.length}명 한 메일` : ''} · 고정 수신팀 ${teams.length}개 + 배치 부서 팀장/소장 ${leads.length}명`, 'tok');
   saveState();
   renderOnboarding();
 }
@@ -806,9 +880,9 @@ function renderOnboarding(){
       <td class="ob-col-notify"><div class="ob-badges">${o.notified?'<span class="b bgreen">지원자 발송완료</span>':'<span class="b bgray">미발송</span>'}${o.deptNotified?'<span class="b bgreen">부서✓</span>':''}</div></td>
       <td class="ob-col-action"><div class="ob-actions">
         ${o.notified
-          ? '<button class="btn btn-xs" data-action="call" data-call="sendObById('+o.id+',\'outlook\')" title="이미 발송했습니다. 다시 보내려면 누르세요.">재발송</button>'
+          ? '<button class="btn btn-xs btn-resend" data-action="call" data-call="sendObById('+o.id+',\'outlook\')" title="이미 발송했습니다. 다시 보내려면 누르세요.">↻ 재발송</button>'
           : '<button class="btn btn-xs btn-primary" data-action="call" data-call="sendObById('+o.id+',\'outlook\')">입사안내 발송</button>'}
-        <button class="btn btn-xs" data-action="call" data-call="sendJoinNotice(${o.id})">${o.deptNotified ? '내부 재공유' : '내부 공유'}</button>
+        <button class="btn btn-xs${o.deptNotified ? ' btn-resend' : ''}" data-action="call" data-call="sendJoinNotice(${o.id})">${o.deptNotified ? '↻ 내부 재공유' : '내부 공유'}</button>
       </div></td>
     </tr>`;
   }).join('');

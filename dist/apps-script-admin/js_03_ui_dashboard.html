@@ -742,7 +742,7 @@ function buildIntEmail(itv, cand) {
 }
 
 function buildOfferEmail(ob, cand) {
-  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${fmtMailDate(ob.joinDate)}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '린스퀘어 14F'}\n배치 부서: ${ob.dept || ''}\n직급(역량등급): ${ob.rank || ''}${ob.cl ? ` (${ob.cl})` : ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}\n\n[입사 사전 정보 입력 및 서류 제출]\n진행 절차: 이메일 수신 및 접속 → 개인정보 입력 → 입사서류 제출(첨부 매뉴얼 15p 참조) → 계약서 확인 및 서명\n접속 링크 발송자: ias@notifications.sap.com\n제출 기한: ${ob.preDeadline ? fmtMailDate(ob.preDeadline) : '입사일 전'}까지`;
+  return `안녕하세요 ${ob.candName}님,\n\n최종 합격을 진심으로 축하드립니다!\n\n입사 예정일: ${fmtMailDate(ob.joinDate)}\n출근 시간: ${ob.joinTime || '09:00'}\n집결 장소: ${ob.reportLocation || '린스퀘어 14F'}\n배치 부서: ${ob.dept || ''}\n직급(역량등급): ${ob.rank || ''}${ob.cl ? ` (${ob.cl})` : ''}\n채용형태: ${ob.etype || ''}\n근무지: ${ob.loc || ''}\n\n[입사 사전 정보 입력 및 서류 제출]\n진행 절차: 이메일 수신 및 접속 → 개인정보 입력 → 입사서류 제출(첨부 매뉴얼 15p 참조) → 계약서 확인 및 서명\n접속 링크 발송자: ias@notifications.sap.com\n제출 기한: ${ob.preDeadline ? fmtMailDate(ob.preDeadline) : ob.joinDate ? fmtMailDate(dayBeforeYmd_(ob.joinDate)) : '입사일 전'}까지`;
 }
 
 function buildInternalOnboardEmail(ob, cand) {

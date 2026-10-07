@@ -512,8 +512,8 @@
             <div class="fgrid f2" style="gap:10px">
               <div class="fg full"><label>최종 합격자</label><select id="ob-cand" data-onchange="fillOnboardingDefaults()"><option value="">-- 선택 --</option></select><div id="ob-position-finalists"></div></div>
               <div class="fg full"><label>포지션</label><input id="ob-position" readonly style="background:var(--s2)" placeholder="최종 합격자 선택 시 자동 입력"/></div>
-              <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="updateObPreview()"/><div id="ob-date-hint" class="field-hint"></div></div>
-              <div class="fg"><label for="ob-pre-deadline">사전 정보 입력 기한</label><input type="date" id="ob-pre-deadline" data-onchange="updateObPreview()"/></div>
+              <div class="fg"><label>입사 예정일</label><input type="date" id="ob-date" data-onchange="onObDateChange_();updateObPreview()"/><div id="ob-date-hint" class="field-hint"></div></div>
+              <div class="fg"><label for="ob-pre-deadline">사전 정보 입력 기한</label><input type="date" id="ob-pre-deadline" data-onchange="onObPreDeadlineInput_();updateObPreview()"/></div>
               <div class="fg"><label>배치 부서</label><input id="ob-dept" placeholder="기술연구소 2팀" data-onchange="refreshOnboardingDeptRecipients()" data-oninput="updateObPreview()"/></div>
               <div class="fg"><label for="ob-dept-lead">해당부서 팀장/소장 이메일</label><input id="ob-dept-lead" placeholder="배치부서 기준 자동 매핑 · 필요 시 수정 가능" data-oninput="updateObPreview();onObDeptLeadInput_()"/><div id="ob-dept-lead-hint" class="field-hint"></div></div>
               <div class="fg full"><label>내부 공유 수신자</label><div id="ob-recipient-summary" style="padding:8px 10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rsm);font-size:11px;color:var(--t2)">합격자를 선택하면 배치부서 팀장/소장과 관련부서 수신자를 확인할 수 있습니다.</div><button class="btn btn-xs" style="margin-top:5px;width:max-content" data-action="call" data-call="navBtn('settings')">관련부서 수신자 설정</button></div>
@@ -539,7 +539,7 @@
               <button class="btn btn-primary" id="ob-send-btn" data-action="call" data-call="sendObNotify('outlook')">지원자 입사안내 발송</button>
               <button class="btn" id="ob-internal-btn" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
             </div>
-            <div id="ob-send-status" class="field-hint" style="display:none;color:var(--green);font-weight:700;margin-top:6px"></div>
+            <div id="ob-send-status" style="display:none;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
           </div>
           <details class="help-details onboarding-preview-details">
             <summary>메일 내용 미리보기 (선택)</summary>

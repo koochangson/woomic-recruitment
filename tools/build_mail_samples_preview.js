@@ -62,7 +62,7 @@ function renderGeneralHeader(title, subtitle) {
         <tr>
           <td width="56%" valign="top" style="width:56%;padding:0 12px 0 0;">
             <img src="${ciSrc}" width="104" height="39" alt="우미건설" style="display:block;width:104px;height:39px;border:0;font-size:16px;font-weight:700;color:#003087;">
-            <div style="padding-top:16px;font-size:32px;line-height:1.18;font-weight:700;color:#003087;word-break:keep-all;overflow-wrap:break-word;">${title}</div>
+            <div style="padding-top:16px;font-size:${title.length <= 9 ? 32 : title.length <= 11 ? 28 : 24}px;line-height:1.18;font-weight:700;color:#003087;word-break:keep-all;overflow-wrap:break-word;">${title}</div>
             <div style="width:40px;height:2px;background:#003087;line-height:2px;font-size:0;margin-top:12px;">&nbsp;</div>
             <div style="padding-top:15px;font-size:14px;line-height:1.65;color:#52667a;word-break:keep-all;overflow-wrap:break-word;">${subtitle}</div>
           </td>
