@@ -69,6 +69,18 @@ const requiredPatterns = [
     message: 'Public Apps Script must reject privileged actions before dispatch.',
   },
   {
+    id: 'public-join-date-issue-blocked',
+    file: 'src/public/backend/Code.gs',
+    pattern: /PUBLIC_BLOCKED_ADMIN_ACTIONS[\s\S]{0,800}issueJoinDateLink:\s*true/,
+    message: 'Public Apps Script must block join-date link issuance.',
+  },
+  {
+    id: 'public-join-date-one-time-submit',
+    file: 'src/public/backend/Code.gs',
+    pattern: /row\.status\s*===\s*'RESPONDED'[\s\S]{0,160}already_submitted/,
+    message: 'Public join-date tokens must reject repeated submissions.',
+  },
+  {
     id: 'public-referee-verification-rate-limit',
     file: 'src/public/backend/Code.gs',
     pattern: /isRefereeVerifyLocked_\(token\)[\s\S]{0,120}too_many_attempts/,

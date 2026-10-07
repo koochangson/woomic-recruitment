@@ -62,6 +62,7 @@ const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
   issueReferenceCandidateLink: true,
   issueInterviewAvailabilityLink: true,
   setInterviewAvailabilityDeliveryStatus: true,
+  issueJoinDateLink: true,
   issuePanelAvailabilityLink: true,
   getPanelAvailabilityResponses: true,
   generateReferenceSummary: true
@@ -779,7 +780,7 @@ function joinDateRequestExpired_(row) {
 // 최종합격(5) 단계인 지원자만 회신할 수 있다(불합격·보류·입사 처리 후에는 받지 않는다).
 function joinDateProcessClosed_(candId) {
   const cand = readRows_('Candidates').find(row => String(row.id) === String(candId));
-  if (!cand) return false;
+  if (!cand) return true;
   if (String(cand.held || '') === 'Y') return true;
   return !['5', '최종합격'].includes(String(cand.stage == null ? '' : cand.stage).trim());
 }
@@ -791,6 +792,7 @@ function issueJoinDateLink_(payload) {
   const candName = String(body.candName || '').trim();
   const options = normalizeJoinDateOptions_(body.options);
   if (!candId || !candName || !options.length) return json_({ error: 'missing_join_date_fields' });
+  if (joinDateProcessClosed_(candId)) return json_({ error: 'process_closed' });
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -853,6 +855,7 @@ function submitJoinDate_(payload) {
     if (rowIndex < 0 || !row) return json_({ ok: false, error: 'invalid_token' });
     if (joinDateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
     if (joinDateRequestExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    if (row.status === 'RESPONDED' || row.status === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
     if (!unavailable && normalizeJoinDateOptions_(row.options).indexOf(selection) < 0) return json_({ ok: false, error: 'invalid_selection' });
     const next = schemaRow_('JoinDateRequests', Object.assign({}, row, {
       selection: unavailable ? '' : selection, status: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
