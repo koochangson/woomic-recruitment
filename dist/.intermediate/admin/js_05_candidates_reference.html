@@ -706,7 +706,23 @@ function getCandidateNextAction(cand) {
   if(cand.stage === 5) {
     if(isHireCompletedByFill_(cand)) return null; // 충원완료 포지션 — 입사 완료로 간주
     if(isOnboardNoticeSent_(cand)) return null;
-    return { text:'입사 안내 발송 필요', priority:'high', call: cand.posId != null ? `openOnboardingFromPosition(${cand.posId})` : null };
+    const call = cand.posId != null ? `openOnboardingFromPosition(${cand.posId})` : null;
+    // 최종합격 통보 → 입사일 회신 → 입사 안내 순서
+    if(!isJoinDateConfirmed_(cand)) {
+      const req = (typeof joinDateRequests_ === 'object' && joinDateRequests_) ? joinDateRequests_[Number(cand.id)] : null;
+      if(!req) return { text:'최종합격 통보 필요', priority:'high', call };
+      if(req.status === 'UNAVAILABLE') return { text:'입사일 조정 요청', priority:'high', call };
+      return { text:'입사일 회신 대기', priority:'low', call };
+    }
+    return { text:'입사 안내 발송 필요', priority:'high', call };
+  }
+  if(cand.stage === 4 && !cand.held) {
+    // 처우협의: 처우·채용검진 안내 → 검진 결과 확인 → 최종합격 확정
+    const offer = getOffer_(cand.id);
+    const call = cand.posId != null ? `openPositionResultModal(${cand.posId},4)` : null;
+    if(!offer?.sentAt) return { text:'처우·채용검진 안내 필요', priority:'medium', call };
+    if(offer.healthStatus === 'pass') return { text:'최종합격 확정 필요', priority:'medium', call };
+    return { text:offer.healthStatus === 'fail' ? '검진 부적합 · 결과 판정 필요' : '채용검진 결과 확인', priority:'medium', call };
   }
   const types = CANDIDATE_STAGE_ACTION_TYPES[cand.stage];
   if(!types || cand.posId == null || cand.posId === '') return null;

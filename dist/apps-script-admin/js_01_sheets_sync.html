@@ -424,6 +424,7 @@ async function reloadAdminDataAfterLogin_() {
     try {
       await loadAuxStateFromGS();
       renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog();
+      if(typeof loadJoinDateRequests_ === 'function') loadJoinDateRequests_();
     } catch(e) {}
     finally { auxSyncSuspended = false; }
     try {
