@@ -372,7 +372,7 @@ const requiredPatterns = [
     id: 'onboarding-mail-placeholders',
     file: 'templates/mail/body/mail_body_onboarding.html',
     // 포지션명은 '○○로 입사' 문장이 어색해 본문에서 뺐다(배치 부서는 표에 있음).
-    pattern: /\{\{candidateName\}\}[\s\S]*\{\{joinDate\}\}[\s\S]*\{\{joinTime\}\}[\s\S]*\{\{reportLocation\}\}[\s\S]*\{\{prepNotes\}\}/,
+    pattern: /\{\{candidateName\}\}[\s\S]*\{\{joinDate\}\}[\s\S]*\{\{joinTime\}\}[\s\S]*\{\{reportLocation\}\}[\s\S]*\{\{preDeadline\}\}/,
     message: 'Candidate onboarding mail must use explicit candidate and joining placeholders.',
   },
   {

@@ -313,30 +313,33 @@ function shortMailDate_(value) {
   return mo + '.' + d + '(' + wk + ')';
 }
 
-// 입사 사전 정보 입력(SAP) 제출 기한: 지정값이 없으면 입사일 2주 전으로 안내한다.
+// 입사 사전 정보 입력(SAP) 제출 기한: 지정값이 없으면 '입사일 전까지'로 안내한다.
 function onboardingPreDeadlineLabel_(data) {
   const explicit = String(data.preDeadline || '').trim();
-  if (explicit) return mailDateLabel_(explicit);
-  const m = String(data.joinDate || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return '입사일 전';
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 14);
-  const pad = n => (n < 10 ? '0' : '') + n;
-  return mailDateLabel_(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+  return explicit ? mailDateLabel_(explicit) : '입사일 전';
 }
 
 // ── 메일 종류별 공통 첨부(사전 입사 절차 매뉴얼·채용검진 안내) ─────────────
 // 관리자 화면에서 한 번 등록하면 해당 메일을 보낼 때마다 자동으로 붙는다. 문서가 바뀌면 화면에서 교체한다.
-// 파일은 이 스크립트가 만든 드라이브 파일(drive.file 권한)로 보관하고, 정보는 스크립트 속성에 둔다.
+// DriveApp은 드라이브 전체 권한이 필요해(drive.file로는 거부됨) 이미 쓰는 스프레드시트의 숨김 시트에
+// base64 조각으로 보관한다. 파일 정보(이름·크기·등록일)는 스크립트 속성에 둔다.
+// 이 시트는 동기화 대상(SHEET_SCHEMAS)이 아니라서 화면으로 내려가지 않는다.
 const COMMON_MAIL_ATTACHMENTS = {
   onboarding: { property: 'ONBOARDING_MANUAL_FILE', label: '사전 입사 절차 매뉴얼' },
   offer_health: { property: 'OFFER_HEALTH_GUIDE_FILE', label: '채용검진 안내' }
 };
 const COMMON_MAIL_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+const COMMON_MAIL_ATTACHMENT_SHEET = '_MailAttachments';
+const COMMON_MAIL_ATTACHMENT_CHUNK = 45000; // 셀 하나에 5만 자까지 들어간다
 
 function getCommonAttachmentMeta_(kind) {
   const def = COMMON_MAIL_ATTACHMENTS[kind];
   if (!def) return null;
-  try { return JSON.parse(getScriptProperty_(def.property) || 'null'); } catch (err) { return null; }
+  try {
+    const meta = JSON.parse(getScriptProperty_(def.property) || 'null');
+    // 이전 Drive 저장 방식(fileId)은 현재 권한으로 읽을 수 없다. 미등록으로 보여 재등록을 유도한다.
+    return meta && Number(meta.chunks) > 0 ? meta : null;
+  } catch (err) { return null; }
 }
 
 function getCommonAttachments_() {
@@ -345,11 +348,30 @@ function getCommonAttachments_() {
   return result;
 }
 
+function commonAttachmentSheet_(create) {
+  const ss = getMainSpreadsheet_();
+  let sheet = ss.getSheetByName(COMMON_MAIL_ATTACHMENT_SHEET);
+  if (!sheet && create) {
+    sheet = ss.insertSheet(COMMON_MAIL_ATTACHMENT_SHEET);
+    sheet.getRange(1, 1, 1, 3).setValues([['kind', 'index', 'data']]);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
 function commonAttachmentBlob_(kind) {
   const meta = getCommonAttachmentMeta_(kind);
-  if (!meta || !meta.fileId) return null;
+  if (!meta) return null;
   try {
-    return DriveApp.getFileById(meta.fileId).getBlob().setName(meta.name || 'attachment.pdf');
+    const sheet = commonAttachmentSheet_(false);
+    if (!sheet || sheet.getLastRow() < 2) return null;
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues()
+      .filter(row => String(row[0]) === kind)
+      .sort((a, b) => Number(a[1]) - Number(b[1]));
+    if (rows.length !== Number(meta.chunks) || rows.some((row, index) => Number(row[1]) !== index)) return null;
+    const bytes = Utilities.base64Decode(rows.map(row => String(row[2])).join(''));
+    if (bytes.length !== Number(meta.size)) return null;
+    return Utilities.newBlob(bytes, 'application/pdf', meta.name || 'attachment.pdf');
   } catch (err) {
     console.warn('commonAttachmentBlob_ failed (' + kind + '): ' + String(err && err.message || err));
     return null;
@@ -361,20 +383,34 @@ function uploadCommonAttachment_(data) {
   const def = COMMON_MAIL_ATTACHMENTS[kind];
   if (!def) return json_({ error: 'unknown_attachment_kind' });
   const name = String(data && data.name || '').replace(/[\\/:*?"<>|]/g, '_').trim();
-  const base64 = String(data && data.base64 || '');
+  const base64 = String(data && data.base64 || '').replace(/\s+/g, '');
   if (!name || !base64) return json_({ error: 'missing_upload_fields' });
   if (!/\.pdf$/i.test(name)) return json_({ error: 'unsupported_file_type' });
-  const bytes = Utilities.base64Decode(base64);
-  if (bytes.length > COMMON_MAIL_ATTACHMENT_MAX_BYTES) return json_({ error: 'file_too_large' });
-  const file = DriveApp.createFile(Utilities.newBlob(bytes, 'application/pdf', name));
-  hardenUploadedFileSharing_(file);
-  const previous = getCommonAttachmentMeta_(kind);
-  const meta = { fileId: file.getId(), name: name, size: bytes.length, uploadedAt: nowIso_() };
-  PropertiesService.getScriptProperties().setProperty(def.property, JSON.stringify(meta));
-  if (previous && previous.fileId && previous.fileId !== meta.fileId) {
-    try { DriveApp.getFileById(previous.fileId).setTrashed(true); } catch (err) {}
+  const size = Utilities.base64Decode(base64).length;
+  if (size > COMMON_MAIL_ATTACHMENT_MAX_BYTES) return json_({ error: 'file_too_large' });
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sheet = commonAttachmentSheet_(true);
+    // 다른 종류의 조각은 그대로 두고, 이 종류의 이전 조각을 새 조각으로 바꿔 한 번에 다시 쓴다.
+    const lastRow = sheet.getLastRow();
+    const kept = lastRow >= 2
+      ? sheet.getRange(2, 1, lastRow - 1, 3).getValues().filter(row => String(row[0]) !== kind)
+      : [];
+    const chunks = [];
+    for (let i = 0; i < base64.length; i += COMMON_MAIL_ATTACHMENT_CHUNK) {
+      chunks.push([kind, chunks.length, base64.slice(i, i + COMMON_MAIL_ATTACHMENT_CHUNK)]);
+    }
+    const rows = kept.concat(chunks);
+    if (lastRow >= 2) sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+    sheet.getRange(2, 1, rows.length, 3).setNumberFormat('@').setValues(rows);
+    const meta = { name: name, size: size, chunks: chunks.length, uploadedAt: nowIso_() };
+    PropertiesService.getScriptProperties().setProperty(def.property, JSON.stringify(meta));
+    return json_({ ok: true, kind: kind, attachment: meta });
+  } finally {
+    lock.releaseLock();
   }
-  return json_({ ok: true, kind: kind, attachment: meta });
 }
 
 function renderGeneralMailTemplate_(html, templateKey, data) {
@@ -446,8 +482,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       rankCl: escapeMailHtml_(onboardingRankCl_(data.rank, data.cl)),
       etype: escapeMailHtml_(data.etype || ''),
       location: escapeMailHtml_(data.location || ''),
-      preDeadline: escapeMailHtml_(onboardingPreDeadlineLabel_(data)),
-      prepNotes: nlToBr_(data.prepNotes || '')
+      preDeadline: escapeMailHtml_(onboardingPreDeadlineLabel_(data))
     });
   } else if (templateKey === 'onboarding_internal') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','joinDate']);

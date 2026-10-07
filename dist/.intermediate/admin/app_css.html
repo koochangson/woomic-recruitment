@@ -302,7 +302,26 @@ textarea{resize:vertical;min-height:64px;}
   .ob-table .ob-col-action>.btn{width:100%;}
   .ob-email{max-width:none;}
   .ob-table tr.ob-row.ob-row-active{background:var(--bbg)!important;box-shadow:inset 3px 0 0 var(--acc);}
+  /* 입사일 미확정 줄: 이름·직무 + 오른쪽 [입사일 등록] 두 줄로 줄인다 */
+  .ob-table tr.ob-row.ob-row-pending{grid-template-areas:"name action" "pos action";align-items:center;}
+  .ob-table tr.ob-row-pending .ob-col-date,.ob-table tr.ob-row-pending .ob-col-notify{display:none;}
+  .ob-table tr.ob-row-pending .ob-col-action{justify-self:end;}
+  .ob-table tr.ob-row-pending .ob-col-action>.btn{width:auto;}
 }
+/* 입사 안내 관련부서 고정 수신자(설정): 이름·부서·이메일 칩 + 검색 결과 목록 */
+.notify-chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px;}
+.notify-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border:1px solid var(--border2);border-radius:999px;background:var(--s2);font-size:12px;color:var(--t1);}
+.notify-chip span{color:var(--t3);}
+.notify-chip .notify-chip-mail{font-family:'DM Mono',monospace;font-size:11px;color:var(--t2);}
+.notify-chip button{border:0;background:transparent;color:var(--t3);cursor:pointer;font-size:14px;line-height:1;padding:0 4px;border-radius:50%;}
+.notify-chip button:hover{color:var(--red);background:var(--rbg);}
+.notify-results{position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);box-shadow:var(--shm);max-height:240px;overflow-y:auto;margin-top:2px;}
+.notify-result{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border);}
+.notify-result:last-child{border-bottom:0;}
+.notify-result:hover{background:var(--bbg);}
+.notify-result span{color:var(--t3);}
+.notify-result .notify-chip-mail{margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--t2);}
+.notify-result-empty{padding:10px 12px;font-size:12px;color:var(--t3);}
 .ob-done-list{margin-top:10px;border:1px solid var(--border);border-radius:var(--r);background:var(--s2);}
 .ob-done-list summary{cursor:pointer;padding:9px 12px;font-size:12px;font-weight:700;color:var(--green);}
 .ob-done-list summary span{font-weight:500;color:var(--t3);}

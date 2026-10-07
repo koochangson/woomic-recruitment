@@ -331,7 +331,7 @@ async function confirmStageChangeInner_() {
     } else if(newStage === 7) {
       generalParams = {
         templateType: 'onboarding', candidateName: c.name, positionText: c.pos,
-        joinDate: c.joinDate || '', dept: c.dept || '', rank: '', etype: c.etype || '', location: c.loc || '', prepNotes: ''
+        joinDate: c.joinDate || '', dept: c.dept || '', rank: '', etype: c.etype || '', location: c.loc || ''
       };
     }
     let mailSent = false;
@@ -1228,7 +1228,6 @@ function renderReference() {
         <td style="display:flex;gap:4px;flex-wrap:wrap">${!isActivePipelineCand(c)?`<span class="b bgray" style="font-size:10px" title="불합격·보류 또는 마감된 포지션 — 레퍼런스 진행 종료">종료</span>`:`
           ${c.ref==='미시작'?`<button class="btn btn-xs btn-primary" data-action="call" data-call="startRef(${c.id})">시작</button>`:''}
           ${c.ref==='진행중'&&!refs.length?`<button class="btn btn-xs btn-primary" data-action="call" data-call="sendRefRequest(${c.id})">재요청</button>`:''}
-          ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs" data-action="call" data-call="markRefRegistered(${c.id})">+접수</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="remindRef(${c.id})">리마인드</button><button class="btn btn-xs" data-action="call" data-call="markOneResponse(${c.id})">+응답</button>`:''}
           ${c.ref==='진행중'&&refs.length?`<button class="btn btn-xs btn-green" data-action="call" data-call="completeRef(${c.id})">완료</button>`:''}
           ${c.ref==='완료'&&!c.refReportSentAt?`<button class="btn btn-xs btn-outlook" data-action="call" data-call="markReferenceReportSent(${c.id})" title="2차 면접관에게 보고서를 전달한 뒤 누르세요">면접관 전달 표시</button>`:''}
@@ -1463,7 +1462,9 @@ async function remindOneRef(candId,ri){
   ensureRefDetails(c);
   const r=refDetails[candId][ri];
   if(!r){toast('추천인 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.','terr');return;}
-  const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
+  // 응답 링크는 추천인마다 서버가 발급한다(공용 대체 URL은 응답을 지원자와 연결할 수 없어 쓰지 않는다).
+  const refLink=r.link||'';
+  if(!refLink){toast(`${esc(r.name)}님의 개인 응답 링크가 없습니다. 레퍼런스 동기화 후 다시 시도해 주세요. 계속 없으면 지원자에게 추천인 등록을 다시 요청해 주세요.`,'terr');return;}
   const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
   const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 ${REF_LINK_TTL_DAYS}일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
   const sent=await sendReferenceEmailViaGmail(r.email,subject,body,'추천인리마인드',`${esc(c.name)}-${esc(r.name)}`,{
@@ -1497,38 +1498,6 @@ function markOneResponse(id){
   if(target){target.status='응답';c.refD++;}
   if(c.refD>=c.refT)c.ref='완료';
   saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
-}
-// 추천인 접수(등록) 처리: 대기 상태 추천인 1명을 등록으로 + 설문 자동 발송
-async function markRefRegistered(id){
-  const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
-  const refs=ensureRefDetails(c);
-  if(!refs.length){toast('아직 등록된 추천인이 없습니다. 지원자가 추천인 등록 링크로 등록하면 자동으로 반영됩니다.','tinfo');return;}
-  const pend=refDetails[id].find(r=>r.status==='대기');
-  if(!pend){toast('모든 추천인이 이미 접수됐습니다.','tinfo');return;}
-  pend.status='등록';
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
-  const registered=refDetails[id].filter(r=>r.status==='등록'||r.status==='응답').length;
-  // 추천인에게 설문(Form B) 자동 발송
-  const refFormUrl=document.getElementById('cfg-ref-url')?.value||'';
-  if(pend.email && refFormUrl){
-    const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 요청`;
-    const body=`${esc(pend.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(pend.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refFormUrl}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 ${REF_LINK_TTL_DAYS}일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
-    const sent=await sendReferenceEmailViaGmail(pend.email,subject,body,'추천인설문발송',`${esc(c.name)}-${esc(pend.name)}`,{
-      templateType:'referee_request',
-      candidateName:c.name,
-      refereeName:pend.name,
-      positionText:c.pos,
-      link:refFormUrl,
-      deadline:refDisplayDeadline(pend)
-    });
-    if(sent){
-      toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT}) · ${esc(pend.name)}님 설문 메일 발송 완료`,'tok');
-      return;
-    }
-  } else if(!refFormUrl){
-    toast(`${esc(c.name)} 추천인 접수 (${registered}/${c.refT}) · 설정에서 레퍼런스 설문 URL을 입력하면 자동 발송됩니다.`,'tw');
-    return;
-  }
 }
 async function startRef(id, resend=false){
   const c=candidates.find(x=>x.id===id);if(!c)return false;
@@ -1601,12 +1570,15 @@ async function remindRef(id){
   const pendingRefs=refDetails[id].filter(r=>r.status==='대기'||r.status==='등록');
   if(!pendingRefs.length){toast('미응답 추천인이 없습니다.');return;}
   let sentCount = 0;
+  const noLink = [];
   for(const r of pendingRefs){
+    // 개인 응답 링크가 없는 추천인(예전 데이터)은 보내지 않고 따로 알린다.
+    if(!r.link){ noLink.push(r.name || r.email || '추천인'); continue; }
     const emailKey=String(r.email||'').toLowerCase();
     refereeSendingEmails.add(emailKey);
     if(selectedRefCandId===id)selectRefCand(id);
     r.remindCnt=(r.remindCnt||0)+1;
-    const refLink=r.link||document.getElementById('cfg-ref-url')?.value||'[응답 링크를 찾을 수 없습니다 — 추천인 접수 상태를 확인해 주세요]';
+    const refLink=r.link;
     const subject=`[우미건설] ${esc(c.name)}님 레퍼런스 체크 응답 재안내`;
     const body=`${esc(r.name)}님, 안녕하세요.\n\n${esc(c.name)}님께서 우미건설 채용 과정에서 ${esc(r.name)}님을 추천인으로 등록해 주셨습니다.\n\n아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.\n\n설문 참여 링크\n${refLink}\n\n설문 응답에는 약 10분 정도 소요됩니다.\n응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.\n본 링크는 발송일로부터 ${REF_LINK_TTL_DAYS}일간 유효합니다.\n\n감사합니다.\n우미건설 피플팀 드림`;
     const sent = await sendReferenceEmailViaGmail(r.email,subject,body,'리마인드',`${esc(c.name)}-${esc(r.name)}`,{
@@ -1620,7 +1592,8 @@ async function remindRef(id){
     refereeSendingEmails.delete(emailKey);
     if(sent) sentCount++;
   }
-  toast(`${sentCount}명 리마인드 메일 발송 완료`,'tok');
+  if(sentCount) toast(`${sentCount}명 리마인드 메일 발송 완료`,'tok');
+  if(noLink.length) toast(`${noLink.map(esc).join(', ')}님은 개인 응답 링크가 없어 보내지 못했습니다. 레퍼런스 동기화 후 다시 시도하거나 지원자에게 추천인 등록을 다시 요청해 주세요.`,'tw');
   saveState();if(selectedRefCandId===id)selectRefCand(id);
 }
 

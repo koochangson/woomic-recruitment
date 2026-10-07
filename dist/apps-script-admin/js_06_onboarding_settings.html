@@ -38,7 +38,6 @@ function fillOnboardingDefaults(candId) {
   set('ob-phone',existing.phone || c.phone || c.mobile || '');
   set('ob-jointime',existing.joinTime || offer.joinTime || '09:00');
   set('ob-reportloc',existing.reportLocation || '린스퀘어 14F');
-  set('ob-notes',existing.notes || '');
   renderOnboardingPositionFinalists(c.posId, c.id);
   renderOnboarding();
   updateObPreview();
@@ -148,8 +147,7 @@ function getOnboardingDraft() {
     joinDate:document.getElementById('ob-date')?.value||'',dept:document.getElementById('ob-dept')?.value||'',
     deptLead:document.getElementById('ob-dept-lead')?.value||'',rank:document.getElementById('ob-rank')?.value||'',
     loc:document.getElementById('ob-loc')?.value||'',etype:document.getElementById('ob-etype')?.value||'',
-    joinTime:document.getElementById('ob-jointime')?.value||'',reportLocation:document.getElementById('ob-reportloc')?.value||'',
-    notes:document.getElementById('ob-notes')?.value||''
+    joinTime:document.getElementById('ob-jointime')?.value||'',reportLocation:document.getElementById('ob-reportloc')?.value||''
   }};
 }
 
@@ -196,6 +194,96 @@ function parseNotifyTeams() {
     const name  = parts.filter(p => !p.includes('@')).join(' ');
     return { name, email };
   }).filter(t => t.email);
+}
+
+// ── 입사 안내 관련부서 고정 수신자: 직원 DB에서 검색해 추가 ─────────────
+// 저장 형식은 그대로 숨긴 cfg-notify-teams에 '이름 직급 이메일'을 한 줄씩 둔다(parseNotifyTeams와 호환).
+let notifyTeamMatches_ = [];
+
+function writeNotifyTeams_(list) {
+  const el = document.getElementById('cfg-notify-teams');
+  if(el) el.value = list.map(t => `${t.name ? t.name + ' ' : ''}${t.email}`).join('\n');
+  renderNotifyTeamChips_();
+}
+
+function renderNotifyTeamChips_() {
+  const box = document.getElementById('cfg-notify-chips');
+  if(!box) return;
+  const list = parseNotifyTeams();
+  // 이름 없이 이메일만 저장된 수신자도 이름·부서가 보이도록 직원 DB를 한 번 불러온 뒤 다시 그린다.
+  if(list.length && !(interviewers || []).length && typeof ensureInterviewersLoaded_ === 'function') {
+    ensureInterviewersLoaded_().then(() => { if((interviewers || []).length) renderNotifyTeamChips_(); });
+  }
+  box.innerHTML = list.length
+    ? list.map((t, i) => {
+        const iv = (interviewers || []).find(x => String(x.email || '').trim().toLowerCase() === t.email.toLowerCase());
+        const dept = iv?.dept ? ` · ${esc(iv.dept)}` : '';
+        return `<span class="notify-chip"><b>${esc(t.name || iv?.name || '이름 없음')}</b><span>${dept}</span><span class="notify-chip-mail">${esc(t.email)}</span><button type="button" aria-label="${esc(t.name || t.email)} 삭제" data-action="call" data-call="removeNotifyTeamRecipient(${i})">×</button></span>`;
+      }).join('')
+    : '<span class="field-hint" style="margin:0">등록된 고정 수신자가 없습니다.</span>';
+}
+
+async function filterNotifyTeamCandidates() {
+  const input = document.getElementById('cfg-notify-search');
+  const listEl = document.getElementById('cfg-notify-results');
+  if(!input || !listEl) return;
+  await ensureInterviewersLoaded_();
+  const q = input.value.trim().toLowerCase();
+  const added = new Set(parseNotifyTeams().map(t => t.email.toLowerCase()));
+  notifyTeamMatches_ = q ? (interviewers || []).filter(iv => {
+    const email = String(iv.email || '').trim().toLowerCase();
+    if(!email || added.has(email)) return false;
+    return `${iv.name || ''} ${iv.rank || ''} ${iv.dept || ''} ${email}`.toLowerCase().includes(q);
+  }).slice(0, 20) : [];
+  const directEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q) && !added.has(q) && !notifyTeamMatches_.some(iv => String(iv.email).toLowerCase() === q);
+  if(!q) { listEl.style.display = 'none'; return; }
+  const rows = notifyTeamMatches_.map((iv, i) => `<div class="notify-result" data-action="call" data-call="addNotifyTeamRecipient(${i})"><b>${esc(iv.name || '')}</b> ${esc(iv.rank || '')}<span>${esc(iv.dept || '')}</span><span class="notify-chip-mail">${esc(iv.email || '')}</span></div>`);
+  if(directEmail) rows.push(`<div class="notify-result" data-action="call" data-call="addNotifyTeamRecipient(-1)">직원 DB에 없는 주소 <b>${esc(q)}</b> 추가</div>`);
+  listEl.innerHTML = rows.length ? rows.join('') : `<div class="notify-result-empty">${interviewers.length ? '검색 결과가 없습니다. 이메일 주소를 그대로 입력하면 추가할 수 있습니다.' : '직원 DB가 비어 있습니다. 아래 면접관 DB를 먼저 불러와 주세요.'}</div>`;
+  listEl.style.display = 'block';
+}
+
+function addNotifyTeamRecipient(index) {
+  const input = document.getElementById('cfg-notify-search');
+  let entry;
+  if(Number(index) === -1) {
+    entry = { name:'', email:String(input?.value || '').trim() };
+  } else {
+    const iv = notifyTeamMatches_[Number(index)];
+    if(!iv) return;
+    entry = { name:`${iv.name || ''} ${iv.rank || ''}`.trim(), email:String(iv.email || '').trim() };
+  }
+  if(!entry.email) return;
+  const list = parseNotifyTeams();
+  if(!list.some(t => t.email.toLowerCase() === entry.email.toLowerCase())) list.push(entry);
+  writeNotifyTeams_(list);
+  if(input) { input.value = ''; input.focus(); }
+  hideNotifyTeamResults_();
+  toast(`${entry.name || entry.email}님을 고정 수신자에 추가했습니다. [설정 저장]을 눌러야 반영됩니다.`, 'tinfo');
+}
+
+function removeNotifyTeamRecipient(index) {
+  const list = parseNotifyTeams();
+  list.splice(Number(index), 1);
+  writeNotifyTeams_(list);
+}
+
+function hideNotifyTeamResults_() {
+  const listEl = document.getElementById('cfg-notify-results');
+  if(listEl) listEl.style.display = 'none';
+}
+
+// 검색 결과를 누르는 동안 목록이 먼저 닫히지 않도록 잠시 뒤에 닫는다.
+function hideNotifyTeamResultsLater_() {
+  setTimeout(hideNotifyTeamResults_, 200);
+}
+
+function onNotifyTeamSearchKey(event) {
+  if(event?.key === 'Escape') { hideNotifyTeamResults_(); return; }
+  if(event?.key !== 'Enter') return;
+  event.preventDefault();
+  if(notifyTeamMatches_.length === 1) addNotifyTeamRecipient(0);
+  else if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(event.target?.value || '').trim()) && !notifyTeamMatches_.length) addNotifyTeamRecipient(-1);
 }
 
 // 입사 안내 메일 + Teams 발송
@@ -256,7 +344,7 @@ async function sendJoinNotice(obId) {
 const OB_FORM_FIELDS_ = [
   ['ob-dept','dept'], ['ob-dept-lead','deptLead'], ['ob-rank','rank'], ['ob-cl','cl'],
   ['ob-name-en','nameEn'], ['ob-phone','phone'], ['ob-loc','loc'], ['ob-jointime','joinTime'],
-  ['ob-reportloc','reportLocation'], ['ob-etype','etype'], ['ob-notes','notes'], ['ob-pre-deadline','preDeadline'],
+  ['ob-reportloc','reportLocation'], ['ob-etype','etype'], ['ob-pre-deadline','preDeadline'],
 ];
 function syncObFormToRecord_(ob) {
   if(!ob) return false;
@@ -301,7 +389,6 @@ function addOnboarding(){
       loc: document.getElementById('ob-loc').value,
       joinTime: document.getElementById('ob-jointime')?.value || '',
       reportLocation: document.getElementById('ob-reportloc')?.value || '',
-      notes: document.getElementById('ob-notes').value,
       nameEn: (document.getElementById('ob-name-en')?.value || '').trim(),
       cl: document.getElementById('ob-cl')?.value || '',
       phone: (document.getElementById('ob-phone')?.value || '').trim(),
@@ -328,7 +415,6 @@ function addOnboarding(){
     loc:document.getElementById('ob-loc').value,
     joinTime:document.getElementById('ob-jointime')?.value||'',
     reportLocation:document.getElementById('ob-reportloc')?.value||'',
-    notes:document.getElementById('ob-notes').value,
     nameEn:(document.getElementById('ob-name-en')?.value||'').trim(),
     cl:document.getElementById('ob-cl')?.value||'',
     phone:(document.getElementById('ob-phone')?.value||'').trim(),
@@ -372,7 +458,7 @@ async function readObAttachmentsFor_(candId) {
 }
 
 // ── 메일 공통 첨부(사전 입사 절차 매뉴얼·채용검진 안내) ─────────────────
-// 서버(드라이브)에 한 번 등록해 두면 해당 메일마다 자동으로 붙는다. 문서가 바뀌면 [교체]로 새 PDF를 올린다.
+// 서버(연결된 스프레드시트)에 한 번 등록해 두면 해당 메일마다 자동으로 붙는다. 문서가 바뀌면 [교체]로 새 PDF를 올린다.
 // 등록·교체는 설정 화면에서 하고, 발송 화면에는 자동 첨부될 파일만 보여 준다.
 // 상태 표시 위치는 data-common-attach-status="종류" 속성으로 찾는다(설정·입사안내·처우검진 창).
 const COMMON_ATTACH_UI_ = {
@@ -473,7 +559,7 @@ async function sendObNotify(ch){
       sendDirect: () => sendGeneralEmailViaGmail(target.to||c.email,subject,body,'입사안내-지원자',ob.candName,{
         templateType:'onboarding', candidateName:ob.candName||c.name, positionText:ob.pos||c.pos,
         joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', cl:ob.cl||'', etype:ob.etype||c.etype||'',
-        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||'', prepNotes:ob.notes||''
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||''
       }, attachments)
     });
     if(!sent)return;
@@ -503,14 +589,17 @@ function renderOnboarding(){
     <div>${doneList.map(d=>`<div class="ob-done-item"><b>${esc(d.name||'-')}</b><span>${esc(d.pos||'-')}${d.dept?` · ${esc(d.dept)}`:''}</span><span>${d.joinDate?esc(fmtDate(d.joinDate)):'입사일 미입력'}</span></div>`).join('')}</div></details>` : '';
   if(!pendingCands.length && !confirmedObs.length){wrap.innerHTML=empty('입사 진행 중인 최종합격자가 없습니다.')+doneHtml;return;}
   const selectedId = Number(document.getElementById('ob-cand')?.value) || 0;
-  const rowAttrs = candId => `class="ob-row${Number(candId)===selectedId?' ob-row-active':''}" data-action="call" data-call="selectOnboardingRow(${Number(candId)})" title="클릭하면 오른쪽 입사 안내 등록에 불러옵니다"`;
+  const rowAttrs = (candId, extraClass='') => `class="ob-row${extraClass}${Number(candId)===selectedId?' ob-row-active':''}" data-action="call" data-call="selectOnboardingRow(${Number(candId)})" title="클릭하면 오른쪽 입사 안내 등록에 불러옵니다"`;
   const nameCell = (name, email, etype) => `<td class="ob-col-name"><div class="ob-name-line"><span class="tname">${esc(name||'-')}</span>${etype?etypePill(etype):''}</div>${email?`<div class="tsub ob-email" title="${esc(email)}">${esc(email)}</div>`:''}</td>`;
-  const posCell = (pos, dept) => `<td class="ob-col-pos"><div>${esc(pos||'-')}</div><div class="tsub">${esc(dept||'-')}</div></td>`;
-  const pendingRows = pendingCands.map(c=>`<tr ${rowAttrs(c.id)} style="background:var(--rbg)">
+  // 부서명이 직무명과 같거나 '직무명+팀'이면(인테리어 / 인테리어팀) 한 번만 보여 준다.
+  const sameAsPos = (pos, dept) => { const p=String(pos||'').trim(), d=String(dept||'').trim(); return !d || d===p || d===p+'팀' || p===d+'팀'; };
+  const posCell = (pos, dept) => `<td class="ob-col-pos"><div>${esc(pos||dept||'-')}</div>${sameAsPos(pos, dept)?'':`<div class="tsub">${esc(dept)}</div>`}</td>`;
+  // 위 그룹 제목이 '입사일 확정 필요'라서 줄마다 '미확정·미발송'을 반복하지 않는다(등록 전에는 발송할 수도 없다).
+  const pendingRows = pendingCands.map(c=>`<tr ${rowAttrs(c.id,' ob-row-pending')} style="background:var(--rbg)">
       ${nameCell(c.name, c.email, c.etype)}
       ${posCell(c.pos, c.dept)}
-      <td class="ob-col-date"><span class="b bred">미확정</span></td>
-      <td class="ob-col-notify"><span class="b bgray">미발송</span></td>
+      <td class="ob-col-date"></td>
+      <td class="ob-col-notify"></td>
       <td class="ob-col-action"><button class="btn btn-xs btn-primary" data-action="call" data-call="selectOnboardingRow(${c.id})">입사일 등록</button></td>
     </tr>`).join('');
   const confirmedRows = confirmedObs.map(o=>{
@@ -556,7 +645,7 @@ async function sendObById(id,ch){
       sendDirect: () => sendGeneralEmailViaGmail(target.to||c?.email||'',subject,body,'입사안내-지원자',ob.candName,{
         templateType:'onboarding', candidateName:ob.candName||c?.name||'', positionText:ob.pos||c?.pos||'',
         joinDate:ob.joinDate||'', dept:ob.dept||'', rank:ob.rank||'', cl:ob.cl||'', etype:ob.etype||c?.etype||'',
-        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||'', prepNotes:ob.notes||''
+        location:ob.loc||'', joinTime:ob.joinTime||'', reportLocation:ob.reportLocation||'', preDeadline:ob.preDeadline||''
       }, attachments)
     });
     if(!sent)return;
@@ -628,8 +717,6 @@ async function loadSettingsWithGS() {
       localStorage.setItem('woomic_settings', JSON.stringify(gsCfg));
       const set = (id, val) => { const el=document.getElementById(id); if(el&&val!==undefined&&val!=='') el.value=val; };
       set('cfg-sign',            gsCfg.sign);
-      set('cfg-form-url',        gsCfg.formUrl);
-      set('cfg-ref-url',         gsCfg.refUrl);
       set('cfg-flow-url',        gsCfg.flowUrl);
       set('cfg-default-channel', gsCfg.channel);
       set('cfg-ref-days',        gsCfg.refDays);
@@ -642,6 +729,7 @@ async function loadSettingsWithGS() {
       set('cfg-interviewer-url', gsCfg.interviewerUrl);
       set('cfg-ref-auto-url',    gsCfg.refAutoUrl);
       set('cfg-notify-teams',    gsCfg.notifyTeams);
+      renderNotifyTeamChips_();
       set('cfg-mask-pii',        gsCfg.maskPii);
       set('cfg-retention-months',gsCfg.retentionMonths);
       set('cfg-idle-minutes',    gsCfg.idleMinutes);
@@ -665,8 +753,6 @@ async function loadSettingsWithGS() {
 function saveSettings() {
   const cfg = {
     sign:    document.getElementById('cfg-sign')?.value    || '',
-    formUrl: document.getElementById('cfg-form-url')?.value || '',
-    refUrl:  document.getElementById('cfg-ref-url')?.value  || '',
     flowUrl: document.getElementById('cfg-flow-url')?.value || '',
     channel: document.getElementById('cfg-default-channel')?.value || 'outlook',
     refDays: document.getElementById('cfg-ref-days')?.value || '7',
@@ -709,8 +795,6 @@ function loadSettings() {
     const cfg = JSON.parse(raw);
     const set = (id, val) => { const el=document.getElementById(id); if(el&&val) el.value=val; };
     set('cfg-sign',             cfg.sign);
-    set('cfg-form-url',         cfg.formUrl);
-    set('cfg-ref-url',          cfg.refUrl);
     set('cfg-flow-url',         cfg.flowUrl);
     set('cfg-default-channel',  cfg.channel);
     set('cfg-ref-days',         cfg.refDays);
@@ -729,6 +813,7 @@ function loadSettings() {
     set('cfg-ref-auto-url', cfg.refAutoUrl);
     if(cfg.refAutoUrl) GS_CONFIG.refAutoUrl = cfg.refAutoUrl;
     set('cfg-notify-teams',     cfg.notifyTeams);
+    renderNotifyTeamChips_();
     set('cfg-mask-pii',         cfg.maskPii);
     set('cfg-retention-months', cfg.retentionMonths);
     set('cfg-idle-minutes',     cfg.idleMinutes);
