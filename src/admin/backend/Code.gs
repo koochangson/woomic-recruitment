@@ -184,6 +184,12 @@ function buildMailAttachments_(list) {
   return blobs;
 }
 
+function mailAttachmentTotalBytes_(blobs) {
+  return (blobs || []).reduce(function(total, blob) {
+    return total + (blob && typeof blob.getBytes === 'function' ? blob.getBytes().length : 0);
+  }, 0);
+}
+
 function sendMailViaGmail_(to, subject, body, htmlBody, attachments, eventKey) {
   const recipients = String(to || '').split(/[;,]/).map(function(addr) { return addr.trim(); }).filter(Boolean);
   const cleanSubject = String(subject || '');
@@ -2262,8 +2268,13 @@ function handleSendGeneralMail_(payload) {
     // 메일 종류별 공통 첨부(입사안내: 사전 입사 절차 매뉴얼, 처우·검진 안내: 채용검진 안내)를 자동으로 붙인다.
     let commonAttached = false;
     if (COMMON_MAIL_ATTACHMENTS[body.templateType]) {
+      const commonMeta = getCommonAttachmentMeta_(body.templateType);
       const common = commonAttachmentBlob_(body.templateType);
+      if (commonMeta && !common) throw new Error('common_attachment_unavailable');
       if (common) { attachments.push(common); commonAttached = true; }
+    }
+    if (mailAttachmentTotalBytes_(attachments) > MAIL_ATTACHMENT_MAX_TOTAL_BYTES) {
+      throw new Error('attachment_too_large');
     }
     const result = sendMailViaGmail_(to, subject, message, html, attachments);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');

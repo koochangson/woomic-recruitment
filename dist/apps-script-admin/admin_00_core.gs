@@ -184,3 +184,9 @@ function buildMailAttachments_(list) {
   return blobs;
 }
 
+function mailAttachmentTotalBytes_(blobs) {
+  return (blobs || []).reduce(function(total, blob) {
+    return total + (blob && typeof blob.getBytes === 'function' ? blob.getBytes().length : 0);
+  }, 0);
+}
+
