@@ -124,7 +124,7 @@
     }
     function errorText(code) {
       return code === 'process_closed' ? '입사 일정 확인이 이미 마무리되어 더 이상 회신을 받지 않습니다. 변경이 필요하면 피플팀에 알려 주세요.'
-        : code === 'token_expired' ? '회신 기간이 종료되었습니다. 피플팀에 문의해 주세요.'
+        : code === 'token_expired' || code === 'deadline_expired' ? '회신 기간이 종료되었습니다. 피플팀에 문의해 주세요.'
         : '유효하지 않은 링크입니다.';
     }
     unavailable.addEventListener('change', () => {
@@ -164,8 +164,7 @@
         if(!result.ok) throw new Error(result.error || 'save_failed');
         showComplete('회신이 저장되었습니다', selection, unavailable.checked, note.value.trim());
       } catch(err) {
-        formMessage.textContent = err.message === 'already_submitted' ? '이미 회신이 완료되었습니다. 페이지를 새로고침해 확인해 주세요.'
-          : ['process_closed','token_expired'].includes(err.message) ? errorText(err.message)
+        formMessage.textContent = ['process_closed','token_expired','deadline_expired'].includes(err.message) ? errorText(err.message)
           : '회신을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
       } finally {
         form.removeAttribute('aria-busy');

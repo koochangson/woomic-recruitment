@@ -75,10 +75,10 @@ const requiredPatterns = [
     message: 'Public Apps Script must block join-date link issuance.',
   },
   {
-    id: 'public-join-date-one-time-submit',
+    id: 'public-join-date-deadline-enforced',
     file: 'src/public/backend/Code.gs',
-    pattern: /row\.status\s*===\s*'RESPONDED'[\s\S]{0,160}already_submitted/,
-    message: 'Public join-date tokens must reject repeated submissions.',
+    pattern: /joinDateReplyDeadlinePassed_\(row\)[\s\S]{0,120}deadline_expired/,
+    message: 'Public join-date replies must enforce the stated response deadline.',
   },
   {
     id: 'public-referee-verification-rate-limit',

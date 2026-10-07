@@ -212,6 +212,12 @@ function joinDateRequestExpired_(row) {
   return !!(row.tokenExpiresAt && new Date(row.tokenExpiresAt).getTime() < Date.now());
 }
 
+function joinDateReplyDeadlinePassed_(row) {
+  const deadline = String(row && row.deadline || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) return false;
+  return Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd') > deadline;
+}
+
 // 최종합격(5) 단계인 지원자만 회신할 수 있다(불합격·보류·입사 처리 후에는 받지 않는다).
 function joinDateProcessClosed_(candId) {
   const cand = readRows_('Candidates').find(row => String(row.id) === String(candId));
@@ -262,6 +268,7 @@ function verifyJoinDateToken_(payload) {
   if (!row) return json_({ ok: false, error: 'invalid_token' });
   if (joinDateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
   if (joinDateRequestExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+  if (row.status !== 'RESPONDED' && row.status !== 'UNAVAILABLE' && joinDateReplyDeadlinePassed_(row)) return json_({ ok: false, error: 'deadline_expired' });
   return json_({
     ok: true, candName: row.candName || '', positionText: row.positionText || '',
     options: normalizeJoinDateOptions_(row.options), deadline: row.deadline || '',
@@ -290,7 +297,7 @@ function submitJoinDate_(payload) {
     if (rowIndex < 0 || !row) return json_({ ok: false, error: 'invalid_token' });
     if (joinDateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
     if (joinDateRequestExpired_(row)) return json_({ ok: false, error: 'token_expired' });
-    if (row.status === 'RESPONDED' || row.status === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
+    if (joinDateReplyDeadlinePassed_(row)) return json_({ ok: false, error: 'deadline_expired' });
     if (!unavailable && normalizeJoinDateOptions_(row.options).indexOf(selection) < 0) return json_({ ok: false, error: 'invalid_selection' });
     const next = schemaRow_('JoinDateRequests', Object.assign({}, row, {
       selection: unavailable ? '' : selection, status: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
