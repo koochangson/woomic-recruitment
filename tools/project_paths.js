@@ -52,6 +52,7 @@ export const mailTemplateFiles = [
   ['body', 'mail_body_interview_slot_request.html'],
   ['body', 'mail_body_onboarding.html'],
   ['body', 'mail_body_onboarding_internal.html'],
+  ['body', 'mail_body_offer_health.html'],
   ['body', 'mail_body_panel_schedule.html'],
   ['body', 'mail_body_rejection.html'],
   ['shared', 'mail_shared_body_close.html'],

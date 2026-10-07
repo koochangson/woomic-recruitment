@@ -138,11 +138,15 @@ function getOnboardInternalRecipients(cand, onboarding) {
   const hrEmail = document.getElementById('cfg-hr-email')?.value || '';
   const pos = positions.find(p => Number(p.id) === Number(cand.posId));
   const dept = ob.dept || (pos && pos.dept) || cand.dept || '';
-  const leads = getDeptLeadRecipients(dept);
-  const knownLeadEmails = new Set(leads.map(x=>String(x.email).trim().toLowerCase()));
-  String(ob.deptLead || '').split(/[;,\n]+/).map(x=>x.trim()).filter(x=>x.includes('@')).forEach(email => {
-    if(!knownLeadEmails.has(email.toLowerCase())) leads.push({ name:'배치 부서장/소장 추가 수신자', email });
-  });
+  // 담당자가 '해당부서 팀장/소장 이메일' 칸을 고쳤으면 그 칸의 이메일만 쓴다. 예전에는 자동으로 찾은 부서장을
+  // 항상 넣고 칸의 이메일을 덧붙여서, 팀장을 바꿔도 원래 팀장에게 계속 발송됐다. 칸이 비어 있을 때만 자동으로 찾는다.
+  const manualEmails = String(ob.deptLead || '').split(/[;,\n]+/).map(x=>x.trim()).filter(x=>x.includes('@'));
+  const leads = manualEmails.length
+    ? [...new Map(manualEmails.map(email => [email.toLowerCase(), email])).values()].map(email => {
+        const iv = (interviewers || []).find(x => String(x.email || '').trim().toLowerCase() === email.toLowerCase());
+        return { name: iv ? `${iv.name || ''} ${iv.rank || ''}`.trim() : email, email };
+      })
+    : getDeptLeadRecipients(dept);
   const recipients = groupMailRecipients([...leads.map(x=>x.email), ...teams.map(t=>t.email), hrEmail]);
   const recipientNames = [...leads.map(x=>`${x.name}(배치 부서)`), ...teams.map(t=>t.name), ...(hrEmail?['피플팀 담당자']:[])].filter(Boolean);
   return { dept, leads, teams, hrEmail, recipients, recipientNames };
@@ -365,7 +369,7 @@ function editPosition(posId) {
   document.getElementById('pos-headcount').value = pos.headcount || 1;
   document.getElementById('pos-hire-reason').value = pos.hireReason || '충원';
   document.querySelectorAll('input[name="pos-location"]').forEach(r=>{ r.checked = r.value === (pos.location||''); });
-  onPosLocationChange(pos.team || pos.dept || '', pos.jobType || '');
+  onPosLocationChange(pos.team || pos.dept || '', pos.jobType || '', pos.site || '');
   restorePanelistTags(1, pos.panel1 || '');
   restorePanelistTags(2, pos.panel2 || '');
   loadInterviewerOptions();
@@ -410,6 +414,8 @@ function savePosition() {
     location,
     team:      location==='본사' ? team : null,
     jobType:   location==='현장' ? jobType : null,
+    // 현장명: 입사 안내의 배치 부서·근무지 기본값과 소장 자동 선택에 쓴다.
+    site:      location==='현장' ? (document.getElementById('pos-site')?.value || '').trim() : '',
     panel1:    document.getElementById('pos-panel1')?.value  || '',
     panel2:    document.getElementById('pos-panel2')?.value  || '',
     loc:       document.getElementById('pos-loc')?.value     || '',

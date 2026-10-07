@@ -1,65 +1,38 @@
-        <tr><td style="font-size:18px;line-height:1.5;font-weight:700;color:#1b2027;padding-bottom:10px;word-break:keep-all;overflow-wrap:break-word;">안녕하세요.</td></tr>
-        <tr><td style="font-size:15px;line-height:1.6;color:#1b2027;padding-bottom:20px;word-break:keep-all;overflow-wrap:break-word;">{{joinDate}} 입사 예정인 신규입사자를 안내드립니다.</td></tr>
+        <tr><td style="font-size:18px;line-height:1.5;font-weight:700;color:#1b2027;padding-bottom:14px;word-break:keep-all;overflow-wrap:break-word;">안녕하세요.</td></tr>
+        <tr><td style="font-size:15px;line-height:1.6;color:#1b2027;padding-bottom:18px;word-break:keep-all;overflow-wrap:break-word;">{{joinDate}} 입사 예정인 신규 입사자를 안내드립니다.</td></tr>
 
+        <!-- 신규 입사자 안내: 한 줄에 두 항목(구분·부서명·성명·영문·직무·고용형태·직급(역량등급)·입사일자·비고) -->
         <tr>
-          <td style="padding:18px 20px;background:#eff6ff;border-radius:12px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">성명</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;padding-bottom:14px;">{{candidateName}}</div>
-              </td></tr>
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">포지션</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;padding-bottom:14px;">{{positionText}}</div>
-              </td></tr>
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">배치 부서</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;padding-bottom:14px;">{{dept}}</div>
-              </td></tr>
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">입사일</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#003087;word-break:keep-all;overflow-wrap:break-word;padding-bottom:14px;">{{joinDate}}</div>
-              </td></tr>
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">직책/직급</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;padding-bottom:14px;">{{rank}}</div>
-              </td></tr>
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">채용형태</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;padding-bottom:14px;">{{etype}}</div>
-              </td></tr>
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">근무지</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;padding-bottom:14px;">{{location}}</div>
-              </td></tr>
-              <tr><td valign="top">
-                <div style="font-size:13px;line-height:1.4;font-weight:700;color:#5c6875;padding-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">연락처</div>
-                <div style="font-size:16px;line-height:1.4;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{phone}}</div>
-              </td></tr>
+          <td style="padding:0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #dbe5ef;border-radius:12px;border-collapse:separate;overflow:hidden;table-layout:fixed;">
+              <tr><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">구분</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;border-right:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{category}}</td><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">부서명</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{dept}}</td></tr>
+              <tr><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">성명</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;border-right:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{candidateName}}</td><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">성명(영문)</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{nameEn}}</td></tr>
+              <tr><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">직무</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;border-right:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{positionText}}</td><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">고용형태</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{etype}}</td></tr>
+              <tr><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">직급(역량등급)</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;border-right:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{rankCl}}</td><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">입사일자</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;font-weight:700;color:#003087;white-space:nowrap;">{{joinDateShort}}</td></tr>
+              <tr><td width="84" valign="top" style="width:84px;padding:10px 10px;background:#f5f8fc;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">비고</td><td colspan="3" valign="top" style="padding:10px 12px;font-size:14px;line-height:1.5;font-weight:700;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">{{remark}}</td></tr>
             </table>
           </td>
         </tr>
 
         <tr id="siteOnboardingRequestRow">
-          <td style="padding-top:24px;">
-            <div style="font-size:14px;line-height:1.4;font-weight:700;color:#1b2027;padding-bottom:8px;word-break:keep-all;overflow-wrap:break-word;">현장 담당자 확인 요청</div>
-            <div style="font-size:14px;line-height:1.6;color:#5c6875;padding-bottom:10px;word-break:keep-all;overflow-wrap:break-word;">입사자와 사전 연락하여 숙소 필요 여부 및 제복 사이즈를 확인해 주시기 바랍니다.</div>
-            <div style="padding:14px 16px;background:#fff7ed;border:1px solid #fde3c8;border-radius:10px;font-size:14px;line-height:1.5;font-weight:700;color:#9a5b1f;word-break:keep-all;overflow-wrap:break-word;">회신기한 {{replyDeadline}}</div>
+          <td style="padding-top:12px;font-size:13.5px;line-height:1.7;color:#334155;word-break:keep-all;overflow-wrap:break-word;">
+            ※ 현장 담당자는 입사자와 연락을 통해 <strong style="color:#1b2027;">숙소 필요 여부</strong> 및 <strong style="color:#1b2027;">제복 사이즈</strong> 파악 부탁드립니다.<br>
+            &nbsp;&nbsp;&nbsp;{{candidateName}} ({{phone}}) · 회신기한 {{replyDeadline}}
           </td>
         </tr>
 
         <tr>
           <td style="padding-top:22px;">
-            <div style="font-size:14px;line-height:1.4;font-weight:700;color:#1b2027;padding-bottom:8px;word-break:keep-all;overflow-wrap:break-word;">입사 당일 일정 및 부서별 협조사항</div>
-            <div style="font-size:14px;line-height:1.6;color:#5c6875;padding-bottom:6px;word-break:keep-all;overflow-wrap:break-word;">입사 당일 일정: {{joinDaySchedule}}</div>
-            <div style="font-size:14px;line-height:1.6;color:#5c6875;word-break:keep-all;overflow-wrap:break-word;">부서별 협조사항: {{deptCooperation}}</div>
+            <div style="font-size:15px;line-height:1.5;font-weight:700;color:#1b2027;padding-bottom:8px;word-break:keep-all;">◆ 입사 당일 일정 및 협조 ◆</div>
+            <div style="font-size:14px;line-height:1.8;color:#334155;word-break:keep-all;overflow-wrap:break-word;">ㅇ 일정 : {{joinDaySchedule}}</div>
+            <div style="font-size:14px;line-height:1.8;color:#334155;word-break:keep-all;overflow-wrap:break-word;">ㅇ 협조 : {{deptCooperation}}</div>
           </td>
         </tr>
 
-        <tr><td style="padding-top:22px;font-size:14px;line-height:1.6;color:#5c6875;word-break:keep-all;overflow-wrap:break-word;">원활한 입사 준비를 위해 관련 부서에서는 입사일 전일까지 준비 사항을 완료해 주시기 바랍니다.</td></tr>
+        <tr><td style="font-size:14px;line-height:1.7;color:#5c6875;padding-top:18px;word-break:keep-all;overflow-wrap:break-word;">원활한 입사 준비를 위해 관련 부서에서는 입사일 전일까지 준비 사항을 완료해 주시기 바랍니다.</td></tr>
 
         <tr>
-          <td style="padding-top:20px;">
-            <div style="padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:13px;line-height:1.6;color:#b91c1c;word-break:keep-all;overflow-wrap:break-word;">※ 본 메일에는 입사 예정자의 개인정보가 포함되어 있습니다. 입사 준비 목적 외 이용 및 외부 전달을 금합니다.</div>
+          <td style="padding-top:16px;">
+            <div style="font-size:12px;line-height:1.6;color:#8a94a1;word-break:keep-all;overflow-wrap:break-word;">※ 본 메일에는 입사 예정자의 개인정보가 포함되어 있습니다. 입사 준비 목적 외 이용 및 외부 전달을 금합니다.</div>
           </td>
         </tr>

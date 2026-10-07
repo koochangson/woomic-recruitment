@@ -5,6 +5,7 @@
 let candidates      = [];
 let interviews      = [];
 let onboardings     = [];
+let offers          = []; // 처우·채용검진 안내 기록(지원자별)
 let notifyLog       = [];
 let refDetails      = {};
 let refReports      = {};
@@ -396,7 +397,18 @@ function toggleTeamVisibility(idx) {
   saveTeamMaster(); renderTeamMaster();
 }
 
-function onPosLocationChange(selectedTeam='', selectedJobType='') {
+// 현장명 후보: 직원 DB의 부서명 중 '현장'이 들어간 이름(현장 소속 직원의 부서)을 보여 준다. 직접 입력도 된다.
+function refreshPosSiteOptions() {
+  const list = document.getElementById('pos-site-options');
+  if(!list) return;
+  if(typeof ensureInterviewersLoaded_ === 'function' && !interviewers.length) {
+    ensureInterviewersLoaded_().then(() => { if(interviewers.length) refreshPosSiteOptions(); });
+  }
+  const names = [...new Set((interviewers || []).map(iv => String(iv.dept || '').trim()).filter(name => /현장/.test(name)))].sort((a, b) => a.localeCompare(b, 'ko'));
+  list.innerHTML = names.map(name => `<option value="${esc(name)}"></option>`).join('');
+}
+
+function onPosLocationChange(selectedTeam='', selectedJobType='', selectedSite='') {
   const location = document.querySelector('input[name="pos-location"]:checked')?.value || '';
   const fgTeam = document.getElementById('fg-team');
   const fgJobType = document.getElementById('fg-jobtype');
@@ -410,6 +422,11 @@ function onPosLocationChange(selectedTeam='', selectedJobType='') {
   jobSel.innerHTML = '<option value="">직종 선택</option>' + JOB_TYPES.map(name=>`<option value="${name}">${name}</option>`).join('');
   fgTeam.style.display = location==='본사' ? '' : 'none';
   fgJobType.style.display = location==='현장' ? '' : 'none';
+  const fgSite = document.getElementById('fg-site');
+  if(fgSite) fgSite.style.display = location==='현장' ? '' : 'none';
+  const siteInput = document.getElementById('pos-site');
+  if(siteInput) siteInput.value = location==='현장' ? selectedSite : '';
+  if(location==='현장') refreshPosSiteOptions();
   teamSel.value = location==='본사' ? selectedTeam : '';
   jobSel.value = location==='현장' ? selectedJobType : '';
   document.getElementById('loc-hq-label')?.classList.toggle('active', location==='본사');
@@ -1240,7 +1257,7 @@ async function executeNohireWizard() {
   const newTitle = buildRehireTitle(pos.title, positions);
   const np = {
     id: nextId(), title: newTitle,
-    etype: pos.etype, targetGradeBand: pos.targetGradeBand || '', role: pos.role, headcount: pos.headcount, hireReason: pos.hireReason || '충원', dept: pos.dept,
+    etype: pos.etype, targetGradeBand: pos.targetGradeBand || '', site: pos.site || '', role: pos.role, headcount: pos.headcount, hireReason: pos.hireReason || '충원', dept: pos.dept,
     // 조직 구분(소재지·팀·직무)도 이어받아야 포지션 목록 필터·부서 매핑이 끊기지 않는다.
     location: pos.location || '', team: pos.team || '', jobType: pos.jobType || '',
     panel1: pos.panel1, panel2: pos.panel2, loc: pos.loc, owner: pos.owner || '',
@@ -1463,6 +1480,7 @@ async function purgeExpiredPii() {
   candidates = candidates.filter(c => !ids.has(Number(c.id)));
   interviews = interviews.filter(i => !ids.has(Number(i.candId)));
   onboardings = onboardings.filter(o => !ids.has(Number(o.candId)));
+  offers = offers.filter(o => !ids.has(Number(o.candId)));
   ids.forEach(id => { delete refDetails[id]; delete refReports[id]; });
   logActivity('개인정보 파기', `보존기한 경과 지원자 ${ids.size}명`, 'privacy', 'retention');
   saveState(); renderExpiredPii(); renderDashboard(); renderTracker(); renderPositions(); renderReference(); renderOnboarding();

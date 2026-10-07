@@ -17,6 +17,10 @@ const RecruitmentUI = Object.freeze({
 });
 
 const DELEGATED_CALLS = Object.freeze({
+  onObDeptLeadInput_,
+  pickCommonAttachment, uploadCommonAttachment,
+  openOfferHealthModal, saveOfferHealth, sendOfferHealth, setOfferHealthResult, formatOfferSalaryInput, renderOfferAttachList,
+  refreshPosSiteOptions,
   addCandToPos, addCandidate, selectOnboardingRow, retryCollectSendPrepare, renderObAttachList, addCandidateDateRow, addInterview, addOnboarding, applyBatchSchedule, applyInterviewConfirm,
   cancelInterviewConfirm, cancelStageChange, changePositionProcessStage, closeCollectSend, closeModal, closePosition, completeRef, confirmInterview,
   confirmMailPendingAt, confirmPendingMail, confirmStageChange, confirmStageDecisions, delInt, dismissPendingMail,
@@ -248,6 +252,7 @@ try {
     candidates  = saved.candidates  || [];
     interviews  = saved.interviews  || [];
     onboardings = saved.onboardings || [];
+    offers      = saved.offers      || [];
     notifyLog   = saved.notifyLog   || [];
     refDetails  = saved.refDetails  || {};
     refReports  = saved.refReports  || {};

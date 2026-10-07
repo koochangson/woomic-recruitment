@@ -16,6 +16,7 @@ function getAuxStateSnapshot() {
   return {
     updatedAt: auxUpdatedAt || new Date().toISOString(),
     onboardings,
+    offers,
     notifyLog: notifyLog.slice(0,200),
     refDetails,
     refReports,
@@ -26,6 +27,7 @@ function getAuxStateSnapshot() {
 function getAuxFingerprint() {
   return JSON.stringify({
     onboardings,
+    offers,
     notifyLog: notifyLog.slice(0,200),
     refDetails,
     refReports,
@@ -75,6 +77,7 @@ async function loadAuxStateFromGS() {
     const remote = JSON.parse(json);
     if(auxUpdatedAt && remote.updatedAt && String(auxUpdatedAt) >= String(remote.updatedAt)) return false;
     onboardings = remote.onboardings || onboardings;
+    offers = remote.offers || offers;
     notifyLog = remote.notifyLog || notifyLog;
     refDetails = remote.refDetails || refDetails;
     refReports = remote.refReports || refReports;
@@ -97,7 +100,7 @@ function saveState() {
       lastAuxFingerprint = auxFingerprint;
       if(!auxSyncSuspended) auxUpdatedAt = new Date().toISOString();
     }
-    const data = JSON.stringify({ candidates, interviews, onboardings, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog: activityLog.slice(0,300), auxUpdatedAt });
+    const data = JSON.stringify({ candidates, interviews, onboardings, offers, notifyLog: notifyLog.slice(0,200), refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog: activityLog.slice(0,300), auxUpdatedAt });
     if(data !== lastLocalStateJson) {
       localStorage.setItem(LS_KEY, data);
       lastLocalStateJson = data;
@@ -109,7 +112,7 @@ function saveState() {
     if(e.name === 'QuotaExceededError' || e.code === 22) {
       notifyLog = notifyLog.slice(0, 50);
       activityLog = activityLog.slice(0, 100);
-      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, notifyLog, refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog, auxUpdatedAt })); if(auxChanged) scheduleAuxStateSync(); }
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ candidates, interviews, onboardings, offers, notifyLog, refDetails, refReports, positions, referrals, rewards, refRules, employees, activityLog, auxUpdatedAt })); if(auxChanged) scheduleAuxStateSync(); }
       catch(e2) { console.warn('localStorage 저장 실패:', e2); }
     }
   }

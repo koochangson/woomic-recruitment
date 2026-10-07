@@ -520,7 +520,7 @@ function openPositionResultModal(positionId, stageIdx) {
   document.getElementById('pr-title').textContent = `${isFinal?'처우협의 결과 입력':stageLabel(stageIdx)+' 결과 입력'} — ${pos.title} (${list.length}명)`;
   const help=document.getElementById('pr-help');
   if(help) help.textContent=isFinal
-    ? '지원자별 처우협의 결과를 선택하세요. 최종합격자는 충원 seat에 반영된 후 입사 안내 화면으로 이어지고, 불합격자는 전형 종료되며, 협의중인 지원자는 처우협의 단계에 남습니다.'
+    ? '처우가 확정되면 [처우·검진 안내]로 처우와 채용검진을 안내하고, 검진 결과가 적합이면 최종합격을 선택하세요. 최종합격자는 충원 seat에 반영된 후 입사 안내 화면으로 이어지고, 불합격자는 전형 종료되며, 협의중인 지원자는 처우협의 단계에 남습니다.'
     : `지원자별 결과를 선택하세요. 확정하면 합격자는 ${josa_(STAGES[nextFlowStage(Number(stageIdx), positionId)] || '다음 단계','으로','로')}, 불합격자는 전형 종료로 바로 반영됩니다. 미정인 지원자는 현재 단계에 남습니다.`;
   // 결과는 '확정' 한 번으로 반영한다. (예전 '판정 저장'은 단계 이동 없이 판정만 남겨, 처리 필요 목록에서
   // '결과 입력'이 사라진 채 지원자가 단계에 멈춰 있는 중간 상태를 만들었다)
@@ -531,7 +531,8 @@ function openPositionResultModal(positionId, stageIdx) {
       <div>
         <div style="font-size:12.5px;font-weight:700">${esc(c.name)}${headhunterSearchPill(c)}</div>
         <div style="font-size:10.5px;color:var(--t3)">${esc(c.email||'-')}</div>
-        ${isFinal?`<label style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--t2);font-weight:700">입사예정일 <input class="pr-join-date" data-cand-id="${c.id}" type="date" value="${esc(String(getCandidateJoinDate(c) || '').slice(0, 10))}" style="height:28px;width:132px;border:1px solid var(--border2);border-radius:6px;padding:0 7px;font-size:11px"></label>`:''}
+        ${isFinal?`<label style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:11px;color:var(--t2);font-weight:700">입사예정일 <input class="pr-join-date" data-cand-id="${c.id}" type="date" value="${esc(String(getCandidateJoinDate(c) || '').slice(0, 10))}" style="height:28px;width:132px;border:1px solid var(--border2);border-radius:6px;padding:0 7px;font-size:11px"></label>
+        <div id="pr-offer-${c.id}" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px">${prOfferStatusHtml_(c)}</div>`:''}
       </div>
       <div style="display:flex;gap:5px">
         <label class="btn btn-sm ${c.decision==='pass'?'btn-fill-green':''}" style="cursor:pointer"><input type="radio" name="pr-${c.id}" value="pass" ${c.decision==='pass'?'checked':''} style="display:none" data-onchange="selectPositionResult(this)">${isFinal?'최종합격':'합격'}</label>
@@ -562,6 +563,20 @@ async function savePositionResults(confirmAndMove) {
       c.joinDate = joinInput ? joinInput.value || '' : c.joinDate || '';
     }
   });
+  if(confirmAndMove && Number(stageIdx) === 4) {
+    // 채용검진 적합을 확인하지 않은 최종합격은 한 번 더 확인한다(유선 확인 등 예외는 그대로 진행할 수 있다).
+    const unchecked = list.filter(c => c.decision === 'pass' && getOffer_(c.id)?.healthStatus !== 'pass');
+    if(unchecked.length) {
+      const ok = await confirmActionModal({
+        title:'채용검진 결과 미확인',
+        message:'채용검진 적합이 확인되지 않은 지원자가 있습니다. 그래도 최종합격으로 확정할까요?',
+        items:unchecked.map(c => { const o = getOffer_(c.id); return `${c.name} · ${!o || !o.sentAt ? '처우·검진 안내 미발송' : OFFER_HEALTH_LABELS_[o.healthStatus || '']}`; }),
+        confirmLabel:'최종합격 확정',
+        danger:true,
+      });
+      if(!ok) return;
+    }
+  }
   if(confirmAndMove) {
     if(!list.some(c => c.decision === 'pass' || c.decision === 'fail')) {
       toast(Number(stageIdx) === 4 ? '최종합격 또는 불합격을 선택한 지원자가 없습니다.' : '합격 또는 불합격을 선택한 지원자가 없습니다.', 'tw');
@@ -1143,6 +1158,199 @@ async function batchStageChange(posId, fromStage, toStage) {
   ], movingBackward ? '단계 일괄 되돌리기 동기화' : '단계 일괄 이동 동기화');
   renderDashboard(); renderTracker(); renderPositions();
   toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
+}
+
+// ── 처우·채용검진 안내 ─────────────────────────────────────────
+// 처우가 확정되면 확정된 처우와 채용검진을 함께 안내하고, 검진 결과가 '적합'이면 최종합격(입사 안내)으로 넘긴다.
+// 지원자별 기록은 offers(보조 데이터)에 둔다: 처우 내용·발송 시각·검진 결과(healthStatus: ''|pass|recheck|fail).
+const OFFER_HEALTH_LABELS_ = { '':'검진 대기', pass:'검진 적합', recheck:'재검 필요', fail:'검진 부적합' };
+const OFFER_DEFAULTS_ = {
+  salaryNote:'월급여 12회 / 명절상여금 2회 포함',
+  benefits:'내규에 따름',
+  probation:'수습기간 3개월(급여차감 없음)',
+  joinTime:'09:00',
+  reportLocation:'서울 강남구 언주로 30길 39, 14층',
+};
+let offerHealthCandId_ = null;
+
+function getOffer_(candId) {
+  return offers.find(o => Number(o.candId) === Number(candId)) || null;
+}
+
+function prOfferStatusHtml_(c) {
+  const offer = getOffer_(c.id);
+  if(!offer || !offer.sentAt) {
+    return `<button type="button" class="btn btn-xs" data-action="call" data-call="openOfferHealthModal(${Number(c.id)})">처우·검진 안내</button>
+      <span style="font-size:10.5px;color:var(--t3)">${offer ? '작성 중 · 미발송' : '미발송'}</span>`;
+  }
+  const status = offer.healthStatus || '';
+  const opts = Object.entries(OFFER_HEALTH_LABELS_).map(([v, label]) => `<option value="${v}" ${v === status ? 'selected' : ''}>${label}</option>`).join('');
+  return `<span class="b ${status === 'pass' ? 'bgreen' : status === 'fail' ? 'bred' : status === 'recheck' ? 'bamber' : 'bgray'}">안내 ${esc(fmtShortDate(offer.sentAt))}</span>
+    <select class="pr-health" data-cand-id="${Number(c.id)}" aria-label="${esc(c.name)} 채용검진 결과" data-onchange="setOfferHealthResult(this)" style="height:26px;border:1px solid var(--border2);border-radius:6px;font-size:11px;padding:0 4px">${opts}</select>
+    <button type="button" class="btn btn-xs" data-action="call" data-call="openOfferHealthModal(${Number(c.id)})">처우 보기</button>`;
+}
+
+function refreshPrOfferStatus_(candId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  const box = document.getElementById(`pr-offer-${Number(candId)}`);
+  if(c && box) box.innerHTML = prOfferStatusHtml_(c);
+}
+
+function openOfferHealthModal(candId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) { toast('지원자 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return; }
+  offerHealthCandId_ = Number(c.id);
+  const pos = positions.find(p => Number(p.id) === Number(c.posId));
+  const offer = getOffer_(c.id) || {};
+  const ob = onboardings.find(o => Number(o.candId) === Number(c.id)) || {};
+  const isSite = pos?.location === '현장';
+  const orgUnit = isSite ? String(pos?.site || '').trim() : String(pos?.dept || c.dept || '').trim();
+  const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
+  document.getElementById('oh-title').textContent = `처우·채용검진 안내 — ${c.name}`;
+  document.getElementById('oh-target').textContent = `${c.pos || pos?.title || '-'} · ${getCandidateMailTarget(c).to || c.email || '이메일 없음'}${isHeadhuntingCandidate(c) ? ' (헤드헌팅 업체 경유)' : ''}`;
+  set('oh-org', offer.org || `우미건설(주)${orgUnit ? ' ' + orgUnit : ''}`);
+  set('oh-etype', offer.etypeText || (pos?.etype || c.etype || ''));
+  set('oh-rank', offer.rank || ob.rank || '');
+  set('oh-cl', offer.cl || ob.cl || '');
+  set('oh-salary', offer.salary ? Number(String(offer.salary).replace(/[^0-9]/g, '')).toLocaleString('ko-KR') : '');
+  set('oh-salary-note', offer.salaryNote ?? OFFER_DEFAULTS_.salaryNote);
+  set('oh-allowances', offer.allowances || '');
+  set('oh-benefits', offer.benefits || OFFER_DEFAULTS_.benefits);
+  set('oh-join-date', offer.joinDate || getCandidateJoinDate(c) || '');
+  set('oh-probation', offer.probation ?? OFFER_DEFAULTS_.probation);
+  set('oh-join-time', offer.joinTime || OFFER_DEFAULTS_.joinTime);
+  set('oh-report-loc', offer.reportLocation || OFFER_DEFAULTS_.reportLocation);
+  set('oh-health-deadline', offer.healthDeadline || '');
+  const gear = document.getElementById('oh-site-gear');
+  if(gear) gear.checked = offer.siteGear ?? isSite;
+  const attach = document.getElementById('oh-attach');
+  if(attach) attach.value = '';
+  renderOfferAttachList();
+  loadCommonAttachments_();
+  const status = document.getElementById('oh-status');
+  if(status) status.textContent = offer.sentAt ? `${fmtShortDate(offer.sentAt)} 안내 발송 · ${OFFER_HEALTH_LABELS_[offer.healthStatus || '']}` : '';
+  const sendBtn = document.getElementById('oh-send-btn');
+  if(sendBtn) sendBtn.textContent = offer.sentAt ? '안내 메일 재발송' : '안내 메일 발송';
+  openModal('modal-offer-health');
+}
+
+function formatOfferSalaryInput(input) {
+  const digits = String(input.value || '').replace(/[^0-9]/g, '');
+  input.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
+}
+
+function renderOfferAttachList() {
+  const el = document.getElementById('oh-attach-list');
+  if(!el) return;
+  const files = [...(document.getElementById('oh-attach')?.files || [])];
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+  el.innerHTML = files.length
+    ? `${files.map(f => esc(f.name)).join(', ')} · 합계 ${(total / 1024 / 1024).toFixed(1)}MB${total > MAIL_ATTACHMENT_MAX_TOTAL_BYTES_ ? ' <b style="color:var(--red)">· 15MB를 넘어 발송할 수 없습니다</b>' : ''}`
+    : '이 지원자에게만 추가로 보낼 파일이 있으면 고르세요. (선택)';
+}
+
+// 화면 값을 offers에 저장한다. 입사 예정일은 지원자에도 넣어 처우협의 결과·입사 안내로 이어지게 한다.
+function readOfferForm_() {
+  const c = candidates.find(x => Number(x.id) === Number(offerHealthCandId_));
+  if(!c) return null;
+  const val = id => String(document.getElementById(id)?.value || '').trim();
+  let offer = getOffer_(c.id);
+  if(!offer) { offer = { candId:Number(c.id), healthStatus:'' }; offers.push(offer); }
+  Object.assign(offer, {
+    candName:c.name,
+    org:val('oh-org'), etypeText:val('oh-etype'), rank:val('oh-rank'), cl:val('oh-cl'),
+    salary:val('oh-salary').replace(/[^0-9]/g, ''), salaryNote:val('oh-salary-note'),
+    allowances:String(document.getElementById('oh-allowances')?.value || '').trim(),
+    benefits:val('oh-benefits'), joinDate:val('oh-join-date'), probation:val('oh-probation'),
+    joinTime:val('oh-join-time'), reportLocation:val('oh-report-loc'),
+    siteGear:!!document.getElementById('oh-site-gear')?.checked,
+    healthDeadline:val('oh-health-deadline'),
+    updatedAt:new Date().toISOString(),
+  });
+  if(offer.joinDate && offer.joinDate !== String(c.joinDate || '').slice(0, 10)) {
+    c.joinDate = offer.joinDate;
+    if(GS_CONFIG.scriptUrl) syncCandToGS(c);
+    const joinInput = document.querySelector(`.pr-join-date[data-cand-id="${Number(c.id)}"]`);
+    if(joinInput) joinInput.value = offer.joinDate;
+  }
+  return { c, offer };
+}
+
+function saveOfferHealth() {
+  const ctx = readOfferForm_();
+  if(!ctx) return;
+  saveState();
+  refreshPrOfferStatus_(ctx.c.id);
+  closeModal('modal-offer-health');
+  toast(`${ctx.c.name}님의 처우 내용을 저장했습니다.`, 'tok');
+}
+
+async function sendOfferHealth() {
+  const ctx = readOfferForm_();
+  if(!ctx) return;
+  const { c, offer } = ctx;
+  saveState();
+  if(!offer.salary) { fieldError_('oh-salary', '기본연봉을 입력해 주세요.'); return; }
+  if(!offer.healthDeadline) { fieldError_('oh-health-deadline', '채용검진 기한을 입력해 주세요.'); return; }
+  const files = [...(document.getElementById('oh-attach')?.files || [])];
+  if(files.reduce((sum, f) => sum + f.size, 0) > MAIL_ATTACHMENT_MAX_TOTAL_BYTES_) { fieldError_('oh-attach', '첨부파일이 너무 큽니다. 전체 15MB 이하로 다시 선택해 주세요.'); return; }
+  if(!(await confirmCommonAttachmentReady_('offer_health'))) return;
+  const btn = document.getElementById('oh-send-btn');
+  const prevLabel = btn ? btn.textContent : '';
+  if(btn) { btn.disabled = true; btn.textContent = '발송 중…'; }
+  try {
+    const attachments = await Promise.all(files.map(readFileAsMailAttachment_));
+    const target = getCandidateMailTarget(c);
+    const subject = `[우미건설] ${c.name}님 처우 및 채용검진 안내`;
+    const salaryText = `${Number(offer.salary).toLocaleString('ko-KR')}원/年`;
+    const body = [
+      `안녕하세요. ${c.name}님,`, '협의해 주신 처우와 채용검진에 대해 아래와 같이 안내드립니다.', '',
+      `1. 채용검진: ${fmtShortDate(offer.healthDeadline)}까지 지정기관에서 채용검진 (첨부파일 참조)`,
+      '※ 채용검진 결과를 종합하여, 추후 최종합격 여부를 안내드리겠습니다.', '',
+      '2. 근로조건 및 처우', `- 소속: ${offer.org}`, `- 채용구분: ${offer.etypeText}`,
+      `- 직급: ${[offer.cl, offer.rank].filter(Boolean).join(' ')}`,
+      `- 처우: 기본연봉 ${salaryText}${offer.salaryNote ? ` (${offer.salaryNote})` : ''}`,
+      ...String(offer.allowances || '').split('\n').filter(x => x.trim()).map(x => `  - ${x.trim()}`),
+      `- 경영성과급 및 복지제도: ${offer.benefits}`, '',
+      `3. 입사 시기: ${offer.joinDate ? fmtShortDate(offer.joinDate) : '추후 안내'}${offer.probation ? ` ※ ${offer.probation}` : ''}`,
+      `최종합격 시 입사일 ${offer.joinTime}에 아래 장소에서 뵙겠습니다.`, `장소: ${offer.reportLocation}`,
+    ].join('\n');
+    const sent = await dispatchCandidateMail_(c, {
+      subject, purpose:'처우 및 채용검진 안내', logType:'처우·검진안내(업체경유)',
+      sendDirect: () => sendGeneralEmailViaGmail(target.to || c.email, subject, body, '처우·검진안내', c.name, {
+        templateType:'offer_health', candidateName:c.name, positionText:c.pos || '',
+        healthDeadline:offer.healthDeadline, org:offer.org, etypeText:offer.etypeText, rank:offer.rank, cl:offer.cl,
+        salary:offer.salary, salaryNote:offer.salaryNote, allowances:offer.allowances, benefits:offer.benefits,
+        joinDate:offer.joinDate, probation:offer.probation, joinTime:offer.joinTime, reportLocation:offer.reportLocation,
+        siteGear:offer.siteGear,
+      }, attachments)
+    });
+    if(!sent) return;
+    offer.sentAt = new Date().toISOString();
+    if(offer.healthStatus === 'fail') offer.healthStatus = '';
+    logActivity('처우·검진 안내', `${c.name} · 검진 기한 ${fmtShortDate(offer.healthDeadline)}`, 'candidate', String(c.id));
+    saveState();
+    refreshPrOfferStatus_(c.id);
+    closeModal('modal-offer-health');
+    toast(`${c.name}님에게 처우·채용검진 안내를 보냈습니다. 검진 결과가 나오면 결과 입력 창에서 '검진 적합'을 선택해 주세요.`, 'tok');
+  } finally {
+    if(btn) { btn.disabled = false; btn.textContent = prevLabel; }
+  }
+}
+
+// 검진 결과 기록. '적합'을 고르면 같은 줄의 결과를 최종합격으로 맞춘다(확정은 [처우협의 결과 확정]에서).
+function setOfferHealthResult(select) {
+  const candId = Number(select.dataset.candId);
+  const offer = getOffer_(candId);
+  if(!offer) return;
+  offer.healthStatus = select.value;
+  offer.healthResultAt = new Date().toISOString();
+  saveState();
+  if(select.value === 'pass') {
+    const radio = document.querySelector(`input[name="pr-${candId}"][value="pass"]`);
+    if(radio && !radio.checked) { radio.checked = true; selectPositionResult(radio); }
+  }
+  refreshPrOfferStatus_(candId);
 }
 
 </script>

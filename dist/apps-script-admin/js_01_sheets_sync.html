@@ -43,7 +43,7 @@ function gsBaseUrlForSheet_(sheet) {
 const GS_SCHEMA = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','refReportSentAt','refSkipReason','gradeBandOverride','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
-  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','targetGradeBand','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','site','targetGradeBand','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
   Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
@@ -513,7 +513,7 @@ async function gsFetch(action, sheet, data={}, options={}) {
     if(value !== '' && value != null) url.searchParams.set(key, value);
   });
   const hasData = Object.keys(data).length > 0;
-  const mustPost = isWrite || action === 'generateReferenceSummary' || action === 'issueReferenceCandidateLink' || action === 'issueInterviewAvailabilityLink' || action === 'setInterviewAvailabilityDeliveryStatus' || action === 'issuePanelAvailabilityLink' || action === 'sendReferenceEmail' || action === 'sendMail' || action === 'sendGeneralMail' || action === 'purgeCandidatePii';
+  const mustPost = isWrite || action === 'generateReferenceSummary' || action === 'issueReferenceCandidateLink' || action === 'issueInterviewAvailabilityLink' || action === 'setInterviewAvailabilityDeliveryStatus' || action === 'issuePanelAvailabilityLink' || action === 'sendReferenceEmail' || action === 'sendMail' || action === 'sendGeneralMail' || action === 'uploadCommonAttachment' || action === 'purgeCandidatePii';
   try {
     if(mustPost && hasData && GS_CONFIG.usePostWrites) {
       const postRes = await fetch(url.toString(), {
@@ -913,6 +913,7 @@ async function syncPosToGS(pos) {
     location:  pos.location || '',
     team:      pos.team || '',
     jobType:   pos.jobType || '',
+    site:      pos.site || '',
     targetGradeBand: normalizeGradeBand(pos.targetGradeBand, true),
     panel1:    pos.panel1 || '',
     panel2:    pos.panel2 || '',
@@ -954,7 +955,7 @@ function normalizeGsPosition(row) {
   const org = inferPositionOrg(row);
   return {
     id:Number(row.id), title:row.title||'', etype:row.etype||'정규직', role:normalizeRole(row.role),
-    headcount:parseInt(row.headcount)||1, hireReason:row.hireReason||'충원', dept:row.dept||org.team||org.jobType||'', location:org.location, team:org.team, jobType:org.jobType, targetGradeBand:normalizeGradeBand(row.targetGradeBand, true), panel1:row.panel1||'', panel2:row.panel2||'',
+    headcount:parseInt(row.headcount)||1, hireReason:row.hireReason||'충원', dept:row.dept||org.team||org.jobType||'', location:org.location, team:org.team, jobType:org.jobType, site:row.site||'', targetGradeBand:normalizeGradeBand(row.targetGradeBand, true), panel1:row.panel1||'', panel2:row.panel2||'',
     panel1AvailabilityOptions:(()=>{try{return JSON.parse(row.panel1AvailabilityOptions||'[]')}catch(e){return []}})(),
     panel1AvailabilityRequestedAt:row.panel1AvailabilityRequestedAt||'', panel1AvailabilityConfirmedAt:row.panel1AvailabilityConfirmedAt||'',
     panel2AvailabilityOptions:(()=>{try{return JSON.parse(row.panel2AvailabilityOptions||'[]')}catch(e){return []}})(),

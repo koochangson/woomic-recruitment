@@ -67,7 +67,7 @@ const SHEET_SCHEMAS = {
   Candidates: ['id','name','pos','email','etype','role','dept','career','source','headhunterId','headhunterName','headhunterManager','headhunterEmail','headhunterPhone','stage','ref','refD','refT','refReportSentAt','refSkipReason','gradeBandOverride','receivedAt','docPassedAt','memo','rejectedAt','rejectReason','rejectMemo','finalAt','joinDate','decision','notified','mailPending','mailPendingLabel','posId','intDate','held','lastCompletedStage','lastStageChangedAt','rev','updatedAt'],
   Interviews: ['id','candId','candName','type','date','loc','candidateLoc','panelLoc','panel','memo','notified','candidateNotified','panelNotified','mailPending','status','slots','availabilityOptions','availabilityToken','availabilityExpiresAt','availabilityLink','availabilitySelections','availabilityStatus','availabilityRespondedAt','availabilityNote','availabilityResponseBy','availabilityResponderName','availabilityResponderEmail','availabilityResponderOrg','availabilityProxyConfirmedAt','result','note','evaluatedAt','rev','updatedAt'],
   PanelAvailability: ['id','positionId','positionTitle','round','panelistName','panelistEmail','loc','availabilityOptions','token','tokenExpiresAt','link','selections','status','respondedAt','note','createdAt','updatedAt'],
-  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','targetGradeBand','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
+  Positions: ['id','title','etype','role','headcount','hireReason','dept','location','team','jobType','site','targetGradeBand','panel1','panel2','panel1AvailabilityOptions','panel1AvailabilityRequestedAt','panel1AvailabilityConfirmedAt','panel2AvailabilityOptions','panel2AvailabilityRequestedAt','panel2AvailabilityConfirmedAt','loc','owner','targetDate','memo','createdAt','status','closedAt','parentPosId','closeReason','closeMemo','rev','updatedAt'],
   RecruitPlans: ['id','year','location','empType','team','jobType','planned','manualDone','manualItv','manualOffer','sortOrder','updatedAt','deletedAt'],
   Referrals: ['id','refEmail','refName','refEmpNo','refDept','posText','posId','candName','candPhone','candPhoneNormalized','candEmail','candEmailNormalized','candCompany','resumeUrl','relation','refItems','consentAt','submittedAt','status','dupFlag','reviewedBy','reviewedAt','rejectReason','validUntil','candId','hireDate','hireCL','updatedAt','updatedBy','deletedAt'],
   Rewards: ['id','referralId','candId','refEmail','hireDate','hireCL','milestone','dueDate','payMonth','payCutoff','amount','status','retentionCheckedBy','retentionCheckedAt','requestedAt','paidAt','cancelReason','updatedAt','updatedBy','deletedAt'],
@@ -143,6 +143,8 @@ function routeRequest_(payload) {
   if (action === 'generateReferenceSummary') return generateReferenceSummary_(data);
   if (action === 'sendMail' && isAdminRequest_(payload)) return handleSendMail_(payload);
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
+  if (action === 'getCommonAttachments') return json_({ ok: true, attachments: getCommonAttachments_() });
+  if (action === 'uploadCommonAttachment') return uploadCommonAttachment_(data);
   if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
   if (action === 'getChanges') return getChanges_(query);
   if (action === 'configStatus') return json_(getDeploymentConfigStatus_());
@@ -1678,6 +1680,7 @@ const GENERAL_MAIL_TEMPLATE_FILES = {
   panel_schedule: 'mail_body_panel_schedule',
   onboarding: 'mail_body_onboarding',
   onboarding_internal: 'mail_body_onboarding_internal',
+  offer_health: 'mail_body_offer_health',
   rejection: 'mail_body_rejection',
   interview_slot_request: 'mail_body_interview_slot_request',
   headhunter_forward: 'mail_body_headhunter_forward',
@@ -1690,6 +1693,7 @@ const GENERAL_MAIL_PREHEADER = {
   panel_schedule: () => '면접 일정 및 대상자를 안내드립니다.',
   onboarding: data => `입사를 진심으로 축하드립니다. 입사일 ${data.joinDate || ''}`,
   onboarding_internal: data => `신규입사자 안내 — ${data.joinDate || ''} 입사 예정`,
+  offer_health: () => '협의된 처우와 채용검진 일정을 안내드립니다.',
   rejection: () => '채용 결과를 안내드립니다.',
   interview_slot_request: () => '가능한 면접 날짜와 시간대를 선택해 주세요.',
   headhunter_forward: data => `헤드헌팅 후보자 ${data.candidateName || ''}님의 ${data.purpose || '채용 진행'} 안내입니다.`,
@@ -1702,6 +1706,7 @@ const GENERAL_MAIL_HEADER_TITLES = {
   panel_schedule: '면접 일정 안내',
   onboarding: '입사 안내',
   onboarding_internal: '신규입사자 안내',
+  offer_health: '처우 및 채용검진 안내',
   rejection: '채용 결과 안내',
   interview_slot_request: '면접 후보 일정 요청',
   headhunter_forward: '헤드헌팅 후보자 안내',
@@ -1966,6 +1971,88 @@ function mailDateLabel_(value) {
   return y + '년 ' + mo + '월 ' + d + '일(' + wk + ')';
 }
 
+// '담당 / 과장'처럼 직책/직급을 함께 적은 값에서 직급만 꺼내고, 역량등급이 있으면 '과장 (CL3)'처럼 붙인다.
+function onboardingRankCl_(rank, cl) {
+  const raw = String(rank || '').trim();
+  const grade = raw.includes('/') ? raw.split('/').pop().trim() : raw;
+  const level = String(cl || '').trim();
+  if (!grade && !level) return '-';
+  return grade && level ? grade + ' (' + level + ')' : (grade || level);
+}
+
+// 표 안의 짧은 입사일자: 10.6(화)
+function shortMailDate_(value) {
+  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(value || '');
+  const mo = Number(m[2]), d = Number(m[3]);
+  const wk = ['일','월','화','수','목','금','토'][new Date(Number(m[1]), mo - 1, d).getDay()];
+  return mo + '.' + d + '(' + wk + ')';
+}
+
+// 입사 사전 정보 입력(SAP) 제출 기한: 지정값이 없으면 입사일 2주 전으로 안내한다.
+function onboardingPreDeadlineLabel_(data) {
+  const explicit = String(data.preDeadline || '').trim();
+  if (explicit) return mailDateLabel_(explicit);
+  const m = String(data.joinDate || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '입사일 전';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 14);
+  const pad = n => (n < 10 ? '0' : '') + n;
+  return mailDateLabel_(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+}
+
+// ── 메일 종류별 공통 첨부(사전 입사 절차 매뉴얼·채용검진 안내) ─────────────
+// 관리자 화면에서 한 번 등록하면 해당 메일을 보낼 때마다 자동으로 붙는다. 문서가 바뀌면 화면에서 교체한다.
+// 파일은 이 스크립트가 만든 드라이브 파일(drive.file 권한)로 보관하고, 정보는 스크립트 속성에 둔다.
+const COMMON_MAIL_ATTACHMENTS = {
+  onboarding: { property: 'ONBOARDING_MANUAL_FILE', label: '사전 입사 절차 매뉴얼' },
+  offer_health: { property: 'OFFER_HEALTH_GUIDE_FILE', label: '채용검진 안내' }
+};
+const COMMON_MAIL_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+function getCommonAttachmentMeta_(kind) {
+  const def = COMMON_MAIL_ATTACHMENTS[kind];
+  if (!def) return null;
+  try { return JSON.parse(getScriptProperty_(def.property) || 'null'); } catch (err) { return null; }
+}
+
+function getCommonAttachments_() {
+  const result = {};
+  Object.keys(COMMON_MAIL_ATTACHMENTS).forEach(kind => { result[kind] = getCommonAttachmentMeta_(kind); });
+  return result;
+}
+
+function commonAttachmentBlob_(kind) {
+  const meta = getCommonAttachmentMeta_(kind);
+  if (!meta || !meta.fileId) return null;
+  try {
+    return DriveApp.getFileById(meta.fileId).getBlob().setName(meta.name || 'attachment.pdf');
+  } catch (err) {
+    console.warn('commonAttachmentBlob_ failed (' + kind + '): ' + String(err && err.message || err));
+    return null;
+  }
+}
+
+function uploadCommonAttachment_(data) {
+  const kind = String(data && data.kind || '');
+  const def = COMMON_MAIL_ATTACHMENTS[kind];
+  if (!def) return json_({ error: 'unknown_attachment_kind' });
+  const name = String(data && data.name || '').replace(/[\\/:*?"<>|]/g, '_').trim();
+  const base64 = String(data && data.base64 || '');
+  if (!name || !base64) return json_({ error: 'missing_upload_fields' });
+  if (!/\.pdf$/i.test(name)) return json_({ error: 'unsupported_file_type' });
+  const bytes = Utilities.base64Decode(base64);
+  if (bytes.length > COMMON_MAIL_ATTACHMENT_MAX_BYTES) return json_({ error: 'file_too_large' });
+  const file = DriveApp.createFile(Utilities.newBlob(bytes, 'application/pdf', name));
+  hardenUploadedFileSharing_(file);
+  const previous = getCommonAttachmentMeta_(kind);
+  const meta = { fileId: file.getId(), name: name, size: bytes.length, uploadedAt: nowIso_() };
+  PropertiesService.getScriptProperties().setProperty(def.property, JSON.stringify(meta));
+  if (previous && previous.fileId && previous.fileId !== meta.fileId) {
+    try { DriveApp.getFileById(previous.fileId).setTrashed(true); } catch (err) {}
+  }
+  return json_({ ok: true, kind: kind, attachment: meta });
+}
+
 function renderGeneralMailTemplate_(html, templateKey, data) {
   let rendered = String(html || '');
   const candidateName = String(data.candidateName || '이하늘');
@@ -2032,8 +2119,10 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       reportLocation: escapeMailHtml_(data.reportLocation || '린스퀘어 14F'),
       dept: escapeMailHtml_(data.dept || ''),
       rank: escapeMailHtml_(data.rank || ''),
+      rankCl: escapeMailHtml_(onboardingRankCl_(data.rank, data.cl)),
       etype: escapeMailHtml_(data.etype || ''),
       location: escapeMailHtml_(data.location || ''),
+      preDeadline: escapeMailHtml_(onboardingPreDeadlineLabel_(data)),
       prepNotes: nlToBr_(data.prepNotes || '')
     });
   } else if (templateKey === 'onboarding_internal') {
@@ -2046,14 +2135,50 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
       rank: escapeMailHtml_(data.rank || ''),
       etype: escapeMailHtml_(data.etype || ''),
       location: escapeMailHtml_(data.location || ''),
-      phone: escapeMailHtml_(data.phone || ''),
+      phone: escapeMailHtml_(data.phone || '연락처 미입력'),
       replyDeadline: escapeMailHtml_(data.replyDeadline || ''),
+      // 사내 공유 표: 구분(본사/현장)·영문 성명·직급(역량등급)·짧은 입사일자·비고
+      category: escapeMailHtml_(data.category || ''),
+      nameEn: escapeMailHtml_(data.nameEn || '-'),
+      rankCl: escapeMailHtml_(onboardingRankCl_(data.rank, data.cl)),
+      joinDateShort: escapeMailHtml_(shortMailDate_(data.joinDate)),
+      remark: escapeMailHtml_(data.remark || ''),
       joinDaySchedule: escapeMailHtml_(data.joinDaySchedule || ''),
       deptCooperation: nlToBr_(data.deptCooperation || '')
     });
     const workLocation = String(data.location || data.workplace || data.site || '');
-    if (!/현장|공사|사업소|프로젝트|PJ/i.test(workLocation)) {
+    // 현장 입사자에게만 '숙소·제복 확인 요청'을 남긴다(구분이 현장이거나 근무지가 현장으로 보이는 경우).
+    if (data.category !== '현장' && !/현장|공사|사업소|프로젝트|PJ/i.test(workLocation)) {
       rendered = rendered.replace(/<tr id="siteOnboardingRequestRow">[\s\S]*?<\/tr>/, '');
+    }
+  } else if (templateKey === 'offer_health') {
+    // 처우 확정 후 채용검진 안내: 검진 결과를 본 뒤 최종합격(입사 안내)으로 이어진다.
+    assertGeneralMailFields_(templateKey, data, ['candidateName','positionText','healthDeadline','salary']);
+    const salaryDigits = String(data.salary || '').replace(/[^0-9]/g, '');
+    const allowanceLines = String(data.allowances || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    const rankText = [String(data.cl || '').trim(), String(data.rank || '').trim()].filter(Boolean);
+    rendered = replaceMailPlaceholders_(rendered, {
+      candidateName: escapeMailHtml_(candidateName),
+      healthDeadline: escapeMailHtml_(shortMailDate_(data.healthDeadline)),
+      org: escapeMailHtml_(data.org || '우미건설(주)'),
+      etypeText: escapeMailHtml_(data.etypeText || data.etype || '-'),
+      offerRank: escapeMailHtml_(rankText.length === 2 ? rankText[0] + ' (' + rankText[1] + ')' : (rankText[0] || '-')),
+      salaryText: escapeMailHtml_((salaryDigits ? salaryDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : String(data.salary || '')) + '원/年'),
+      salaryNote: data.salaryNote ? ' (' + escapeMailHtml_(data.salaryNote) + ')' : '',
+      allowancesHtml: allowanceLines.length
+        ? '<div style="padding-top:4px;color:#334155;">' + allowanceLines.map(line => '- ' + escapeMailHtml_(line)).join('<br>') + '</div>'
+        : '',
+      benefitsText: escapeMailHtml_(data.benefits || '내규에 따름'),
+      joinDate: escapeMailHtml_(shortMailDate_(data.joinDate) || '추후 안내'),
+      // 수습기간은 비워 두면 표에서 줄째로 뺀다.
+      probationRow: data.probation
+        ? '<tr><td width="96" valign="top" style="width:96px;padding:10px 10px;background:#f5f8fc;border-bottom:1px solid #e3eaf2;font-size:12.5px;line-height:1.5;font-weight:700;color:#5c6875;word-break:keep-all;">수습기간</td><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e3eaf2;font-size:14px;line-height:1.5;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">' + escapeMailHtml_(data.probation) + '</td></tr>'
+        : '',
+      joinTime: escapeMailHtml_(data.joinTime || '09:00'),
+      reportLocation: escapeMailHtml_(data.reportLocation || '서울 강남구 언주로 30길 39, 14층')
+    });
+    if (!data.siteGear) {
+      rendered = rendered.replace(/<tr id="offerSiteGearRow">[\s\S]*?<\/tr>/, '');
     }
   } else if (templateKey === 'rejection') {
     assertGeneralMailFields_(templateKey, data, ['candidateName','positionText']);
@@ -2114,7 +2239,7 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
   // 조사 표기는 값이 채워진 뒤에 받침을 보고 고른다(남은 {{...}} 검사보다 먼저).
   rendered = applyKoreanJosa_(rendered);
 
-  if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal',
+  if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal', 'offer_health',
        'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&
       /\{\{[^}]+\}\}/.test(rendered)) {
     throw new Error('unresolved_general_mail_placeholder');
@@ -2134,9 +2259,15 @@ function handleSendGeneralMail_(payload) {
     // 메일 문구는 HTML 템플릿 한 곳에서만 관리한다 — 텍스트 버전도 렌더링된 HTML에서 만든다.
     const message = htmlToPlainText_(html) || String(body.body || body.message || '').trim();
     const attachments = buildMailAttachments_(body.attachments);
+    // 메일 종류별 공통 첨부(입사안내: 사전 입사 절차 매뉴얼, 처우·검진 안내: 채용검진 안내)를 자동으로 붙인다.
+    let commonAttached = false;
+    if (COMMON_MAIL_ATTACHMENTS[body.templateType]) {
+      const common = commonAttachmentBlob_(body.templateType);
+      if (common) { attachments.push(common); commonAttached = true; }
+    }
     const result = sendMailViaGmail_(to, subject, message, html, attachments);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
-    return json_({ ok: true, to: to });
+    return json_({ ok: true, to: to, commonAttached: commonAttached });
   } catch (err) {
     const errorText = String(err && err.message || err);
     console.warn('handleSendGeneralMail_ failed: ' + errorText);
