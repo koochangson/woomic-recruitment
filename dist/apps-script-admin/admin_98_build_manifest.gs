@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "6523935bba36",
+ "build": "3d2a09d14cb9",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_07_sheet_utils.gs",
@@ -871,10 +871,6 @@ const BUILD_MANIFEST_ = {
    "shared_00_runtime.gs",
    "5d1ffa71ea5a"
   ],
-  "secureReferralRowBeforeSave_": [
-   "admin_06_ai_referral_directory.gs",
-   "dc699257567a"
-  ],
   "secureReferralRowForUpsert_": [
    "admin_06_ai_referral_directory.gs",
    "ff644a873d56"
@@ -1026,11 +1022,11 @@ const BUILD_MANIFEST_ = {
  },
  "html": {
   "app_css": "72205f5c03e5",
-  "js_00_core": "2ef3f3f15526",
+  "js_00_core": "0b07f22b3de8",
   "js_01_sheets_sync": "c0be4fb8881c",
-  "js_03_ui_dashboard": "3ec6e3be052c",
+  "js_03_ui_dashboard": "c17b6fc65501",
   "js_04_referral": "e513dea75eb7",
-  "js_05_candidates_reference": "5bfd21a76e6f",
+  "js_05_candidates_reference": "0ed18a1f07fe",
   "js_06_onboarding_settings": "bcecfdff171a",
   "js_07_state": "e6c0410d7393",
   "js_20_positions": "046f6dd79f1f",

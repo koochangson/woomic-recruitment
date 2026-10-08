@@ -1387,38 +1387,6 @@ function selectRefCand(id){
   renderReference();
 }
 
-// ── 레퍼런스 설문 자동 발송 (Apps Script → Gmail/MailApp) ─────
-async function sendSurveyEmailsViaGS(queue, refFormUrl, refAutoUrl) {
-  const sign = document.getElementById('cfg-sign')?.value || '우미건설 피플팀';
-  const payload = queue.map(({ c, r }) => ({
-    toEmail:   r.email,
-    toName:    r.name,
-    candName:  c.name,
-    position:  c.pos || '',
-    surveyUrl: refFormUrl,
-    sign:      sign,
-  }));
-  try {
-    const res = await fetch(refAutoUrl, {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'sendSurveyEmails', emails: payload }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if(json.error) throw new Error(json.error);
-    const sent = json.sent ?? queue.length;
-    queue.forEach(({ c, r }) => logNotify('Gmail', '추천인설문발송', `${esc(c.name)}-${esc(r.name)}`, r.email));
-    saveState();
-    toast(`추천인 ${sent}명에게 설문 안내 메일을 자동 발송했습니다.`, 'tok');
-  } catch(e) {
-    // Apps Script 오류 시 surveySent 초기화 후 사용자에게 알림
-    queue.forEach(({ r }) => { r.surveySent = false; });
-    saveState();
-    toast(`추천인 설문 메일을 자동으로 보내지 못했습니다. ${friendlyError_(e, '레퍼런스 화면에서 다시 보내 주세요.')}`, 'terr');
-  }
-}
-
 // 같은 메일을 최근에 보냈다고 서버가 막았을 때(duplicate_recent) 다시 보낼지 묻는다. 다시 보내면 true.
 async function confirmDuplicateMailResend_(result, toEmail, subject) {
   if(result?.error !== 'duplicate_recent') return false;

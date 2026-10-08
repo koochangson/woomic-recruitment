@@ -1526,10 +1526,6 @@ function secureReferralRowForUpsert_(row, isExistingRow, isAdmin) {
   return cleaned;
 }
 
-function secureReferralRowBeforeSave_(row) {
-  return secureReferralRowForUpsert_(row, false, false);
-}
-
 function validateReferralToken_(token, email) {
   const normalizedEmail = normalizeEmail_(email);
   const saved = JSON.parse(CacheService.getScriptCache().get(referralTokenKey_(token)) || 'null');

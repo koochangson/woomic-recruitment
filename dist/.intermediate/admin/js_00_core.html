@@ -1116,17 +1116,6 @@ function linkCandFromUnlinked(candId) {
   showUnlinkedList();
 }
 
-function openMailtoWithConfirm(meta, toEmail, subject, body, sequential) {
-  return openMailto(toEmail, subject, body, sequential);
-}
-
-function showMailPendingBar(label) {
-  const bar = document.getElementById('mail-pending-bar');
-  const txt = document.getElementById('mail-pending-text');
-  if(txt) txt.textContent = `「${label}」— 메일 발송 후 [발송 완료]를 눌러주세요.`;
-  if(bar) bar.classList.add('show');
-}
-
 function dismissPendingMail() {
   const bar = document.getElementById('mail-pending-bar');
   if(bar) bar.classList.remove('show');

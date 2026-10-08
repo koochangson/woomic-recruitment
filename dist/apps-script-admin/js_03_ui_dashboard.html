@@ -766,33 +766,6 @@ function groupMailRecipients(emails) {
   return [...new Set((emails||[]).flatMap(e=>String(e||'').split(/[;,]/)).map(e=>e.trim()).filter(e=>e.includes('@')))].join(';');
 }
 
-// ── Gmail 이메일 발송 헬퍼 ───────────────────────
-async function sendMailViaGmail(to, subject, body) {
-  try {
-    const result = await gsFetch('sendMail', '', { to, subject, body }, { allowQueue:false });
-    if(!result || !result.ok) {
-      toast(`메일을 보내지 못했습니다 (${to}). ${friendlyError_(result?.error, '서버(Apps Script)·Gmail 권한을 확인해 주세요.')}`, 'terr');
-      return false;
-    }
-    toast(`메일 발송 완료 (${to})`, 'tok');
-    return true;
-  } catch(err) {
-    console.error(err);
-    toast(`메일을 보내지 못했습니다 (${to}). 잠시 후 다시 시도해 주세요.`, 'terr');
-    return false;
-  }
-}
-
-function openMailto(toEmail, subject, body, sequential) {
-  if(!toEmail || !toEmail.includes('@')) {
-    toast('이메일 주소가 없습니다. 지원자 또는 대상 정보를 수정해 주세요.', 'terr');
-    return false;
-  }
-  const to = toEmail.replace(/;/g, ',');
-  sendMailViaGmail(to, subject, body);
-  return true;
-}
-
 // 지원자 면접 안내 메일 공통 데이터.
 // · 면접 메모(itv.memo)는 "응답 대기·일괄 배치" 같은 내부 업무 기록이라 지원자 메일에 넣지 않는다.
 // · 가능 시간대를 회신받아 확정한 일정이면 "선정 안내"가 아니라 "확정 안내" 문구를 쓰도록 표시한다.
