@@ -438,8 +438,10 @@ function logMailSend_(to, subject, status, error, eventKey) {
       sentAt: nowIso_()
     };
     sheet.appendRow(headers.map(function(h) { return row[h] == null ? '' : row[h]; }));
+    return true;
   } catch (err) {
     console.warn('logMailSend_ failed: ' + String(err && err.message || err));
+    return false;
   }
 }
 
@@ -1678,7 +1680,7 @@ const CLOSED_POSITION_STATUSES_ = ['filled', 'done', 'partial', 'nohire', 'stopp
 
 function positionProcessClosed_(positionId) {
   if (positionId === '' || positionId == null) return false;
-  const pos = readRowsIfSheetExists_('Positions').find(row => String(row.id) === String(positionId));
+  const pos = readRowByIdIfSheetExists_('Positions', positionId);
   return !!pos && CLOSED_POSITION_STATUSES_.includes(String(pos.status || '').trim());
 }
 
@@ -1689,7 +1691,7 @@ function candidateStageClosed_(value) {
 
 function candidateProcessClosed_(candId) {
   if (candId === '' || candId == null) return false;
-  const cand = readRowsIfSheetExists_('Candidates').find(row => String(row.id) === String(candId));
+  const cand = readRowByIdIfSheetExists_('Candidates', candId);
   if (!cand) return false;
   if (candidateStageClosed_(cand.stage) || String(cand.held || '') === 'Y') return true;
   return positionProcessClosed_(cand.posId);

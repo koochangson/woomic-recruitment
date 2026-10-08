@@ -422,6 +422,14 @@ function readRowsByIds_(sheetName, ids) {
   return result;
 }
 
+// id로 한 행만 읽는다(키 열만 훑고 그 행만 가져온다). 시트가 없으면 만들지 않고 null.
+// 행 하나를 보려고 시트 전체를 읽던 상태 확인(지원자·포지션 종료 여부 등)에 쓴다.
+function readRowByIdIfSheetExists_(sheetName, id) {
+  if (id === '' || id == null) return null;
+  if (!getSpreadsheetForSheet_(sheetName).getSheetByName(sheetName)) return null;
+  return readRowsByIds_(sheetName, [id])[String(id).trim()] || null;
+}
+
 // 저장 로그의 메타데이터를 클라이언트에 그대로 보내지 않고 현재 원본 행으로 채운다.
 // 로그 뒤에 행이 삭제됐다면 삭제 이벤트로 바꿔 오래된 개인정보가 다시 살아나지 않게 한다.
 function hydrateChangesForClient_(changes) {

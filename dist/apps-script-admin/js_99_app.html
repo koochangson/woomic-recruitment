@@ -266,7 +266,15 @@ try {
   ['change','input','focus','blur'].forEach(eventName => {
     document.addEventListener(eventName, e => {
       const target = e.target.closest?.(`[data-on${eventName}]`);
-      if(target) handleDelegatedFormEvent(eventName, target, e);
+      if(!target) return;
+      // 목록 전체를 다시 그리는 검색창(data-debounce="ms")은 입력이 멈춘 뒤 한 번만 실행한다(글자마다 다시 그리지 않음).
+      const debounceMs = eventName === 'input' ? Number(target.dataset.debounce) : 0;
+      if(debounceMs > 0) {
+        clearTimeout(target._delegatedDebounceTimer);
+        target._delegatedDebounceTimer = setTimeout(() => handleDelegatedFormEvent(eventName, target, e), debounceMs);
+        return;
+      }
+      handleDelegatedFormEvent(eventName, target, e);
     }, true);
   });
   document.addEventListener('keydown', e => {

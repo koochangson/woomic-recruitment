@@ -99,6 +99,8 @@ Google 로그인 없이 관리자 로그인 화면까지 접근할 수 있지만
 - 자동 메일은 MailLog의 `eventKey`로 한 번만 보냅니다. 같은 날 다시 실행해도 이미 보낸 메일은 건너뜁니다.
 - 실행시간 예산을 넘기면 남은 메일 발송이나 정리를 멈추고 결과에 `incomplete: true`를 남깁니다. 같은 작업을 같은 날 다시 실행하면 이어서 처리합니다(`weeklyOps`는 다음 주 실행에서도 이어집니다).
 - `notifyEmail`이 비어 있으면 `dailyOps`는 내부 알림만 건너뛰고 결과 `warnings`에 `notify_email_not_configured`를 남깁니다. `monthlyRetention`은 실행하지 않고 같은 오류를 돌려줍니다.
+- 일일 메일 발송 한도(`MailApp.getRemainingDailyQuota`)가 남지 않으면 남은 자동 메일을 미루고 `warnings`에 `mail_quota_exhausted`를 남깁니다. 한도가 회복된 뒤 다시 실행하면 이어서 보냅니다.
+- 메일은 보냈지만 MailLog에 기록하지 못하면 `warnings`에 `mail_log_failed`를 남깁니다. 이 경우 다시 실행하면 같은 메일이 다시 나갈 수 있으므로 MailLog 시트 상태를 먼저 확인합니다.
 - `retentionMonths`가 비어 있으면 6개월을 쓰고, 숫자가 아니거나 1보다 작으면 6개월을 쓰면서 `warnings`에 `retention_months_invalid`를 남깁니다.
 
 면접관 메일은 면접조서 첨부가 필요하므로 `dailyOps`가 자동 발송하지 않습니다. `notifyEmail`로 준비 알림을 받은 뒤 대시보드에서 수동 발송합니다.

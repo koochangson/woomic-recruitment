@@ -250,7 +250,7 @@
         <div class="stage-seg" data-action="filter-stage" data-value="6" style="background:var(--rbg)"><div class="ss-lbl" style="color:var(--red)">불합격</div><div class="ss-cnt" id="sf-6" style="color:var(--red)">0</div></div>
       </div>
       <div class="filter-bar">
-        <input class="search-inp" id="cand-search" placeholder="🔍  이름·직무·부서 검색" data-oninput="renderTracker()">
+        <input class="search-inp" id="cand-search" placeholder="🔍  이름·직무·부서 검색" data-oninput="renderTracker()" data-debounce="200">
         <select id="sort-by" data-onchange="renderTracker()" style="font-size:11.5px;padding:4px 10px;border:1px solid var(--border2);border-radius:6px;font-family:'Pretendard',sans-serif;color:var(--t2)">
           <option value="stage-desc">단계↑순</option>
           <option value="stage-asc">단계↓순</option>
@@ -465,7 +465,7 @@
         <div class="referral-layout">
           <aside>
             <div class="fgrid" style="grid-template-columns:1fr 110px 120px;margin-bottom:10px">
-              <input id="rf-search" placeholder="검색" data-oninput="renderReferralSection()">
+              <input id="rf-search" placeholder="검색" data-oninput="renderReferralSection()" data-debounce="200">
               <select id="rf-dup-filter" data-onchange="renderReferralSection()">
                 <option value="">전체 플래그</option>
                 <option value="중복추천">중복추천</option>

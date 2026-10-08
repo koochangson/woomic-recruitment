@@ -216,8 +216,8 @@ function sendMailViaGmail_(to, subject, body, htmlBody, attachments, eventKey) {
     if (Array.isArray(attachments) && attachments.length) options.attachments = attachments;
 
     MailApp.sendEmail(options);
-    logMailSend_(recipients.join(','), cleanSubject, 'sent', '', eventKey);
-    return { ok: true, to: recipients.join(',') };
+    const logged = logMailSend_(recipients.join(','), cleanSubject, 'sent', '', eventKey);
+    return { ok: true, to: recipients.join(','), logged: logged !== false };
   } catch (err) {
     const errorText = String(err && err.message || err);
     logMailSend_(recipients.join(','), cleanSubject, 'failed', errorText, eventKey);
@@ -292,8 +292,10 @@ function logMailSend_(to, subject, status, error, eventKey) {
       sentAt: nowIso_()
     };
     sheet.appendRow(headers.map(function(h) { return row[h] == null ? '' : row[h]; }));
+    return true;
   } catch (err) {
     console.warn('logMailSend_ failed: ' + String(err && err.message || err));
+    return false;
   }
 }
 
@@ -2833,7 +2835,7 @@ const CLOSED_POSITION_STATUSES_ = ['filled', 'done', 'partial', 'nohire', 'stopp
 
 function positionProcessClosed_(positionId) {
   if (positionId === '' || positionId == null) return false;
-  const pos = readRowsIfSheetExists_('Positions').find(row => String(row.id) === String(positionId));
+  const pos = readRowByIdIfSheetExists_('Positions', positionId);
   return !!pos && CLOSED_POSITION_STATUSES_.includes(String(pos.status || '').trim());
 }
 
@@ -2844,7 +2846,7 @@ function candidateStageClosed_(value) {
 
 function candidateProcessClosed_(candId) {
   if (candId === '' || candId == null) return false;
-  const cand = readRowsIfSheetExists_('Candidates').find(row => String(row.id) === String(candId));
+  const cand = readRowByIdIfSheetExists_('Candidates', candId);
   if (!cand) return false;
   if (candidateStageClosed_(cand.stage) || String(cand.held || '') === 'Y') return true;
   return positionProcessClosed_(cand.posId);
@@ -3269,6 +3271,12 @@ function dailyOps() {
     }
 
     if (results.warnings.length) console.warn('dailyOps: Settings 시트의 notifyEmail이 비어 있어 내부 알림(면접 준비·보상 만기)을 보내지 않았습니다.');
+    opsMailWarnings_().forEach(warning => {
+      results.warnings.push(warning);
+      console.warn('dailyOps: ' + (warning === 'mail_quota_exhausted'
+        ? '일일 메일 발송 한도가 소진되어 남은 메일을 미뤘습니다. 한도가 회복된 뒤 다시 실행하면 이어서 보냅니다.'
+        : '보낸 메일 일부를 MailLog에 기록하지 못했습니다. 다시 실행하면 같은 메일이 다시 나갈 수 있습니다.'));
+    });
     // 실행시간 예산을 넘겨 보내지 못한 메일은 같은 날 다시 실행하면 이어서 보낸다(이미 보낸 메일은 eventKey로 건너뜀).
     results.incomplete = results.deferred > 0;
     console.log('dailyOps: ' + JSON.stringify(results));
@@ -3324,7 +3332,7 @@ function monthlyRetentionUnguarded_(notifyEmail) {
   ].join('\n');
   const send = sendOpsMailOnce_(eventKey, notifyEmail,
     '[채용시스템] 개인정보 파기 승인 대상 ' + targets.length + '명', message, opsPlainHtml_(message));
-  return { ok: send.ok || send.skipped, targets: targets.length, sent: !!send.ok, skipped: !!send.skipped, error: send.error || '', retentionMonths: retentionMonths, warnings: warnings };
+  return { ok: send.ok || send.skipped, targets: targets.length, sent: !!send.ok, skipped: !!send.skipped, deferred: !!send.deferred, error: send.error || '', retentionMonths: retentionMonths, warnings: warnings.concat(opsMailWarnings_()) };
 }
 
 function sendOpsMailOnce_(eventKey, to, subject, body, htmlBody) {
@@ -3332,9 +3340,40 @@ function sendOpsMailOnce_(eventKey, to, subject, body, htmlBody) {
   // 실행시간 제한(6분)에 강제로 끊기면 '보냈는데 기록 전'인 메일이 생겨 다시 실행할 때 중복될 수 있다.
   // 예산을 넘기면 더 보내지 않고 미룬다 — 같은 날 다시 실행하면 이어서 보낸다.
   if (opsTimeBudgetExceeded_()) return { ok: false, deferred: true };
+  // 일일 발송 한도가 남지 않았으면 보내지 않고 미룬다(한도 초과 오류를 메일마다 쌓지 않는다).
+  const quota = opsMailQuotaLeft_();
+  if (quota !== null && quota <= 0) {
+    EXEC_CACHE_.opsMailQuotaExhausted = true;
+    return { ok: false, deferred: true };
+  }
   const result = sendMailViaGmail_(to, subject, body, htmlBody, [], eventKey);
-  if (result && result.ok) opsSentEventKeys_().add(String(eventKey || ''));
+  if (result && result.ok) {
+    opsSentEventKeys_().add(String(eventKey || ''));
+    if (quota !== null) EXEC_CACHE_.opsMailQuota = quota - 1;
+    // 보냈지만 MailLog에 못 남기면 다음 실행에서 같은 메일을 다시 보낼 수 있다 — 결과에 경고로 남긴다.
+    if (result.logged === false) EXEC_CACHE_.opsMailLogFailed = true;
+  }
   return result;
+}
+
+// 남은 일일 메일 발송 한도. 실행당 한 번 읽고 보낼 때마다 줄인다. 읽을 수 없으면 null(한도 확인 생략).
+function opsMailQuotaLeft_() {
+  if (EXEC_CACHE_.opsMailQuota === undefined) {
+    try {
+      const left = Number(MailApp.getRemainingDailyQuota());
+      EXEC_CACHE_.opsMailQuota = Number.isFinite(left) ? left : null;
+    } catch (err) {
+      EXEC_CACHE_.opsMailQuota = null;
+    }
+  }
+  return EXEC_CACHE_.opsMailQuota;
+}
+
+function opsMailWarnings_() {
+  const warnings = [];
+  if (EXEC_CACHE_.opsMailQuotaExhausted) warnings.push('mail_quota_exhausted');
+  if (EXEC_CACHE_.opsMailLogFailed) warnings.push('mail_log_failed');
+  return warnings;
 }
 
 // MailLog 전체는 실행당 한 번만 읽는다(메일마다 다시 읽으면 기록이 쌓일수록 실행시간 제한에 걸린다).

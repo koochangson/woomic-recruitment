@@ -440,6 +440,26 @@ function loadOps({ notifyEmail = 'people@x.com', retentionMonths = '' } = {}) {
   check('monthlyRetention: Settings의 보존기간 사용', r.retentionMonths === 12 && r.warnings.length === 0, r);
 }
 
+// 메일 일일 한도·MailLog 기록 실패
+{
+  const ops = loadOps();
+  ops.ctx.MailApp.getRemainingDailyQuota = () => 2;
+  const r = ops.run('dailyOps()');
+  check('dailyOps: 일일 한도가 다 차면 남은 메일을 미루고 경고', ops.state.mails === 2 && r.deferred === 1 && r.incomplete === true && r.warnings.includes('mail_quota_exhausted'), r);
+  ops.newExecution();
+  ops.run('EXEC_CACHE_.opsMailQuota = undefined; EXEC_CACHE_.opsMailQuotaExhausted = false;');
+  ops.ctx.MailApp.getRemainingDailyQuota = () => 100;
+  const again = ops.run('dailyOps()');
+  check('dailyOps: 한도 회복 후 다시 실행하면 남은 메일만 이어서 발송', ops.state.mails === 3 && again.skipped === 2 && again.deferred === 0, again);
+}
+{
+  const ops = loadOps();
+  const keep = ops.ctx.logMailSend_;
+  ops.ctx.logMailSend_ = (...args) => { keep(...args); return false; };
+  const r = ops.run('dailyOps()');
+  check('dailyOps: 보냈지만 MailLog 기록 실패면 경고', ops.state.mails === 3 && r.warnings.includes('mail_log_failed'), r.warnings);
+}
+
 // weeklyOps: 밀린 아카이브를 여러 배치로 처리하고, 끊겼던 실행의 행을 두 번 아카이브하지 않는다.
 {
   const ops = loadOps();
@@ -533,6 +553,48 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   const r = run('submitReferenceResponseUnlocked_(' + JSON.stringify({ data: { token: 't1', answers: { q9_word: '성실' } } }) + ')');
   const stored = sheet.rows.slice(1).map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]])));
   check(label + ': 행이 밀려도 대상 행에 저장', r.ok === true && stored.length === 1 && stored[0].id === 'RR1' && stored[0].q9_word === '성실' && !!stored[0].submittedAt, { r, stored: stored.map(x => [x.id, x.q9_word]) });
+}
+
+// ── 지원자·포지션 종료 여부: 한 행만 읽고, 결과는 시트 전체를 읽던 방식과 같다 ──
+for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGsSource]]) {
+  const { run, ctx } = loadBackend(gsPath);
+  const candHeaders = run('SHEET_SCHEMAS.Candidates');
+  const posHeaders = run('SHEET_SCHEMAS.Positions');
+  const rowOf = (headers, obj) => headers.map(h => obj[h] ?? '');
+  const positions = [{ id: 1, status: 'active' }, { id: 2, status: 'stopped' }];
+  const candidates = [];
+  for (let i = 1; i <= 300; i++) candidates.push({ id: i, stage: i === 7 ? 6 : 1, held: i === 8 ? 'Y' : '', posId: i === 9 ? 2 : 1 });
+  let cells = 0;
+  const counted = sheet => ({ ...sheet, getRange: (...args) => { const range = sheet.getRange(...args); return { ...range, getValues: () => { const v = range.getValues(); cells += v.length * (v[0] ? v[0].length : 0); return v; } }; } });
+  const sheets = {
+    Candidates: counted(memorySheet([candHeaders.slice(), ...candidates.map(c => rowOf(candHeaders, c))])),
+    Positions: counted(memorySheet([posHeaders.slice(), ...positions.map(x => rowOf(posHeaders, x))])),
+  };
+  Object.assign(ctx, {
+    getSpreadsheetForSheet_: () => ({ getSheetByName: name => sheets[name] || null }),
+    getMainSpreadsheet_: () => ({ getSheetByName: name => sheets[name] || null }),
+    ensureSheet_: name => sheets[name],
+    ensureHeaders_: (sheet, schema) => schema,
+  });
+  const ids = [1, 7, 8, 9, 300, 999, '', null];
+  const fast = ids.map(id => run('candidateProcessClosed_(' + JSON.stringify(id) + ')'));
+  const fastCells = cells;
+  // 예전 방식(시트 전체 읽기)으로 같은 판정
+  const full = name => run('readRows_(' + JSON.stringify(name) + ')');
+  cells = 0;
+  const allCands = full('Candidates');
+  const allPos = full('Positions');
+  const closedPos = id => { const p = allPos.find(r => String(r.id) === String(id)); return !!p && ['filled', 'done', 'partial', 'nohire', 'stopped'].includes(String(p.status)); };
+  const slow = ids.map(id => {
+    if (id === '' || id == null) return false;
+    const c = allCands.find(r => String(r.id) === String(id));
+    if (!c) return false;
+    return ['5', '6', '7', '최종합격', '불합격', '입사'].includes(String(c.stage)) || c.held === 'Y' || closedPos(c.posId);
+  });
+  check(label + ': 종료 판정이 전체 읽기 방식과 같음', JSON.stringify(fast) === JSON.stringify(slow) && JSON.stringify(fast) === JSON.stringify([false, true, true, true, false, false, false, false]), { fast, slow });
+  check(label + ': 한 행만 읽어 전체 읽기보다 읽는 칸이 적음', fastCells / 6 < cells, { perLookup: fastCells / 6, fullRead: cells });
+  delete sheets.Candidates;
+  check(label + ': 시트가 없으면 만들지 않고 false', run('candidateProcessClosed_(1)') === false);
 }
 
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);

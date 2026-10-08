@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "e98cefe462a1",
+ "build": "01989aa92946",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_07_sheet_utils.gs",
@@ -109,7 +109,7 @@ const BUILD_MANIFEST_ = {
   ],
   "candidateProcessClosed_": [
    "admin_06_ai_referral_directory.gs",
-   "ad72f75d0aa7"
+   "13bcd35986ce"
   ],
   "candidateStageClosed_": [
    "admin_06_ai_referral_directory.gs",
@@ -181,7 +181,7 @@ const BUILD_MANIFEST_ = {
   ],
   "dailyOps": [
    "admin_07_sheet_utils.gs",
-   "98a4171d401a"
+   "d699427f5602"
   ],
   "dbSheetStatus_": [
    "admin_05_general_mail.gs",
@@ -529,7 +529,7 @@ const BUILD_MANIFEST_ = {
   ],
   "logMailSend_": [
    "admin_01_mail_base.gs",
-   "54d868a8879b"
+   "dd63f6c28347"
   ],
   "lookupEmployeeByEmpNoFromUrl_": [
    "admin_06_ai_referral_directory.gs",
@@ -585,7 +585,7 @@ const BUILD_MANIFEST_ = {
   ],
   "monthlyRetentionUnguarded_": [
    "admin_07_sheet_utils.gs",
-   "039499ace61f"
+   "8cc9683f6d3e"
   ],
   "nlToBr_": [
    "admin_05_general_mail.gs",
@@ -655,6 +655,14 @@ const BUILD_MANIFEST_ = {
    "admin_07_sheet_utils.gs",
    "40512ae018da"
   ],
+  "opsMailQuotaLeft_": [
+   "admin_07_sheet_utils.gs",
+   "6ab6c15d4cc1"
+  ],
+  "opsMailWarnings_": [
+   "admin_07_sheet_utils.gs",
+   "85fdcee32d51"
+  ],
   "opsPlainHtml_": [
    "admin_07_sheet_utils.gs",
    "3a5dc7c5fec6"
@@ -701,7 +709,7 @@ const BUILD_MANIFEST_ = {
   ],
   "positionProcessClosed_": [
    "admin_06_ai_referral_directory.gs",
-   "ee0870e279fc"
+   "b3f4dad625b7"
   ],
   "primaryKey_": [
    "shared_00_runtime.gs",
@@ -730,6 +738,10 @@ const BUILD_MANIFEST_ = {
   "readEmployeeDirectoryRows_": [
    "admin_06_ai_referral_directory.gs",
    "a3d3e069f179"
+  ],
+  "readRowByIdIfSheetExists_": [
+   "shared_00_runtime.gs",
+   "17b52ff4b5b9"
   ],
   "readRowsByIds_": [
    "shared_00_runtime.gs",
@@ -885,11 +897,11 @@ const BUILD_MANIFEST_ = {
   ],
   "sendMailViaGmail_": [
    "admin_01_mail_base.gs",
-   "ab76b9b9a4f2"
+   "65a8ced3b2ab"
   ],
   "sendOpsMailOnce_": [
    "admin_07_sheet_utils.gs",
-   "94ff00b13d29"
+   "8a003028d5d1"
   ],
   "sendReferenceEmail_": [
    "admin_04_reference.gs",
@@ -1038,7 +1050,7 @@ const BUILD_MANIFEST_ = {
   "js_30_interviews": "166de280d6d8",
   "js_31_interview_schedule": "9194113d679d",
   "js_32_interview_mail": "c45ce1c205df",
-  "js_99_app": "321f70129c98",
+  "js_99_app": "bda128d6f9ed",
   "mail_01_reference_candidate_request": "adff1215c3c7",
   "mail_02_reference_candidate_reminder": "bd7c2a027748",
   "mail_03_reference_referee_request": "38ca48b4d3e4",

@@ -14,8 +14,8 @@ function sendMailViaGmail_(to, subject, body, htmlBody, attachments, eventKey) {
     if (Array.isArray(attachments) && attachments.length) options.attachments = attachments;
 
     MailApp.sendEmail(options);
-    logMailSend_(recipients.join(','), cleanSubject, 'sent', '', eventKey);
-    return { ok: true, to: recipients.join(',') };
+    const logged = logMailSend_(recipients.join(','), cleanSubject, 'sent', '', eventKey);
+    return { ok: true, to: recipients.join(','), logged: logged !== false };
   } catch (err) {
     const errorText = String(err && err.message || err);
     logMailSend_(recipients.join(','), cleanSubject, 'failed', errorText, eventKey);
@@ -90,8 +90,10 @@ function logMailSend_(to, subject, status, error, eventKey) {
       sentAt: nowIso_()
     };
     sheet.appendRow(headers.map(function(h) { return row[h] == null ? '' : row[h]; }));
+    return true;
   } catch (err) {
     console.warn('logMailSend_ failed: ' + String(err && err.message || err));
+    return false;
   }
 }
 

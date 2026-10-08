@@ -197,7 +197,7 @@ const requiredPatterns = [
   {
     id: 'admin-daily-ops-is-idempotent',
     file: 'src/admin/backend/Code.gs',
-    pattern: /function dailyOps\(\)[\s\S]{0,14000}function sendOpsMailOnce_\([\s\S]{0,500}mailEventAlreadySent_\(eventKey\)[\s\S]{0,1200}function opsSentEventKeys_\(\)[\s\S]{0,400}readRowsIfSheetExists_\('MailLog'\)[\s\S]{0,200}'sent'/,
+    pattern: /function dailyOps\(\)[\s\S]{0,14000}function sendOpsMailOnce_\([\s\S]{0,500}mailEventAlreadySent_\(eventKey\)[\s\S]{0,3500}function opsSentEventKeys_\(\)[\s\S]{0,400}readRowsIfSheetExists_\('MailLog'\)[\s\S]{0,200}'sent'/,
     message: 'Daily operations must use MailLog event keys to avoid duplicate sends.',
   },
   {
