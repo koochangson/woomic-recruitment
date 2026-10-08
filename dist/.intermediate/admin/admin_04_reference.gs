@@ -178,6 +178,9 @@ function submitInterviewAvailability_(payload) {
       availabilityRespondedAt: nowIso_(),
       availabilityNote: note,
       availabilityProxyConfirmedAt: row.availabilityResponseBy === 'headhunter' ? nowIso_() : '',
+      // 관리자 화면이 이 회신을 받기 전 예전 내용으로 저장해도 덮어쓰지 않도록 버전을 올린다
+      // (그 저장은 버전 충돌이 되고, 화면의 자동 병합이 회신 칸을 서버 값으로 유지한다).
+      rev: (Number(row.rev) || 0) + 1,
       updatedAt: nowIso_()
     });
     const normalized = schemaRow_('Interviews', next);

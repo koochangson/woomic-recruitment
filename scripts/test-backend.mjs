@@ -467,5 +467,40 @@ function loadOps({ notifyEmail = 'people@x.com', retentionMonths = '' } = {}) {
   check('weeklyOps: 끝나면 실행 표시 해제', !Object.keys(ops.state.cache).some(k => k.startsWith('ops_running:')));
 }
 
+// ── 공개 면접 일정 회신: rev를 올려 관리자 화면의 예전 내용 저장이 회신을 덮어쓰지 않게 ──
+{
+  const { ctx, run } = loadBackend(publicGsSource);
+  const headers = run('SHEET_SCHEMAS.Interviews');
+  const original = { id: '31', candId: '21', candName: '홍길동', type: '1차', status: 'pending', memo: '', availabilityToken: 'itv-token',
+    availabilityExpiresAt: new Date(Date.now() + 5 * 86400000).toISOString(), availabilityStatus: 'SENT', availabilityResponseBy: 'candidate',
+    availabilityOptions: JSON.stringify([{ date: '2026-11-03', periods: ['AM', 'PM'] }]), availabilitySelections: '[]', rev: 3, updatedAt: '2026-10-01T00:00:00.000Z' };
+  let stored = null;
+  Object.assign(ctx, {
+    ensureSheet_: () => ({ getRange: () => ({ setValues: values => { stored = values[0]; } }) }),
+    ensureHeaders_: (sheet, schema) => schema,
+    findRowIndex_: () => 2,
+    readRows_: name => (name === 'Interviews' ? [{ ...original }] : []),
+    candidateProcessClosed_: () => false,
+    appendChange_: () => {},
+    notifyIfInterviewAvailabilityCohortComplete_: () => {},
+  });
+  const r = run('submitInterviewAvailability_(' + JSON.stringify({ data: { token: 'itv-token', selections: ['2026-11-03|AM'] } }) + ')');
+  const saved = stored ? Object.fromEntries(headers.map((h, i) => [h, stored[i]])) : {};
+  check('공개 회신: 저장 성공', r.ok === true, r);
+  check('공개 회신: rev를 1 올림', Number(saved.rev) === 4 && saved.availabilityStatus === 'RESPONDED', { rev: saved.rev, status: saved.availabilityStatus });
+  const conflict = run('revisionState_("Interviews", SHEET_SCHEMAS.Interviews, ' + JSON.stringify(stored) + ', { rev: 3 })');
+  check('공개 회신 후 예전 rev로 저장하면 충돌로 막힘', conflict.conflict === true && conflict.current === 4, conflict);
+
+  // 관리자 화면의 실제 병합 함수: 회신 칸은 서버 값, 관리자가 바꾼 칸(메모)은 화면 값
+  const syncJs = fs.readFileSync(new URL('../src/admin/frontend/js/js_01_sheets_sync.html', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const slice = name => { const i = syncJs.indexOf('function ' + name + '('); return syncJs.slice(i, syncJs.indexOf('\n}\n', i) + 3); };
+  const front = vm.createContext({});
+  vm.runInContext(slice('gsCell_') + slice('mergeGsConflictRow_'), front);
+  const base = { ...original };
+  const payload = { ...original, memo: '관리자 메모' };
+  const merged = vm.runInContext('mergeGsConflictRow_(' + JSON.stringify(payload) + ',' + JSON.stringify(base) + ',' + JSON.stringify(saved) + ')', front);
+  check('관리자 자동 병합: 회신은 유지하고 관리자 수정은 반영', merged.availabilityStatus === 'RESPONDED' && merged.availabilitySelections === saved.availabilitySelections && merged.memo === '관리자 메모' && Number(merged.rev) === 4, merged);
+}
+
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
