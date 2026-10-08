@@ -147,6 +147,18 @@ const requiredPatterns = [
     message: 'Admin change cursors must be property-backed and read by cursor value rather than row position.',
   },
   {
+    id: 'admin-change-log-does-not-copy-row-values',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function appendChanges_\([\s\S]{0,900}JSON\.stringify\(compactChangeLogData_\(change\.data\)\)/,
+    message: 'Admin change logs must store field metadata rather than a full row copy.',
+  },
+  {
+    id: 'public-change-log-does-not-copy-row-values',
+    file: 'src/public/backend/Code.gs',
+    pattern: /function appendChanges_\([\s\S]{0,900}JSON\.stringify\(compactChangeLogData_\(change\.data\)\)/,
+    message: 'Public change logs must store field metadata rather than a full row copy.',
+  },
+  {
     id: 'admin-change-log-archive-is-bounded',
     file: 'src/admin/backend/Code.gs',
     pattern: /CHANGE_ARCHIVE_RETENTION_DAYS = 90[\s\S]*CHANGE_ARCHIVE_BATCH_SIZE = 1000[\s\S]*function archiveOldChanges_\([\s\S]{0,2600}source\.deleteRows\(2, archiveCount\)/,
@@ -155,8 +167,14 @@ const requiredPatterns = [
   {
     id: 'admin-weekly-ops-archives-change-log',
     file: 'src/admin/backend/Code.gs',
-    pattern: /function weeklyOps\(\)\s*\{\s*const archiveResult = archiveOldChanges_\(\);[\s\S]{0,240}changeArchive: archiveResult/,
-    message: 'Weekly operations must invoke the bounded change-log archive handler.',
+    pattern: /function weeklyOps\(\)\s*\{\s*const archiveResult = archiveOldChanges_\(\);\s*const compactResult = compactChangeLogs\(\);[\s\S]{0,400}changeArchive: archiveResult/,
+    message: 'Weekly operations must archive old changes and compact legacy change-log values.',
+  },
+  {
+    id: 'admin-legacy-change-log-pii-is-compacted',
+    file: 'src/admin/backend/Code.gs',
+    pattern: /function compactStoredChangeLogValues_\([\s\S]{0,2600}compactChangeLogData_\(parsed\)[\s\S]{0,1800}function compactChangeLogs\(\)/,
+    message: 'Legacy active and archived change logs must be compactable in bounded batches.',
   },
   {
     id: 'admin-purge-removes-change-log-pii',

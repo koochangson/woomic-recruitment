@@ -92,6 +92,77 @@ function getActiveUserEmail_() {
   }
 }
 
+// _Changes에는 동기화에 필요한 변경 힌트만 남긴다. 실제 값은 getChanges 응답을 만들 때
+// 원본 시트에서 다시 읽으므로 이름·이메일·연락처 같은 개인정보가 변경 이력에 복제되지 않는다.
+function compactChangeLogData_(data) {
+  const source = data && typeof data === 'object' ? data : {};
+  return { fields: Object.keys(source).sort() };
+}
+
+// 지정한 id의 행만 읽는다. 키 열은 한 번 스캔하고, 실제 본문은 필요한 연속 구간만 가져온다.
+function readRowsByIds_(sheetName, ids) {
+  assertKnownSheet_(sheetName);
+  const targets = new Set((ids || []).map(function(id) { return String(id || '').trim(); }).filter(Boolean));
+  if (!targets.size) return {};
+
+  const sheet = ensureSheet_(sheetName);
+  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+  const keyIndex = headers.indexOf(primaryKey_(sheetName));
+  const lastRow = sheet.getLastRow();
+  if (keyIndex < 0 || lastRow < 2) return {};
+
+  const keyValues = sheet.getRange(2, keyIndex + 1, lastRow - 1, 1).getValues();
+  const rowNumbers = [];
+  keyValues.forEach(function(values, index) {
+    if (targets.has(String(values[0] || '').trim())) rowNumbers.push(index + 2);
+  });
+  if (!rowNumbers.length) return {};
+
+  const ranges = [];
+  rowNumbers.forEach(function(rowNumber) {
+    const current = ranges[ranges.length - 1];
+    if (current && current.start + current.count === rowNumber) current.count++;
+    else ranges.push({ start: rowNumber, count: 1 });
+  });
+
+  const result = {};
+  ranges.forEach(function(range) {
+    sheet.getRange(range.start, 1, range.count, headers.length).getValues().forEach(function(values) {
+      const row = {};
+      headers.forEach(function(header, index) { row[header] = normalizeCell_(values[index]); });
+      const id = String(row[primaryKey_(sheetName)] || '').trim();
+      if (id) result[id] = row;
+    });
+  });
+  return result;
+}
+
+// 저장 로그의 메타데이터를 클라이언트에 그대로 보내지 않고 현재 원본 행으로 채운다.
+// 로그 뒤에 행이 삭제됐다면 삭제 이벤트로 바꿔 오래된 개인정보가 다시 살아나지 않게 한다.
+function hydrateChangesForClient_(changes) {
+  const result = (Array.isArray(changes) ? changes : []).map(function(change) {
+    return Object.assign({}, change, { data: {} });
+  });
+  const idsBySheet = {};
+  result.forEach(function(change) {
+    if (change.action !== 'upsert' || !SHEET_SCHEMAS[change.sheet]) return;
+    if (!idsBySheet[change.sheet]) idsBySheet[change.sheet] = [];
+    idsBySheet[change.sheet].push(change.id);
+  });
+
+  const rowsBySheet = {};
+  Object.keys(idsBySheet).forEach(function(sheetName) {
+    rowsBySheet[sheetName] = readRowsByIds_(sheetName, idsBySheet[sheetName]);
+  });
+  result.forEach(function(change) {
+    if (change.action !== 'upsert' || !rowsBySheet[change.sheet]) return;
+    const row = rowsBySheet[change.sheet][String(change.id || '').trim()];
+    if (row) change.data = row;
+    else change.action = 'delete';
+  });
+  return result;
+}
+
 function compactRewardStatus_(status) {
   const map = {
     SCHEDULED: '예정',

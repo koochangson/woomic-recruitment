@@ -183,6 +183,62 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
 check('사내추천 접수 저장 경로에서 완료 메일을 부르지 않음',
   ![adminGsSource, publicGsSource].some(file => /sendReferralReceipt_|receipts.forEach/.test(fs.readFileSync(file, 'utf8'))));
 
+// ── _Changes 개인정보 최소화 + 응답 시 최신 행 복원 ──────────
+for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGsSource]]) {
+  const { ctx, run } = loadBackend(gsPath);
+  const headers = ['id', 'name', 'email', 'rev'];
+  const rows = [
+    ['1', '홍길동', 'one@example.com', '1'],
+    ['2', '김우미', 'two@example.com', '3'],
+  ];
+  const sheet = {
+    getLastRow: () => rows.length + 1,
+    getRange: (row, col, count, width) => ({
+      getValues: () => Array.from({ length: count }, (_, offset) => {
+        const source = rows[row - 2 + offset] || [];
+        return width === 1 ? [source[col - 1]] : source.slice(col - 1, col - 1 + width);
+      }),
+    }),
+  };
+  ctx.SHEET_SCHEMAS = { Candidates: headers };
+  Object.assign(ctx, { ensureSheet_: () => sheet, ensureHeaders_: () => headers });
+  const compact = run(`compactChangeLogData_({id:'2',name:'김우미',email:'two@example.com'})`);
+  check(`${label}: 변경 로그 메타데이터에 개인정보 값 없음`,
+    JSON.stringify(compact) === JSON.stringify({ fields: ['email', 'id', 'name'] }) && !JSON.stringify(compact).includes('example.com'), compact);
+  const hydrated = run(`hydrateChangesForClient_([
+    {cursor:1,sheet:'Candidates',action:'upsert',id:'2',data:{fields:['name']}},
+    {cursor:2,sheet:'Candidates',action:'upsert',id:'3',data:{fields:['name']}},
+    {cursor:3,sheet:'Candidates',action:'delete',id:'1',data:{email:'old@example.com'}}
+  ])`);
+  check(`${label}: 변경 응답은 원본 시트의 최신 행으로 복원`, hydrated[0].data.email === 'two@example.com' && hydrated[0].data.rev === '3', hydrated[0]);
+  check(`${label}: 이미 사라진 행은 삭제 이벤트로 변환`, hydrated[1].action === 'delete' && Object.keys(hydrated[1].data).length === 0, hydrated[1]);
+  check(`${label}: 삭제 이벤트에 과거 개인정보를 반환하지 않음`, Object.keys(hydrated[2].data).length === 0, hydrated[2]);
+}
+{
+  const { ctx, run } = loadBackend(adminGsSource);
+  const headers = ['cursor', 'timestamp', 'sheet', 'action', 'id', 'actorEmail', 'result', 'data'];
+  const stored = [
+    JSON.stringify({ id: '1', name: '홍길동', email: 'one@example.com' }),
+    JSON.stringify({ fields: ['id', 'name'] }),
+    JSON.stringify({ id: '2', phone: '01012345678' }),
+    JSON.stringify({ id: '3', memo: '민감한 메모' }),
+  ];
+  const sheet = {
+    getLastRow: () => stored.length + 1,
+    getLastColumn: () => headers.length,
+    getRange: (row, col, count) => ({
+      getValues: () => row === 1 ? [headers] : stored.slice(row - 2, row - 2 + count).map(value => [value]),
+      setValues: values => values.forEach((value, index) => { stored[row - 2 + index] = value[0]; }),
+    }),
+  };
+  ctx.getMainSpreadsheet_ = () => ({ getSheetByName: () => sheet });
+  let result = run(`compactStoredChangeLogValues_('_Changes', 2)`);
+  check('기존 변경 로그는 제한된 배치만 정리', result.compacted === 2 && result.remaining === true, result);
+  check('기존 변경 로그 정리 후 개인정보 값 없음', !stored.slice(0, 3).join('|').includes('example.com') && !stored.slice(0, 3).join('|').includes('01012345678'), stored);
+  result = run(`compactStoredChangeLogValues_('_Changes', 2)`);
+  check('다음 실행에서 남은 변경 로그 정리', result.compacted === 1 && result.remaining === false && !stored.join('|').includes('민감한 메모'), result);
+}
+
 // ── _Changes 커서: 끝부분만 읽어도 전체를 읽은 결과와 같아야 한다 ──
 function referencePage(cursors, requested, limit) {
   const matches = [];

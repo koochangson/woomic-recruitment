@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "62fe54741d35",
+ "build": "adf509882dde",
  "functions": {
   "addReferenceDays_": [
    "admin_04_reference.gs",
@@ -41,7 +41,7 @@ const BUILD_MANIFEST_ = {
   ],
   "appendChanges_": [
    "admin_07_sheet_utils.gs",
-   "cd3ca96a7be3"
+   "e32165edb779"
   ],
   "applyKoreanJosa_": [
    "admin_04_reference.gs",
@@ -139,6 +139,14 @@ const BUILD_MANIFEST_ = {
    "admin_05_general_mail.gs",
    "7870ed9e0d21"
   ],
+  "compactChangeLogData_": [
+   "shared_00_runtime.gs",
+   "545cb66cc694"
+  ],
+  "compactChangeLogs": [
+   "admin_07_sheet_utils.gs",
+   "ed189eadf5c4"
+  ],
   "compactReferralStatus_": [
    "admin_09_auth.gs",
    "ee246418f1b7"
@@ -146,6 +154,10 @@ const BUILD_MANIFEST_ = {
   "compactRewardStatus_": [
    "shared_00_runtime.gs",
    "a164cc25f765"
+  ],
+  "compactStoredChangeLogValues_": [
+   "admin_07_sheet_utils.gs",
+   "09a7c9b49a44"
   ],
   "constantTimeEqual_": [
    "admin_09_auth.gs",
@@ -297,7 +309,7 @@ const BUILD_MANIFEST_ = {
   ],
   "getChanges_": [
    "admin_02_sheet_api.gs",
-   "96a956a5fd77"
+   "52ec3d66dfb8"
   ],
   "getCommonAttachmentMeta_": [
    "admin_05_general_mail.gs",
@@ -402,6 +414,10 @@ const BUILD_MANIFEST_ = {
   "htmlToPlainText_": [
    "admin_04_reference.gs",
    "5cb772412479"
+  ],
+  "hydrateChangesForClient_": [
+   "shared_00_runtime.gs",
+   "daa83693e622"
   ],
   "include": [
    "admin_05_general_mail.gs",
@@ -691,6 +707,10 @@ const BUILD_MANIFEST_ = {
    "admin_06_ai_referral_directory.gs",
    "a3d3e069f179"
   ],
+  "readRowsByIds_": [
+   "shared_00_runtime.gs",
+   "eedd689e1fdf"
+  ],
   "readRowsIfSheetExists_": [
    "admin_06_ai_referral_directory.gs",
    "3a2150911021"
@@ -965,7 +985,7 @@ const BUILD_MANIFEST_ = {
   ],
   "weeklyOps": [
    "admin_07_sheet_utils.gs",
-   "814d0f854966"
+   "2f96693d15ef"
   ],
   "writeEmployeeDirectoryCache_": [
    "admin_06_ai_referral_directory.gs",

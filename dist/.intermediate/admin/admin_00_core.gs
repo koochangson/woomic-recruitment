@@ -37,6 +37,7 @@ const CHANGE_LOG_SHEET = '_Changes';
 const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
 const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
 const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
+const CHANGE_COMPACT_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions', 'Onboardings', 'Offers', 'RefReports'];
 // 처음 만들 때 모든 칸을 텍스트 형식으로 두는 시트(날짜·시각·연락처를 그대로 보관)

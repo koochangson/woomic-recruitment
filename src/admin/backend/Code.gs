@@ -37,6 +37,7 @@ const CHANGE_LOG_SHEET = '_Changes';
 const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
 const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
 const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
+const CHANGE_COMPACT_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions', 'Onboardings', 'Offers', 'RefReports'];
 // 처음 만들 때 모든 칸을 텍스트 형식으로 두는 시트(날짜·시각·연락처를 그대로 보관)
@@ -620,7 +621,7 @@ function getChanges_(query) {
   const cursor = Number(query && query.cursor) || 0;
   const limit = Math.min(Number(query && query.limit) || 500, 1000);
   const page = readChangePageAfter_(cursor, limit);
-  const changes = page.changes;
+  const changes = hydrateChangesForClient_(page.changes);
   const latestCursor = page.latestCursor;
   const nextCursor = changes.length ? Number(changes[changes.length - 1].cursor) : Math.max(cursor, latestCursor);
   return json_({
@@ -3065,7 +3066,7 @@ function appendChanges_(changes) {
       change.id,
       actorEmail,
       'ok',
-      JSON.stringify(change.data || {})
+      JSON.stringify(compactChangeLogData_(change.data))
     ];
   });
   sheet.getRange(sheet.getLastRow() + 1, 1, values.length, 8).setValues(values);
@@ -3156,14 +3157,66 @@ function archiveOldChanges_(retentionDays, maxRows) {
   }
 }
 
+// 예전 _Changes에는 행 전체 JSON이 들어 있다. 한 번에 너무 많은 셀을 쓰지 않도록 제한된 수만
+// 필드명 메타데이터로 바꾸며, 남은 건은 다음 weeklyOps 또는 수동 실행에서 이어서 처리한다.
+function compactStoredChangeLogValues_(sheetName, maxRows) {
+  const ss = getMainSpreadsheet_();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return { sheet: sheetName, scanned: 0, compacted: 0, remaining: false };
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(value) {
+    return String(value || '').trim();
+  });
+  const dataIndex = headers.indexOf('data');
+  if (dataIndex < 0) return { sheet: sheetName, scanned: 0, compacted: 0, remaining: false };
+
+  const count = sheet.getLastRow() - 1;
+  const values = sheet.getRange(2, dataIndex + 1, count, 1).getValues();
+  const limit = Math.max(1, Math.min(Number(maxRows) || CHANGE_COMPACT_BATCH_SIZE, CHANGE_COMPACT_BATCH_SIZE));
+  const updates = [];
+  let remaining = false;
+  values.forEach(function(row, index) {
+    const parsed = parseJsonObject_(row[0]);
+    const alreadyCompact = Array.isArray(parsed.fields) && Object.keys(parsed).every(function(key) { return key === 'fields'; });
+    if (alreadyCompact) return;
+    if (updates.length >= limit) { remaining = true; return; }
+    updates.push({ row: index + 2, value: JSON.stringify(compactChangeLogData_(parsed)) });
+  });
+
+  // 연속된 행끼리 묶어 API 호출 수를 줄인다.
+  const ranges = [];
+  updates.forEach(function(update) {
+    const current = ranges[ranges.length - 1];
+    if (current && current.start + current.values.length === update.row) current.values.push([update.value]);
+    else ranges.push({ start: update.row, values: [[update.value]] });
+  });
+  ranges.forEach(function(range) {
+    sheet.getRange(range.start, dataIndex + 1, range.values.length, 1).setValues(range.values);
+  });
+  return { sheet: sheetName, scanned: values.length, compacted: updates.length, remaining: remaining };
+}
+
+function compactChangeLogs() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return {
+      active: compactStoredChangeLogValues_(CHANGE_LOG_SHEET),
+      archive: compactStoredChangeLogValues_(CHANGE_ARCHIVE_SHEET)
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function archiveOldChanges() {
   return archiveOldChanges_();
 }
 
 function weeklyOps() {
   const archiveResult = archiveOldChanges_();
-  console.log('weeklyOps: ' + JSON.stringify({ changeArchive: archiveResult }));
-  return { ok: true, changeArchive: archiveResult };
+  const compactResult = compactChangeLogs();
+  console.log('weeklyOps: ' + JSON.stringify({ changeArchive: archiveResult, changeLogCompaction: compactResult }));
+  return { ok: true, changeArchive: archiveResult, changeLogCompaction: compactResult };
 }
 
 // 진행이 끝난 지원자 id 집합 — 불합격, 보류(held), 또는 진행중이 아닌 포지션 소속.
