@@ -20,6 +20,7 @@ const DELEGATED_CALLS = Object.freeze({
   onObDeptLeadInput_, onObDateChange_, onObPreDeadlineInput_, updateRankPreview_,
   pickCommonAttachment, uploadCommonAttachment,
   openFinalPassModal, addFinalPassDate, removeFinalPassDate, sendFinalPassNotice,
+  proceedToPanelCheck,
   filterNotifyTeamCandidates, addNotifyTeamRecipient, removeNotifyTeamRecipient, onNotifyTeamSearchKey, hideNotifyTeamResultsLater_,
   openOfferHealthModal, saveOfferHealth, sendOfferHealth, setOfferStatus, formatOfferSalaryInput, renderOfferAttachList,
   refreshPosSiteOptions,
@@ -154,6 +155,10 @@ function handleDelegatedFormEvent(eventName, target, delegatedEvent) {
 // 고정 URL은 GS 설정 로드 후에도 유지한다(빈 값으로 덮어쓰지 않도록 재적용).
 function applyFixedUrls_() {
   if(FIXED_URLS.scriptUrl)      GS_CONFIG.scriptUrl      = FIXED_URLS.scriptUrl;
+  // Apps Script 화면은 서버 주소 없이 google.script.run으로 같은 서버에 저장한다. 주소 칸이 비어 있는 PC에서도
+  // 'scriptUrl이 있을 때만 서버에 저장' 조건이 통과하도록 내부 표시값을 둔다(예전에는 그런 PC의 지원자·설정
+  // 변경이 서버에 저장되지 않아, 다른 PC나 재접속 때 비어 보였다). gsFetch는 이 화면에서 주소를 쓰지 않는다.
+  if(!GS_CONFIG.scriptUrl && typeof isAppsScriptDashboard_ === 'function' && isAppsScriptDashboard_()) GS_CONFIG.scriptUrl = APPS_SCRIPT_BRIDGE_URL_;
   if(FIXED_URLS.referralDataUrl) GS_CONFIG.referralDataUrl = FIXED_URLS.referralDataUrl;
   if(FIXED_URLS.interviewerUrl) GS_CONFIG.interviewerUrl = FIXED_URLS.interviewerUrl;
   if(FIXED_URLS.refAutoUrl)     GS_CONFIG.refAutoUrl     = FIXED_URLS.refAutoUrl;

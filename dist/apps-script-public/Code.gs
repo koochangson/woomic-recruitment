@@ -738,6 +738,8 @@ function submitInterviewAvailability_(payload) {
     const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
     if (row && candidateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
     if (!row || interviewAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
+    // 제출한 일정은 수정할 수 없다(변경은 담당자 문의 → 담당자가 다시 요청하면 새로 받는다).
+    if (row.availabilityStatus === 'RESPONDED' || row.availabilityStatus === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
     if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok:false, error:'proxy_confirmation_required' });
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => option.periods.forEach(period => { allowed[option.date + '|' + period] = true; }));
@@ -1021,6 +1023,7 @@ function submitPanelAvailability_(payload) {
     const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
     if (row && positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
     if (!row || panelAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
+    if (row.status === 'RESPONDED' || row.status === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => option.periods.forEach(period => { allowed[option.date + '|' + period] = true; }));
     const selections = requested.filter((value,index,array) => allowed[value] && array.indexOf(value) === index);
@@ -1210,7 +1213,8 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
     relation: String(ref && ref.relation || '').trim(),
     company: String(ref && ref.company || '').trim()
   }));
-  if (normalizedReferees.some(ref => !ref.name || !ref.email || !ref.phone)) {
+  // 추천인 3명 모두 이름·이메일·전화번호·소속 회사가 있어야 접수한다.
+  if (normalizedReferees.some(ref => !ref.name || !ref.email || !ref.phone || !ref.company)) {
     return json_({ error: 'referee_fields_incomplete' });
   }
   const emailSet = {};

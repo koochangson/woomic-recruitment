@@ -35,7 +35,22 @@ function nextWeekdaysFrom(startOffsetDays, count) {
   return dates;
 }
 
-function openCollectSlots(posId, stageIdx) {
+// 지원자들이 회신한 가능 시간대를 날짜별로 합친다(면접관에게 확인할 후보).
+function candidateSelectedOptions_(roundInterviews) {
+  const byDate = new Map();
+  (roundInterviews || []).filter(itv => itv?.availabilityStatus === 'RESPONDED').forEach(itv => {
+    (Array.isArray(itv.availabilitySelections) ? itv.availabilitySelections : []).forEach(value => {
+      const [date, period] = String(value).split('|');
+      if(!date || !['AM','PM'].includes(period)) return;
+      byDate.set(date, new Set([...(byDate.get(date) || []), period]));
+    });
+  });
+  return [...byDate.keys()].sort().map(date => ({ date, periods:['AM','PM'].filter(p => byDate.get(date).has(p)) }));
+}
+
+// 면접 일정 확인 순서: ① 지원자 가능일 요청 → ② 지원자 회신 취합 → ③ 회신된 시간대만 면접관에게 확인
+// → ④ 면접관 공통 가능 일정 확정 → ⑤ 면접 시간·순서 확정. forcePanel: 일부만 회신했어도 면접관 확인으로 진행.
+function openCollectSlots(posId, stageIdx, forcePanel=false) {
   const pos = positions.find(p => Number(p.id) === Number(posId));
   if(!pos) return;
   const round = stageIdx === 1 ? '1차' : '2차';
@@ -50,21 +65,41 @@ function openCollectSlots(posId, stageIdx) {
   const optionKey = stageIdx === 1 ? 'panel1AvailabilityOptions' : 'panel2AvailabilityOptions';
   const requestedKey = stageIdx === 1 ? 'panel1AvailabilityRequestedAt' : 'panel2AvailabilityRequestedAt';
   const confirmedKey = stageIdx === 1 ? 'panel1AvailabilityConfirmedAt' : 'panel2AvailabilityConfirmedAt';
-  const panelMode = !pos[confirmedKey];
   const roundInterviews = targets.map(c => interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round));
   const candidateResponsesComplete = targets.length > 0 && roundInterviews.every(itv => ['RESPONDED','UNAVAILABLE'].includes(itv?.availabilityStatus));
-  if(!panelMode && candidateResponsesComplete) {
+  const panelRequested = !!pos[requestedKey];
+  const panelConfirmed = !!pos[confirmedKey];
+  if(panelConfirmed && candidateResponsesComplete) {
     openPositionRoundSchedule(posId, stageIdx);
     return;
   }
-  collectSlotsCtx = { posId, stageIdx, mode:panelMode ? 'panel' : 'candidate' };
+  // 지원자 회신이 다 모이면 면접관 확인으로 넘어간다. 이미 면접관에게 보낸 진행 중 건(예전 순서)은 그대로 면접관 단계.
+  let panelMode = !panelConfirmed && (forcePanel || panelRequested || candidateResponsesComplete);
+  const panelOptions = panelMode ? (panelRequested && Array.isArray(pos[optionKey]) && pos[optionKey].length ? pos[optionKey] : candidateSelectedOptions_(roundInterviews)) : [];
+  if(panelMode && !panelOptions.length) {
+    toast('지원자가 회신한 가능 일정이 없습니다. 지원자 회신을 확인하거나 후보 날짜를 다시 안내해 주세요.', 'tw');
+    panelMode = false;
+  }
+  collectSlotsCtx = { posId, stageIdx, mode:panelMode ? 'panel' : 'candidate', panelOptions };
+  const respondedCount = roundInterviews.filter(itv => itv?.availabilityStatus === 'RESPONDED').length;
   document.getElementById('csl-title').textContent = panelMode
-    ? `${round} 면접관 후보일정 확인 — ${(pos.dept?pos.dept+' · ':'')+pos.title}`
+    ? `${round} 면접관 일정 확인 — ${(pos.dept?pos.dept+' · ':'')+pos.title}`
     : `${round} 지원자 면접일정 요청 — ${(pos.dept?pos.dept+' · ':'')+pos.title} (${targets.length}명)`;
   const intro = document.getElementById('csl-intro');
   if(intro) intro.innerHTML = panelMode
-    ? `지원자에게 안내하기 전에 <b>면접관의 참석 가능 날짜와 오전·오후</b>를 먼저 확인합니다. 면접관 회신을 확인한 뒤 다음 단계에서 지원자에게 같은 후보일정을 안내합니다.`
-    : `면접관 확인이 완료된 후보일정입니다. 지원자에게 <b>날짜별 오전·오후 가능 여부</b>를 받고, 응답 취합 후 피플팀에서 정확한 시간과 면접순서를 확정합니다.`;
+    ? `지원자들이 회신한 가능 일정을 <b>면접관에게 확인</b>합니다. 면접관이 모두 회신하면 공통으로 가능한 시간대로 면접 시간과 순서를 확정합니다.`
+    : `지원자에게 먼저 <b>날짜별 오전·오후 가능 여부</b>를 받습니다. 회신이 모이면 접수된 일정만 면접관에게 확인한 뒤 정확한 시간과 순서를 확정합니다.`;
+  // 면접관 단계: 면접관에게 보낼(보낸) 후보 = 지원자 회신 시간대
+  const fromCands = document.getElementById('csl-panel-from-cands');
+  if(fromCands) {
+    fromCands.style.display = panelMode ? '' : 'none';
+    fromCands.innerHTML = panelMode
+      ? `<div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:6px">${panelRequested ? '면접관에게 확인 중인 일정' : '지원자 회신 일정'} · ${panelOptions.reduce((n, o) => n + o.periods.length, 0)}개 시간대</div>
+        <div style="font-size:12px;line-height:1.7;white-space:pre-line">${esc(formatAvailabilityOptions(panelOptions))}</div>`
+      : '';
+  }
+  const toPanel = document.getElementById('csl-to-panel');
+  if(toPanel) toPanel.style.display = !panelMode && !panelConfirmed && respondedCount > 0 ? '' : 'none';
   const savedOptions = Array.isArray(pos[optionKey]) ? pos[optionKey] : [];
   // 지원자 후보일정 개수에 제한을 두지 않는다. 저장된 값이 있으면 그대로, 없으면
   // 주말을 제외한 평일 3일을 기본 제안값으로 채우고 이후 자유롭게 추가·삭제할 수 있다.
@@ -90,7 +125,8 @@ function openCollectSlots(posId, stageIdx) {
     panelWeeks.onchange = updatePanelRangeSummary;
   }
   const panelRange = document.getElementById('csl-panel-range');
-  if(panelRange) panelRange.style.display = panelMode ? '' : 'none';
+  // 예전 순서(면접관 먼저)의 기간 지정 칸은 쓰지 않는다 — 면접관 후보는 지원자 회신 시간대다.
+  if(panelRange) panelRange.style.display = 'none';
   const candidateOptions = document.getElementById('csl-candidate-options');
   if(candidateOptions) candidateOptions.style.display = panelMode ? 'none' : '';
   const panelCommon = document.getElementById('csl-panel-common');
@@ -283,7 +319,7 @@ function removeCandidateDateRow(btn) {
 }
 
 function collectAvailabilityOptions() {
-  if(collectSlotsCtx?.mode === 'panel') return panelRangeDates();
+  if(collectSlotsCtx?.mode === 'panel') return collectSlotsCtx.panelOptions?.length ? collectSlotsCtx.panelOptions : panelRangeDates();
   const rows = document.querySelectorAll('#csl-date-list [data-date-row]');
   return [...rows].map(row => {
     const date = row.querySelector('[data-role="date"]')?.value || '';
@@ -447,7 +483,7 @@ function applyPanelResponsesToModal_(posId, stageIdx, responses) {
     // 이 버튼은 면접관 공통 일정을 확정하는 동작이다. 누르면 이어서 '지원자 면접일정 요청' 창이 열린다.
     // (예전 문구 '지원자 면접일정 요청'은 다음 창의 발송 버튼과 같아 같은 일을 두 번 하는 것처럼 보였다)
     primary.textContent = '면접관 일정 확정';
-    primary.title = allReplied ? '선택한 공통 일정으로 면접관 일정을 확정하고 지원자 일정 요청으로 넘어갑니다.' : '모든 면접관이 회신하면 확정할 수 있습니다.';
+    primary.title = allReplied ? '선택한 공통 일정으로 면접관 일정을 확정하고 면접 시간·순서 확정으로 넘어갑니다.' : '모든 면접관이 회신하면 확정할 수 있습니다.';
     primary.dataset.call = 'confirmPanelAvailabilityAndContinue()';
   }
   const refresh = document.getElementById('csl-panel-refresh');
@@ -541,7 +577,7 @@ function renderPanelCommonAvailability(pos, stageIdx, responses) {
   const preserved = new Set([...previous].filter(value => allowed.has(value)));
   const usePreserved = preserved.size > 0;
   container.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px">면접관 공통 가능 일정</div>
-    <div style="font-size:11px;color:var(--t3);margin-bottom:9px">지원자에게 안내할 날짜와 시간대를 선택하세요.</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:9px">면접 일정으로 쓸 날짜와 시간대를 선택하세요. 확정하면 면접 시간·순서 확정으로 넘어갑니다.</div>
     <div style="display:flex;flex-direction:column;gap:6px">${commonOptions.map(option => {
       const date = new Date(`${option.date}T00:00:00`);
       const label = `${date.getMonth()+1}월 ${date.getDate()}일(${['일','월','화','수','목','금','토'][date.getDay()]})`;
@@ -632,18 +668,18 @@ async function sendPanelAvailabilityRequest() {
     const body = [
       `안녕하세요 ${panelistDisplayName || '면접위원'}님,`, '',
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
-      '아래 링크에서 후보 기간 중 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
+      '지원자들이 회신한 가능 일정 중 참석 가능한 날짜와 시간대를 아래 링크에서 모두 선택해 주세요.', '',
       `후보 기간: ${optionText}`, '',
       `응답 마감: ${deadline}`, '',
       `일정 선택 링크: ${issued.link}`, '',
-      '지원자 일정 확인 후 정확한 면접 시간과 순서를 다시 안내드리겠습니다.', '',
+      '회신을 모아 정확한 면접 시간과 순서를 확정한 뒤 다시 안내드리겠습니다.', '',
       '감사합니다.', '우미건설 피플팀 드림'
     ].join('\n');
     // HTML 발송용 안내 박스 내용 — 본문(body)과 달리 인사말·서명을 반복하지 않는다.
     // (템플릿 상단에서 이미 candidateName으로 인사말을 렌더링하고, 링크는 actionLink 버튼으로 별도 렌더링됨)
     const noticeBody = [
       `${pos.title} 포지션 ${round} 면접 일정을 조율하고자 합니다.`,
-      '아래 버튼을 눌러 후보 기간 중 참석 가능한 날짜와 시간대를 모두 선택해 주세요.', '',
+      '지원자들이 회신한 가능 일정 중 참석 가능한 날짜와 시간대를 아래 버튼을 눌러 모두 선택해 주세요.', '',
       `후보 기간: ${optionText}`, '',
       `응답 마감: ${deadline}`
     ].join('\n');
@@ -684,6 +720,26 @@ async function sendPanelAvailabilityRequest() {
   } finally {
     panelAvailabilitySendBusy_ = false;
   }
+}
+
+// 일부 지원자만 회신했어도 접수된 일정으로 면접관 확인을 진행한다(미회신자는 확인 후 개별로 조정).
+async function proceedToPanelCheck() {
+  const { posId, stageIdx } = collectSlotsCtx;
+  const round = stageIdx === 1 ? '1차' : '2차';
+  const targetStages = stageIdx === 1 ? [0,1] : [2,3];
+  const targets = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage) && isActivePipelineCand(c));
+  const waiting = targets.filter(c => !['RESPONDED','UNAVAILABLE'].includes(interviews.find(i => Number(i.candId) === Number(c.id) && i.type === round)?.availabilityStatus));
+  if(waiting.length) {
+    const ok = await confirmActionModal({
+      title:'접수된 일정으로 면접관 확인',
+      message:`아직 회신하지 않은 지원자가 ${waiting.length}명 있습니다. 지금까지 회신된 일정만으로 면접관에게 확인할까요?`,
+      items:waiting.map(c => `${c.name} · 회신 대기`),
+      confirmLabel:'회신된 일정으로 진행',
+    });
+    if(!ok) return;
+  }
+  closeModal('modal-collect-slots');
+  openCollectSlots(posId, stageIdx, true);
 }
 
 // 면접관 일정 요청·확인을 저장한 뒤 뒤쪽 화면(처리 필요 업무, 포지션 상세, 칸반)도 바로 갱신한다.
@@ -728,10 +784,11 @@ async function confirmPanelAvailabilityAndContinue() {
   const commonOptions = commonPanelAvailability(options, selectedResponses);
   if(!commonOptions.length) return fail('모든 면접관이 공통으로 가능한 시간대가 없습니다. 후보일정을 다시 조정해 주세요.');
   const selectedOptions = selectedPanelCommonOptions();
-  if(!selectedOptions.length) return fail('지원자에게 안내할 공통 가능 일정을 하나 이상 선택하세요.');
+  if(!selectedOptions.length) return fail('면접 일정으로 쓸 공통 가능 일정을 하나 이상 선택하세요.');
   const allowed = new Set(commonOptions.flatMap(option => option.periods.map(period => `${option.date}|${period}`)));
   const invalid = selectedOptions.some(option => option.periods.some(period => !allowed.has(`${option.date}|${period}`)));
   if(invalid) return fail('면접관 공통 가능 일정에 포함되지 않은 항목이 있습니다. 응답을 새로고침해 주세요.');
+  const selectedSlots = selectedOptions.reduce((n, o) => n + o.periods.length, 0);
   setBusy(true, '면접관 일정 확정 저장 중…');
   applyAvailabilityOptionsToInputs(selectedOptions);
   pos[keys.options] = selectedOptions;
@@ -744,7 +801,8 @@ async function confirmPanelAvailabilityAndContinue() {
     }).catch(() => toast('면접관 일정 확정이 아직 서버에 저장되지 않았습니다. 자동으로 다시 시도합니다.', 'tw'));
   }
   rerenderAfterPanelAvailabilitySave_(posId);
-  // 창 제목·내용이 바로 '지원자 면접일정 요청'으로 바뀌므로 같은 내용의 알림은 띄우지 않는다.
+  // 지원자 회신이 모두 모였으면 바로 면접 시간·순서 확정 창으로, 아니면 지원자 회신 현황으로 이어진다.
+  toast(`면접관 공통 일정 ${selectedSlots}개 시간대를 확정했습니다.`, 'tok');
   openCollectSlots(posId, stageIdx);
 }
 
@@ -754,10 +812,6 @@ async function sendCollectSlots() {
   if(!pos) return;
   if(!hasGsBridge_()) { toast('서버에 연결되지 않아 지원자 응답 링크를 만들 수 없습니다. 설정 → 시스템 연동을 확인해 주세요.', 'terr'); return; }
   const panelKeys = panelAvailabilityKeys(stageIdx);
-  if(!pos[panelKeys.confirmed]) {
-    toast('면접관 가능 일정을 먼저 확인해 주세요.', 'terr');
-    return;
-  }
   const round = stageIdx === 1 ? '1차' : '2차';
   const roundLabel = round === '1차' ? '1차 면접' : '2차 면접';
 
@@ -769,8 +823,8 @@ async function sendCollectSlots() {
   if(!deadline) { fieldError_('csl-deadline', '지원자 응답 마감일을 입력해 주세요.'); return; }
   const loc = document.getElementById('csl-loc')?.value || '';
   const slotText = formatAvailabilityPeriod(options);
-  pos[panelKeys.options] = options;
-  pos[panelKeys.confirmed] = pos[panelKeys.confirmed] || new Date().toISOString();
+  // 지원자에게 안내한 후보를 저장한다(면접관 확인은 지원자 회신 후). 이미 면접관에게 보낸 건이면 그 후보는 그대로 둔다.
+  if(!pos[panelKeys.requested]) pos[panelKeys.options] = options;
 
   const targetStages = stageIdx === 1 ? [0,1] : [2,3];
   const stageCands = candidates.filter(c => Number(c.posId) === Number(posId) && targetStages.includes(c.stage) && isActivePipelineCand(c));

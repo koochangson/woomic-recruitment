@@ -138,6 +138,14 @@
         const data = await api('verifyJoinDateToken', {token});
         if(!data.ok) return showError(errorText(data.error));
         document.getElementById('participant-name').textContent = data.candName || '';
+        if(data.responseBy === 'headhunter') {
+          // 헤드헌팅 업체가 후보자 대신 회신하는 경우
+          document.getElementById('page-title').textContent = '후보자 입사 가능일 회신';
+          document.querySelector('.hello').textContent = '안녕하세요,';
+          document.getElementById('intro').innerHTML = `<b>${escHtml(data.candName || '')}</b> 후보자의 최종 합격을 알려드립니다. 후보자에게 확인한 입사 가능일을 아래에서 선택해 주세요.`;
+          document.getElementById('guide').firstElementChild.textContent = '헤드헌터 대리 회신';
+          document.getElementById('submit').textContent = '후보자 입사 가능일 제출';
+        }
         document.getElementById('position-text').textContent = data.positionText ? `${data.positionText} 포지션` : '';
         if(data.deadline) document.getElementById('deadline-line').innerHTML = `<br>회신 기한: <b>${escHtml(dateLabel(data.deadline))}까지</b>`;
         renderCalendar(data.options || [], data.selection || '');

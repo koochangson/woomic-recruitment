@@ -1303,7 +1303,7 @@ function renderRefReport(candId) {
   const responses=document.getElementById('ref-report-responses');
   if(responses) responses.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:7px">추천인별 답변</div>
     ${refs.length ? refs.map((r,ri)=>`<div style="padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${r.responseText?'6px':'0'}"><strong style="font-size:11.5px">${ri+1}. ${esc(r.name||'이름 미등록')} · ${esc(r.relation||'관계 미등록')}</strong><span class="b ${r.status==='응답'?'bgreen':'bgray'}">${esc(r.status||'대기')}</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${r.responseText?'6px':'0'}"><strong style="font-size:11.5px">${ri+1}. ${esc(r.name||'이름 미등록')} · ${esc(r.relation||'관계 미등록')}${r.company?` · ${esc(r.company)}`:''}</strong><span class="b ${r.status==='응답'?'bgreen':'bgray'}">${esc(r.status||'대기')}</span></div>
       ${r.responseText?`<div style="font-size:11.5px;line-height:1.55;white-space:pre-wrap;color:var(--text)">${esc(r.responseText)}</div>`:'<div style="font-size:11px;color:var(--t3)">아직 확인된 답변 내용이 없습니다.</div>'}
     </div>`).join(''):'<div style="padding:12px;background:var(--s2);border-radius:var(--rsm);font-size:11px;color:var(--t3)">접수된 추천인 정보가 없습니다.</div>'}`;
   const set=(field,value)=>{const el=document.getElementById(`ref-report-${field}`);if(el)el.value=value||'';};

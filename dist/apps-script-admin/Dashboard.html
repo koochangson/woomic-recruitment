@@ -1222,7 +1222,7 @@
       </details>
     </div>
     <div class="modal-ft ob-modal-ft">
-      <div id="ob-send-status" style="display:none;gap:6px;flex-wrap:wrap;margin-right:auto"></div>
+      <div id="ob-send-status" style="display:none;gap:6px;flex-wrap:wrap;width:100%;justify-content:flex-end"></div>
       <button class="btn btn-primary" id="ob-save-btn" data-action="call" data-call="addOnboarding()">등록</button>
       <button class="btn btn-primary" id="ob-send-btn" data-action="call" data-call="sendObNotify('outlook')">지원자 입사안내 발송</button>
       <button class="btn" id="ob-internal-btn" data-action="call" data-call="sendCurrentOnboardInternal()">내부 직원 공유</button>
@@ -1276,7 +1276,7 @@
     </div>
     <div class="modal-body">
       <div id="csl-intro" style="font-size:12px;color:var(--t3);margin-bottom:14px;padding:8px 10px;background:var(--s2);border-radius:var(--rsm)">
-        면접관의 가능 일정을 먼저 확인한 뒤 지원자에게 <b>날짜별 오전·오후 가능 여부</b>를 받습니다. 정확한 시간과 면접순서는 응답 취합 후 피플팀에서 확정합니다.
+        지원자에게 먼저 <b>날짜별 오전·오후 가능 여부</b>를 받고, 회신된 일정만 면접관에게 확인합니다. 정확한 시간과 면접순서는 면접관 확인 후 피플팀에서 확정합니다.
       </div>
       <div id="csl-panel-range" style="display:none;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)">
         <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">면접관 일정 확인 범위</div>
@@ -1291,6 +1291,8 @@
           <span id="csl-panel-range-summary" style="font-size:11px;color:var(--t3)">평일 오전·오후를 안내합니다.</span>
         </div>
       </div>
+      <!-- 면접관 확인 단계: 지원자들이 회신한 시간대(면접관에게 보낼 후보) -->
+      <div id="csl-panel-from-cands" style="display:none;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:var(--rsm);background:var(--s2)"></div>
       <div id="csl-candidate-options">
         <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">지원자 후보 날짜와 시간대</div>
         <div id="csl-date-list" class="slot-option-list" style="margin-bottom:8px"></div>
@@ -1317,6 +1319,7 @@
     </div>
     <div class="modal-ft">
       <button class="btn" data-action="close-modal" data-id="modal-collect-slots">취소</button>
+      <button id="csl-to-panel" class="btn" style="display:none" data-action="call" data-call="proceedToPanelCheck()">접수된 일정으로 면접관 확인 →</button>
       <button id="csl-primary-action" class="btn btn-primary" data-action="call" data-call="sendCollectSlots()">지원자 면접일정 요청 발송</button>
     </div>
   </div>

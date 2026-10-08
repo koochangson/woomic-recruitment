@@ -922,6 +922,8 @@ function submitInterviewAvailability_(payload) {
     if (row && candidateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
     if (!row) return json_({ ok: false, error: 'invalid_token' });
     if (interviewAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    // 제출한 일정은 수정할 수 없다(변경은 담당자 문의 → 담당자가 다시 요청하면 새로 받는다).
+    if (row.availabilityStatus === 'RESPONDED' || row.availabilityStatus === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
     if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok: false, error: 'proxy_confirmation_required' });
 
     const allowed = {};
@@ -1253,7 +1255,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
   if (candRow.refereesSubmittedAt) return json_({ error: 'already_submitted' });
 
   // 일부만 유효하고 일부가 빠진 상태로 시트에 쓰거나 메일을 보내기 시작하면 안 되므로,
-  // 쓰기/발송을 시작하기 전에 3명 전원의 필수값(이름·이메일·전화번호)을 먼저 검증한다.
+  // 쓰기/발송을 시작하기 전에 3명 전원의 필수값(이름·이메일·전화번호·소속 회사)을 먼저 검증한다.
   const normalizedReferees = referees.map(ref => ({
     name: String(ref && ref.name || '').trim(),
     email: normalizeEmail_(ref && ref.email),
@@ -1261,7 +1263,7 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
     relation: String(ref && ref.relation || '').trim(),
     company: String(ref && ref.company || '').trim(),
   }));
-  if (normalizedReferees.some(r => !r.name || !r.email || !r.phone)) {
+  if (normalizedReferees.some(r => !r.name || !r.email || !r.phone || !r.company)) {
     return json_({ error: 'referee_fields_incomplete' });
   }
   const emailSet = {};
@@ -1674,9 +1676,32 @@ function forwardNoticeHtml_(data) {
   return '        <tr>\n' +
     '          <td style="padding:0 0 22px;">\n' +
     '            <div style="padding:14px 16px;border:1px solid #f0d9a8;background:#fff8ea;border-radius:12px;">\n' +
-    '              <div style="font-size:13px;line-height:1.4;font-weight:700;color:#8a5a12;padding-bottom:6px;">헤드헌팅 경유 안내</div>\n' +
+    '              <div style="font-size:13px;line-height:1.4;font-weight:700;color:#8a5a12;padding-bottom:6px;">헤드헌팅 경유 안내 · 요청 사항</div>\n' +
     '              <div style="font-size:14px;line-height:1.6;color:#1b2027;word-break:keep-all;overflow-wrap:break-word;">' + firm + recipient + '님, 안녕하세요. ' + position + '후보자 <strong>' + candidate + '</strong>님의 ' + purpose + '입니다.<br>' + instruction + '</div>\n' +
     '            </div>\n' +
+    '          </td>\n' +
+    '        </tr>\n' +
+    // 아래 본문은 후보자에게 전달할 내용임을 구분해 보여 준다(본문 인사말은 후보자에게 하는 말).
+    '        <tr>\n' +
+    '          <td style="padding:0 0 16px;">\n' +
+    '            <div style="font-size:12px;line-height:1.5;font-weight:700;color:#8a94a1;border-bottom:1px dashed #cfd8e3;padding-bottom:6px;">▼ 후보자 전달 내용 — 아래 내용을 후보자에게 전달해 주세요</div>\n' +
+    '          </td>\n' +
+    '        </tr>\n';
+}
+
+// 헤드헌팅 업체에 보내는 메일: 지원자용 버튼 문구를 대리 입력 문구로, 문의 안내는 카카오톡 대신 회신 안내로 바꾼다.
+const HEADHUNTER_BUTTON_LABELS_ = [
+  ['>가능한 시간대 선택하기<', '>후보자 가능 시간대 입력<'],
+  ['>입사 가능일 선택하기<', '>후보자 입사 가능일 입력<']
+];
+function headhunterBodyHtml_(html) {
+  return HEADHUNTER_BUTTON_LABELS_.reduce((out, pair) => out.split(pair[0]).join(pair[1]), String(html || ''));
+}
+function headhunterContactHtml_() {
+  return '        <tr>\n' +
+    '          <td style="padding-top:24px;border-top:1px solid #dde7f1;">\n' +
+    '            <div style="font-size:15px;line-height:1.4;font-weight:700;color:#1b2027;padding-bottom:6px;">문의 및 회신</div>\n' +
+    '            <div style="font-size:14px;line-height:1.6;color:#5c6875;word-break:keep-all;overflow-wrap:break-word;">후보자 회신과 문의는 본 메일에 회신하시거나 우미건설 피플팀 담당자에게 연락해 주세요. 회신 시 후보자명과 포지션명을 함께 적어 주세요.</div>\n' +
     '          </td>\n' +
     '        </tr>\n';
 }
@@ -1993,6 +2018,7 @@ function submitPanelAvailability_(payload) {
     if (row && positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
     if (!row) return json_({ ok: false, error: 'invalid_token' });
     if (panelAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    if (row.status === 'RESPONDED' || row.status === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
 
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => {
@@ -2061,7 +2087,10 @@ function renderGeneralMailHeader_(templateKey, data) {
     .replace(/{{headerSubtitle}}/g, subtitle);
 }
 
+// 메일 양식을 만들지 못한 이유(발송 실패 알림에 함께 보여 준다)
+var GENERAL_MAIL_LAST_ERROR_ = '';
 function generalMailHtml_(templateKey, data) {
+  GENERAL_MAIL_LAST_ERROR_ = '';
   try {
     const fileName = GENERAL_MAIL_TEMPLATE_FILES[templateKey];
     if (!fileName) return '';
@@ -2080,9 +2109,13 @@ function generalMailHtml_(templateKey, data) {
 
     const preheaderDiv = '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#ffffff;">' + preheader + '</div>';
 
-    return headerTop + preheaderDiv + headerBottom + bodyOpen + forwardNoticeHtml_(ctx) + filledBody + contactHtml + bodyClose + footer;
+    const forwarded = !!forwardNoticeData_(ctx);
+    return headerTop + preheaderDiv + headerBottom + bodyOpen + forwardNoticeHtml_(ctx)
+      + (forwarded ? headhunterBodyHtml_(filledBody) : filledBody)
+      + (forwarded ? headhunterContactHtml_() : contactHtml) + bodyClose + footer;
   } catch (err) {
-    console.warn('generalMailHtml_ failed: ' + String(err && err.message || err));
+    GENERAL_MAIL_LAST_ERROR_ = String(err && err.message || err);
+    console.warn('generalMailHtml_ failed: ' + GENERAL_MAIL_LAST_ERROR_);
     return '';
   }
 }
@@ -2445,7 +2478,8 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
   if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal', 'offer_health', 'final_pass',
        'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&
       /\{\{[^}]+\}\}/.test(rendered)) {
-    throw new Error('unresolved_general_mail_placeholder');
+    // 어떤 칸이 남았는지 함께 알려 준다(서버 코드와 메일 양식 파일의 버전이 다를 때 주로 생긴다).
+    throw new Error('unresolved_general_mail_placeholder:' + (rendered.match(/\{\{[^}]+\}\}/g) || []).filter((v, i, a) => a.indexOf(v) === i).join(','));
   }
   return rendered;
 }
@@ -2458,7 +2492,7 @@ function handleSendGeneralMail_(payload) {
   if (!to || !subject) return json_({ error: 'missing_mail_fields' });
   try {
     const html = generalMailHtml_(body.templateType, body);
-    if (!html) throw new Error('mail_template_render_failed');
+    if (!html) throw new Error('mail_template_render_failed' + (GENERAL_MAIL_LAST_ERROR_ ? ':' + GENERAL_MAIL_LAST_ERROR_ : ''));
     // 메일 문구는 HTML 템플릿 한 곳에서만 관리한다 — 텍스트 버전도 렌더링된 HTML에서 만든다.
     const message = htmlToPlainText_(html) || String(body.body || body.message || '').trim();
     const attachments = buildMailAttachments_(body.attachments);

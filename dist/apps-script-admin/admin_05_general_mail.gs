@@ -182,6 +182,7 @@ function submitPanelAvailability_(payload) {
     if (row && positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
     if (!row) return json_({ ok: false, error: 'invalid_token' });
     if (panelAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
+    if (row.status === 'RESPONDED' || row.status === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
 
     const allowed = {};
     normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => {
@@ -250,7 +251,10 @@ function renderGeneralMailHeader_(templateKey, data) {
     .replace(/{{headerSubtitle}}/g, subtitle);
 }
 
+// 메일 양식을 만들지 못한 이유(발송 실패 알림에 함께 보여 준다)
+var GENERAL_MAIL_LAST_ERROR_ = '';
 function generalMailHtml_(templateKey, data) {
+  GENERAL_MAIL_LAST_ERROR_ = '';
   try {
     const fileName = GENERAL_MAIL_TEMPLATE_FILES[templateKey];
     if (!fileName) return '';
@@ -269,9 +273,13 @@ function generalMailHtml_(templateKey, data) {
 
     const preheaderDiv = '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#ffffff;">' + preheader + '</div>';
 
-    return headerTop + preheaderDiv + headerBottom + bodyOpen + forwardNoticeHtml_(ctx) + filledBody + contactHtml + bodyClose + footer;
+    const forwarded = !!forwardNoticeData_(ctx);
+    return headerTop + preheaderDiv + headerBottom + bodyOpen + forwardNoticeHtml_(ctx)
+      + (forwarded ? headhunterBodyHtml_(filledBody) : filledBody)
+      + (forwarded ? headhunterContactHtml_() : contactHtml) + bodyClose + footer;
   } catch (err) {
-    console.warn('generalMailHtml_ failed: ' + String(err && err.message || err));
+    GENERAL_MAIL_LAST_ERROR_ = String(err && err.message || err);
+    console.warn('generalMailHtml_ failed: ' + GENERAL_MAIL_LAST_ERROR_);
     return '';
   }
 }
@@ -634,7 +642,8 @@ function renderGeneralMailTemplate_(html, templateKey, data) {
   if (['interview_first', 'interview_second', 'panel_schedule', 'onboarding', 'onboarding_internal', 'offer_health', 'final_pass',
        'interview_slot_request', 'rejection', 'headhunter_forward', 'general_notice'].includes(templateKey) &&
       /\{\{[^}]+\}\}/.test(rendered)) {
-    throw new Error('unresolved_general_mail_placeholder');
+    // 어떤 칸이 남았는지 함께 알려 준다(서버 코드와 메일 양식 파일의 버전이 다를 때 주로 생긴다).
+    throw new Error('unresolved_general_mail_placeholder:' + (rendered.match(/\{\{[^}]+\}\}/g) || []).filter((v, i, a) => a.indexOf(v) === i).join(','));
   }
   return rendered;
 }
@@ -647,7 +656,7 @@ function handleSendGeneralMail_(payload) {
   if (!to || !subject) return json_({ error: 'missing_mail_fields' });
   try {
     const html = generalMailHtml_(body.templateType, body);
-    if (!html) throw new Error('mail_template_render_failed');
+    if (!html) throw new Error('mail_template_render_failed' + (GENERAL_MAIL_LAST_ERROR_ ? ':' + GENERAL_MAIL_LAST_ERROR_ : ''));
     // 메일 문구는 HTML 템플릿 한 곳에서만 관리한다 — 텍스트 버전도 렌더링된 HTML에서 만든다.
     const message = htmlToPlainText_(html) || String(body.body || body.message || '').trim();
     const attachments = buildMailAttachments_(body.attachments);

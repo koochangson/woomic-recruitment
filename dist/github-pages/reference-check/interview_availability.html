@@ -41,7 +41,7 @@
         <div id="proxy-confirm-wrap" class="proxy-confirm hidden">
           <label><input id="proxy-confirm" type="checkbox"> <span>후보자에게 참석 가능 여부를 확인했으며, 후보자를 대신하여 회신합니다.</span></label>
         </div>
-        <div class="notice">응답은 마감 전까지 다시 제출할 수 있습니다. 마감 후 일정 변경이 필요하면 피플팀에 알려 주세요.</div>
+        <div class="notice">제출한 일정은 수정할 수 없습니다. 제출 전에 선택 내용을 한 번 더 확인해 주세요.</div>
         <div id="form-message" class="form-message" role="alert" aria-live="assertive" aria-atomic="true"></div>
         <div class="actions"><button id="submit" class="submit" type="submit">가능 일정 제출</button></div>
       </form>
@@ -49,7 +49,7 @@
         <h2 id="complete-title">응답이 저장되었습니다</h2>
         <p id="complete-message" class="done-msg">면접시간이 확정되면 별도 메일로 안내드리겠습니다.</p>
         <div id="complete-summary" class="done-summary"></div>
-        <div class="done-actions"><button id="edit-response" class="edit-btn" type="button">선택 내용 수정하기</button></div>
+        <p class="done-msg" style="margin-top:12px">수정이 필요하시면 담당자에게 문의 바랍니다.</p>
         <div id="kakao-contact" class="kakao">
           <div class="kakao-text"><strong>문의사항</strong>일정 변경이나 궁금한 점이 있으시면 카카오톡 채널로 문의해 주세요.<br><a class="kakao-link" href="https://pf.kakao.com/_sZjin/chat" target="_blank" rel="noopener"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkBAMAAAATLoWrAAAAMFBMVEX////+/v78/P37+/vj5OWsrrBjZms8QEYgJSweIyodIikbICcaICcZHiUSFx4NEhmC9WpdAAACGklEQVR42m2STUgUYQCGn++bTXdC3W8UDMJsdqMiSJLoj0qlxIN16FJKEARGF+sYRJcCL0JBERWdvESUQggKrUFJaREFUrKUCdXuuOomWzozu1ttws50GKNDvcfn8B7e5xUAptUW27h/MPlAegSplh2Dix9Hk9nTZhTQQPzsGCi8/eUn0+czD1URDcxN/Xd1HfTwxMlvr300ZL4rvzZo0F9eeIGjEWm69XWlFCNeOYIQsRMVjX8QpZZ9SU0W4ssAdlEHZJwFYTY3meClWyMTM1Hwtq6Tmgl4ZV0Dl8u6LEA2ilX55zC75+LSTGzD9WHFu7GQIcE/3v4MPj8tPwxmQrT3OBSG7pg2hjefmURMa3vLlXews94qd+xcQ6JKeS1SKQpXTct3wEs/OoIQIQXpT1XaAUZ9XFkFQkYUyiXYySeHcEPNDoD/BAClYE4CRBwMAxCuB8hxqDs3i20D9dvTUCddB6+moRGgJrV7DD+ibVsfFm9KcYgZmV33XajVNq9RVHR/+LI6Y+88lFL4taK9x4FEZ73XZmzpToCYFrVzY5Cb6vvxKpodV1AYDtkeIJy5MxOPqxVg2VrU9RXZhcq+rBEGvNbbsmQB4nvvjRUh3qSWm+pPQ36HHpD39+xAmh+dVH+l4XMtLayAMDU0WNRYtkSFHg5I6tQVHIlXN9KWCsjS0bPjFhq481bv4oKOvXzs0s1I8X+XE/8e8zdrcN6IInSkHwAAAABJRU5ErkJggg==" alt="" width="18" height="18">카카오톡 문의하기 →</a></div>
           <div class="kakao-qr"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsAQAAAABRBrPYAAADaklEQVR42u2aP27jRhTGf49DgKpMlVssQqZKFcDldtSRfAPRN/ARcogcQOpc+gIBKGCBbBdxK9Eg+aUYKms7CeKI5KxlaBoRo4cZzpv37/seTbxi1BGvGhexi9hFbC4x82NZm1lMBGxLoBvmy9nfrfM/d+emXknSBpxakFlJbZb7+Tbou30hAXDlnJteT38E5/56/DD3nZrZCtImpqWnKEmrrALMokk3VfkuY4hrOzP/mG3zia33DBWiHMBpc7uC7BBm06+f32UyshNcxodeOkt8qC12lvv5PsQRXFi9PUywWgzgXTjFNQl0Ue/d+bfGz69DXL1W5+X1Ps/7scdJR2yT6ek/l9ryDRW0sLXlUMT2UJTQmFkEtyMLWtvAzagj5MGtFwlI96mklh4opAqSAxbeepMTV6uCx17BD6S7JZ3FYENiSarG1EM9GzKyzfUzewP4+AQknYefPhzB3RDwT7depE26T9UCPcC6ImmhN5WsQ1nv2eFTBNTZzmIn/ShJuzyrY0CmcVCx2i7Cn7RZNcsA0bIl0SGV9uAkwAY0D6RzRUtHw/31syrJVeAOYPtxJ20mvYX77PDp7+XoDElc+CTu2i6muUpKyKqkWaCe2zKEvVWP2k+y2hC7H8dmwFflLINC2mUVruWnHmCXQ3IA1gHYPD59eby/+3k5mdcvxr1b97L2sF/5ZW7rjRHbVZ3tLGlsUcHVQ11mdVKbJqabnoK7F15vf0RPWCkLkoyK/usonIWqQpIqp5bfpbIoPbsinZTr86MDOs8w3sweuL4LPvW635O2PmWxlnyNJEnl+pzw6ecXPjvNpnch8ILItEm1y+lipE1txzCoUziu/42MJlktf8HV3ASwXlFsgCO7spaGMwWt8N/ELTyjm5wkUUiSqkQ6WCi66Yg7Zy5XvqvY1ceJ6CYzs6VVncX0bG1V59AtUIQvVcc1RsPqLRyzPfRPa0vU+r5zts1xB9CpNdL1P3tU+b6sd2hlqsW35NJ9VjVmZhqA/Wmbdv+iw/PV21WATTtLWnoKbeqcRPqGGc/GTyftKta5a8EiblfpNqcbaPeScK2lgPbWjQo18TeaDlxLTB9ttwXQJIfF6WHwBK8fv9rDeygJ/kvMzAffzhIpgvWmLlSRHEwayakex4d3VnHZ5VvQi9hF7M2L/QlKLrxiYUh3lAAAAABJRU5ErkJggg==" alt="카카오톡 채널 QR" width="84" height="84">QR코드를 스캔하시면<br>바로 연결됩니다.</div>
@@ -101,9 +101,6 @@
       loading.classList.add('hidden'); form.classList.add('hidden'); error.classList.add('hidden');
       complete.classList.remove('hidden'); complete.focus({ preventScroll: true });
     }
-    document.getElementById('edit-response').addEventListener('click', () => {
-      complete.classList.add('hidden'); form.classList.remove('hidden'); form.focus({ preventScroll: true });
-    });
     // 후보 날짜를 일~토 달력으로 그린다(첫 후보일이 속한 주의 일요일부터 마지막 후보일이 속한 주의 토요일까지).
     // 후보가 아닌 날·주말은 흐리게, 후보일은 오전·오후 칸을 눌러 선택한다. 값 형식(날짜|AM/PM)은 기존과 같다.
     function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -175,7 +172,7 @@
         note.classList.toggle('on', unavailable.checked);
         unavailable.setAttribute('aria-expanded', unavailable.checked ? 'true' : 'false');
         if(unavailable.checked) document.querySelectorAll('input[name="availability"]').forEach(el => { el.disabled=true; el.checked=false; });
-        // 이미 제출했다면 폼 대신 제출 완료 안내와 선택 내용을 먼저 보여 준다(마감 전까지 [선택 내용 수정하기]로 다시 제출 가능).
+        // 이미 제출했다면 폼 대신 제출 완료 안내와 선택 내용을 보여 준다. 제출 후에는 수정할 수 없다(담당자 문의).
         if(data.alreadySubmitted) return showComplete('이미 제출하신 응답입니다', data.selections, !!data.unavailable, data.note || '');
         loading.classList.add('hidden'); form.classList.remove('hidden'); form.focus({ preventScroll: true });
       } catch(err) { showError('네트워크 연결을 확인한 뒤 다시 시도해 주세요.'); }
@@ -197,7 +194,7 @@
         button.disabled=false; button.textContent=responseBy === 'headhunter' ? '후보자 가능 일정 제출' : '가능 일정 제출';
         showComplete('응답이 저장되었습니다', selections, unavailable.checked, note.value.trim());
       } catch(err) {
-        formMessage.textContent=err.message === 'process_closed' ? '해당 채용 절차가 마감되어 더 이상 응답을 받지 않습니다. 참여해 주셔서 감사합니다.' : err.message === 'token_expired' ? '응답 기간이 종료되었습니다.' : '응답을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+        formMessage.textContent=err.message === 'already_submitted' ? '이미 제출하셨습니다. 수정이 필요하시면 담당자에게 문의 바랍니다.' : err.message === 'process_closed' ? '해당 채용 절차가 마감되어 더 이상 응답을 받지 않습니다. 참여해 주셔서 감사합니다.' : err.message === 'token_expired' ? '응답 기간이 종료되었습니다.' : '응답을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
         form.removeAttribute('aria-busy');
         button.disabled=false; button.textContent=responseBy === 'headhunter' ? '후보자 가능 일정 제출' : '가능 일정 제출';
       }

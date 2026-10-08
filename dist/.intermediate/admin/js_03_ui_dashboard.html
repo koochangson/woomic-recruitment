@@ -76,6 +76,7 @@ function updateSidebarUrgency() {
 
 let lazyInterviewerLoadPromise_ = null;
 let lazyInterviewerLoadAttempted_ = false;
+let lazyInterviewerLoadAttemptAt_ = 0;
 let lazyReferenceLoadPromise_ = null;
 let lazyReferenceLoaded_ = false;
 
@@ -90,8 +91,10 @@ function canLoadInterviewers_() {
 async function ensureInterviewersLoaded_() {
   if(interviewers.length || !canLoadInterviewers_() || typeof loadInterviewers !== 'function') return;
   if(lazyInterviewerLoadPromise_) { await lazyInterviewerLoadPromise_; return; }
-  if(lazyInterviewerLoadAttempted_) return;
+  // 비어 있는 결과로 끝났으면 30초 뒤에는 다시 시도한다(설정이 늦게 불러와진 경우 등).
+  if(lazyInterviewerLoadAttempted_ && Date.now() - lazyInterviewerLoadAttemptAt_ < 30000) return;
   lazyInterviewerLoadAttempted_ = true;
+  lazyInterviewerLoadAttemptAt_ = Date.now();
   lazyInterviewerLoadPromise_ = loadInterviewers()
     .catch(error => console.warn('면접관 DB 로드 실패:', error))
     .finally(() => { lazyInterviewerLoadPromise_ = null; });
@@ -1165,6 +1168,11 @@ function compactDashboardActionDesc(action, pos) {
   if(/면접 실시 후 완료 처리 필요/.test(title)) return '면접 실시 후 완료 처리 필요';
   if(/면접 결과 입력 필요/.test(title)) return '면접 완료 · 결과 입력 필요';
   if(/레퍼런스/.test(title)) return `${desc.replace(/·.*/, '').trim() || '레퍼런스 확인 필요'} · ${compactPositionActionTitle(title)}`;
+  if(/직급군 지정 필요/.test(title)) return `${desc.replace(/ · .*/, '').trim() || '직급군 미지정'} · 지정해야 2차면접·처우협의로 이동`;
+  if(/처우·채용검진 안내 발송 필요|처우·검진 안내 필요/.test(title)) return '처우 확정 대상 · 처우·검진 안내 발송 필요';
+  if(/최종합격 통보 필요/.test(title)) return '최종합격자 있음 · 최종합격 통보 필요';
+  if(/입사일 조정 요청/.test(title)) return '제안 날짜 모두 어려움 · 날짜 다시 제안 필요';
+  if(/입사일 회신 대기/.test(title)) return '최종합격 통보 발송 · 입사일 회신 대기';
   if(/처우협의/.test(title)) return '처우협의 대상 있음 · 결과 입력 필요';
   return desc || '확인 필요';
 }
@@ -1179,7 +1187,7 @@ function dashboardActionCategory(item) {
   if(/reference|ref_/.test(type) || /레퍼런스/.test(title) || /레퍼런스/.test(label)) return '레퍼런스';
   if(/mail|notice/.test(type) || /메일|발송|안내 확인|면접안내/.test(title) || label === '완료') return '메일 발송';
   if(/interview|schedule|slots|first_|second_/.test(type) || /면접|일정|후보일정/.test(title)) return '면접 운영';
-  if(/candidate|fill|offer|residual|unlinked|onboard/.test(type) || /충원|지원자 등록|지원자 미배정|미연결|처우협의|잔여|입사 안내/.test(title)) return '포지션 관리';
+  if(/candidate|fill|offer|residual|unlinked|onboard|grade_band|final_pass|join_date/.test(type) || /충원|지원자 등록|지원자 미배정|미연결|처우협의|잔여|입사 안내|직급군|최종합격 통보|입사일/.test(title)) return '포지션 관리';
   return '기타';
 }
 
@@ -1206,7 +1214,8 @@ function renderDashboardActionList(items) {
 
 function formatDashboardActionLines(desc) {
   const parts = String(desc || '확인 필요')
-    .split('·')
+    // 항목 구분은 ' · '(앞뒤 띄어쓰기)만 쓴다. '2차면접·처우협의'처럼 붙은 가운뎃점은 나누지 않는다.
+    .split(/\s+·\s+/)
     .map(v => v.trim())
     .filter(Boolean);
   if(parts.length <= 1) return `<div class="dash-ac-line">${esc(parts[0] || '확인 필요')}</div>`;

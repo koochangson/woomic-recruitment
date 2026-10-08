@@ -105,7 +105,7 @@ function wrapHeadhunterBody(cand, purpose, directBody) {
   return `안녕하세요, ${target.recipientName}님.
 
 우미건설 ${cand.pos || ''} 포지션 헤드헌팅 후보자 ${cand.name}님의 ${purpose} 관련 안내드립니다.
-아래 내용을 후보자분께 전달하시고, ${usesSystemResponse ? '후보자에게 참석 가능 여부를 확인한 뒤 안내된 링크에서 대신 입력해 주세요.' : '일정 확인 및 회신은 담당 컨설턴트님을 통해 진행 부탁드립니다.'}
+${headhunterInstructionFor_(purpose)}
 
 ----- 후보자 전달 내용 -----
 ${String(directBody || '').replace(new RegExp(`안녕하세요\\\\s*${cand.name}님,?\\\\n*`, 'g'), '').trim()}
@@ -125,11 +125,25 @@ ${usesSystemResponse ? '링크에서 제출한 내용은 헤드헌터 대리 회
 // 호출하는 메일 발송 함수가 첫 줄에서 꺼내 쓰고 비우므로, 다른 발송과 섞이지 않는다.
 let mailForwardContext_ = null;
 function takeMailForwardContext_() { const ctx = mailForwardContext_; mailForwardContext_ = null; return ctx; }
+// 헤드헌팅 업체에 보내는 메일의 요청 사항(메일 종류별). 발송하는 곳에서 따로 정했으면 그 문구를 쓴다.
+function headhunterInstructionFor_(purpose) {
+  const p = String(purpose || '');
+  // 단계 이동 시 보내는 짧은 안내('처우협의 단계' 등)는 일반 전달 문구를 쓴다.
+  if(/단계$/.test(p)) return '아래 내용을 후보자에게 전달해 주시고, 회신은 후보자명과 포지션명을 함께 기재해 본 메일로 보내 주세요.';
+  if(/후보일정|가능 일정/.test(p)) return '후보자에게 가능한 일정을 확인한 뒤 아래 버튼에서 대신 입력해 주세요.';
+  if(/최종합격|입사일 확인/.test(p)) return '후보자에게 최종 합격 소식을 전달하고 입사 가능일을 확인해 아래 버튼에서 대신 입력해 주세요. 링크를 후보자에게 전달해 직접 선택하게 하셔도 됩니다.';
+  if(/채용검진|근로조건|처우/.test(p)) return '아래 처우 제안과 채용검진 안내를 후보자에게 전달해 주시고, 처우 수락 여부와 채용검진 진행 일정을 본 메일로 회신해 주세요.';
+  if(/입사 안내/.test(p)) return '입사 일정과 사전 정보 입력·서류 제출 안내를 후보자에게 전달해 주세요. 첨부된 매뉴얼도 함께 전달 부탁드립니다.';
+  if(/불합격|채용 결과/.test(p)) return '아래 채용 결과를 후보자에게 전달해 주세요. 세부 내용이 필요하시면 피플팀 담당자에게 문의해 주세요.';
+  if(/레퍼런스/.test(p)) return '후보자에게 추천인 등록을 안내해 주세요. 추천인 정보는 후보자가 아래 링크에서 직접 입력해야 합니다.';
+  if(/일정/.test(p)) return '확정된 면접 일정과 장소를 후보자에게 전달해 주시고, 참석 여부를 본 메일로 회신해 주세요.';
+  return '아래 내용을 후보자에게 전달해 주시고, 회신은 후보자명과 포지션명을 함께 기재해 본 메일로 보내 주세요.';
+}
 function applyMailForward_(forward, toEmail, subject, body, templateData) {
   if(!forward) return { toEmail, subject, body, templateData };
   const { cand, target, purpose, headhunterTemplateData } = forward;
   const extra = headhunterTemplateData || {};
-  const instruction = [extra.responseInstruction, extra.responseNote].filter(Boolean).join(' ');
+  const instruction = [extra.responseInstruction || headhunterInstructionFor_(purpose), extra.responseNote].filter(Boolean).join(' ');
   return {
     toEmail: target.to,
     subject: routeMailSubject(cand, subject),
@@ -1585,6 +1599,13 @@ function friendlyError_(raw, fallback = '일시적인 오류가 발생했습니�
   const text = String(raw?.message ?? raw ?? '').trim();
   if(!text) return fallback;
   if(FRIENDLY_ERRORS_[text]) return FRIENDLY_ERRORS_[text];
+  // 메일 양식 오류는 남은 칸 이름을 함께 보여 준다(서버에 올린 코드와 메일 양식 파일의 버전이 다를 때 주로 생긴다).
+  if(/^mail_template_render_failed/.test(text)) {
+    const left = (text.match(/\{\{[^}]+\}\}/g) || []).join(', ');
+    return left
+      ? `메일 양식을 만들지 못했습니다. 채워지지 않은 칸: ${left} — 서버(Apps Script)의 코드(.gs)와 메일 양식(.html) 파일을 함께 다시 올려 주세요.`
+      : FRIENDLY_ERRORS_.mail_template_render_failed;
+  }
   if(/failed to fetch|network|timeout|timed out/i.test(text)) return '서버 응답이 없습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.';
   if(/too many times|quota|limit exceeded/i.test(text)) return 'Gmail 하루 발송 한도를 넘었습니다. 내일 다시 시도해 주세요.';
   if(/permission|authoriz|권한/i.test(text)) return '권한이 없어 처리하지 못했습니다. 서버(Apps Script) 권한 승인을 확인해 주세요.';

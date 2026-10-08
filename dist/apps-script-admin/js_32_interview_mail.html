@@ -312,7 +312,9 @@ async function sendPanelSchedule(posId, stageIdx, returnToPosition=true, attachm
 // 면접관 목록 로드 (API → 전역 캐시 → 드롭다운 반영)
 async function loadInterviewers() {
   const url = GS_CONFIG.interviewerUrl;
-  if (GS_CONFIG.scriptUrl) {
+  // 엑셀로 올린 직원 DB는 Interviewers 시트에 있다. Apps Script 화면은 서버 주소 입력 없이도 읽을 수 있다
+  // (예전에는 주소가 없는 PC에서 이 단계를 건너뛰어 '직원 DB가 비어 있습니다'가 나왔다).
+  if (GS_CONFIG.scriptUrl || isAppsScriptDashboard_()) {
     try {
       const rows = await gsGetAll('Interviewers', {force:true});
       if (Array.isArray(rows) && rows.length) {
