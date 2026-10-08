@@ -15,6 +15,7 @@ function handleReferralSecurityAction_(payload) {
   if (payload.action === 'submitJoinDate') return submitJoinDate_(payload);
   if (payload.action === 'issuePanelAvailabilityLink') return issuePanelAvailabilityLink_(payload);
   if (payload.action === 'getPanelAvailabilityResponses') return getPanelAvailabilityResponses_(payload);
+  if (payload.action === 'getPanelAvailabilityResponsesBatch') return getPanelAvailabilityResponsesBatch_(payload);
   if (payload.action === 'verifyPanelAvailabilityToken') return verifyPanelAvailabilityToken_(payload);
   if (payload.action === 'submitPanelAvailability') return submitPanelAvailability_(payload);
   if (payload.action === 'verifyReferenceCandidateToken') return verifyReferenceCandidateToken_(payload);

@@ -139,6 +139,26 @@ function getPanelAvailabilityResponses_(payload) {
   return json_({ ok: true, responses });
 }
 
+// 여러 포지션·차수의 면접관 회신을 한 번에 돌려준다(시작 시 미리 받기용). items: [{ positionId, round }]
+function getPanelAvailabilityResponsesBatch_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const items = (Array.isArray(body.items) ? body.items : []).slice(0, 100)
+    .map(item => ({ positionId: String(item && item.positionId || '').trim(), round: String(item && item.round || '').trim() }))
+    .filter(item => item.positionId && item.round);
+  const wanted = {};
+  items.forEach(item => { wanted[item.positionId + '|' + item.round] = []; });
+  readRows_('PanelAvailability').forEach(row => {
+    const key = String(row.positionId) + '|' + String(row.round);
+    if (!wanted[key]) return;
+    wanted[key].push(Object.assign({}, row, {
+      availabilityOptions: normalizeInterviewAvailabilityOptions_(row.availabilityOptions),
+      selections: parseJsonArray_(row.selections)
+    }));
+  });
+  return json_({ ok: true, results: wanted });
+}
+
 function verifyPanelAvailabilityToken_(payload) {
   const token = String(payload && (payload.token || payload.data && payload.data.token) || '').trim();
   if (!token) return json_({ ok: false, error: 'token_required' });
@@ -359,6 +379,41 @@ const COMMON_MAIL_ATTACHMENTS = {
 const COMMON_MAIL_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const COMMON_MAIL_ATTACHMENT_SHEET = '_MailAttachments';
 const COMMON_MAIL_ATTACHMENT_CHUNK = 45000; // 셀 하나에 5만 자까지 들어간다
+
+// ── DB 시트 점검: 시스템이 쓰는 시트와 쓰지 않는(예전 버전 등) 시트를 구분한다. 지우지 않고 보관(이름 변경+숨김)만 한다. ──
+const DB_INTERNAL_SHEETS = ['_Changes', '_Changes_Archive', '_MailAttachments'];
+const DB_ARCHIVE_PREFIX = '_보관_';
+function dbSheetStatus_(name) {
+  if (SHEET_SCHEMAS[name]) return 'used';
+  if (DB_INTERNAL_SHEETS.indexOf(name) >= 0) return 'internal';
+  if (String(name).indexOf(DB_ARCHIVE_PREFIX) === 0) return 'archived';
+  return 'unknown';
+}
+function listDbSheets_() {
+  const ss = getMainSpreadsheet_();
+  const sheets = ss.getSheets().map(sheet => ({
+    name: sheet.getName(),
+    rows: Math.max(0, sheet.getLastRow() - 1),
+    hidden: sheet.isSheetHidden(),
+    status: dbSheetStatus_(sheet.getName())
+  }));
+  return json_({ ok: true, spreadsheet: ss.getName(), sheets });
+}
+function archiveDbSheet_(data) {
+  const name = String(data && data.name || '').trim();
+  if (!name) return json_({ error: 'missing_sheet_name' });
+  if (dbSheetStatus_(name) !== 'unknown') return json_({ error: 'sheet_in_use' });
+  const ss = getMainSpreadsheet_();
+  const sheet = ss.getSheetByName(name);
+  if (!sheet) return json_({ error: 'sheet_not_found' });
+  if (ss.getSheets().filter(s => !s.isSheetHidden()).length <= 1 && !sheet.isSheetHidden()) return json_({ error: 'last_visible_sheet' });
+  const stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd');
+  let newName = DB_ARCHIVE_PREFIX + stamp + '_' + name;
+  if (ss.getSheetByName(newName)) newName += '_' + Date.now();
+  sheet.setName(newName.slice(0, 99));
+  sheet.hideSheet();
+  return json_({ ok: true, name: sheet.getName() });
+}
 
 function getCommonAttachmentMeta_(kind) {
   const def = COMMON_MAIL_ATTACHMENTS[kind];

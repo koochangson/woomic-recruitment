@@ -998,7 +998,7 @@ async function saveSettingsToGS(cfg) {
 async function loadSettingsFromGS() {
   if(!hasGsBridge_()) return null;
   try {
-    const data = await gsGetAll('Settings');
+    const data = await gsGetSettingsRowsShared_();
     if(!data || !data.length) return null;
     const cfg = {};
     const tombstones = getGsTombstones();

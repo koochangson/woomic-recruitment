@@ -16,8 +16,6 @@ function loadState() {
 function getAuxStateSnapshot() {
   return {
     updatedAt: auxUpdatedAt || new Date().toISOString(),
-    onboardings,
-    offers,
     notifyLog: notifyLog.slice(0,200),
     refDetails,
     refReports,
@@ -27,8 +25,6 @@ function getAuxStateSnapshot() {
 
 function getAuxFingerprint() {
   return JSON.stringify({
-    onboardings,
-    offers,
     notifyLog: notifyLog.slice(0,200),
     refDetails,
     refReports,
@@ -61,7 +57,7 @@ function scheduleAuxStateSync() {
 
 async function loadAuxStateFromGS() {
   if(!hasGsBridge_()) return false;
-  const rows = await gsGetAll('Settings');
+  const rows = await gsGetSettingsRowsShared_();
   const coreDeleted = applyRemoteGsTombstones(rows);
   if(coreDeleted) {
     renderDashboard();
@@ -77,8 +73,9 @@ async function loadAuxStateFromGS() {
   try {
     const remote = JSON.parse(json);
     if(auxUpdatedAt && remote.updatedAt && String(auxUpdatedAt) >= String(remote.updatedAt)) return false;
-    onboardings = remote.onboardings || onboardings;
-    offers = remote.offers || offers;
+    // 입사 등록·처우 기록은 이제 각자 시트에서 받는다. 예전 덩어리에 남은 값은 시트를 아직 못 맞춘 경우(첫 이관)에만 쓴다.
+    if(!rowSyncReady_ && Array.isArray(remote.onboardings) && remote.onboardings.length && !onboardings.length) onboardings = remote.onboardings;
+    if(!rowSyncReady_ && Array.isArray(remote.offers) && remote.offers.length && !offers.length) offers = remote.offers;
     notifyLog = remote.notifyLog || notifyLog;
     refDetails = remote.refDetails || refDetails;
     refReports = remote.refReports || refReports;
@@ -109,6 +106,7 @@ function saveState() {
       if(typeof scheduleViewRefresh_ === 'function') scheduleViewRefresh_();
     }
     if(auxChanged) scheduleAuxStateSync();
+    if(typeof scheduleRowSync_ === 'function') scheduleRowSync_();
   } catch(e) {
     if(e.name === 'QuotaExceededError' || e.code === 22) {
       notifyLog = notifyLog.slice(0, 50);
@@ -117,6 +115,152 @@ function saveState() {
       catch(e2) { console.warn('localStorage 저장 실패:', e2); }
     }
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 입사 등록(Onboardings)·처우 기록(Offers): 한 줄씩 서버에 저장
+// 예전에는 보조 데이터 덩어리(설정 시트 auxState)에 통째로 넣어, 두 PC가 거의 동시에 저장하면 나중에 저장한
+// 쪽이 앞의 수정을 덮어쓸 수 있었다. 이제 바뀐 기록만 그 줄로 저장하고, 다른 PC의 변경은 변경 이력으로 받는다.
+// ══════════════════════════════════════════════════════════════
+const ROW_SYNC_SNAPSHOT_KEY_ = 'woomic_row_sync_snapshot_v1';
+const ROW_SYNC_SHEETS_ = {
+  Onboardings: {
+    list:() => onboardings, set:v => { onboardings = v; },
+    key:r => String(r.id ?? ''),
+    toRow:r => ({ ...r }),
+    fromRow:row => ({
+      ...row, id:Number(row.id), candId:Number(row.candId),
+      joinDate:rowSyncDate_(row.joinDate), preDeadline:rowSyncDate_(row.preDeadline), joinTime:rowSyncTime_(row.joinTime),
+      notified:rowBool_(row.notified), deptNotified:rowBool_(row.deptNotified),
+    }),
+  },
+  Offers: {
+    list:() => offers, set:v => { offers = v; },
+    key:r => String(r.candId ?? ''),
+    toRow:r => ({ ...r, id:String(r.candId), allowanceItems:JSON.stringify(r.allowanceItems || {}) }),
+    fromRow:row => {
+      let items = {};
+      try { items = JSON.parse(row.allowanceItems || '{}') || {}; } catch(e) {}
+      const out = { ...row, candId:Number(row.candId || row.id), allowanceItems:items, healthDeadline:rowSyncDate_(row.healthDeadline) };
+      delete out.id;
+      return out;
+    },
+  },
+};
+function rowBool_(v) { return v === true || String(v).toLowerCase() === 'true'; }
+let rowSyncReady_ = false;      // 서버 기록을 한 번 불러와 맞춘 뒤에만 올린다(오래된 값을 올리지 않게)
+let rowSyncTimer_ = null;
+let rowSyncRunning_ = false;
+let rowSyncSnapshot_ = {};       // 시트별 { key: 마지막으로 서버와 맞춘 내용 }
+try { rowSyncSnapshot_ = JSON.parse(localStorage.getItem(ROW_SYNC_SNAPSHOT_KEY_) || '{}') || {}; } catch(e) { rowSyncSnapshot_ = {}; }
+function persistRowSyncSnapshot_() {
+  try { localStorage.setItem(ROW_SYNC_SNAPSHOT_KEY_, JSON.stringify(rowSyncSnapshot_)); } catch(e) {}
+}
+// 비교용 내용: 저장 시각(updatedAt)은 빼고 키 순서를 고정한다.
+function rowSyncFingerprint_(sheet, rec) {
+  const row = ROW_SYNC_SHEETS_[sheet].toRow(rec);
+  return JSON.stringify((GS_SCHEMA[sheet] || Object.keys(row)).filter(k => k !== 'updatedAt' && k !== 'rev').map(k => String(row[k] == null ? '' : row[k])));
+}
+// 시트가 날짜·시각으로 바꿔 돌려준 값을 화면 형식으로 되돌린다(2026-10-14T15:00:00Z → 2026-10-15, 1899-12-30T00:00Z → 09:00).
+function rowSyncDate_(v) {
+  const s = String(v || '');
+  return /^\d{4}-\d{2}-\d{2}T/.test(s) ? localYmd_(new Date(s)) : s;
+}
+function rowSyncTime_(v) {
+  const s = String(v || '');
+  if(!/^\d{4}-\d{2}-\d{2}T/.test(s)) return s;
+  const d = new Date(s);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// 서버의 줄 기록을 불러와 이 브라우저 기록과 맞춘다. 서버가 비어 있고 이 브라우저에만 있으면(첫 이관) 올린다.
+async function loadRowSyncSheets_() {
+  if(!hasGsBridge_()) return false;
+  for(const [sheet, def] of Object.entries(ROW_SYNC_SHEETS_)) {
+    const result = await gsGetAllResult(sheet, { force:true });
+    if(!result) return false; // 못 불러오면 올리지 않고 다음 기회에 다시
+    const server = new Map((result.data || []).map(row => { const rec = def.fromRow(row); return [def.key(rec), rec]; }));
+    const snap = rowSyncSnapshot_[sheet] || {};
+    const merged = [];
+    def.list().forEach(local => {
+      const key = def.key(local);
+      if(!key) return;
+      const remote = server.get(key);
+      if(remote) {
+        // 마지막 동기화 뒤 이 브라우저에서 고친 기록이면 이 브라우저 것을, 아니면 서버 것을 쓴다.
+        const localEdited = snap[key] !== undefined && snap[key] !== rowSyncFingerprint_(sheet, local);
+        merged.push(localEdited ? local : remote);
+        server.delete(key);
+      } else if(snap[key] === undefined) {
+        merged.push(local); // 아직 서버에 없는 새 기록(첫 이관 포함) — 아래에서 올린다
+      } // 예전에 서버와 맞춘 적 있는데 서버에 없으면 다른 PC에서 지운 것 — 버린다
+    });
+    server.forEach(remote => merged.push(remote));
+    def.set(merged);
+    rowSyncSnapshot_[sheet] = Object.fromEntries((result.data || []).map(row => { const rec = def.fromRow(row); return [def.key(rec), rowSyncFingerprint_(sheet, rec)]; }));
+  }
+  persistRowSyncSnapshot_();
+  rowSyncReady_ = true;
+  saveState();          // 화면 갱신 + 남은 차이(첫 이관·이 브라우저 수정)를 올린다
+  scheduleRowSync_(0);
+  return true;
+}
+
+function scheduleRowSync_(delay = 1200) {
+  if(!rowSyncReady_ || !hasGsBridge_()) return;
+  clearTimeout(rowSyncTimer_);
+  rowSyncTimer_ = setTimeout(flushRowSync_, delay);
+}
+
+// 마지막으로 서버와 맞춘 내용과 다른 기록만 올리고, 사라진 기록은 서버에서도 지운다.
+async function flushRowSync_() {
+  if(rowSyncRunning_) { scheduleRowSync_(); return; }
+  rowSyncRunning_ = true;
+  try {
+    for(const [sheet, def] of Object.entries(ROW_SYNC_SHEETS_)) {
+      const snap = rowSyncSnapshot_[sheet] || (rowSyncSnapshot_[sheet] = {});
+      const current = new Map(def.list().filter(r => def.key(r)).map(r => [def.key(r), r]));
+      const changed = [...current.entries()].filter(([key, rec]) => snap[key] !== rowSyncFingerprint_(sheet, rec));
+      const removed = Object.keys(snap).filter(key => !current.has(key));
+      if(changed.length) {
+        const now = new Date().toISOString();
+        changed.forEach(([, rec]) => { rec.updatedAt = now; });
+        const result = await gsBatchUpsert(sheet, changed.map(([, rec]) => def.toRow(rec)));
+        if(result == null || result?.error) { scheduleRowSync_(15000); continue; }
+        changed.forEach(([key, rec]) => { snap[key] = rowSyncFingerprint_(sheet, rec); });
+      }
+      for(const key of removed) {
+        const result = await gsFetch('deleteRow', sheet, { id:key }, { allowQueue:false });
+        if(result == null || result?.error) { scheduleRowSync_(15000); continue; }
+        delete snap[key];
+      }
+    }
+    persistRowSyncSnapshot_();
+  } finally {
+    rowSyncRunning_ = false;
+  }
+}
+
+// 다른 PC에서 바뀐 줄(변경 이력)을 반영한다. 반영한 내용은 기준으로 기억해 다시 올리지 않는다.
+function applyRowSyncChange_(sheet, change) {
+  const def = ROW_SYNC_SHEETS_[sheet];
+  if(!def || !rowSyncReady_) return false;
+  const snap = rowSyncSnapshot_[sheet] || (rowSyncSnapshot_[sheet] = {});
+  const id = String(change.id ?? change.data?.id ?? '');
+  if(!id) return false;
+  const list = def.list();
+  if(change.action === 'delete') {
+    def.set(list.filter(r => def.key(r) !== id));
+    delete snap[id];
+  } else {
+    const rec = def.fromRow(change.data || {});
+    const key = def.key(rec);
+    const idx = list.findIndex(r => def.key(r) === key);
+    if(idx >= 0) list[idx] = rec; else list.push(rec);
+    snap[key] = rowSyncFingerprint_(sheet, rec);
+  }
+  persistRowSyncSnapshot_();
+  return true;
 }
 
 </script>

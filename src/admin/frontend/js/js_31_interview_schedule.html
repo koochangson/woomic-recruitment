@@ -505,8 +505,25 @@ async function preloadPanelAvailability_() {
     const keys = panelAvailabilityKeys(stageIdx);
     if(pos[keys.requested] && !pos[keys.confirmed]) targets.push([pos.id, stageIdx]);
   }));
-  for(const [posId, stageIdx] of targets) {
-    try { await refreshPanelAvailabilityResponses(posId, stageIdx); } catch(e) { /* 다음 확인 때 다시 */ }
+  if(!targets.length) return;
+  // 한 번의 요청으로 모두 받는다. 서버가 이전 버전이면(요청을 모름) 예전처럼 하나씩 확인한다.
+  const batch = await gsFetch('getPanelAvailabilityResponsesBatch', '', {
+    items:targets.map(([posId, stageIdx]) => ({ positionId:posId, round:stageIdx === 1 ? '1차' : '2차' })),
+  }, { allowQueue:false });
+  if(batch?.ok && batch.results) {
+    targets.forEach(([posId, stageIdx]) => {
+      const responses = batch.results[`${posId}|${stageIdx === 1 ? '1차' : '2차'}`] || [];
+      const cacheKey = panelAvailabilityCacheKey(posId, stageIdx);
+      panelAvailabilityCache[cacheKey] = responses;
+      panelAvailabilityFetchedAt_[cacheKey] = Date.now();
+      const pos = positions.find(p => Number(p.id) === Number(posId));
+      repairPanelAvailabilityState_(pos, stageIdx, responses);
+    });
+    persistPanelAvailabilityCache_();
+  } else {
+    for(const [posId, stageIdx] of targets) {
+      try { await refreshPanelAvailabilityResponses(posId, stageIdx); } catch(e) { /* 다음 확인 때 다시 */ }
+    }
   }
   if(targets.length && typeof renderDashboard === 'function') { renderDashboard(); if(typeof refreshOpenPositionDetail === 'function' && currentPosDetailId != null) refreshOpenPositionDetail(currentPosDetailId); }
 }

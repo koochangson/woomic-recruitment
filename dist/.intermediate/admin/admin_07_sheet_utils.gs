@@ -3,7 +3,11 @@ function ensureSheet_(sheetName) {
   if (EXEC_CACHE_.sheets[sheetName]) return EXEC_CACHE_.sheets[sheetName];
   const ss = getSpreadsheetForSheet_(sheetName);
   let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) sheet = ss.insertSheet(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    // 날짜(2026-10-15)·시각(09:00)·연락처(010…)가 날짜/숫자로 바뀌지 않도록 텍스트 형식으로 만든다.
+    if (TEXT_FORMAT_SHEETS.indexOf(sheetName) >= 0) sheet.getRange(1, 1, sheet.getMaxRows(), Math.max(sheet.getMaxColumns(), SHEET_SCHEMAS[sheetName].length)).setNumberFormat('@');
+  }
   ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
   EXEC_CACHE_.sheets[sheetName] = sheet;
   return sheet;

@@ -65,6 +65,7 @@ const PUBLIC_BLOCKED_ADMIN_ACTIONS = Object.freeze({
   issueJoinDateLink: true,
   issuePanelAvailabilityLink: true,
   getPanelAvailabilityResponses: true,
+  getPanelAvailabilityResponsesBatch: true,
   generateReferenceSummary: true
 });
 

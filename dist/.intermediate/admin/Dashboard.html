@@ -641,6 +641,7 @@
               <button class="btn btn-sm" data-action="call" data-call="testGSConnection()" style="background:#34A853;color:#fff;border-color:#34A853">📊 연결 테스트</button>
               <div id="gs-conn-status" style="font-size:12px;color:var(--t3)">관리자 배포 URL 입력 후 테스트하세요.</div>
             </div>
+            <div id="startup-timing" class="field-hint" style="margin-top:6px"></div>
           </div>
           <div class="fg" style="margin-top:12px;padding-top:16px;border-top:2px solid #4A90D9">
             <label style="color:#0F766E;font-weight:700">🤝 사내추천 접수 DB 파일 URL</label>
@@ -669,6 +670,7 @@
           </div>
         <div class="brow" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
           <button class="btn" data-action="call" data-call="runCoreDiagnosticsUI()">자가진단 실행</button>
+          <button class="btn" data-action="call" data-call="reviewDbSheets()">DB 시트 점검</button>
           <span id="core-test-result" style="font-size:11.5px;color:var(--t3)">핵심 계산·프로세스·동기화 병합 로직을 점검합니다.</span>
         </div>
         <div class="brow" style="margin-top:10px;align-items:flex-start">

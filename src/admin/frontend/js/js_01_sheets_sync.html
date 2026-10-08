@@ -52,6 +52,8 @@ const GS_SCHEMA = {
   Interviewers: ['email','name','empNo','dept','division','rank','title','status','updatedAt'],
   Employees: ['email','name','empNo','dept','status','updatedAt'],
   Settings: ['id','value'],
+  Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','updatedAt'],
+  Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','updatedAt'],
 };
 const GS_RETRY_KEY = 'woomic_gs_retry_v1';
 const GS_TOMBSTONE_KEY = 'woomic_gs_tombstones_v1';
@@ -407,8 +409,12 @@ function bindAdminLogin_() {
 
 async function reloadAdminDataAfterLogin_() {
   showSyncStatus('관리자 로그인 완료 — 데이터를 불러오는 중...', 'warn');
+  if(typeof startStartupTimings_ === 'function') startStartupTimings_();
+  const timed = (label, task) => typeof timeStartupStep_ === 'function' ? timeStartupStep_(label, task) : task();
+  // 설정과 보조 데이터는 같은 설정 시트를 쓰므로 함께 시작해 한 번만 읽는다.
+  const auxPromise = hasGsBridge_() ? timed('보조 데이터', () => loadAuxStateFromGS()).catch(() => false) : Promise.resolve(false);
   try {
-    await loadSettingsWithGS();
+    await timed('설정', () => loadSettingsWithGS());
   } catch(e) {
     console.warn('[adminLogin] 설정 재로드 실패:', e.message);
   }
@@ -418,22 +424,21 @@ async function reloadAdminDataAfterLogin_() {
       // 동기화하고(A), 마지막 동기화 이후 바뀐 부분만 받는다(B). 변경 기준점·병합 기준(base)이 없거나 변경 이력이
       // 정리됐으면 syncCoreFromGSInternal이 알아서 전체 로드한다. 저장된 데이터가 전혀 없을 때만 로딩창을 띄운다.
       const hasLocalData = candidates.length > 0 || positions.length > 0;
-      const loaded = await syncCoreFromGS({ background: hasLocalData });
+      const loaded = await timed('핵심 데이터', () => syncCoreFromGS({ background: hasLocalData }));
       if(loaded) alignStartedInterviewStagesForActivePositions_();
       showSyncStatus(loaded ? 'Google Sheets 기준으로 로드됨' : '⚠ GS 응답 없음 — 로컬 캐시로 표시 중', loaded ? 'ok' : 'warn');
     } catch(e) {
       showSyncStatus('⚠ GS 연결 실패 — 로컬 캐시로 표시 중 (네트워크 확인)', 'warn');
     }
     try {
-      await loadAuxStateFromGS();
+      await auxPromise;
+      if(typeof startRowSyncLoad_ === 'function') await startRowSyncLoad_();
       renderActivityLog(); renderReference(); renderOnboarding(); renderNotifyLog();
       if(typeof loadJoinDateRequests_ === 'function') loadJoinDateRequests_();
     } catch(e) {}
     finally { auxSyncSuspended = false; }
-    try {
-      const loadedRef = await syncReferralCoreFromGS();
-      if(loadedRef) renderReferralSection();
-    } catch(e) {}
+    // 사내추천·면접관 회신 미리 받기는 화면을 다 그린 뒤 뒤에서 진행한다.
+    if(typeof startDeferredStartupSync_ === 'function') { deferredStartupSyncStarted_ = false; startDeferredStartupSync_(); }
   }
   updateMetrics();
   renderDashboard();
@@ -580,6 +585,12 @@ function gsSendViaHiddenFrame(action, sheet, data={}) {
       resolve(false);
     }
   });
+}
+
+// 설정 시트(Settings)는 설정과 보조 데이터(입사 기록·활동 기록 등)가 함께 들어 있어 크다. 시작할 때 둘이 따로
+// 읽던 것을 15초 안에서는 한 번 읽은 결과로 함께 쓴다(설정을 저장하면 읽기 캐시가 비워져 다시 읽는다).
+function gsGetSettingsRowsShared_() {
+  return gsGetAll('Settings', { maxAge:15000 });
 }
 
 async function gsGetAll(sheet, options={}) {
@@ -1235,10 +1246,12 @@ function applyPanelAvailabilityChange_(change) {
 
 function applyGsChanges(changes) {
   let applied = 0;
+  let rowSyncTouched = false;
   let referenceCheckTouched = false;
   (changes || []).forEach(change => {
     const sheet = change.sheet;
     if(sheet === 'PanelAvailability') { if(applyPanelAvailabilityChange_(change)) applied++; return; }
+    if(sheet === 'Onboardings' || sheet === 'Offers') { if(typeof applyRowSyncChange_ === 'function' && applyRowSyncChange_(sheet, change)) { applied++; rowSyncTouched = true; } return; }
     if(sheet === 'JoinDateRequests') { if(typeof applyJoinDateRequestChange_ === 'function' && applyJoinDateRequestChange_(change)) applied++; return; }
     if(!['Candidates','Interviews','Positions','Referrals','Rewards','RefRules','Employees','ReferenceCandidates','ReferenceResponses'].includes(sheet)) return;
     const rawId = change.id ?? change.data?.id;

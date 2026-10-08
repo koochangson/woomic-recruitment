@@ -254,6 +254,8 @@ function purgeCandidatePii_(payload) {
     const removed = {
       candidates: deleteRowsWhere_('Candidates', row => idSet.has(String(row.id))),
       interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
+      onboardings: deleteRowsWhere_('Onboardings', row => idSet.has(String(row.candId))),
+      offers: deleteRowsWhere_('Offers', row => idSet.has(String(row.candId))),
       referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
       referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
       mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>

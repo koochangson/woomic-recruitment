@@ -39,6 +39,8 @@ const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
 const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
+// 처음 만들 때 모든 칸을 텍스트 형식으로 두는 시트(날짜·시각·연락처를 그대로 보관)
+const TEXT_FORMAT_SHEETS = ['Onboardings', 'Offers'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
 const REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS = ['referralEmployeeDirectoryUrl', 'interviewerUrl'];
 const REFERRAL_DATA_SHEETS = ['Referrals', 'Rewards', 'RefRules'];
@@ -94,6 +96,9 @@ const SHEET_SCHEMAS = {
     'q12_exitReasonSource','q12_exitReasonDetail',
     'respondentName','respondentAffiliation','respondentContact','respondentConsentObserved','respondentConsentDataUse',
     'updatedAt'],
+  // 입사 등록·처우 기록: 예전에는 설정 시트의 보조 데이터 덩어리에 있었다(한 줄씩 저장해 PC 간 덮어쓰기 방지).
+  Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','updatedAt'],
+  Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','updatedAt']
 };
 
 function doGet(e) {
@@ -144,6 +149,8 @@ function routeRequest_(payload) {
   if (action === 'generateReferenceSummary') return generateReferenceSummary_(data);
   if (action === 'sendMail' && isAdminRequest_(payload)) return handleSendMail_(payload);
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
+  if (action === 'listDbSheets') return listDbSheets_();
+  if (action === 'archiveDbSheet') return archiveDbSheet_(data);
   if (action === 'getCommonAttachments') return json_({ ok: true, attachments: getCommonAttachments_() });
   if (action === 'uploadCommonAttachment') return uploadCommonAttachment_(data);
   if (action === 'getCursor') return json_({ cursor: getChangeCursor_(), serverTime: nowIso_() });
@@ -498,6 +505,8 @@ function purgeCandidatePii_(payload) {
     const removed = {
       candidates: deleteRowsWhere_('Candidates', row => idSet.has(String(row.id))),
       interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
+      onboardings: deleteRowsWhere_('Onboardings', row => idSet.has(String(row.candId))),
+      offers: deleteRowsWhere_('Offers', row => idSet.has(String(row.candId))),
       referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
       referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
       mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>
@@ -595,6 +604,7 @@ function handleReferralSecurityAction_(payload) {
   if (payload.action === 'submitJoinDate') return submitJoinDate_(payload);
   if (payload.action === 'issuePanelAvailabilityLink') return issuePanelAvailabilityLink_(payload);
   if (payload.action === 'getPanelAvailabilityResponses') return getPanelAvailabilityResponses_(payload);
+  if (payload.action === 'getPanelAvailabilityResponsesBatch') return getPanelAvailabilityResponsesBatch_(payload);
   if (payload.action === 'verifyPanelAvailabilityToken') return verifyPanelAvailabilityToken_(payload);
   if (payload.action === 'submitPanelAvailability') return submitPanelAvailability_(payload);
   if (payload.action === 'verifyReferenceCandidateToken') return verifyReferenceCandidateToken_(payload);
@@ -1975,6 +1985,26 @@ function getPanelAvailabilityResponses_(payload) {
   return json_({ ok: true, responses });
 }
 
+// 여러 포지션·차수의 면접관 회신을 한 번에 돌려준다(시작 시 미리 받기용). items: [{ positionId, round }]
+function getPanelAvailabilityResponsesBatch_(payload) {
+  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const items = (Array.isArray(body.items) ? body.items : []).slice(0, 100)
+    .map(item => ({ positionId: String(item && item.positionId || '').trim(), round: String(item && item.round || '').trim() }))
+    .filter(item => item.positionId && item.round);
+  const wanted = {};
+  items.forEach(item => { wanted[item.positionId + '|' + item.round] = []; });
+  readRows_('PanelAvailability').forEach(row => {
+    const key = String(row.positionId) + '|' + String(row.round);
+    if (!wanted[key]) return;
+    wanted[key].push(Object.assign({}, row, {
+      availabilityOptions: normalizeInterviewAvailabilityOptions_(row.availabilityOptions),
+      selections: parseJsonArray_(row.selections)
+    }));
+  });
+  return json_({ ok: true, results: wanted });
+}
+
 function verifyPanelAvailabilityToken_(payload) {
   const token = String(payload && (payload.token || payload.data && payload.data.token) || '').trim();
   if (!token) return json_({ ok: false, error: 'token_required' });
@@ -2195,6 +2225,41 @@ const COMMON_MAIL_ATTACHMENTS = {
 const COMMON_MAIL_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const COMMON_MAIL_ATTACHMENT_SHEET = '_MailAttachments';
 const COMMON_MAIL_ATTACHMENT_CHUNK = 45000; // 셀 하나에 5만 자까지 들어간다
+
+// ── DB 시트 점검: 시스템이 쓰는 시트와 쓰지 않는(예전 버전 등) 시트를 구분한다. 지우지 않고 보관(이름 변경+숨김)만 한다. ──
+const DB_INTERNAL_SHEETS = ['_Changes', '_Changes_Archive', '_MailAttachments'];
+const DB_ARCHIVE_PREFIX = '_보관_';
+function dbSheetStatus_(name) {
+  if (SHEET_SCHEMAS[name]) return 'used';
+  if (DB_INTERNAL_SHEETS.indexOf(name) >= 0) return 'internal';
+  if (String(name).indexOf(DB_ARCHIVE_PREFIX) === 0) return 'archived';
+  return 'unknown';
+}
+function listDbSheets_() {
+  const ss = getMainSpreadsheet_();
+  const sheets = ss.getSheets().map(sheet => ({
+    name: sheet.getName(),
+    rows: Math.max(0, sheet.getLastRow() - 1),
+    hidden: sheet.isSheetHidden(),
+    status: dbSheetStatus_(sheet.getName())
+  }));
+  return json_({ ok: true, spreadsheet: ss.getName(), sheets });
+}
+function archiveDbSheet_(data) {
+  const name = String(data && data.name || '').trim();
+  if (!name) return json_({ error: 'missing_sheet_name' });
+  if (dbSheetStatus_(name) !== 'unknown') return json_({ error: 'sheet_in_use' });
+  const ss = getMainSpreadsheet_();
+  const sheet = ss.getSheetByName(name);
+  if (!sheet) return json_({ error: 'sheet_not_found' });
+  if (ss.getSheets().filter(s => !s.isSheetHidden()).length <= 1 && !sheet.isSheetHidden()) return json_({ error: 'last_visible_sheet' });
+  const stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd');
+  let newName = DB_ARCHIVE_PREFIX + stamp + '_' + name;
+  if (ss.getSheetByName(newName)) newName += '_' + Date.now();
+  sheet.setName(newName.slice(0, 99));
+  sheet.hideSheet();
+  return json_({ ok: true, name: sheet.getName() });
+}
 
 function getCommonAttachmentMeta_(kind) {
   const def = COMMON_MAIL_ATTACHMENTS[kind];
@@ -2831,7 +2896,11 @@ function ensureSheet_(sheetName) {
   if (EXEC_CACHE_.sheets[sheetName]) return EXEC_CACHE_.sheets[sheetName];
   const ss = getSpreadsheetForSheet_(sheetName);
   let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) sheet = ss.insertSheet(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    // 날짜(2026-10-15)·시각(09:00)·연락처(010…)가 날짜/숫자로 바뀌지 않도록 텍스트 형식으로 만든다.
+    if (TEXT_FORMAT_SHEETS.indexOf(sheetName) >= 0) sheet.getRange(1, 1, sheet.getMaxRows(), Math.max(sheet.getMaxColumns(), SHEET_SCHEMAS[sheetName].length)).setNumberFormat('@');
+  }
   ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
   EXEC_CACHE_.sheets[sheetName] = sheet;
   return sheet;

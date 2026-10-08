@@ -242,12 +242,14 @@ async function offerClosingRejection_(pos, ids, closeLabel) {
   if(!targets.length) return;
   const confirmed = await confirmActionModal({
     title:'진행 중이던 지원자 결과 안내',
-    message:`모집이 마감되어 보류된 지원자 ${targets.length}명을 불합격(모집 마감)으로 처리하고 안내 메일을 보낼까요?\n취소하면 보류 상태로 남고, 포지션을 다시 진행중으로 복원할 때 되살릴 수 있습니다.`,
+    message:`모집이 마감되어 보류된 지원자 ${targets.length}명을 불합격(모집 마감)으로 처리할까요?\n취소하면 보류 상태로 남고, 포지션을 다시 진행중으로 복원할 때 되살릴 수 있습니다.`,
     items:targets.map(c => `${c.name} · ${stageLabel(c.stage)}`),
-    confirmLabel:`${targets.length}명 불합격 안내`,
+    checkbox:{ label:'불합격 안내 메일 발송', checked:true, hint:'체크를 끄면 메일 없이 불합격으로만 처리합니다(전화 등 다른 방법으로 이미 안내한 경우).' },
+    confirmLabel:`${targets.length}명 불합격 처리`,
     danger:true,
   });
   if(!confirmed) return;
+  const sendMail = actionConfirmChecked_();
   targets.forEach(c => {
     c.stage = 6; c.held = false; c.decision = '';
     recordRejection(c, '포지션취소', `${josa_(closeLabel, '으로', '로')} 모집 마감`);
@@ -255,6 +257,13 @@ async function offerClosingRejection_(pos, ids, closeLabel) {
     if(typeof syncReferralFromCandidate === 'function') syncReferralFromCandidate(c);
   });
   saveState();
+  if(!sendMail) {
+    targets.forEach(c => { c.mailPending = false; c.mailPendingLabel = ''; });
+    saveState();
+    if(GS_CONFIG.scriptUrl) await settleSync(targets.map(c => () => syncCandToGS(c)), '모집 마감 불합격 처리 동기화');
+    toast(`보류 지원자 ${targets.length}명을 불합격(모집 마감)으로 처리했습니다. 안내 메일은 보내지 않았습니다.`, 'tok');
+    return;
+  }
   const mail = await sendRejectionNotices_(targets);
   // 포지션이 종료됐으므로 실패 건은 처리 필요 목록에 남기지 않는다 — 실패자 이름을 알려 개별 안내할 수 있게 한다.
   const failedNames = targets.filter(c => c.mailPending).map(c => c.name);

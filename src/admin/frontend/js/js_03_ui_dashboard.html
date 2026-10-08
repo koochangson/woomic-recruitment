@@ -1,3 +1,32 @@
+// ── 시작할 때 서버 요청별 소요 시간(어디서 오래 걸리는지 확인용) ──
+const startupTimings_ = [];
+let startupTimingStartedAt_ = 0;
+function startStartupTimings_() { startupTimings_.length = 0; startupTimingStartedAt_ = Date.now(); }
+// 작업(Promise를 돌려주는 함수)을 실행하고 걸린 시간을 기록한다. 결과는 그대로 돌려준다.
+async function timeStartupStep_(label, task) {
+  const started = Date.now();
+  try { return await task(); }
+  finally { startupTimings_.push({ label, ms:Date.now() - started }); }
+}
+function startupTimingSummary_() {
+  if(!startupTimings_.length) return '';
+  const total = startupTimingStartedAt_ ? Date.now() - startupTimingStartedAt_ : 0;
+  const sec = ms => (ms / 1000).toFixed(1) + '초';
+  return startupTimings_.map(t => `${t.label} ${sec(t.ms)}`).join(' · ') + (total ? ` (전체 ${sec(total)})` : '');
+}
+// 동기화 상태 표시에 소요 시간을 함께 남긴다(사이드바 동기화 표시에 마우스를 올리거나 설정 → 시스템 연동에서 확인).
+function showStartupTimings_() {
+  const summary = startupTimingSummary_();
+  if(!summary) return;
+  console.info('[startup] 서버 요청 소요 시간:', summary);
+  const label = document.getElementById('sb-sync-label');
+  if(label) label.title = `시작 시 불러오기 소요 시간: ${summary}`;
+  const status = document.getElementById('gs-conn-status');
+  if(status) status.title = `시작 시 불러오기 소요 시간: ${summary}`;
+  const timing = document.getElementById('startup-timing');
+  if(timing) timing.textContent = `최근 시작 시 불러오기: ${summary}`;
+}
+
 function showSyncStatus(msg, type='') {
   const colors = { ok:'var(--green)', warn:'var(--amber)', '':'var(--t3)' };
   const el = document.getElementById('gs-conn-status');
@@ -281,6 +310,8 @@ function openModal(id) {
 
 let actionConfirmResolver_ = null;
 let actionConfirmInput_ = null; // options.input이 있으면 확인 시 입력값(문자열)으로 resolve한다
+let actionConfirmCheckboxValue_ = null; // options.checkbox가 있으면 확인 시점의 체크 여부(확인 후 actionConfirmChecked_()로 읽음)
+function actionConfirmChecked_() { return actionConfirmCheckboxValue_ === true; }
 
 function confirmActionModal(options={}) {
   const title = document.getElementById('action-confirm-title');
@@ -305,6 +336,7 @@ function confirmActionModal(options={}) {
   if(itemsBox.lastElementChild) itemsBox.lastElementChild.style.borderBottom = '0';
   itemsBox.style.display = items.length ? 'block' : 'none';
   renderActionConfirmInput_(itemsBox, options.input || null);
+  renderActionConfirmCheckbox_(itemsBox, options.checkbox || null);
   openModal('modal-action-confirm');
   return new Promise(resolve => { actionConfirmResolver_ = resolve; });
 }
@@ -332,7 +364,43 @@ function renderActionConfirmInput_(itemsBox, inputOptions) {
   inputWrap.append(label, input);
 }
 
+// 확인창 아래 체크박스(예: '불합격 안내 메일 발송'). 기본값은 options.checkbox.checked.
+function renderActionConfirmCheckbox_(itemsBox, checkboxOptions) {
+  let wrap = document.getElementById('action-confirm-checkbox-wrap');
+  if(!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'action-confirm-checkbox-wrap';
+    wrap.style.marginTop = '14px';
+    (document.getElementById('action-confirm-input-wrap') || itemsBox).after(wrap);
+  }
+  actionConfirmCheckboxValue_ = null;
+  wrap.replaceChildren();
+  wrap.style.display = checkboxOptions ? '' : 'none';
+  if(!checkboxOptions) return;
+  const label = document.createElement('label');
+  label.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--t1);cursor:pointer';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.id = 'action-confirm-checkbox';
+  input.checked = checkboxOptions.checked !== false;
+  input.style.width = 'auto';
+  const text = document.createElement('span');
+  text.textContent = String(checkboxOptions.label || '');
+  label.append(input, text);
+  wrap.appendChild(label);
+  if(checkboxOptions.hint) {
+    const hint = document.createElement('div');
+    hint.className = 'field-hint';
+    hint.style.margin = '4px 0 0 24px';
+    hint.textContent = String(checkboxOptions.hint);
+    wrap.appendChild(hint);
+  }
+}
+
 function finishActionConfirm(confirmed) {
+  const checkbox = document.getElementById('action-confirm-checkbox');
+  const checkboxWrap = document.getElementById('action-confirm-checkbox-wrap');
+  actionConfirmCheckboxValue_ = checkbox && checkboxWrap && checkboxWrap.style.display !== 'none' ? !!checkbox.checked : null;
   let result = !!confirmed;
   if(confirmed && actionConfirmInput_) {
     const text = document.getElementById('action-confirm-input')?.value.trim() || '';
