@@ -3077,12 +3077,14 @@ function weeklyOps() {
     const compactResult = compactChangeLogs();
     let archiveBatches = 1;
     let compactBatches = 1;
-    while (archiveResult.archived >= CHANGE_ARCHIVE_BATCH_SIZE && !opsTimeBudgetExceeded_()) {
+    // 직전 배치가 꽉 찼을 때만(남은 오래된 기록이 더 있을 수 있을 때만) 다음 배치를 돈다.
+    let lastArchived = archiveResult.archived;
+    while (lastArchived >= CHANGE_ARCHIVE_BATCH_SIZE && !opsTimeBudgetExceeded_()) {
       const next = archiveOldChanges_();
       archiveResult.archived += next.archived;
       archiveResult.remaining = next.remaining;
       archiveBatches++;
-      if (!next.archived) break;
+      lastArchived = next.archived;
     }
     while ((compactResult.active.remaining || compactResult.archive.remaining) && !opsTimeBudgetExceeded_()) {
       const next = compactChangeLogs();
@@ -3094,7 +3096,7 @@ function weeklyOps() {
     }
     archiveResult.batches = archiveBatches;
     compactResult.batches = compactBatches;
-    const incomplete = archiveResult.archived >= CHANGE_ARCHIVE_BATCH_SIZE * archiveBatches
+    const incomplete = lastArchived >= CHANGE_ARCHIVE_BATCH_SIZE
       || !!(compactResult.active.remaining || compactResult.archive.remaining);
     console.log('weeklyOps: ' + JSON.stringify({ changeArchive: archiveResult, changeLogCompaction: compactResult, incomplete: incomplete }));
     return { ok: true, incomplete: incomplete, changeArchive: archiveResult, changeLogCompaction: compactResult };

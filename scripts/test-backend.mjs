@@ -459,7 +459,7 @@ function loadOps({ notifyEmail = 'people@x.com', retentionMonths = '' } = {}) {
   });
   const r = ops.run('weeklyOps()');
   const archivedIds = archive.rows.slice(1).map(row => row[4]);
-  check('weeklyOps: 1,000건 넘게 밀린 아카이브를 배치 반복으로 처리', r.ok && r.changeArchive.archived === 2501 && r.changeArchive.batches >= 3 && active.rows.length === 11, { archived: r.changeArchive, left: active.rows.length });
+  check('weeklyOps: 1,000건 넘게 밀린 아카이브를 배치 반복으로 처리', r.ok && r.changeArchive.archived === 2501 && r.changeArchive.batches === 3 && active.rows.length === 11, { archived: r.changeArchive, left: active.rows.length });
   check('weeklyOps: 같은 행을 두 번 아카이브하지 않음', archivedIds.length === 2501 && new Set(archivedIds).size === 2501, archivedIds.length);
   check('weeklyOps: 같은 커서 번호 행도 아카이브에 보존', archivedIds.includes('dup-cursor'));
   const fullJsonLeft = [...active.rows.slice(1), ...archive.rows.slice(1)].filter(row => !String(row[7]).startsWith('{"fields":')).length;
