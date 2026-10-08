@@ -2592,7 +2592,7 @@
       lastReceiptId = row.id || '';
       form.style.display = 'none';
       completePanel.classList.add('on');
-      completeMeta.innerHTML = `접수번호 <b>${escapeHtml(row.id)}</b><br>접수일 ${escapeHtml(formatDate(row.submittedAt))}<br>피플팀에서 접수 내용을 확인합니다.`;
+      completeMeta.innerHTML = `접수번호 <b>${escapeHtml(row.id)}</b><br>접수일 ${escapeHtml(formatDate(row.submittedAt))}<br>피플팀에서 접수 내용을 확인합니다. 추천해 주셔서 감사합니다.`;
       setCompleteMessage('', '');
       setStep('done');
       completePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });

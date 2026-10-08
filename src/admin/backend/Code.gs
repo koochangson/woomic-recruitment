@@ -38,9 +38,9 @@ const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
 const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
 const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
-const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
+const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions', 'Onboardings', 'Offers', 'RefReports'];
 // 처음 만들 때 모든 칸을 텍스트 형식으로 두는 시트(날짜·시각·연락처를 그대로 보관)
-const TEXT_FORMAT_SHEETS = ['Onboardings', 'Offers'];
+const TEXT_FORMAT_SHEETS = ['Onboardings', 'Offers', 'RefReports'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
 const REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS = ['referralEmployeeDirectoryUrl', 'interviewerUrl'];
 const REFERRAL_DATA_SHEETS = ['Referrals', 'Rewards', 'RefRules'];
@@ -97,8 +97,10 @@ const SHEET_SCHEMAS = {
     'respondentName','respondentAffiliation','respondentContact','respondentConsentObserved','respondentConsentDataUse',
     'updatedAt'],
   // 입사 등록·처우 기록: 예전에는 설정 시트의 보조 데이터 덩어리에 있었다(한 줄씩 저장해 PC 간 덮어쓰기 방지).
-  Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','updatedAt'],
-  Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','updatedAt']
+  Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','rev','updatedAt'],
+  Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','rev','updatedAt'],
+  // 레퍼런스 결과 정리(지원자별 1줄, id = 지원자 id). 예전에는 설정 시트의 보조 데이터 덩어리(auxState)에 있었다.
+  RefReports: ['id','candId','candName','pos','overall','expertise','character','leadership','reason','aiApplied','aiAppliedAt','aiAppliedBy','updatedBy','savedAt','rev','updatedAt']
 };
 
 function doGet(e) {
@@ -109,8 +111,7 @@ function doGet(e) {
     if (!action && !isPublicDeployment_()) {
       return HtmlService.createTemplateFromFile('Dashboard')
         .evaluate()
-        .setTitle('채용관리 대시보드')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        .setTitle('채용관리 대시보드');
     }
 
     const sheet = params.sheet || '';
@@ -223,6 +224,52 @@ function sendMailViaGmail_(to, subject, body, htmlBody, attachments, eventKey) {
   }
 }
 
+// 담당자가 보내는 메일의 중복 발송 방지.
+// 응답이 늦어 다시 누르거나 두 번 클릭하면 같은 메일이 두 번 나갈 수 있었다. 수신자·제목·내용이 같은 메일이
+// 최근(MAIL_DEDUPE_WINDOW_SECONDS)에 나갔거나 보내는 중이면 보내지 않고 duplicate_recent를 돌려준다.
+// 담당자가 확인 후 다시 보내면(allowDuplicate) 그대로 보낸다.
+const MAIL_DEDUPE_WINDOW_SECONDS = 10 * 60;
+
+function mailDedupeKey_(kind, body) {
+  const skip = { sessionToken: 1, allowDuplicate: 1, attachments: 1 };
+  const fields = Object.keys(body || {}).filter(function(k) { return !skip[k]; }).sort().map(function(k) {
+    const v = body[k];
+    return [k, v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v))];
+  });
+  const files = (Array.isArray(body && body.attachments) ? body.attachments : []).map(function(a) {
+    return [String(a && a.name || ''), String(a && a.base64 || '').length];
+  });
+  return 'maildedupe:' + sha256Hex_(kind + '|' + JSON.stringify(fields) + '|' + JSON.stringify(files));
+}
+
+// 보내도 되면 { key }를, 막아야 하면 { duplicate: { error, sentAt } }를 돌려준다.
+function beginMailDedupe_(kind, body) {
+  if (body && body.allowDuplicate) return { key: '' };
+  const key = mailDedupeKey_(kind, body);
+  const cache = CacheService.getScriptCache();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return { key: '' }; // 잠금을 못 얻으면 막지 않는다(발송 자체는 계속)
+  try {
+    const prev = cache.get(key);
+    if (prev) {
+      let info = {};
+      try { info = JSON.parse(prev) || {}; } catch (e) {}
+      return { duplicate: { error: 'duplicate_recent', state: info.state || 'sent', sentAt: info.at || '' } };
+    }
+    cache.put(key, JSON.stringify({ state: 'sending', at: nowIso_() }), MAIL_DEDUPE_WINDOW_SECONDS);
+    return { key: key };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function finishMailDedupe_(key, sent) {
+  if (!key) return;
+  const cache = CacheService.getScriptCache();
+  if (sent) cache.put(key, JSON.stringify({ state: 'sent', at: nowIso_() }), MAIL_DEDUPE_WINDOW_SECONDS);
+  else cache.remove(key);
+}
+
 function handleSendMail_(payload) {
   if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
@@ -318,7 +365,6 @@ function upsertUnlocked_(sheetName, row, isAdmin) {
   else sheet.appendRow(values);
 
   appendChange_(sheetName, 'upsert', id, normalized);
-  if (sheetName === 'Referrals' && !isAdmin && rowIndex < 0) sendReferralReceipt_(normalized);
   return json_({ status: 'ok', id, data: normalized, cursor: getChangeCursor_(), serverTime: nowIso_() });
 }
 
@@ -326,7 +372,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
   const source = Array.isArray(rows) ? rows : [];
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
-  const receipts = [];
   let result;
   try {
     const sheet = ensureSheet_(sheetName);
@@ -345,6 +390,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
 
     const changes = [];
     const conflicts = [];
+    const revs = {}; // 저장 후 행별 새 rev — 화면이 다음 저장 때 기준으로 쓴다
     let count = 0;
     source.forEach(function(row) {
       let next = Object.assign({}, row || {});
@@ -370,6 +416,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       if (revision.enabled) {
         next.rev = revision.current + 1;
         next.updatedAt = nowIso_();
+        revs[id] = next.rev;
       } else {
         next.updatedAt = next.updatedAt || nowIso_();
       }
@@ -382,7 +429,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       } else {
         rowIndexById[id] = values.length;
         values.push(rowValues);
-        if (sheetName === 'Referrals' && !isAdmin) receipts.push(normalized);
       }
       changes.push({ sheetName, action: 'upsert', id, data: normalized });
       count++;
@@ -399,14 +445,13 @@ function batchUpsert_(sheetName, rows, isAdmin) {
     } else if (count) {
       sheet.getRange(2, 1, values.length, headers.length).setValues(values);
       appendChanges_(changes);
-      result = { status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() };
+      result = { status: 'ok', count, revs, cursor: getChangeCursor_(), serverTime: nowIso_() };
     } else {
       result = { status: 'ok', count: 0, cursor: getChangeCursor_(), serverTime: nowIso_() };
     }
   } finally {
     lock.releaseLock();
   }
-  if (!result.error) receipts.forEach(sendReferralReceipt_);
   return json_(result);
 }
 
@@ -507,6 +552,7 @@ function purgeCandidatePii_(payload) {
       interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
       onboardings: deleteRowsWhere_('Onboardings', row => idSet.has(String(row.candId))),
       offers: deleteRowsWhere_('Offers', row => idSet.has(String(row.candId))),
+      refReports: deleteRowsWhere_('RefReports', row => idSet.has(String(row.candId))),
       referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
       referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
       mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>
@@ -1238,31 +1284,39 @@ function verifyReferenceCandidateToken_(payload) {
 // 후보자가 추천인 목록(이름/이메일/관계/소속)을 제출하면, 추천인별로 별도 토큰을 발급해
 // ReferenceResponses에 한 줄씩 만들고 각 추천인에게 응답 링크를 메일로 보낸다.
 function submitReferenceCandidateReferees_(payload) {
+  const outbox = [];
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
+  let result;
   try {
-    return submitReferenceCandidateRefereesUnlocked_(payload);
+    result = submitReferenceCandidateRefereesUnlocked_(payload, outbox);
   } finally {
     lock.releaseLock();
   }
+  if (!result || !result.ok) return json_(result || { error: 'unknown_error' });
+  // 시트 기록이 끝난 뒤 잠금을 풀고 메일을 보낸다. 메일 발송이 느려도 다른 저장이 잠금 대기로 실패하지 않게 하고,
+  // 추천인별 발송 결과를 돌려준다(실패 내역은 MailLog에도 남고, 관리자 화면에서 링크를 다시 보낼 수 있다).
+  const mailResults = outbox.map(job => ({ refereeName: job.refereeName, ok: sendReferenceRefereeRequestMail_(job) }));
+  const mailFailed = mailResults.filter(r => !r.ok).length;
+  return json_(Object.assign({}, result, { mailSent: mailResults.length - mailFailed, mailFailed: mailFailed }));
 }
 
-function submitReferenceCandidateRefereesUnlocked_(payload) {
+function submitReferenceCandidateRefereesUnlocked_(payload, outbox) {
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const token = String(body.token || '').trim();
   const referees = Array.isArray(body.referees) ? body.referees : [];
-  if (!token) return json_({ error: 'token_required' });
-  if (referees.length !== REFERENCE_REQUIRED_REFEREES) return json_({ error: 'exactly_three_referees_required' });
+  if (!token) return { error: 'token_required' };
+  if (referees.length !== REFERENCE_REQUIRED_REFEREES) return { error: 'exactly_three_referees_required' };
 
   const candSheet = ensureSheet_('ReferenceCandidates');
   const candHeaders = ensureHeaders_(candSheet, SHEET_SCHEMAS.ReferenceCandidates);
   const rowIndex = findRowIndex_(candSheet, 'token', token, candHeaders);
-  if (rowIndex < 0) return json_({ error: 'invalid_token' });
+  if (rowIndex < 0) return { error: 'invalid_token' };
   const candRow = readRows_('ReferenceCandidates').find(row => String(row.token || '') === token);
-  if (!candRow) return json_({ error: 'invalid_token' });
-  if (candidateProcessClosed_(candRow.pipelineCandId)) return json_({ error: 'process_closed' });
-  if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
-  if (candRow.refereesSubmittedAt) return json_({ error: 'already_submitted' });
+  if (!candRow) return { error: 'invalid_token' };
+  if (candidateProcessClosed_(candRow.pipelineCandId)) return { error: 'process_closed' };
+  if (referenceLinkExpired_(candRow)) return { error: 'token_expired' };
+  if (candRow.refereesSubmittedAt) return { error: 'already_submitted' };
 
   // 일부만 유효하고 일부가 빠진 상태로 시트에 쓰거나 메일을 보내기 시작하면 안 되므로,
   // 쓰기/발송을 시작하기 전에 3명 전원의 필수값(이름·이메일·전화번호·소속 회사)을 먼저 검증한다.
@@ -1274,11 +1328,11 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
     company: String(ref && ref.company || '').trim(),
   }));
   if (normalizedReferees.some(r => !r.name || !r.email || !r.phone || !r.company)) {
-    return json_({ error: 'referee_fields_incomplete' });
+    return { error: 'referee_fields_incomplete' };
   }
   const emailSet = {};
   if (normalizedReferees.some(r => emailSet[r.email] ? true : (emailSet[r.email] = true, false))) {
-    return json_({ error: 'duplicate_referee_email' });
+    return { error: 'duplicate_referee_email' };
   }
 
   const responseSheet = ensureSheet_('ReferenceResponses');
@@ -1312,47 +1366,11 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
     appendChange_('ReferenceResponses', 'upsert', row.id, row);
     issuedCount++;
 
-    // 이 단계는 후보자 본인이 공개 페이지에서 직접 트리거하는 액션이라 관리자 검토 발송을 거칠 수 없다.
-    // 그래서 서버가 Gmail/MailApp로 추천인에게 안내 메일을 자동 발송한다.
-    try {
-      const message = [
-        refereeName + '님, 안녕하세요.',
-        '',
-        candRow.candName + '님께서 우미건설 채용 과정에서 ' + refereeName + '님을 추천인으로 등록해 주셨습니다.',
-        '',
-        '아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.',
-        '',
-        '설문 참여 링크',
-        refLink,
-        '',
-        '설문 응답에는 약 10분 정도 소요됩니다.',
-        '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
-        '응답 기한: ' + formatReferenceDateTime_(row.deadlineAt, true),
-        `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
-        '',
-        '감사합니다.',
-        '우미건설 피플팀 드림'
-      ].join('\n');
-      const result = sendMailViaGmail_(
-        refereeEmail,
-        '[우미건설] ' + candRow.candName + '님 레퍼런스 체크 요청',
-        message,
-        referenceMailHtml_(message, {
-          templateType: 'referee_request',
-          candidateName: candRow.candName,
-          refereeName,
-          positionText: candRow.positionText || '',
-          link: refLink,
-          deadline: row.deadlineAt
-        })
-      );
-      if (!result.ok) throw new Error(result.error || 'mail_send_failed');
-    } catch (err) {
-      console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
-    }
+    // 메일은 잠금을 푼 뒤 submitReferenceCandidateReferees_에서 보낸다.
+    if (outbox) outbox.push({ refereeName, refereeEmail, refLink, deadlineAt: row.deadlineAt, candName: candRow.candName, positionText: candRow.positionText || '' });
   });
 
-  if (issuedCount !== REFERENCE_REQUIRED_REFEREES) return json_({ error: 'exactly_three_referees_required' });
+  if (issuedCount !== REFERENCE_REQUIRED_REFEREES) return { error: 'exactly_three_referees_required' };
 
   const updatedAtCol = candHeaders.indexOf('updatedAt') + 1;
   const submittedAtCol = candHeaders.indexOf('refereesSubmittedAt') + 1;
@@ -1362,7 +1380,50 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
   candSheet.getRange(rowIndex, updatedAtCol).setValue(nowIso_());
   appendChange_('ReferenceCandidates', 'upsert', candRow.id, { status: 'REFEREES_REGISTERED' });
 
-  return json_({ ok: true, count: issuedCount });
+  return { ok: true, count: issuedCount };
+}
+
+// 이 단계는 후보자 본인이 공개 페이지에서 직접 트리거하는 액션이라 관리자 검토 발송을 거칠 수 없다.
+// 그래서 서버가 Gmail/MailApp로 추천인에게 안내 메일을 자동 발송한다. 성공하면 true.
+function sendReferenceRefereeRequestMail_(job) {
+  try {
+    const message = [
+      job.refereeName + '님, 안녕하세요.',
+      '',
+      job.candName + '님께서 우미건설 채용 과정에서 ' + job.refereeName + '님을 추천인으로 등록해 주셨습니다.',
+      '',
+      '아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.',
+      '',
+      '설문 참여 링크',
+      job.refLink,
+      '',
+      '설문 응답에는 약 10분 정도 소요됩니다.',
+      '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+      '응답 기한: ' + formatReferenceDateTime_(job.deadlineAt, true),
+      `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
+      '',
+      '감사합니다.',
+      '우미건설 피플팀 드림'
+    ].join('\n');
+    const result = sendMailViaGmail_(
+      job.refereeEmail,
+      '[우미건설] ' + job.candName + '님 레퍼런스 체크 요청',
+      message,
+      referenceMailHtml_(message, {
+        templateType: 'referee_request',
+        candidateName: job.candName,
+        refereeName: job.refereeName,
+        positionText: job.positionText,
+        link: job.refLink,
+        deadline: job.deadlineAt
+      })
+    );
+    if (!result.ok) throw new Error(result.error || 'mail_send_failed');
+    return true;
+  } catch (err) {
+    console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
+    return false;
+  }
 }
 
 // 추천인이 응답 링크를 열었을 때의 1차 확인 — 링크 자체가 살아있는지만 본다.
@@ -1457,8 +1518,9 @@ function submitReferenceResponse_(payload) {
 }
 
 function submitReferenceResponseUnlocked_(payload) {
-  const token = String(payload.token || '').trim();
-  const answers = payload.answers || {};
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const token = String(body.token || '').trim();
+  const answers = body.answers || {};
   if (!token) return json_({ error: 'token_required' });
 
   const sheet = ensureSheet_('ReferenceResponses');
@@ -1474,18 +1536,13 @@ function submitReferenceResponseUnlocked_(payload) {
 
   const ANSWER_KEYS = ['q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
     'q1_2_mainTask','q1_2_projectScale','q1_2_soloVsShared',
-    'q2_startStyle',
-    'q3_judgeStyle','q3_initiative',
-    'q4_successNarrative','q4_failureNarrative',
-    'q5_feedbackResponse',
-    'q6_conflictStyle','q6_example',
-    'q7_entrustedRoles',
-    'q8_reliableAreas','q8_supportNeededAreas',
-    'q9_word','q9_reason',
-    'q10_firstAction','q10_sharedTiming',
-    'q11_juniorSupportStyle','q11_example',
-    'q12_exitReasonSource','q12_exitReasonDetail',
-    'respondentName','respondentAffiliation','respondentContact','respondentConsentObserved','respondentConsentDataUse'];
+    'q2_startStyle','q3_judgeStyle','q3_initiative',
+    'q4_successNarrative','q4_failureNarrative','q5_feedbackResponse',
+    'q6_conflictStyle','q6_example','q7_entrustedRoles',
+    'q8_reliableAreas','q8_supportNeededAreas','q9_word','q9_reason',
+    'q10_firstAction','q10_sharedTiming','q11_juniorSupportStyle','q11_example',
+    'q12_exitReasonSource','q12_exitReasonDetail','respondentName','respondentAffiliation',
+    'respondentContact','respondentConsentObserved','respondentConsentDataUse'];
   const merged = Object.assign({}, existing);
   ANSWER_KEYS.forEach(key => { merged[key] = String(answers[key] == null ? '' : answers[key]).trim(); });
   merged.submittedAt = nowIso_();
@@ -1496,34 +1553,7 @@ function submitReferenceResponseUnlocked_(payload) {
   sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]);
   appendChange_('ReferenceResponses', 'upsert', existing.id, merged);
 
-  try {
-    const message = [
-      existing.refereeName + '님, 안녕하세요.',
-      '',
-      existing.candName + '님에 대한 레퍼런스 설문 응답이 정상적으로 접수되었습니다.',
-      '',
-      '바쁘신 중에도 시간을 내어 주셔서 진심으로 감사드립니다.',
-      '',
-      '감사합니다.',
-      '우미건설 피플팀 드림'
-    ].join('\n');
-    const result = sendMailViaGmail_(
-      existing.refereeEmail,
-      '[우미건설] ' + existing.candName + '님 레퍼런스 체크 응답 접수 완료',
-      message,
-      referenceMailHtml_(message, {
-        templateType: 'referee_complete',
-        candidateName: existing.candName,
-        refereeName: existing.refereeName,
-        positionText: '',
-        submittedAt: merged.submittedAt
-      })
-    );
-    if (!result.ok) throw new Error(result.error || 'mail_send_failed');
-  } catch (err) {
-    console.warn('submitReferenceResponse_ completion mail failed: ' + String(err && err.message || err));
-  }
-
+  // 제출 완료 안내는 응답 화면에서 한다(추천인에게 별도 완료 메일은 보내지 않는다).
   return json_({ ok: true });
 }
 
@@ -1587,11 +1617,15 @@ function sendReferenceEmail_(payload) {
   if (!to || !subject || !message) return json_({ error: 'missing_mail_fields' });
   const templateType = String(body.templateType || body.templateKey || body.mailType || '').trim();
   if (!REFERENCE_MAIL_TEMPLATE_FILES[templateType]) return json_({ error: 'reference_template_type_required' });
+  const dedupe = beginMailDedupe_('reference', body);
+  if (dedupe.duplicate) return json_(dedupe.duplicate);
   try {
     const html = insertForwardNotice_(referenceMailHtml_(message, body), body);
     const result = sendMailViaGmail_(to, subject, htmlToPlainText_(html) || message, html);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
+    finishMailDedupe_(dedupe.key, true);
   } catch (err) {
+    finishMailDedupe_(dedupe.key, false);
     console.warn('sendReferenceEmail_ failed: ' + String(err && err.message || err));
     return json_({ error: 'mail_send_failed' });
   }
@@ -2555,6 +2589,8 @@ function handleSendGeneralMail_(payload) {
   const to = normalizeEmail_(body.toEmail || body.to || body.email);
   const subject = String(body.subject || '').trim();
   if (!to || !subject) return json_({ error: 'missing_mail_fields' });
+  const dedupe = beginMailDedupe_('general', body);
+  if (dedupe.duplicate) return json_(dedupe.duplicate);
   try {
     const html = generalMailHtml_(body.templateType, body);
     if (!html) throw new Error('mail_template_render_failed' + (GENERAL_MAIL_LAST_ERROR_ ? ':' + GENERAL_MAIL_LAST_ERROR_ : ''));
@@ -2574,8 +2610,10 @@ function handleSendGeneralMail_(payload) {
     }
     const result = sendMailViaGmail_(to, subject, message, html, attachments);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
+    finishMailDedupe_(dedupe.key, true);
     return json_({ ok: true, to: to, commonAttached: commonAttached });
   } catch (err) {
+    finishMailDedupe_(dedupe.key, false);
     const errorText = String(err && err.message || err);
     console.warn('handleSendGeneralMail_ failed: ' + errorText);
     return json_({ error: errorText || 'mail_send_failed' });
@@ -3384,6 +3422,8 @@ function parseOpsDate_(value) {
   if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(text)) {
     return new Date(text.replace(' ', 'T') + ':00+09:00');
   }
+  // 시각 없는 날짜는 한국 시간 자정으로 읽는다(new Date('yyyy-MM-dd')는 UTC 자정이 된다).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return new Date(text + 'T00:00:00+09:00');
   return new Date(text);
 }
 
@@ -3419,10 +3459,16 @@ function reserveChangeCursors_(sheet, count) {
   return current + 1;
 }
 
+// 새 기록은 항상 "시트의 최댓값 + 1"로 끝에 붙으므로 최댓값은 끝부분에 있다. 매번 열 전체를 읽지 않고
+// 끝의 CHANGE_CURSOR_TAIL_ROWS줄만 본다(두 프로젝트가 동시에 쓴 같은 번호·순서 뒤바뀜도 이 범위 안에 있다).
+const CHANGE_CURSOR_TAIL_ROWS = 200;
+const CHANGE_READ_CHUNK_ROWS = 500;
+
 function maxLoggedChangeCursor_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
-  return sheet.getRange(2, 1, lastRow - 1, 1).getValues().reduce(function(max, row) {
+  const count = Math.min(lastRow - 1, CHANGE_CURSOR_TAIL_ROWS);
+  return sheet.getRange(lastRow - count + 1, 1, count, 1).getValues().reduce(function(max, row) {
     const value = Number(row[0]) || 0;
     return value > max ? value : max;
   }, 0);
@@ -3448,20 +3494,30 @@ function readChangesAfter_(cursor, limit) {
 
 // 커서 번호가 행 순서와 어긋난 기존 기록이 있어도 빠짐·반복 없이 읽도록, "앞에서 처음 큰 값부터
 // 순서대로"가 아니라 요청 커서보다 큰 행을 모두 골라 커서 순으로 정렬해 돌려준다.
+// 요청 커서 이후 기록은 끝부분에 모여 있으므로 끝에서부터 CHANGE_READ_CHUNK_ROWS줄씩 거꾸로 읽고,
+// 요청 커서 이하인 줄이 나온 묶음까지만 본다(대부분 마지막 한 묶음만 읽는다). 커서 0(처음 동기화)은 끝까지 읽는다.
 function readChangePageAfter_(cursor, limit) {
   const sheet = ensureChangeLogSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return { changes: [], latestCursor: 0, hasMore: false };
   const requestedCursor = Number(cursor) || 0;
   const pageSize = Math.max(1, Number(limit) || 500);
-  const cursorValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   let latestCursor = 0;
   const matches = [];
-  cursorValues.forEach(function(row, index) {
-    const value = Number(row[0]) || 0;
-    if (value > latestCursor) latestCursor = value;
-    if (Number(row[0]) > requestedCursor) matches.push({ index: index, cursor: value });
-  });
+  let end = lastRow - 1; // 데이터 줄 개수(2행부터), index는 0부터
+  while (end > 0) {
+    const start = Math.max(0, end - CHANGE_READ_CHUNK_ROWS);
+    const chunk = sheet.getRange(start + 2, 1, end - start, 1).getValues();
+    let reachedOlder = false;
+    chunk.forEach(function(row, offset) {
+      const value = Number(row[0]) || 0;
+      if (value > latestCursor) latestCursor = value;
+      if (Number(row[0]) > requestedCursor) matches.push({ index: start + offset, cursor: value });
+      else reachedOlder = true;
+    });
+    if (reachedOlder) break;
+    end = start;
+  }
   if (!matches.length) return { changes: [], latestCursor: latestCursor, hasMore: false };
   matches.sort(function(a, b) { return a.cursor - b.cursor || a.index - b.index; });
   // 같은 커서 번호가 여러 행에 있으면(두 프로젝트가 동시에 기록한 경우) 페이지 경계에서 잘리지 않게 함께 넣는다.
@@ -3567,10 +3623,14 @@ function getDeploymentConfigStatus_() {
   if (!uploadFolderConfigured) warnings.push('REFERRAL_UPLOAD_FOLDER_ID가 없어 이력서 업로드가 실패할 수 있습니다.');
   if (!mainSpreadsheetConfigured) warnings.push('RECRUITMENT_SPREADSHEET_URL이 없어 연결된 기본 시트를 사용합니다.');
 
+  let deploymentParts = null;
+  try { deploymentParts = checkDeploymentParts_(); } catch (err) { deploymentParts = { checked: false, reason: String(err && err.message || err) }; }
+
   return {
     ok: errors.length === 0,
     errors: errors,
     warnings: warnings,
+    deploymentParts: deploymentParts,
     checks: {
       roleConfigured: role === 'admin',
       adminAuthConfigured: localUsersConfigured && adminTokenConfigured,
@@ -3582,6 +3642,54 @@ function getDeploymentConfigStatus_() {
 
 function getDeploymentConfigStatus() {
   return getDeploymentConfigStatus_();
+}
+
+// 배포 파일 짝 맞춤 점검: 일부 파일만 올려 서버 코드와 메일 양식·화면 파일의 버전이 섞이면
+// "메일 양식을 만들지 못했습니다" 같은 오류가 원인을 알기 어렵게 난다. 빌드 때 만든 지문 목록
+// (admin_98_build_manifest.gs의 BUILD_MANIFEST_)과 실제로 올라가 있는 함수·파일을 비교해 다른 파일을 알려 준다.
+// 같은 빌드에서 한 번 맞으면 6시간 동안 다시 계산하지 않는다.
+// 비교 방식이 이 환경에서 맞지 않아 전부 다르게 나오면(예: 함수 원문을 읽을 수 없음) 오류 대신 점검 불가로 둔다.
+function checkDeploymentParts_() {
+  const root = typeof globalThis !== 'undefined' ? globalThis : this;
+  if (typeof BUILD_MANIFEST_ === 'undefined') {
+    return { checked: false, reason: 'manifest_missing', files: ['admin_98_build_manifest.gs'] };
+  }
+  const manifest = BUILD_MANIFEST_;
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'deployment_parts_ok:' + manifest.build;
+  if (cache.get(cacheKey)) return { checked: true, ok: true, build: manifest.build, files: [] };
+
+  const fingerprint = text => sha256Hex_(String(text).replace(/\s+/g, '')).slice(0, 12);
+  const gsFiles = {};
+  let fnTotal = 0;
+  let fnMismatch = 0;
+  Object.keys(manifest.functions || {}).forEach(function(name) {
+    const file = manifest.functions[name][0];
+    const expected = manifest.functions[name][1];
+    fnTotal++;
+    const fn = root[name];
+    const actual = typeof fn === 'function' ? fingerprint(Function.prototype.toString.call(fn)) : '';
+    if (actual !== expected) { fnMismatch++; gsFiles[file] = true; }
+  });
+  const htmlFiles = [];
+  const htmlNames = Object.keys(manifest.html || {});
+  htmlNames.forEach(function(name) {
+    let content = null;
+    try { content = HtmlService.createHtmlOutputFromFile(name).getContent(); } catch (err) {}
+    if (content == null || fingerprint(content) !== manifest.html[name]) htmlFiles.push(name + '.html');
+  });
+  const gsUnreliable = fnTotal > 0 && fnMismatch === fnTotal;
+  const htmlUnreliable = htmlNames.length > 0 && htmlFiles.length === htmlNames.length;
+  const files = (gsUnreliable ? [] : Object.keys(gsFiles)).concat(htmlUnreliable ? [] : htmlFiles).sort();
+  const result = {
+    checked: !(gsUnreliable && htmlUnreliable),
+    ok: files.length === 0,
+    build: manifest.build,
+    files: files,
+    unreliable: gsUnreliable || htmlUnreliable
+  };
+  if (result.checked && result.ok && !result.unreliable) cache.put(cacheKey, '1', 6 * 60 * 60);
+  return result;
 }
 
 // 읽기 전용 점검: 과거(순차 전형) 로직에서 저장된 레퍼런스(구) 단계 레코드가 몇 건
@@ -3736,31 +3844,11 @@ function compactReferralStatus_(status) {
     FAILED: '불합격',
     HIRED: '입사',
     REJECTED: '종료',
+    WITHDRAWN: '종료',
     EXPIRED: '만료',
     CANCELLED: '종료'
   };
   return map[String(status || '').toUpperCase()] || '접수';
-}
-
-function sendReferralReceipt_(row) {
-  try {
-    if (!row || !row.refEmail) return;
-    const message = [
-      '사내추천 접수가 완료되었습니다.',
-      '',
-      '접수번호: ' + row.id,
-      '접수일: ' + String(row.submittedAt || '').slice(0, 10),
-      '유효기간: ' + String(row.validUntil || '').slice(0, 10),
-      '',
-      '접수 현황은 추천 접수 화면에서 동일한 사번 인증 후 확인할 수 있습니다.',
-      '',
-      '우미건설 피플팀'
-    ].join('\n');
-    const result = sendMailViaGmail_(row.refEmail, '[우미건설] 사내추천 접수 완료', message);
-    if (!result.ok) throw new Error(result.error || 'mail_send_failed');
-  } catch (err) {
-    console.warn('sendReferralReceipt_ failed: ' + String(err && err.message || err));
-  }
 }
 
 function json_(obj) {
@@ -3779,10 +3867,12 @@ function adminLogin_(payload) {
 
   const users = getLocalAdminUsers_();
   const expectedHash = users[loginId];
-  if (!expectedHash || sha256Hex_(password) !== expectedHash) {
+  const check = expectedHash ? verifyAdminPassword_(password, expectedHash) : { ok: false };
+  if (!check.ok) {
     recordAdminLoginFailure_(loginId);
     return { ok: false, error: 'invalid_credentials' };
   }
+  if (check.upgrade) upgradeAdminPasswordHash_(loginId, password);
 
   clearAdminLoginFailures_(loginId);
   purgeExpiredAdminSessions_();
@@ -3870,7 +3960,7 @@ function getLocalAdminUsers_() {
     const loginId = String(text.slice(0, idx) || '').trim().toLowerCase();
     const hash = text.slice(idx + 1).trim().toLowerCase();
     const allowedId = loginId === 'admin' || /^\d+$/.test(loginId);
-    if (allowedId && /^[a-f0-9]{64}$/.test(hash)) users[loginId] = hash;
+    if (allowedId && isAdminPasswordHashFormat_(hash)) users[loginId] = hash;
   });
   return users;
 }
@@ -3924,8 +4014,86 @@ function sha256Hex_(value) {
     .join('');
 }
 
+// 관리자 비밀번호 해시: PBKDF2-HMAC-SHA256(계정마다 다른 솔트, 반복 계산) — 'v2$반복횟수$솔트$해시' 형식.
+// 예전 형식(솔트 없는 SHA-256 64자리)도 로그인은 되며, 로그인에 성공하면 그 계정만 새 형식으로 바꿔 저장한다.
+// 새 계정 해시는 Apps Script 편집기에서 makeAdminPasswordHash('비밀번호')를 실행해 만든다.
+const ADMIN_PASSWORD_HASH_ITERATIONS = 2000;
+const ADMIN_PASSWORD_HASH_V2_RE = /^v2\$(\d{1,6})\$([a-f0-9]{32,128})\$([a-f0-9]{64})$/;
+
+function isAdminPasswordHashFormat_(hash) {
+  return /^[a-f0-9]{64}$/.test(hash) || ADMIN_PASSWORD_HASH_V2_RE.test(hash);
+}
+
+function bytesToHex_(bytes) {
+  return bytes.map(function(byte) { return ('0' + (byte & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function hexToBytes_(hex) {
+  const out = [];
+  for (let i = 0; i + 1 < hex.length; i += 2) {
+    const v = parseInt(hex.substr(i, 2), 16);
+    out.push(v > 127 ? v - 256 : v);
+  }
+  return out;
+}
+
+// PBKDF2-HMAC-SHA256, 출력 32바이트(한 블록).
+function pbkdf2Sha256Hex_(password, saltBytes, iterations) {
+  const key = Utilities.newBlob(String(password)).getBytes();
+  let u = Utilities.computeHmacSha256Signature(saltBytes.concat([0, 0, 0, 1]), key);
+  const acc = u.slice();
+  for (let i = 1; i < iterations; i++) {
+    u = Utilities.computeHmacSha256Signature(u, key);
+    for (let j = 0; j < acc.length; j++) acc[j] ^= u[j];
+  }
+  return bytesToHex_(acc);
+}
+
+// 길이가 같으면 끝까지 비교한다(어디서 달라지는지 응답 시간으로 드러나지 않게).
+function constantTimeEqual_(a, b) {
+  a = String(a || '');
+  b = String(b || '');
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function verifyAdminPassword_(password, stored) {
+  const m = ADMIN_PASSWORD_HASH_V2_RE.exec(String(stored || ''));
+  if (m) {
+    const ok = constantTimeEqual_(pbkdf2Sha256Hex_(password, hexToBytes_(m[2]), Number(m[1])), m[3]);
+    return { ok: ok, upgrade: ok && Number(m[1]) < ADMIN_PASSWORD_HASH_ITERATIONS };
+  }
+  const ok = /^[a-f0-9]{64}$/.test(String(stored || '')) && constantTimeEqual_(sha256Hex_(password), stored);
+  return { ok: ok, upgrade: ok };
+}
+
 function makeAdminPasswordHash(password) {
-  return sha256Hex_(password || '');
+  const salt = hexToBytes_((Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 32));
+  return 'v2$' + ADMIN_PASSWORD_HASH_ITERATIONS + '$' + bytesToHex_(salt) + '$' + pbkdf2Sha256Hex_(password || '', salt, ADMIN_PASSWORD_HASH_ITERATIONS);
+}
+
+// 로그인에 성공한 계정의 해시만 새 형식으로 바꿔 저장한다. 다른 계정 줄은 그대로 둔다. 실패해도 로그인은 계속된다.
+function upgradeAdminPasswordHash_(loginId, password) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const raw = String(props.getProperty(LOCAL_ADMIN_USERS_PROPERTY) || '');
+    let replaced = false;
+    const entries = raw.split(/[,\n;]/).map(function(entry) { return String(entry || '').trim(); }).filter(Boolean).map(function(entry) {
+      const idx = entry.indexOf(':');
+      if (idx <= 0 || String(entry.slice(0, idx)).trim().toLowerCase() !== loginId) return entry;
+      replaced = true;
+      return entry.slice(0, idx).trim() + ':' + makeAdminPasswordHash(password);
+    });
+    if (replaced) props.setProperty(LOCAL_ADMIN_USERS_PROPERTY, entries.join('\n'));
+  } catch (err) {
+    console.warn('upgradeAdminPasswordHash_ failed: ' + String(err && err.message || err));
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function adminApi(payload) {

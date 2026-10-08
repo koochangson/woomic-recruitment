@@ -50,3 +50,4 @@ mail_shared_contact_qr.html
 mail_shared_footer.html
 mail_shared_header_bottom.html
 mail_shared_header_top.html
+admin_98_build_manifest.gs

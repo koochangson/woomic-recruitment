@@ -1,0 +1,95 @@
+{
+  "description": "관리자(src/admin/backend/Code.gs)와 공개(src/public/backend/Code.gs)에 같은 이름으로 있지만 의도적으로 내용이 다른 함수. scripts/check-backend-drift.mjs가 사용하며, admin/public 값은 등록 당시 본문 지문이다(--update로 갱신).",
+  "functions": {
+    "batchUpsert_": {
+      "reason": "관리자만 rev 시트(입사·처우 포함) 새 rev를 돌려준다(revs). 공개는 사내추천 접수만 쓴다.",
+      "admin": "dc0d4abf936a4d5c",
+      "public": "51272908a5844fd8"
+    },
+    "doGet": {
+      "reason": "배포 역할별 진입점: 관리자는 대시보드 화면, 공개는 화면 없음.",
+      "admin": "70556397d01a0f43",
+      "public": "ebe4d8b9fd0a6d8a"
+    },
+    "ensureSheet_": {
+      "reason": "공개는 시트별 스프레드시트 분리(getSpreadsheetForSheet_)를 지원한다.",
+      "admin": "04cbc6bd7cd1699e",
+      "public": "546a8b3e6e5d950a"
+    },
+    "generateReferenceSummary_": {
+      "reason": "공개 배포에서는 차단(PUBLIC_BLOCKED_ADMIN_ACTIONS). 관리자 쪽만 실제로 쓴다.",
+      "admin": "507787e5158e5d39",
+      "public": "56e277b1d6717418"
+    },
+    "getSpreadsheetForSheet_": {
+      "reason": "공개는 시트별 스프레드시트 분리를 지원한다.",
+      "admin": "691ef1fd33efb900",
+      "public": "3a82938ed4360a05"
+    },
+    "handleReferralSecurityAction_": {
+      "reason": "배포 역할별로 처리하는 공개 액션 목록이 다르다.",
+      "admin": "6da0ae6b4ea498e5",
+      "public": "4d45bb579191189f"
+    },
+    "isAdminRequest_": {
+      "reason": "관리자는 앱 로그인 세션, 공개는 배포 역할 차단 + 관리자 허용 목록.",
+      "admin": "c193ae0c15d677ae",
+      "public": "b8e140033c402880"
+    },
+    "issueInterviewAvailabilityLink_": {
+      "reason": "공개 배포에서는 차단. 관리자 쪽만 실제로 쓴다.",
+      "admin": "252e6b5498ff2693",
+      "public": "8a06b339f208f7ea"
+    },
+    "issuePanelAvailabilityLink_": {
+      "reason": "공개 배포에서는 차단. 관리자 쪽만 실제로 쓴다.",
+      "admin": "a6e329a6a15ad3fc",
+      "public": "7a694354d065ec9e"
+    },
+    "issueReferenceCandidateLink_": {
+      "reason": "공개 배포에서는 차단. 관리자 쪽만 실제로 쓴다.",
+      "admin": "9fad1e7230d2407e",
+      "public": "fe52c7495f2f5c99"
+    },
+    "readRowsIfSheetExists_": {
+      "reason": "공개는 시트별 스프레드시트 분리를 지원한다.",
+      "admin": "3a2150911021445f",
+      "public": "f7d6059c8d6a13e8"
+    },
+    "referenceMailHtml_": {
+      "reason": "관리자는 메일 양식 파일(mail_0x_*.html), 공개는 내장 HTML을 쓴다.",
+      "admin": "1e3b3d5d93ec6fdb",
+      "public": "d340005b2324aad5"
+    },
+    "routeRequest_": {
+      "reason": "배포 역할별 라우팅(공개는 관리자 액션 차단).",
+      "admin": "4c535f53d72a3736",
+      "public": "e0666424d71e7bfa"
+    },
+    "sendCohortCompleteNotice_": {
+      "reason": "메일 발송 함수가 다르다(관리자 sendMailViaGmail_, 공개 sendLoggedMail_).",
+      "admin": "676e646d644546b0",
+      "public": "cf37618e274fed06"
+    },
+    "sendReferenceRefereeRequestMail_": {
+      "reason": "메일 발송 함수·양식이 다르다(관리자 sendMailViaGmail_+양식 파일, 공개 sendLoggedMail_+내장 HTML).",
+      "admin": "9dded2c8edb23123",
+      "public": "3becb3af7e4082ef"
+    },
+    "sendReferralVerificationCode_": {
+      "reason": "메일 발송 함수가 다르다(관리자 sendMailViaGmail_, 공개 sendLoggedMail_).",
+      "admin": "1a77e186e1447b48",
+      "public": "453746876052bd41"
+    },
+    "setInterviewAvailabilityDeliveryStatus_": {
+      "reason": "공개 배포에서는 차단. 관리자 쪽만 실제로 쓴다.",
+      "admin": "1d118502b5e98fe5",
+      "public": "aa0b8a0efe64fd0f"
+    },
+    "submitReferenceCandidateRefereesUnlocked_": {
+      "reason": "마감일 계산·안내 문구 도우미가 다르다(addReferenceDays_ / 직접 계산, 동작은 같음).",
+      "admin": "31f5bf6f1484aa45",
+      "public": "45ecc9c6c4388cbe"
+    }
+  }
+}

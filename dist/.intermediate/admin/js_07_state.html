@@ -18,7 +18,6 @@ function getAuxStateSnapshot() {
     updatedAt: auxUpdatedAt || new Date().toISOString(),
     notifyLog: notifyLog.slice(0,200),
     refDetails,
-    refReports,
     activityLog: activityLog.slice(0,300),
   };
 }
@@ -27,7 +26,6 @@ function getAuxFingerprint() {
   return JSON.stringify({
     notifyLog: notifyLog.slice(0,200),
     refDetails,
-    refReports,
     activityLog: activityLog.slice(0,300),
   });
 }
@@ -78,7 +76,8 @@ async function loadAuxStateFromGS() {
     if(!rowSyncReady_ && Array.isArray(remote.offers) && remote.offers.length && !offers.length) offers = remote.offers;
     notifyLog = remote.notifyLog || notifyLog;
     refDetails = remote.refDetails || refDetails;
-    refReports = remote.refReports || refReports;
+    // 레퍼런스 결과 정리도 이제 RefReports 시트에서 받는다. 예전 덩어리 값은 첫 이관 때만 쓴다.
+    if(!rowSyncReady_ && remote.refReports && Object.keys(remote.refReports).length && !Object.keys(refReports).length) refReports = remote.refReports;
     activityLog = remote.activityLog || activityLog;
     auxUpdatedAt = remote.updatedAt || meta.updatedAt || '';
     saveState();
@@ -131,7 +130,7 @@ const ROW_SYNC_SHEETS_ = {
     fromRow:row => ({
       ...row, id:Number(row.id), candId:Number(row.candId),
       joinDate:rowSyncDate_(row.joinDate), preDeadline:rowSyncDate_(row.preDeadline), joinTime:rowSyncTime_(row.joinTime),
-      notified:rowBool_(row.notified), deptNotified:rowBool_(row.deptNotified),
+      notified:rowBool_(row.notified), deptNotified:rowBool_(row.deptNotified), rev:Number(row.rev) || 0,
     }),
   },
   Offers: {
@@ -141,7 +140,25 @@ const ROW_SYNC_SHEETS_ = {
     fromRow:row => {
       let items = {};
       try { items = JSON.parse(row.allowanceItems || '{}') || {}; } catch(e) {}
-      const out = { ...row, candId:Number(row.candId || row.id), allowanceItems:items, healthDeadline:rowSyncDate_(row.healthDeadline) };
+      const out = { ...row, candId:Number(row.candId || row.id), allowanceItems:items, healthDeadline:rowSyncDate_(row.healthDeadline), rev:Number(row.rev) || 0 };
+      delete out.id;
+      return out;
+    },
+  },
+  // 레퍼런스 결과 정리: 화면에서는 지원자 id를 키로 한 객체(refReports[candId])로 쓴다.
+  RefReports: {
+    list:() => Object.entries(refReports).map(([candId, r]) => {
+      if(!r) return null;
+      if(r.candId == null) r.candId = Number(candId);
+      // 예전 기록은 화면 표시용 저장 시각을 updatedAt에 두었다 → savedAt으로 옮긴다(updatedAt은 줄 동기화가 쓴다).
+      if(!r.savedAt && r.updatedAt && !String(r.updatedAt).includes('T')) r.savedAt = r.updatedAt;
+      return r;
+    }).filter(Boolean),
+    set:v => { refReports = Object.fromEntries(v.map(r => [String(r.candId), r])); },
+    key:r => String(r.candId ?? ''),
+    toRow:r => ({ ...r, id:String(r.candId), aiApplied:r.aiApplied ? 'true' : '' }),
+    fromRow:row => {
+      const out = { ...row, candId:Number(row.candId || row.id), aiApplied:rowBool_(row.aiApplied), rev:Number(row.rev) || 0 };
       delete out.id;
       return out;
     },
@@ -223,11 +240,36 @@ async function flushRowSync_() {
       const changed = [...current.entries()].filter(([key, rec]) => snap[key] !== rowSyncFingerprint_(sheet, rec));
       const removed = Object.keys(snap).filter(key => !current.has(key));
       if(changed.length) {
+        const keys = changed.map(([key]) => key);
+        const recOf = key => def.list().find(r => def.key(r) === key);
         const now = new Date().toISOString();
         changed.forEach(([, rec]) => { rec.updatedAt = now; });
-        const result = await gsBatchUpsert(sheet, changed.map(([, rec]) => def.toRow(rec)));
-        if(result == null || result?.error) { scheduleRowSync_(15000); continue; }
-        changed.forEach(([key, rec]) => { snap[key] = rowSyncFingerprint_(sheet, rec); });
+        const send = () => gsFetch('batchUpsert', sheet, keys.map(recOf).filter(Boolean).map(rec => gsSchemaPayload(sheet, def.toRow(rec))), { allowQueue:false });
+        let result = await send();
+        // 다른 PC가 같은 기록을 먼저 고쳤으면(rev 충돌) 필드별로 합친 뒤 다시 저장한다:
+        // 마지막 동기화 뒤 이 PC에서 바꾼 칸은 이 PC 값, 나머지 칸은 서버 최신값.
+        for(let attempt=0; attempt<2 && result?.error === 'revision_conflict' && Array.isArray(result.conflicts); attempt++) {
+          result.conflicts.forEach(conflict => {
+            const key = String(conflict.id ?? '');
+            const local = recOf(key);
+            if(!local || !conflict.data) return;
+            replaceRowSyncRecord_(sheet, key, mergeRowSyncRecord_(sheet, local, conflict.data));
+            snap[key] = rowSyncFingerprint_(sheet, def.fromRow(conflict.data));
+          });
+          console.info('[GS] 버전 충돌 자동 병합 후 재저장:', sheet, result.conflicts.map(c => c.id));
+          result = await send();
+        }
+        if(result == null || result?.error) {
+          if(result?.error === 'revision_conflict') showRevisionConflict_(sheet, result);
+          scheduleRowSync_(15000);
+          continue;
+        }
+        keys.forEach(key => {
+          const rec = recOf(key);
+          if(!rec) return;
+          if(result.revs && result.revs[key] != null) rec.rev = Number(result.revs[key]) || 0;
+          snap[key] = rowSyncFingerprint_(sheet, rec);
+        });
       }
       for(const key of removed) {
         const result = await gsFetch('deleteRow', sheet, { id:key }, { allowQueue:false });
@@ -256,11 +298,46 @@ function applyRowSyncChange_(sheet, change) {
     const rec = def.fromRow(change.data || {});
     const key = def.key(rec);
     const idx = list.findIndex(r => def.key(r) === key);
-    if(idx >= 0) list[idx] = rec; else list.push(rec);
+    // 이 PC가 이미 더 새 버전을 저장한 뒤 도착한 예전 변경(자기 저장의 늦은 회신 등)은 무시한다.
+    if(idx >= 0 && rec.rev && rec.rev < (Number(list[idx].rev) || 0)) return true;
+    // 이 PC에서 고치고 아직 올리지 못한 기록이면 덮어쓰지 않고 합친다(올릴 때 서버 rev 기준으로 저장된다).
+    const localPending = idx >= 0 && snap[key] !== undefined && snap[key] !== rowSyncFingerprint_(sheet, list[idx]);
+    replaceRowSyncRecord_(sheet, key, localPending ? mergeRowSyncRecord_(sheet, list[idx], change.data || {}) : rec);
     snap[key] = rowSyncFingerprint_(sheet, rec);
+    if(localPending) scheduleRowSync_();
   }
   persistRowSyncSnapshot_();
   return true;
+}
+
+// 같은 기록을 두 PC가 고쳤을 때 필드별 병합. 기준(base)은 마지막으로 서버와 맞춘 내용(snapshot)이다.
+// base와 다른 칸(이 PC가 바꾼 칸)은 이 PC 값, 나머지는 서버 값을 쓰고, rev는 서버 값을 따른다.
+// base가 없으면(서버와 맞춘 적 없는 기록) 이 PC 값을 모두 쓴다.
+function mergeRowSyncRecord_(sheet, local, serverRow) {
+  const def = ROW_SYNC_SHEETS_[sheet];
+  const fields = (GS_SCHEMA[sheet] || []).filter(k => k !== 'updatedAt' && k !== 'rev');
+  const key = def.key(local);
+  let base = null;
+  try { base = rowSyncSnapshot_[sheet]?.[key] ? JSON.parse(rowSyncSnapshot_[sheet][key]) : null; } catch(e) { base = null; }
+  const localRow = def.toRow(local);
+  const merged = def.toRow(def.fromRow(serverRow)); // 서버 값도 화면 형식(날짜 등)으로 맞춘 뒤 비교
+  fields.forEach((field, index) => {
+    const localValue = String(localRow[field] == null ? '' : localRow[field]);
+    if(!base || localValue !== base[index]) merged[field] = localRow[field];
+  });
+  merged.rev = Number(serverRow.rev) || 0;
+  merged.updatedAt = localRow.updatedAt || serverRow.updatedAt || '';
+  return def.fromRow(merged);
+}
+
+// 기존 객체를 그 자리에서 바꾼다(열려 있는 화면이 같은 객체를 참조하고 있을 수 있다).
+function replaceRowSyncRecord_(sheet, key, rec) {
+  const def = ROW_SYNC_SHEETS_[sheet];
+  const list = def.list();
+  const target = list.find(r => def.key(r) === key);
+  if(!target) { def.set(list.concat([rec])); return; }
+  Object.keys(target).forEach(k => { delete target[k]; });
+  Object.assign(target, rec);
 }
 
 </script>

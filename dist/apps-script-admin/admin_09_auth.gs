@@ -21,10 +21,14 @@ function getDeploymentConfigStatus_() {
   if (!uploadFolderConfigured) warnings.push('REFERRAL_UPLOAD_FOLDER_ID가 없어 이력서 업로드가 실패할 수 있습니다.');
   if (!mainSpreadsheetConfigured) warnings.push('RECRUITMENT_SPREADSHEET_URL이 없어 연결된 기본 시트를 사용합니다.');
 
+  let deploymentParts = null;
+  try { deploymentParts = checkDeploymentParts_(); } catch (err) { deploymentParts = { checked: false, reason: String(err && err.message || err) }; }
+
   return {
     ok: errors.length === 0,
     errors: errors,
     warnings: warnings,
+    deploymentParts: deploymentParts,
     checks: {
       roleConfigured: role === 'admin',
       adminAuthConfigured: localUsersConfigured && adminTokenConfigured,
@@ -36,6 +40,54 @@ function getDeploymentConfigStatus_() {
 
 function getDeploymentConfigStatus() {
   return getDeploymentConfigStatus_();
+}
+
+// 배포 파일 짝 맞춤 점검: 일부 파일만 올려 서버 코드와 메일 양식·화면 파일의 버전이 섞이면
+// "메일 양식을 만들지 못했습니다" 같은 오류가 원인을 알기 어렵게 난다. 빌드 때 만든 지문 목록
+// (admin_98_build_manifest.gs의 BUILD_MANIFEST_)과 실제로 올라가 있는 함수·파일을 비교해 다른 파일을 알려 준다.
+// 같은 빌드에서 한 번 맞으면 6시간 동안 다시 계산하지 않는다.
+// 비교 방식이 이 환경에서 맞지 않아 전부 다르게 나오면(예: 함수 원문을 읽을 수 없음) 오류 대신 점검 불가로 둔다.
+function checkDeploymentParts_() {
+  const root = typeof globalThis !== 'undefined' ? globalThis : this;
+  if (typeof BUILD_MANIFEST_ === 'undefined') {
+    return { checked: false, reason: 'manifest_missing', files: ['admin_98_build_manifest.gs'] };
+  }
+  const manifest = BUILD_MANIFEST_;
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'deployment_parts_ok:' + manifest.build;
+  if (cache.get(cacheKey)) return { checked: true, ok: true, build: manifest.build, files: [] };
+
+  const fingerprint = text => sha256Hex_(String(text).replace(/\s+/g, '')).slice(0, 12);
+  const gsFiles = {};
+  let fnTotal = 0;
+  let fnMismatch = 0;
+  Object.keys(manifest.functions || {}).forEach(function(name) {
+    const file = manifest.functions[name][0];
+    const expected = manifest.functions[name][1];
+    fnTotal++;
+    const fn = root[name];
+    const actual = typeof fn === 'function' ? fingerprint(Function.prototype.toString.call(fn)) : '';
+    if (actual !== expected) { fnMismatch++; gsFiles[file] = true; }
+  });
+  const htmlFiles = [];
+  const htmlNames = Object.keys(manifest.html || {});
+  htmlNames.forEach(function(name) {
+    let content = null;
+    try { content = HtmlService.createHtmlOutputFromFile(name).getContent(); } catch (err) {}
+    if (content == null || fingerprint(content) !== manifest.html[name]) htmlFiles.push(name + '.html');
+  });
+  const gsUnreliable = fnTotal > 0 && fnMismatch === fnTotal;
+  const htmlUnreliable = htmlNames.length > 0 && htmlFiles.length === htmlNames.length;
+  const files = (gsUnreliable ? [] : Object.keys(gsFiles)).concat(htmlUnreliable ? [] : htmlFiles).sort();
+  const result = {
+    checked: !(gsUnreliable && htmlUnreliable),
+    ok: files.length === 0,
+    build: manifest.build,
+    files: files,
+    unreliable: gsUnreliable || htmlUnreliable
+  };
+  if (result.checked && result.ok && !result.unreliable) cache.put(cacheKey, '1', 6 * 60 * 60);
+  return result;
 }
 
 // 읽기 전용 점검: 과거(순차 전형) 로직에서 저장된 레퍼런스(구) 단계 레코드가 몇 건
@@ -190,31 +242,11 @@ function compactReferralStatus_(status) {
     FAILED: '불합격',
     HIRED: '입사',
     REJECTED: '종료',
+    WITHDRAWN: '종료',
     EXPIRED: '만료',
     CANCELLED: '종료'
   };
   return map[String(status || '').toUpperCase()] || '접수';
-}
-
-function sendReferralReceipt_(row) {
-  try {
-    if (!row || !row.refEmail) return;
-    const message = [
-      '사내추천 접수가 완료되었습니다.',
-      '',
-      '접수번호: ' + row.id,
-      '접수일: ' + String(row.submittedAt || '').slice(0, 10),
-      '유효기간: ' + String(row.validUntil || '').slice(0, 10),
-      '',
-      '접수 현황은 추천 접수 화면에서 동일한 사번 인증 후 확인할 수 있습니다.',
-      '',
-      '우미건설 피플팀'
-    ].join('\n');
-    const result = sendMailViaGmail_(row.refEmail, '[우미건설] 사내추천 접수 완료', message);
-    if (!result.ok) throw new Error(result.error || 'mail_send_failed');
-  } catch (err) {
-    console.warn('sendReferralReceipt_ failed: ' + String(err && err.message || err));
-  }
 }
 
 function json_(obj) {
@@ -233,10 +265,12 @@ function adminLogin_(payload) {
 
   const users = getLocalAdminUsers_();
   const expectedHash = users[loginId];
-  if (!expectedHash || sha256Hex_(password) !== expectedHash) {
+  const check = expectedHash ? verifyAdminPassword_(password, expectedHash) : { ok: false };
+  if (!check.ok) {
     recordAdminLoginFailure_(loginId);
     return { ok: false, error: 'invalid_credentials' };
   }
+  if (check.upgrade) upgradeAdminPasswordHash_(loginId, password);
 
   clearAdminLoginFailures_(loginId);
   purgeExpiredAdminSessions_();
@@ -324,7 +358,7 @@ function getLocalAdminUsers_() {
     const loginId = String(text.slice(0, idx) || '').trim().toLowerCase();
     const hash = text.slice(idx + 1).trim().toLowerCase();
     const allowedId = loginId === 'admin' || /^\d+$/.test(loginId);
-    if (allowedId && /^[a-f0-9]{64}$/.test(hash)) users[loginId] = hash;
+    if (allowedId && isAdminPasswordHashFormat_(hash)) users[loginId] = hash;
   });
   return users;
 }
@@ -378,7 +412,85 @@ function sha256Hex_(value) {
     .join('');
 }
 
+// 관리자 비밀번호 해시: PBKDF2-HMAC-SHA256(계정마다 다른 솔트, 반복 계산) — 'v2$반복횟수$솔트$해시' 형식.
+// 예전 형식(솔트 없는 SHA-256 64자리)도 로그인은 되며, 로그인에 성공하면 그 계정만 새 형식으로 바꿔 저장한다.
+// 새 계정 해시는 Apps Script 편집기에서 makeAdminPasswordHash('비밀번호')를 실행해 만든다.
+const ADMIN_PASSWORD_HASH_ITERATIONS = 2000;
+const ADMIN_PASSWORD_HASH_V2_RE = /^v2\$(\d{1,6})\$([a-f0-9]{32,128})\$([a-f0-9]{64})$/;
+
+function isAdminPasswordHashFormat_(hash) {
+  return /^[a-f0-9]{64}$/.test(hash) || ADMIN_PASSWORD_HASH_V2_RE.test(hash);
+}
+
+function bytesToHex_(bytes) {
+  return bytes.map(function(byte) { return ('0' + (byte & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function hexToBytes_(hex) {
+  const out = [];
+  for (let i = 0; i + 1 < hex.length; i += 2) {
+    const v = parseInt(hex.substr(i, 2), 16);
+    out.push(v > 127 ? v - 256 : v);
+  }
+  return out;
+}
+
+// PBKDF2-HMAC-SHA256, 출력 32바이트(한 블록).
+function pbkdf2Sha256Hex_(password, saltBytes, iterations) {
+  const key = Utilities.newBlob(String(password)).getBytes();
+  let u = Utilities.computeHmacSha256Signature(saltBytes.concat([0, 0, 0, 1]), key);
+  const acc = u.slice();
+  for (let i = 1; i < iterations; i++) {
+    u = Utilities.computeHmacSha256Signature(u, key);
+    for (let j = 0; j < acc.length; j++) acc[j] ^= u[j];
+  }
+  return bytesToHex_(acc);
+}
+
+// 길이가 같으면 끝까지 비교한다(어디서 달라지는지 응답 시간으로 드러나지 않게).
+function constantTimeEqual_(a, b) {
+  a = String(a || '');
+  b = String(b || '');
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function verifyAdminPassword_(password, stored) {
+  const m = ADMIN_PASSWORD_HASH_V2_RE.exec(String(stored || ''));
+  if (m) {
+    const ok = constantTimeEqual_(pbkdf2Sha256Hex_(password, hexToBytes_(m[2]), Number(m[1])), m[3]);
+    return { ok: ok, upgrade: ok && Number(m[1]) < ADMIN_PASSWORD_HASH_ITERATIONS };
+  }
+  const ok = /^[a-f0-9]{64}$/.test(String(stored || '')) && constantTimeEqual_(sha256Hex_(password), stored);
+  return { ok: ok, upgrade: ok };
+}
+
 function makeAdminPasswordHash(password) {
-  return sha256Hex_(password || '');
+  const salt = hexToBytes_((Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 32));
+  return 'v2$' + ADMIN_PASSWORD_HASH_ITERATIONS + '$' + bytesToHex_(salt) + '$' + pbkdf2Sha256Hex_(password || '', salt, ADMIN_PASSWORD_HASH_ITERATIONS);
+}
+
+// 로그인에 성공한 계정의 해시만 새 형식으로 바꿔 저장한다. 다른 계정 줄은 그대로 둔다. 실패해도 로그인은 계속된다.
+function upgradeAdminPasswordHash_(loginId, password) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const raw = String(props.getProperty(LOCAL_ADMIN_USERS_PROPERTY) || '');
+    let replaced = false;
+    const entries = raw.split(/[,\n;]/).map(function(entry) { return String(entry || '').trim(); }).filter(Boolean).map(function(entry) {
+      const idx = entry.indexOf(':');
+      if (idx <= 0 || String(entry.slice(0, idx)).trim().toLowerCase() !== loginId) return entry;
+      replaced = true;
+      return entry.slice(0, idx).trim() + ':' + makeAdminPasswordHash(password);
+    });
+    if (replaced) props.setProperty(LOCAL_ADMIN_USERS_PROPERTY, entries.join('\n'));
+  } catch (err) {
+    console.warn('upgradeAdminPasswordHash_ failed: ' + String(err && err.message || err));
+  } finally {
+    lock.releaseLock();
+  }
 }
 

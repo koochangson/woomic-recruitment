@@ -9,6 +9,7 @@ import {
   mailTemplatePath,
   sharedBackendSource,
 } from './project_paths.js';
+import { buildAdminManifestSource, manifestFileName } from './build_manifest.js';
 
 const outDir = adminDistDir;
 
@@ -48,6 +49,9 @@ for (const item of files) {
   fs.copyFileSync(src, dest);
   copied.push(destName);
 }
+// 업로드한 파일들이 같은 빌드인지 서버가 확인할 지문 목록(맨 마지막에 만든다).
+fs.writeFileSync(path.join(outDir, manifestFileName), buildAdminManifestSource(outDir, copied), 'utf8');
+copied.push(manifestFileName);
 
 const readme = `# Apps Script Split Upload Set
 

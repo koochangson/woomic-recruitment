@@ -491,6 +491,8 @@ function parseOpsDate_(value) {
   if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(text)) {
     return new Date(text.replace(' ', 'T') + ':00+09:00');
   }
+  // 시각 없는 날짜는 한국 시간 자정으로 읽는다(new Date('yyyy-MM-dd')는 UTC 자정이 된다).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return new Date(text + 'T00:00:00+09:00');
   return new Date(text);
 }
 
@@ -526,10 +528,16 @@ function reserveChangeCursors_(sheet, count) {
   return current + 1;
 }
 
+// 새 기록은 항상 "시트의 최댓값 + 1"로 끝에 붙으므로 최댓값은 끝부분에 있다. 매번 열 전체를 읽지 않고
+// 끝의 CHANGE_CURSOR_TAIL_ROWS줄만 본다(두 프로젝트가 동시에 쓴 같은 번호·순서 뒤바뀜도 이 범위 안에 있다).
+const CHANGE_CURSOR_TAIL_ROWS = 200;
+const CHANGE_READ_CHUNK_ROWS = 500;
+
 function maxLoggedChangeCursor_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
-  return sheet.getRange(2, 1, lastRow - 1, 1).getValues().reduce(function(max, row) {
+  const count = Math.min(lastRow - 1, CHANGE_CURSOR_TAIL_ROWS);
+  return sheet.getRange(lastRow - count + 1, 1, count, 1).getValues().reduce(function(max, row) {
     const value = Number(row[0]) || 0;
     return value > max ? value : max;
   }, 0);
@@ -555,20 +563,30 @@ function readChangesAfter_(cursor, limit) {
 
 // 커서 번호가 행 순서와 어긋난 기존 기록이 있어도 빠짐·반복 없이 읽도록, "앞에서 처음 큰 값부터
 // 순서대로"가 아니라 요청 커서보다 큰 행을 모두 골라 커서 순으로 정렬해 돌려준다.
+// 요청 커서 이후 기록은 끝부분에 모여 있으므로 끝에서부터 CHANGE_READ_CHUNK_ROWS줄씩 거꾸로 읽고,
+// 요청 커서 이하인 줄이 나온 묶음까지만 본다(대부분 마지막 한 묶음만 읽는다). 커서 0(처음 동기화)은 끝까지 읽는다.
 function readChangePageAfter_(cursor, limit) {
   const sheet = ensureChangeLogSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return { changes: [], latestCursor: 0, hasMore: false };
   const requestedCursor = Number(cursor) || 0;
   const pageSize = Math.max(1, Number(limit) || 500);
-  const cursorValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   let latestCursor = 0;
   const matches = [];
-  cursorValues.forEach(function(row, index) {
-    const value = Number(row[0]) || 0;
-    if (value > latestCursor) latestCursor = value;
-    if (Number(row[0]) > requestedCursor) matches.push({ index: index, cursor: value });
-  });
+  let end = lastRow - 1; // 데이터 줄 개수(2행부터), index는 0부터
+  while (end > 0) {
+    const start = Math.max(0, end - CHANGE_READ_CHUNK_ROWS);
+    const chunk = sheet.getRange(start + 2, 1, end - start, 1).getValues();
+    let reachedOlder = false;
+    chunk.forEach(function(row, offset) {
+      const value = Number(row[0]) || 0;
+      if (value > latestCursor) latestCursor = value;
+      if (Number(row[0]) > requestedCursor) matches.push({ index: start + offset, cursor: value });
+      else reachedOlder = true;
+    });
+    if (reachedOlder) break;
+    end = start;
+  }
   if (!matches.length) return { changes: [], latestCursor: latestCursor, hasMore: false };
   matches.sort(function(a, b) { return a.cursor - b.cursor || a.index - b.index; });
   // 같은 커서 번호가 여러 행에 있으면(두 프로젝트가 동시에 기록한 경우) 페이지 경계에서 잘리지 않게 함께 넣는다.

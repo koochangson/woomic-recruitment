@@ -38,9 +38,9 @@ const CHANGE_ARCHIVE_SHEET = '_Changes_Archive';
 const CHANGE_ARCHIVE_RETENTION_DAYS = 90;
 const CHANGE_ARCHIVE_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
-const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions'];
+const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions', 'Onboardings', 'Offers', 'RefReports'];
 // 처음 만들 때 모든 칸을 텍스트 형식으로 두는 시트(날짜·시각·연락처를 그대로 보관)
-const TEXT_FORMAT_SHEETS = ['Onboardings', 'Offers'];
+const TEXT_FORMAT_SHEETS = ['Onboardings', 'Offers', 'RefReports'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
 const REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS = ['referralEmployeeDirectoryUrl', 'interviewerUrl'];
 const REFERRAL_DATA_SHEETS = ['Referrals', 'Rewards', 'RefRules'];
@@ -97,8 +97,10 @@ const SHEET_SCHEMAS = {
     'respondentName','respondentAffiliation','respondentContact','respondentConsentObserved','respondentConsentDataUse',
     'updatedAt'],
   // 입사 등록·처우 기록: 예전에는 설정 시트의 보조 데이터 덩어리에 있었다(한 줄씩 저장해 PC 간 덮어쓰기 방지).
-  Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','updatedAt'],
-  Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','updatedAt']
+  Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','rev','updatedAt'],
+  Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','rev','updatedAt'],
+  // 레퍼런스 결과 정리(지원자별 1줄, id = 지원자 id). 예전에는 설정 시트의 보조 데이터 덩어리(auxState)에 있었다.
+  RefReports: ['id','candId','candName','pos','overall','expertise','character','leadership','reason','aiApplied','aiAppliedAt','aiAppliedBy','updatedBy','savedAt','rev','updatedAt']
 };
 
 function doGet(e) {
@@ -109,8 +111,7 @@ function doGet(e) {
     if (!action && !isPublicDeployment_()) {
       return HtmlService.createTemplateFromFile('Dashboard')
         .evaluate()
-        .setTitle('채용관리 대시보드')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        .setTitle('채용관리 대시보드');
     }
 
     const sheet = params.sheet || '';

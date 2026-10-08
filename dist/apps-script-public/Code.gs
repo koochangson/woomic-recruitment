@@ -228,7 +228,6 @@ function upsertUnlocked_(sheetName, row, isAdmin) {
   else sheet.appendRow(values);
 
   appendChange_(sheetName, 'upsert', id, normalized);
-  if (sheetName === 'Referrals' && !isAdmin && rowIndex < 0) sendReferralReceipt_(normalized);
   return json_({ status: 'ok', id, data: normalized, cursor: getChangeCursor_(), serverTime: nowIso_() });
 }
 
@@ -236,7 +235,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
   const source = Array.isArray(rows) ? rows : [];
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
-  const receipts = [];
   let result;
   try {
     const sheet = ensureSheet_(sheetName);
@@ -292,7 +290,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       } else {
         rowIndexById[id] = values.length;
         values.push(rowValues);
-        if (sheetName === 'Referrals' && !isAdmin) receipts.push(normalized);
       }
       changes.push({ sheetName, action: 'upsert', id, data: normalized });
       count++;
@@ -316,7 +313,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
   } finally {
     lock.releaseLock();
   }
-  if (!result.error) receipts.forEach(sendReferralReceipt_);
   return json_(result);
 }
 
@@ -453,9 +449,7 @@ function logMailSend_(to, subject, status, error, eventKey) {
       error: String(error || '').slice(0, 5000),
       sentAt: nowIso_()
     };
-    sheet.appendRow(headers.map(function(header) {
-      return row[header] == null ? '' : row[header];
-    }));
+    sheet.appendRow(headers.map(function(h) { return row[h] == null ? '' : row[h]; }));
   } catch (err) {
     console.warn('logMailSend_ failed: ' + String(err && err.message || err));
   }
@@ -615,15 +609,15 @@ function getMyReferrals_(payload) {
 }
 
 function buildReferenceCandidateLinkUrl_(token) {
-  return buildUrlWithParams_(REFERENCE_CANDIDATE_PAGE_URL, { token });
+  return buildUrlWithParams_(getScriptProperty_('REFERENCE_CANDIDATE_PAGE_URL') || REFERENCE_CANDIDATE_PAGE_URL, { token });
 }
 
 function buildReferenceResponseLinkUrl_(token) {
-  return buildUrlWithParams_(REFERENCE_RESPONSE_PAGE_URL, { token });
+  return buildUrlWithParams_(getScriptProperty_('REFERENCE_RESPONSE_PAGE_URL') || REFERENCE_RESPONSE_PAGE_URL, { token });
 }
 
 function buildInterviewAvailabilityLinkUrl_(token) {
-  return buildUrlWithParams_(INTERVIEW_AVAILABILITY_PAGE_URL, { token });
+  return buildUrlWithParams_(getScriptProperty_('INTERVIEW_AVAILABILITY_PAGE_URL') || INTERVIEW_AVAILABILITY_PAGE_URL, { token });
 }
 
 function normalizeInterviewAvailabilityOptions_(value) {
@@ -726,35 +720,49 @@ function submitInterviewAvailability_(payload) {
   const requested = Array.isArray(body.selections) ? body.selections.map(v => String(v || '').trim()) : [];
   const note = String(body.note || '').trim().slice(0, 500);
   const proxyConfirmed = body.proxyConfirmed === true || String(body.proxyConfirmed || '').toLowerCase() === 'true';
-  if (!token) return json_({ ok:false, error:'token_required' });
-  if (!unavailable && !requested.length) return json_({ ok:false, error:'selection_required' });
-  if (unavailable && !note) return json_({ ok:false, error:'alternative_note_required' });
+  if (!token) return json_({ ok: false, error: 'token_required' });
+  if (!unavailable && !requested.length) return json_({ ok: false, error: 'selection_required' });
+  if (unavailable && !note) return json_({ ok: false, error: 'alternative_note_required' });
+
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     const sheet = ensureSheet_('Interviews');
     const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.Interviews);
     const rowIndex = findRowIndex_(sheet, 'availabilityToken', token, headers);
-    if (rowIndex < 0) return json_({ ok:false, error:'invalid_token' });
+    if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
     const row = readRows_('Interviews').find(item => String(item.availabilityToken || '') === token);
     if (row && candidateProcessClosed_(row.candId)) return json_({ ok: false, error: 'process_closed' });
-    if (!row || interviewAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
+    if (!row) return json_({ ok: false, error: 'invalid_token' });
+    if (interviewAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
     // 제출한 일정은 수정할 수 없다(변경은 담당자 문의 → 담당자가 다시 요청하면 새로 받는다).
     if (row.availabilityStatus === 'RESPONDED' || row.availabilityStatus === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
-    if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok:false, error:'proxy_confirmation_required' });
+    if (row.availabilityResponseBy === 'headhunter' && !proxyConfirmed) return json_({ ok: false, error: 'proxy_confirmation_required' });
+
     const allowed = {};
-    normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => option.periods.forEach(period => { allowed[option.date + '|' + period] = true; }));
-    const selections = requested.filter((value,index,arr) => allowed[value] && arr.indexOf(value) === index);
-    if (!unavailable && selections.length !== requested.length) return json_({ ok:false, error:'invalid_selection' });
-    const next = Object.assign({}, row, {availabilitySelections:JSON.stringify(unavailable ? [] : selections),
-      availabilityStatus:unavailable ? 'UNAVAILABLE' : 'RESPONDED', availabilityRespondedAt:nowIso_(), availabilityNote:note,
-      availabilityProxyConfirmedAt:row.availabilityResponseBy === 'headhunter' ? nowIso_() : '', updatedAt:nowIso_()});
+    normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => {
+      option.periods.forEach(period => { allowed[option.date + '|' + period] = true; });
+    });
+    const selections = requested.filter((value, index, arr) => allowed[value] && arr.indexOf(value) === index);
+    if (!unavailable && selections.length !== requested.length) return json_({ ok: false, error: 'invalid_selection' });
+
+    const next = Object.assign({}, row, {
+      availabilitySelections: JSON.stringify(unavailable ? [] : selections),
+      availabilityStatus: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
+      availabilityRespondedAt: nowIso_(),
+      availabilityNote: note,
+      availabilityProxyConfirmedAt: row.availabilityResponseBy === 'headhunter' ? nowIso_() : '',
+      updatedAt: nowIso_()
+    });
     const normalized = schemaRow_('Interviews', next);
-    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
+    sheet.getRange(rowIndex, 1, 1, headers.length)
+      .setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('Interviews', 'upsert', row.id, normalized);
     notifyIfInterviewAvailabilityCohortComplete_(normalized);
-    return json_({ ok:true, status:normalized.availabilityStatus, respondedAt:normalized.availabilityRespondedAt });
-  } finally { lock.releaseLock(); }
+    return json_({ ok: true, status: normalized.availabilityStatus, respondedAt: normalized.availabilityRespondedAt });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // 담당자 알림을 받을 주소 — 설정(Settings 시트) 'notifyEmail' 값을 사용한다.
@@ -944,7 +952,10 @@ function parseJsonArray_(value) {
 }
 
 function buildPanelAvailabilityLinkUrl_(token) {
-  return buildUrlWithParams_(INTERVIEW_AVAILABILITY_PAGE_URL, { audience: 'panel', token: token });
+  return buildUrlWithParams_(getScriptProperty_('INTERVIEW_AVAILABILITY_PAGE_URL') || INTERVIEW_AVAILABILITY_PAGE_URL, {
+    audience: 'panel',
+    token: token
+  });
 }
 
 function panelAvailabilityExpired_(row) {
@@ -1012,30 +1023,45 @@ function submitPanelAvailability_(payload) {
   const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
   const requested = Array.isArray(body.selections) ? body.selections.map(value => String(value || '').trim()) : [];
   const note = String(body.note || '').trim().slice(0, 500);
-  if (!token) return json_({ ok:false, error:'token_required' });
-  if (!unavailable && !requested.length) return json_({ ok:false, error:'selection_required' });
-  if (unavailable && !note) return json_({ ok:false, error:'alternative_note_required' });
-  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  if (!token) return json_({ ok: false, error: 'token_required' });
+  if (!unavailable && !requested.length) return json_({ ok: false, error: 'selection_required' });
+  if (unavailable && !note) return json_({ ok: false, error: 'alternative_note_required' });
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
   try {
     const sheet = ensureSheet_('PanelAvailability');
     const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.PanelAvailability);
     const rowIndex = findRowIndex_(sheet, 'token', token, headers);
-    if (rowIndex < 0) return json_({ ok:false, error:'invalid_token' });
+    if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
     const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
     if (row && positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
-    if (!row || panelAvailabilityExpired_(row)) return json_({ ok:false, error:row ? 'token_expired' : 'invalid_token' });
+    if (!row) return json_({ ok: false, error: 'invalid_token' });
+    if (panelAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
     if (row.status === 'RESPONDED' || row.status === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
+
     const allowed = {};
-    normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => option.periods.forEach(period => { allowed[option.date + '|' + period] = true; }));
-    const selections = requested.filter((value,index,array) => allowed[value] && array.indexOf(value) === index);
-    if (!unavailable && selections.length !== requested.length) return json_({ ok:false, error:'invalid_selection' });
-    const normalized = schemaRow_('PanelAvailability', Object.assign({}, row, { selections:JSON.stringify(unavailable ? [] : selections),
-      status:unavailable ? 'UNAVAILABLE' : 'RESPONDED', respondedAt:nowIso_(), note, updatedAt:nowIso_() }));
-    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
+    normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => {
+      option.periods.forEach(period => { allowed[option.date + '|' + period] = true; });
+    });
+    const selections = requested.filter((value, index, array) => allowed[value] && array.indexOf(value) === index);
+    if (!unavailable && selections.length !== requested.length) return json_({ ok: false, error: 'invalid_selection' });
+
+    const normalized = schemaRow_('PanelAvailability', Object.assign({}, row, {
+      selections: JSON.stringify(unavailable ? [] : selections),
+      status: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
+      respondedAt: nowIso_(),
+      note,
+      updatedAt: nowIso_()
+    }));
+    sheet.getRange(rowIndex, 1, 1, headers.length)
+      .setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('PanelAvailability', 'upsert', row.id, normalized);
     notifyIfPanelAvailabilityCohortComplete_(normalized);
-    return json_({ ok:true, status:normalized.status, respondedAt:normalized.respondedAt });
-  } finally { lock.releaseLock(); }
+    return json_({ ok: true, status: normalized.status, respondedAt: normalized.respondedAt });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function referenceDeadlineText_(value) {
@@ -1182,30 +1208,39 @@ function verifyReferenceCandidateToken_(payload) {
 // 후보자가 추천인 목록(이름/이메일/관계/소속)을 제출하면, 추천인별로 별도 토큰을 발급해
 // ReferenceResponses에 한 줄씩 만들고 각 추천인에게 응답 링크를 메일로 보낸다.
 function submitReferenceCandidateReferees_(payload) {
+  const outbox = [];
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
+  let result;
   try {
-    return submitReferenceCandidateRefereesUnlocked_(payload);
+    result = submitReferenceCandidateRefereesUnlocked_(payload, outbox);
   } finally {
     lock.releaseLock();
   }
+  if (!result || !result.ok) return json_(result || { error: 'unknown_error' });
+  // 시트 기록이 끝난 뒤 잠금을 풀고 메일을 보낸다. 메일 발송이 느려도 다른 저장이 잠금 대기로 실패하지 않게 하고,
+  // 추천인별 발송 결과를 돌려준다(실패 내역은 MailLog에도 남고, 관리자 화면에서 링크를 다시 보낼 수 있다).
+  const mailResults = outbox.map(job => ({ refereeName: job.refereeName, ok: sendReferenceRefereeRequestMail_(job) }));
+  const mailFailed = mailResults.filter(r => !r.ok).length;
+  return json_(Object.assign({}, result, { mailSent: mailResults.length - mailFailed, mailFailed: mailFailed }));
 }
 
-function submitReferenceCandidateRefereesUnlocked_(payload) {
+function submitReferenceCandidateRefereesUnlocked_(payload, outbox) {
   const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
   const token = String(body.token || '').trim();
   const referees = Array.isArray(body.referees) ? body.referees : [];
-  if (!token) return json_({ error: 'token_required' });
-  if (referees.length !== REFERENCE_REQUIRED_REFEREES) return json_({ error: 'exactly_three_referees_required' });
+  if (!token) return { error: 'token_required' };
+  if (referees.length !== REFERENCE_REQUIRED_REFEREES) return { error: 'exactly_three_referees_required' };
 
   const candSheet = ensureSheet_('ReferenceCandidates');
   const candHeaders = ensureHeaders_(candSheet, SHEET_SCHEMAS.ReferenceCandidates);
   const rowIndex = findRowIndex_(candSheet, 'token', token, candHeaders);
-  if (rowIndex < 0) return json_({ error: 'invalid_token' });
+  if (rowIndex < 0) return { error: 'invalid_token' };
   const candRow = readRows_('ReferenceCandidates').find(row => String(row.token || '') === token);
-  if (!candRow) return json_({ error: 'invalid_token' });
-  if (candidateProcessClosed_(candRow.pipelineCandId)) return json_({ error: 'process_closed' });
-  if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
+  if (!candRow) return { error: 'invalid_token' };
+  if (candidateProcessClosed_(candRow.pipelineCandId)) return { error: 'process_closed' };
+  if (referenceLinkExpired_(candRow)) return { error: 'token_expired' };
+  if (candRow.refereesSubmittedAt) return { error: 'already_submitted' };
 
   const normalizedReferees = referees.map(ref => ({
     name: String(ref && ref.name || '').trim(),
@@ -1216,11 +1251,11 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
   }));
   // 추천인 3명 모두 이름·이메일·전화번호·소속 회사가 있어야 접수한다.
   if (normalizedReferees.some(ref => !ref.name || !ref.email || !ref.phone || !ref.company)) {
-    return json_({ error: 'referee_fields_incomplete' });
+    return { error: 'referee_fields_incomplete' };
   }
   const emailSet = {};
   if (normalizedReferees.some(ref => emailSet[ref.email] ? true : (emailSet[ref.email] = true, false))) {
-    return json_({ error: 'duplicate_referee_email' });
+    return { error: 'duplicate_referee_email' };
   }
 
   const responseSheet = ensureSheet_('ReferenceResponses');
@@ -1254,38 +1289,11 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
     appendChange_('ReferenceResponses', 'upsert', row.id, row);
     issuedCount++;
 
-    try {
-      const message = [
-        refereeName + '님, 안녕하세요.',
-        '',
-        candRow.candName + '님께서 우미건설 채용 과정에서 ' + refereeName + '님을 추천인으로 등록해 주셨습니다.',
-        '',
-        '아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.',
-        '',
-        '설문 참여 링크',
-        refLink,
-        '',
-        '설문 응답에는 약 10분 정도 소요됩니다.',
-        '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
-        '응답 기한: ' + referenceDeadlineText_(row.deadlineAt),
-        `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
-        '',
-        '감사합니다.',
-        '우미건설 피플팀 드림'
-      ].join('\n');
-      sendLoggedMail_({
-        to: refereeEmail,
-        subject: '[우미건설] ' + candRow.candName + '님 레퍼런스 체크 요청',
-        name: '우미건설 피플팀',
-        body: message,
-        htmlBody: referenceMailHtml_(message)
-      });
-    } catch (err) {
-      console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
-    }
+    // 메일은 잠금을 푼 뒤 submitReferenceCandidateReferees_에서 보낸다.
+    if (outbox) outbox.push({ refereeName, refereeEmail, refLink, deadlineAt: row.deadlineAt, candName: candRow.candName, positionText: candRow.positionText || '' });
   });
 
-  if (issuedCount !== REFERENCE_REQUIRED_REFEREES) return json_({ error: 'exactly_three_referees_required' });
+  if (issuedCount !== REFERENCE_REQUIRED_REFEREES) return { error: 'exactly_three_referees_required' };
 
   const updatedAtCol = candHeaders.indexOf('updatedAt') + 1;
   const submittedAtCol = candHeaders.indexOf('refereesSubmittedAt') + 1;
@@ -1295,7 +1303,42 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
   candSheet.getRange(rowIndex, updatedAtCol).setValue(nowIso_());
   appendChange_('ReferenceCandidates', 'upsert', candRow.id, { status: 'REFEREES_REGISTERED' });
 
-  return json_({ ok: true, count: issuedCount });
+  return { ok: true, count: issuedCount };
+}
+
+// 후보자가 공개 페이지에서 직접 제출하는 단계라 서버가 추천인에게 안내 메일을 자동 발송한다. 성공하면 true.
+function sendReferenceRefereeRequestMail_(job) {
+  try {
+    const message = [
+      job.refereeName + '님, 안녕하세요.',
+      '',
+      job.candName + '님께서 우미건설 채용 과정에서 ' + job.refereeName + '님을 추천인으로 등록해 주셨습니다.',
+      '',
+      '아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.',
+      '',
+      '설문 참여 링크',
+      job.refLink,
+      '',
+      '설문 응답에는 약 10분 정도 소요됩니다.',
+      '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+      '응답 기한: ' + referenceDeadlineText_(job.deadlineAt),
+      `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
+      '',
+      '감사합니다.',
+      '우미건설 피플팀 드림'
+    ].join('\n');
+    sendLoggedMail_({
+      to: job.refereeEmail,
+      subject: '[우미건설] ' + job.candName + '님 레퍼런스 체크 요청',
+      name: '우미건설 피플팀',
+      body: message,
+      htmlBody: referenceMailHtml_(message)
+    });
+    return true;
+  } catch (err) {
+    console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
+    return false;
+  }
 }
 
 // 링크 유효성만 확인한다. 본인 확인 전에는 후보자 정보를 노출하지 않는다.
@@ -1343,7 +1386,7 @@ function clearRefereeVerifyFailures_(token) {
 }
 
 function verifyRefereeIdentity_(payload) {
-  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const token = String(body.token || '').trim();
   const email = normalizeEmail_(body.email);
   const phone = normalizePhone_(body.phone);
@@ -1361,7 +1404,7 @@ function verifyRefereeIdentity_(payload) {
   if (referenceLinkExpired_(row)) return json_({ ok: false, error: 'token_expired' });
   if (row.submittedAt) return json_({ ok: false, error: 'already_submitted' });
 
-  // 이메일·전화번호 중 하나만 일치해도 통과(둘 다 일치해야 하는 건 너무 엄격함). 의도된 동작.
+  // 이메일·전화번호 중 하나만 일치해도 통과(둘 다 일치해야 하는 건 너무 엄격함).
   if (normalizeEmail_(row.refereeEmail) !== email && normalizePhone_(row.refereePhone) !== phone) {
     recordRefereeVerifyFailure_(token);
     return json_({ ok: false, error: 'identity_mismatch' });
@@ -1370,6 +1413,7 @@ function verifyRefereeIdentity_(payload) {
 
   const verifiedAtCol = headers.indexOf('verifiedAt') + 1;
   if (verifiedAtCol > 0) sheet.getRange(rowIndex, verifiedAtCol).setValue(nowIso_());
+
   return json_({ ok: true, candName: row.candName, refereeName: row.refereeName });
 }
 
@@ -1420,6 +1464,7 @@ function submitReferenceResponseUnlocked_(payload) {
   sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]);
   appendChange_('ReferenceResponses', 'upsert', existing.id, merged);
 
+  // 제출 완료 안내는 응답 화면에서 한다(추천인에게 별도 완료 메일은 보내지 않는다).
   return json_({ ok: true });
 }
 
@@ -1915,10 +1960,16 @@ function reserveChangeCursors_(sheet, count) {
   return current + 1;
 }
 
+// 새 기록은 항상 "시트의 최댓값 + 1"로 끝에 붙으므로 최댓값은 끝부분에 있다. 매번 열 전체를 읽지 않고
+// 끝의 CHANGE_CURSOR_TAIL_ROWS줄만 본다(두 프로젝트가 동시에 쓴 같은 번호·순서 뒤바뀜도 이 범위 안에 있다).
+const CHANGE_CURSOR_TAIL_ROWS = 200;
+const CHANGE_READ_CHUNK_ROWS = 500;
+
 function maxLoggedChangeCursor_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
-  return sheet.getRange(2, 1, lastRow - 1, 1).getValues().reduce(function(max, row) {
+  const count = Math.min(lastRow - 1, CHANGE_CURSOR_TAIL_ROWS);
+  return sheet.getRange(lastRow - count + 1, 1, count, 1).getValues().reduce(function(max, row) {
     const value = Number(row[0]) || 0;
     return value > max ? value : max;
   }, 0);
@@ -1944,20 +1995,30 @@ function readChangesAfter_(cursor, limit) {
 
 // 커서 번호가 행 순서와 어긋난 기존 기록이 있어도 빠짐·반복 없이 읽도록, "앞에서 처음 큰 값부터
 // 순서대로"가 아니라 요청 커서보다 큰 행을 모두 골라 커서 순으로 정렬해 돌려준다.
+// 요청 커서 이후 기록은 끝부분에 모여 있으므로 끝에서부터 CHANGE_READ_CHUNK_ROWS줄씩 거꾸로 읽고,
+// 요청 커서 이하인 줄이 나온 묶음까지만 본다(대부분 마지막 한 묶음만 읽는다). 커서 0(처음 동기화)은 끝까지 읽는다.
 function readChangePageAfter_(cursor, limit) {
   const sheet = ensureChangeLogSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return { changes: [], latestCursor: 0, hasMore: false };
   const requestedCursor = Number(cursor) || 0;
   const pageSize = Math.max(1, Number(limit) || 500);
-  const cursorValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   let latestCursor = 0;
   const matches = [];
-  cursorValues.forEach(function(row, index) {
-    const value = Number(row[0]) || 0;
-    if (value > latestCursor) latestCursor = value;
-    if (Number(row[0]) > requestedCursor) matches.push({ index: index, cursor: value });
-  });
+  let end = lastRow - 1; // 데이터 줄 개수(2행부터), index는 0부터
+  while (end > 0) {
+    const start = Math.max(0, end - CHANGE_READ_CHUNK_ROWS);
+    const chunk = sheet.getRange(start + 2, 1, end - start, 1).getValues();
+    let reachedOlder = false;
+    chunk.forEach(function(row, offset) {
+      const value = Number(row[0]) || 0;
+      if (value > latestCursor) latestCursor = value;
+      if (Number(row[0]) > requestedCursor) matches.push({ index: start + offset, cursor: value });
+      else reachedOlder = true;
+    });
+    if (reachedOlder) break;
+    end = start;
+  }
   if (!matches.length) return { changes: [], latestCursor: latestCursor, hasMore: false };
   matches.sort(function(a, b) { return a.cursor - b.cursor || a.index - b.index; });
   // 같은 커서 번호가 여러 행에 있으면(두 프로젝트가 동시에 기록한 경우) 페이지 경계에서 잘리지 않게 함께 넣는다.
@@ -2061,8 +2122,11 @@ function compactReferralStatus_(status) {
     SUBMITTED: '접수',
     REVIEWING: '검토중',
     IN_PROCESS: '전형진행',
+    PASSED: '합격',
+    FAILED: '불합격',
     HIRED: '입사',
     REJECTED: '종료',
+    WITHDRAWN: '종료',
     EXPIRED: '만료',
     CANCELLED: '종료'
   };
@@ -2140,29 +2204,6 @@ function referenceMailHtml_(message) {
     '</table>' +
     '</td></tr>' +
     '</table>';
-}
-
-function sendReferralReceipt_(row) {
-  try {
-    if (!row || !row.refEmail) return;
-    sendLoggedMail_({
-      to: row.refEmail,
-      subject: '[우미건설] 사내추천 접수 완료',
-      body: [
-        '사내추천 접수가 완료되었습니다.',
-        '',
-        '접수번호: ' + row.id,
-        '접수일: ' + String(row.submittedAt || '').slice(0, 10),
-        '유효기간: ' + String(row.validUntil || '').slice(0, 10),
-        '',
-        '접수 현황은 추천 접수 화면에서 동일한 사번 인증 후 확인할 수 있습니다.',
-        '',
-        '우미건설 피플팀'
-      ].join('\n')
-    });
-  } catch (err) {
-    console.warn('sendReferralReceipt_ failed: ' + String(err && err.message || err));
-  }
 }
 
 function json_(obj) {

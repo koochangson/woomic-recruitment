@@ -18,6 +18,7 @@ import {
   referralDistDir,
   sharedBackendSource,
 } from '../tools/project_paths.js';
+import { buildAdminManifestSource, manifestFileName } from '../tools/build_manifest.js';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const errors = [];
@@ -61,6 +62,12 @@ expectSame(sharedBackendSource, path.join(adminDistDir, 'shared_00_runtime.gs'))
 expectSame(path.join(configDir, 'appsscript.admin.json'), path.join(adminDistDir, 'appsscript.json'));
 for (const [group, name] of mailTemplateFiles) {
   expectSame(mailTemplatePath(group, name), path.join(adminDistDir, name));
+}
+
+const uploadNames = read(path.join(adminDistDir, 'UPLOAD_FILES.txt')).split(/\r?\n/).filter(Boolean);
+if (!uploadNames.includes(manifestFileName)) errors.push(`${manifestFileName} is missing from UPLOAD_FILES.txt`);
+else if (buildAdminManifestSource(adminDistDir, uploadNames) !== read(path.join(adminDistDir, manifestFileName))) {
+  errors.push(`${path.join(adminDistDir, manifestFileName)} is stale relative to the admin upload files`);
 }
 
 expectSame(publicGsSource, path.join(publicDistDir, 'Code.gs'));

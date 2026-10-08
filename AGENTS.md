@@ -31,7 +31,15 @@ node tools/rebuild_apps_script_split_bundle.js
 node scripts/security-scan.mjs
 node scripts/syntax-check.mjs
 node scripts/deployment-readiness.mjs
+node scripts/test-backend.mjs     # 서버 함수 동작(로그인 해시·메일 중복 방지·추천인 등록·변경 이력 커서)
+node scripts/test-row-sync.mjs    # 입사·처우 기록 두 PC 동시 수정 병합
+node scripts/check-backend-drift.mjs  # 관리자·공개 Code.gs 같은 이름 함수 어긋남
+node scripts/test-deployment-parts.mjs  # 업로드 묶음 일부만 올렸을 때 감지(admin_98_build_manifest.gs)
 ```
+
+관리자·공개 `Code.gs`에 같은 이름으로 있는 함수는 내용이 같아야 합니다. 한쪽을 고치면 다른 쪽도 같이 고칩니다. 의도적으로 다른 함수는 `config/backend-divergence.json`에 이유와 함께 등록되어 있으며, 그 함수를 고친 뒤에는 다른 쪽도 맞춰야 하는지 확인하고 `node scripts/check-backend-drift.mjs --update`로 지문을 갱신합니다.
+
+`npm run check`가 위 검사를 모두 실행하며 GitHub Actions에서도 같은 명령을 씁니다. 서버 함수나 줄 동기화 규칙을 바꾸면 해당 테스트도 함께 고칩니다.
 
 관리자 화면은 `Dashboard.html`에서 `app_css.html`과 기능별 JavaScript 모듈 8개를 순서대로 include합니다. 파일 순서는 `tools/project_paths.js`의 `adminJsFiles`를 단일 기준으로 사용하며, 빌드 결과인 `dist/**`는 직접 수정하지 않습니다.
 
@@ -70,6 +78,7 @@ node scripts/deployment-readiness.mjs
 ## 6. 여러 기기 동시 작업(버전 충돌) 기준
 
 - 지원자·면접·포지션(`Candidates`·`Interviews`·`Positions`)은 행마다 `rev`로 버전을 관리합니다. 시트에서 행을 읽는 모든 경로(전체 로드, 변경 감지, 단건 로드)는 반드시 `rev`를 포함한 공용 변환(`normalizeGsCandidate`·`normalizeGsInterview`·`normalizeGsPosition`)을 씁니다. 전용 변환을 새로 만들지 않습니다.
+- 입사 등록·처우 기록(`Onboardings`·`Offers`)도 행마다 `rev`가 있습니다. 이 둘은 `js_07_state`의 줄 동기화(`flushRowSync_`)가 저장하며, 충돌 시 마지막으로 서버와 맞춘 내용(snapshot)을 base로 같은 규칙으로 병합합니다(`mergeRowSyncRecord_`). `batchUpsert` 응답의 `revs`로 새 rev를 받습니다.
 - 기기마다 마지막으로 받은 서버본(base)을 `woomic_gs_base_v1`에 기억합니다. 서버 행을 받는 새 경로를 추가하면 `rememberGsBaseRows_`를 호출합니다.
 - 저장 시 버전 충돌이 나면 `gsUpsert`가 자동 병합 후 재저장합니다: base 대비 이 기기가 바꾼 필드는 이 기기 값, 나머지는 서버 최신값. 같은 필드를 양쪽이 바꾼 경우 나중 저장이 반영됩니다. 화면별로 충돌 처리 코드를 따로 두지 않습니다.
 - base가 없는 기기(배포 직후 첫 접속)는 첫 동기화를 전체 로드로 진행해 base를 채웁니다.

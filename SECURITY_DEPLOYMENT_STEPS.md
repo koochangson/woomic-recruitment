@@ -57,7 +57,7 @@ Script Properties:
 - `RECRUITMENT_DEPLOYMENT_ROLE`: `admin`
 - `REFERRAL_UPLOAD_FOLDER_ID`: 사내추천 이력서를 저장할 비공개 Google Drive 폴더 ID
 - `RECRUITMENT_ADMIN_TOKEN`: 새 관리자 토큰
-- `RECRUITMENT_LOCAL_ADMIN_USERS`: `사번:SHA-256해시` 형식의 앱 내부 관리자 계정. 기존 `admin:SHA-256해시` 계정도 유지하며 계정은 쉼표 또는 줄바꿈으로 구분
+- `RECRUITMENT_LOCAL_ADMIN_USERS`: `사번:해시` 형식의 앱 내부 관리자 계정(`admin:해시` 계정도 유지). 계정은 쉼표 또는 줄바꿈으로 구분. 새 해시는 Apps Script 편집기에서 `makeAdminPasswordHash('비밀번호')`를 실행해 나온 `v2$...` 값을 씁니다(계정마다 솔트가 다른 PBKDF2-HMAC-SHA256). 예전 SHA-256 64자리 해시도 로그인되며, 로그인에 성공하면 그 계정 값이 자동으로 `v2$...`로 바뀝니다
 - `RECRUITMENT_ADMIN_SESSION_SECONDS`: 선택값, 최대 6시간
 - `OPENAI_API_KEY`: 레퍼런스 AI 요약용 OpenAI API 키
 - `INTERVIEWER_DB_LOOKUP_TOKEN`: 직원 DB와 같은 단건 조회 토큰

@@ -11,12 +11,14 @@
     "accessibility:check": "node scripts/accessibility-check.mjs",
     "syntax:check": "node scripts/syntax-check.mjs",
     "deployment:ready": "node scripts/deployment-readiness.mjs",
+    "test": "node scripts/test-backend.mjs && node scripts/test-row-sync.mjs && node scripts/test-deployment-parts.mjs",
+    "backend:drift": "node scripts/check-backend-drift.mjs",
     "clasp:sync-admin": "node tools/sync_admin_clasp.js",
     "clasp:push-admin": "node tools/deploy_admin_clasp.js",
     "clasp:dry-run-admin": "node tools/deploy_admin_clasp.js --dry-run",
     "clasp:sync-public": "node tools/sync_public_clasp.js",
     "clasp:push-public": "node tools/deploy_public_clasp.js",
     "clasp:dry-run-public": "node tools/deploy_public_clasp.js --dry-run",
-    "check": "npm run security:scan && npm run accessibility:check && npm run syntax:check && npm run deployment:ready"
+    "check": "npm run security:scan && npm run accessibility:check && npm run syntax:check && npm run deployment:ready && npm run backend:drift && npm test"
   }
 }

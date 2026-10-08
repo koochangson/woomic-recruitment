@@ -67,7 +67,6 @@ function upsertUnlocked_(sheetName, row, isAdmin) {
   else sheet.appendRow(values);
 
   appendChange_(sheetName, 'upsert', id, normalized);
-  if (sheetName === 'Referrals' && !isAdmin && rowIndex < 0) sendReferralReceipt_(normalized);
   return json_({ status: 'ok', id, data: normalized, cursor: getChangeCursor_(), serverTime: nowIso_() });
 }
 
@@ -75,7 +74,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
   const source = Array.isArray(rows) ? rows : [];
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
-  const receipts = [];
   let result;
   try {
     const sheet = ensureSheet_(sheetName);
@@ -94,6 +92,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
 
     const changes = [];
     const conflicts = [];
+    const revs = {}; // 저장 후 행별 새 rev — 화면이 다음 저장 때 기준으로 쓴다
     let count = 0;
     source.forEach(function(row) {
       let next = Object.assign({}, row || {});
@@ -119,6 +118,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       if (revision.enabled) {
         next.rev = revision.current + 1;
         next.updatedAt = nowIso_();
+        revs[id] = next.rev;
       } else {
         next.updatedAt = next.updatedAt || nowIso_();
       }
@@ -131,7 +131,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       } else {
         rowIndexById[id] = values.length;
         values.push(rowValues);
-        if (sheetName === 'Referrals' && !isAdmin) receipts.push(normalized);
       }
       changes.push({ sheetName, action: 'upsert', id, data: normalized });
       count++;
@@ -148,14 +147,13 @@ function batchUpsert_(sheetName, rows, isAdmin) {
     } else if (count) {
       sheet.getRange(2, 1, values.length, headers.length).setValues(values);
       appendChanges_(changes);
-      result = { status: 'ok', count, cursor: getChangeCursor_(), serverTime: nowIso_() };
+      result = { status: 'ok', count, revs, cursor: getChangeCursor_(), serverTime: nowIso_() };
     } else {
       result = { status: 'ok', count: 0, cursor: getChangeCursor_(), serverTime: nowIso_() };
     }
   } finally {
     lock.releaseLock();
   }
-  if (!result.error) receipts.forEach(sendReferralReceipt_);
   return json_(result);
 }
 
@@ -256,6 +254,7 @@ function purgeCandidatePii_(payload) {
       interviews: deleteRowsWhere_('Interviews', row => idSet.has(String(row.candId))),
       onboardings: deleteRowsWhere_('Onboardings', row => idSet.has(String(row.candId))),
       offers: deleteRowsWhere_('Offers', row => idSet.has(String(row.candId))),
+      refReports: deleteRowsWhere_('RefReports', row => idSet.has(String(row.candId))),
       referenceCandidates: deleteRowsWhere_('ReferenceCandidates', row => idSet.has(String(row.pipelineCandId))),
       referenceResponses: deleteRowsWhere_('ReferenceResponses', row => idSet.has(String(row.pipelineCandId))),
       mailLog: emails.length ? deleteRowsWhere_('MailLog', row =>

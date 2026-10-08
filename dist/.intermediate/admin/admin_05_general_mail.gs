@@ -709,6 +709,8 @@ function handleSendGeneralMail_(payload) {
   const to = normalizeEmail_(body.toEmail || body.to || body.email);
   const subject = String(body.subject || '').trim();
   if (!to || !subject) return json_({ error: 'missing_mail_fields' });
+  const dedupe = beginMailDedupe_('general', body);
+  if (dedupe.duplicate) return json_(dedupe.duplicate);
   try {
     const html = generalMailHtml_(body.templateType, body);
     if (!html) throw new Error('mail_template_render_failed' + (GENERAL_MAIL_LAST_ERROR_ ? ':' + GENERAL_MAIL_LAST_ERROR_ : ''));
@@ -728,8 +730,10 @@ function handleSendGeneralMail_(payload) {
     }
     const result = sendMailViaGmail_(to, subject, message, html, attachments);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
+    finishMailDedupe_(dedupe.key, true);
     return json_({ ok: true, to: to, commonAttached: commonAttached });
   } catch (err) {
+    finishMailDedupe_(dedupe.key, false);
     const errorText = String(err && err.message || err);
     console.warn('handleSendGeneralMail_ failed: ' + errorText);
     return json_({ error: errorText || 'mail_send_failed' });

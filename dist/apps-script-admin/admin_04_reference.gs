@@ -467,31 +467,39 @@ function verifyReferenceCandidateToken_(payload) {
 // 후보자가 추천인 목록(이름/이메일/관계/소속)을 제출하면, 추천인별로 별도 토큰을 발급해
 // ReferenceResponses에 한 줄씩 만들고 각 추천인에게 응답 링크를 메일로 보낸다.
 function submitReferenceCandidateReferees_(payload) {
+  const outbox = [];
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
+  let result;
   try {
-    return submitReferenceCandidateRefereesUnlocked_(payload);
+    result = submitReferenceCandidateRefereesUnlocked_(payload, outbox);
   } finally {
     lock.releaseLock();
   }
+  if (!result || !result.ok) return json_(result || { error: 'unknown_error' });
+  // 시트 기록이 끝난 뒤 잠금을 풀고 메일을 보낸다. 메일 발송이 느려도 다른 저장이 잠금 대기로 실패하지 않게 하고,
+  // 추천인별 발송 결과를 돌려준다(실패 내역은 MailLog에도 남고, 관리자 화면에서 링크를 다시 보낼 수 있다).
+  const mailResults = outbox.map(job => ({ refereeName: job.refereeName, ok: sendReferenceRefereeRequestMail_(job) }));
+  const mailFailed = mailResults.filter(r => !r.ok).length;
+  return json_(Object.assign({}, result, { mailSent: mailResults.length - mailFailed, mailFailed: mailFailed }));
 }
 
-function submitReferenceCandidateRefereesUnlocked_(payload) {
+function submitReferenceCandidateRefereesUnlocked_(payload, outbox) {
   const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
   const token = String(body.token || '').trim();
   const referees = Array.isArray(body.referees) ? body.referees : [];
-  if (!token) return json_({ error: 'token_required' });
-  if (referees.length !== REFERENCE_REQUIRED_REFEREES) return json_({ error: 'exactly_three_referees_required' });
+  if (!token) return { error: 'token_required' };
+  if (referees.length !== REFERENCE_REQUIRED_REFEREES) return { error: 'exactly_three_referees_required' };
 
   const candSheet = ensureSheet_('ReferenceCandidates');
   const candHeaders = ensureHeaders_(candSheet, SHEET_SCHEMAS.ReferenceCandidates);
   const rowIndex = findRowIndex_(candSheet, 'token', token, candHeaders);
-  if (rowIndex < 0) return json_({ error: 'invalid_token' });
+  if (rowIndex < 0) return { error: 'invalid_token' };
   const candRow = readRows_('ReferenceCandidates').find(row => String(row.token || '') === token);
-  if (!candRow) return json_({ error: 'invalid_token' });
-  if (candidateProcessClosed_(candRow.pipelineCandId)) return json_({ error: 'process_closed' });
-  if (referenceLinkExpired_(candRow)) return json_({ error: 'token_expired' });
-  if (candRow.refereesSubmittedAt) return json_({ error: 'already_submitted' });
+  if (!candRow) return { error: 'invalid_token' };
+  if (candidateProcessClosed_(candRow.pipelineCandId)) return { error: 'process_closed' };
+  if (referenceLinkExpired_(candRow)) return { error: 'token_expired' };
+  if (candRow.refereesSubmittedAt) return { error: 'already_submitted' };
 
   // 일부만 유효하고 일부가 빠진 상태로 시트에 쓰거나 메일을 보내기 시작하면 안 되므로,
   // 쓰기/발송을 시작하기 전에 3명 전원의 필수값(이름·이메일·전화번호·소속 회사)을 먼저 검증한다.
@@ -503,11 +511,11 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
     company: String(ref && ref.company || '').trim(),
   }));
   if (normalizedReferees.some(r => !r.name || !r.email || !r.phone || !r.company)) {
-    return json_({ error: 'referee_fields_incomplete' });
+    return { error: 'referee_fields_incomplete' };
   }
   const emailSet = {};
   if (normalizedReferees.some(r => emailSet[r.email] ? true : (emailSet[r.email] = true, false))) {
-    return json_({ error: 'duplicate_referee_email' });
+    return { error: 'duplicate_referee_email' };
   }
 
   const responseSheet = ensureSheet_('ReferenceResponses');
@@ -541,47 +549,11 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
     appendChange_('ReferenceResponses', 'upsert', row.id, row);
     issuedCount++;
 
-    // 이 단계는 후보자 본인이 공개 페이지에서 직접 트리거하는 액션이라 관리자 검토 발송을 거칠 수 없다.
-    // 그래서 서버가 Gmail/MailApp로 추천인에게 안내 메일을 자동 발송한다.
-    try {
-      const message = [
-        refereeName + '님, 안녕하세요.',
-        '',
-        candRow.candName + '님께서 우미건설 채용 과정에서 ' + refereeName + '님을 추천인으로 등록해 주셨습니다.',
-        '',
-        '아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.',
-        '',
-        '설문 참여 링크',
-        refLink,
-        '',
-        '설문 응답에는 약 10분 정도 소요됩니다.',
-        '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
-        '응답 기한: ' + formatReferenceDateTime_(row.deadlineAt, true),
-        `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
-        '',
-        '감사합니다.',
-        '우미건설 피플팀 드림'
-      ].join('\n');
-      const result = sendMailViaGmail_(
-        refereeEmail,
-        '[우미건설] ' + candRow.candName + '님 레퍼런스 체크 요청',
-        message,
-        referenceMailHtml_(message, {
-          templateType: 'referee_request',
-          candidateName: candRow.candName,
-          refereeName,
-          positionText: candRow.positionText || '',
-          link: refLink,
-          deadline: row.deadlineAt
-        })
-      );
-      if (!result.ok) throw new Error(result.error || 'mail_send_failed');
-    } catch (err) {
-      console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
-    }
+    // 메일은 잠금을 푼 뒤 submitReferenceCandidateReferees_에서 보낸다.
+    if (outbox) outbox.push({ refereeName, refereeEmail, refLink, deadlineAt: row.deadlineAt, candName: candRow.candName, positionText: candRow.positionText || '' });
   });
 
-  if (issuedCount !== REFERENCE_REQUIRED_REFEREES) return json_({ error: 'exactly_three_referees_required' });
+  if (issuedCount !== REFERENCE_REQUIRED_REFEREES) return { error: 'exactly_three_referees_required' };
 
   const updatedAtCol = candHeaders.indexOf('updatedAt') + 1;
   const submittedAtCol = candHeaders.indexOf('refereesSubmittedAt') + 1;
@@ -591,7 +563,50 @@ function submitReferenceCandidateRefereesUnlocked_(payload) {
   candSheet.getRange(rowIndex, updatedAtCol).setValue(nowIso_());
   appendChange_('ReferenceCandidates', 'upsert', candRow.id, { status: 'REFEREES_REGISTERED' });
 
-  return json_({ ok: true, count: issuedCount });
+  return { ok: true, count: issuedCount };
+}
+
+// 이 단계는 후보자 본인이 공개 페이지에서 직접 트리거하는 액션이라 관리자 검토 발송을 거칠 수 없다.
+// 그래서 서버가 Gmail/MailApp로 추천인에게 안내 메일을 자동 발송한다. 성공하면 true.
+function sendReferenceRefereeRequestMail_(job) {
+  try {
+    const message = [
+      job.refereeName + '님, 안녕하세요.',
+      '',
+      job.candName + '님께서 우미건설 채용 과정에서 ' + job.refereeName + '님을 추천인으로 등록해 주셨습니다.',
+      '',
+      '아래 버튼을 통해 레퍼런스 체크 설문에 참여해 주시기 바랍니다.',
+      '',
+      '설문 참여 링크',
+      job.refLink,
+      '',
+      '설문 응답에는 약 10분 정도 소요됩니다.',
+      '응답해 주신 내용은 채용 검토 목적으로만 활용됩니다.',
+      '응답 기한: ' + formatReferenceDateTime_(job.deadlineAt, true),
+      `본 링크는 발송일로부터 ${REFERENCE_LINK_TTL_DAYS}일간 유효합니다.`,
+      '',
+      '감사합니다.',
+      '우미건설 피플팀 드림'
+    ].join('\n');
+    const result = sendMailViaGmail_(
+      job.refereeEmail,
+      '[우미건설] ' + job.candName + '님 레퍼런스 체크 요청',
+      message,
+      referenceMailHtml_(message, {
+        templateType: 'referee_request',
+        candidateName: job.candName,
+        refereeName: job.refereeName,
+        positionText: job.positionText,
+        link: job.refLink,
+        deadline: job.deadlineAt
+      })
+    );
+    if (!result.ok) throw new Error(result.error || 'mail_send_failed');
+    return true;
+  } catch (err) {
+    console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
+    return false;
+  }
 }
 
 // 추천인이 응답 링크를 열었을 때의 1차 확인 — 링크 자체가 살아있는지만 본다.
@@ -686,8 +701,9 @@ function submitReferenceResponse_(payload) {
 }
 
 function submitReferenceResponseUnlocked_(payload) {
-  const token = String(payload.token || '').trim();
-  const answers = payload.answers || {};
+  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
+  const token = String(body.token || '').trim();
+  const answers = body.answers || {};
   if (!token) return json_({ error: 'token_required' });
 
   const sheet = ensureSheet_('ReferenceResponses');
@@ -703,18 +719,13 @@ function submitReferenceResponseUnlocked_(payload) {
 
   const ANSWER_KEYS = ['q1_periodStart','q1_periodEnd','q1_relation','q1_frequency',
     'q1_2_mainTask','q1_2_projectScale','q1_2_soloVsShared',
-    'q2_startStyle',
-    'q3_judgeStyle','q3_initiative',
-    'q4_successNarrative','q4_failureNarrative',
-    'q5_feedbackResponse',
-    'q6_conflictStyle','q6_example',
-    'q7_entrustedRoles',
-    'q8_reliableAreas','q8_supportNeededAreas',
-    'q9_word','q9_reason',
-    'q10_firstAction','q10_sharedTiming',
-    'q11_juniorSupportStyle','q11_example',
-    'q12_exitReasonSource','q12_exitReasonDetail',
-    'respondentName','respondentAffiliation','respondentContact','respondentConsentObserved','respondentConsentDataUse'];
+    'q2_startStyle','q3_judgeStyle','q3_initiative',
+    'q4_successNarrative','q4_failureNarrative','q5_feedbackResponse',
+    'q6_conflictStyle','q6_example','q7_entrustedRoles',
+    'q8_reliableAreas','q8_supportNeededAreas','q9_word','q9_reason',
+    'q10_firstAction','q10_sharedTiming','q11_juniorSupportStyle','q11_example',
+    'q12_exitReasonSource','q12_exitReasonDetail','respondentName','respondentAffiliation',
+    'respondentContact','respondentConsentObserved','respondentConsentDataUse'];
   const merged = Object.assign({}, existing);
   ANSWER_KEYS.forEach(key => { merged[key] = String(answers[key] == null ? '' : answers[key]).trim(); });
   merged.submittedAt = nowIso_();
@@ -725,34 +736,7 @@ function submitReferenceResponseUnlocked_(payload) {
   sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]);
   appendChange_('ReferenceResponses', 'upsert', existing.id, merged);
 
-  try {
-    const message = [
-      existing.refereeName + '님, 안녕하세요.',
-      '',
-      existing.candName + '님에 대한 레퍼런스 설문 응답이 정상적으로 접수되었습니다.',
-      '',
-      '바쁘신 중에도 시간을 내어 주셔서 진심으로 감사드립니다.',
-      '',
-      '감사합니다.',
-      '우미건설 피플팀 드림'
-    ].join('\n');
-    const result = sendMailViaGmail_(
-      existing.refereeEmail,
-      '[우미건설] ' + existing.candName + '님 레퍼런스 체크 응답 접수 완료',
-      message,
-      referenceMailHtml_(message, {
-        templateType: 'referee_complete',
-        candidateName: existing.candName,
-        refereeName: existing.refereeName,
-        positionText: '',
-        submittedAt: merged.submittedAt
-      })
-    );
-    if (!result.ok) throw new Error(result.error || 'mail_send_failed');
-  } catch (err) {
-    console.warn('submitReferenceResponse_ completion mail failed: ' + String(err && err.message || err));
-  }
-
+  // 제출 완료 안내는 응답 화면에서 한다(추천인에게 별도 완료 메일은 보내지 않는다).
   return json_({ ok: true });
 }
 
@@ -816,11 +800,15 @@ function sendReferenceEmail_(payload) {
   if (!to || !subject || !message) return json_({ error: 'missing_mail_fields' });
   const templateType = String(body.templateType || body.templateKey || body.mailType || '').trim();
   if (!REFERENCE_MAIL_TEMPLATE_FILES[templateType]) return json_({ error: 'reference_template_type_required' });
+  const dedupe = beginMailDedupe_('reference', body);
+  if (dedupe.duplicate) return json_(dedupe.duplicate);
   try {
     const html = insertForwardNotice_(referenceMailHtml_(message, body), body);
     const result = sendMailViaGmail_(to, subject, htmlToPlainText_(html) || message, html);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
+    finishMailDedupe_(dedupe.key, true);
   } catch (err) {
+    finishMailDedupe_(dedupe.key, false);
     console.warn('sendReferenceEmail_ failed: ' + String(err && err.message || err));
     return json_({ error: 'mail_send_failed' });
   }

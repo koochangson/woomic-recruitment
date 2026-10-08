@@ -14,3 +14,9 @@ secrets.*
 
 # Dependency folders
 node_modules/
+
+# Legacy single-file copies and manual backups (kept locally, not tracked)
+/Code_admin_fixed.gs
+/Dashboard.html
+/backups/
+/backup_*/

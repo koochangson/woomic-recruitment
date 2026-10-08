@@ -34,9 +34,24 @@ function normalizePhone_(value) {
   return String(value || '').replace(/[^\d]/g, '');
 }
 
+// 시트가 '2026-11-02' 같은 글자를 날짜로 바꿔 저장한 칸은 Date로 읽힌다. 예전에는 UTC 시각
+// (2026-11-01T15:00:00.000Z)으로 돌려줘 화면에서 앞 10자리를 쓰면 하루 전 날짜로 보였다.
+// 한국 시간 자정(시각 없는 날짜)이면 화면이 쓰는 형식 그대로 'yyyy-MM-dd'로 돌려주고, 시각이 있으면 예전처럼 UTC 시각으로 둔다.
 function normalizeCell_(value) {
-  if (value instanceof Date) return Utilities.formatDate(value, 'UTC', "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  if (value instanceof Date) {
+    const timeZone = sheetDateTimeZone_();
+    if (Utilities.formatDate(value, timeZone, 'HH:mm:ss.SSS') === '00:00:00.000') return Utilities.formatDate(value, timeZone, 'yyyy-MM-dd');
+    return Utilities.formatDate(value, 'UTC', "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  }
   return value == null ? '' : value;
+}
+
+let SHEET_DATE_TIME_ZONE_ = '';
+function sheetDateTimeZone_() {
+  if (!SHEET_DATE_TIME_ZONE_) {
+    try { SHEET_DATE_TIME_ZONE_ = Session.getScriptTimeZone() || 'Asia/Seoul'; } catch (err) { SHEET_DATE_TIME_ZONE_ = 'Asia/Seoul'; }
+  }
+  return SHEET_DATE_TIME_ZONE_;
 }
 
 function pickFirst_(row, keys) {

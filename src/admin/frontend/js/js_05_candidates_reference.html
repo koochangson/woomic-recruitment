@@ -1321,7 +1321,8 @@ function renderRefReport(candId) {
   if(saved) {
     const audit = report.updatedBy ? ` · 수정자: ${report.updatedBy}` : '';
     const aiAudit = report.aiApplied ? ` · AI 반영: ${report.aiAppliedBy || '확인 불가'}` : '';
-    saved.textContent=report.updatedAt?`최근 저장: ${report.updatedAt}${audit}${aiAudit}`:`${c.name}님의 결과가 아직 저장되지 않았습니다.`;
+    const savedAt = report.savedAt || report.updatedAt || '';
+    saved.textContent=savedAt?`최근 저장: ${savedAt}${audit}${aiAudit}`:`${c.name}님의 결과가 아직 저장되지 않았습니다.`;
   }
 }
 
@@ -1342,7 +1343,9 @@ function saveRefReport() {
     aiAppliedAt:wrap?.dataset.aiAppliedAt || previous.aiAppliedAt || '',
     aiAppliedBy:wrap?.dataset.aiAppliedBy || previous.aiAppliedBy || '',
     updatedBy:actor,
-    updatedAt:new Date().toLocaleString('ko-KR')
+    savedAt:new Date().toLocaleString('ko-KR'),
+    rev:previous.rev || 0,
+    updatedAt:previous.updatedAt || ''
   };
   saveState();
   renderRefReport(c.id);
@@ -1422,6 +1425,22 @@ async function sendSurveyEmailsViaGS(queue, refFormUrl, refAutoUrl) {
   }
 }
 
+// 같은 메일을 최근에 보냈다고 서버가 막았을 때(duplicate_recent) 다시 보낼지 묻는다. 다시 보내면 true.
+async function confirmDuplicateMailResend_(result, toEmail, subject) {
+  if(result?.error !== 'duplicate_recent') return false;
+  const when = result.sentAt ? new Date(result.sentAt) : null;
+  const ago = when && !isNaN(when) ? Math.max(0, Math.round((Date.now() - when.getTime()) / 60000)) : null;
+  const sending = result.state === 'sending';
+  return confirmActionModal({
+    title:'같은 메일을 이미 보냈습니다',
+    message:sending
+      ? '같은 메일을 지금 보내는 중입니다. 잠시 후 발송 결과를 확인해 주세요.\n그래도 한 번 더 보내시겠습니까?'
+      : `같은 수신자에게 같은 내용의 메일을 ${ago == null ? '최근' : ago < 1 ? '방금' : ago + '분 전'} 보냈습니다.\n한 번 더 보내시겠습니까?`,
+    items:[`${toEmail} · ${subject}`],
+    confirmLabel:'한 번 더 보내기',
+  });
+}
+
 async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targetName, templateData={}) {
   const forward = takeMailForwardContext_();
   ({ toEmail, subject, body, templateData } = applyMailForward_(forward, toEmail, subject, body, templateData));
@@ -1431,13 +1450,20 @@ async function sendReferenceEmailViaGmail(toEmail, subject, body, logType, targe
     return false;
   }
   const payload = { toEmail, subject, body, ...templateData };
-  let result;
-  try {
-    result = isAppsScriptDashboard_()
-      ? await adminApiRun_({ action:'sendReferenceEmail', data:payload })
-      : await gsFetch('sendReferenceEmail', '', payload, { allowQueue:false });
-  } catch(error) {
-    result = { ok:false, error:error?.message || 'mail_send_failed' };
+  const send = async () => {
+    try {
+      return isAppsScriptDashboard_()
+        ? await adminApiRun_({ action:'sendReferenceEmail', data:payload })
+        : (await gsFetch('sendReferenceEmail', '', payload, { allowQueue:false })) ?? { ok:false, error:gsLastError_ || 'mail_send_failed' };
+    } catch(error) {
+      return { ok:false, error:error?.message || 'mail_send_failed' };
+    }
+  };
+  let result = await send();
+  if(result?.error === 'duplicate_recent') {
+    if(!await confirmDuplicateMailResend_(result, toEmail, subject)) { toast('같은 메일이 이미 발송되어 다시 보내지 않았습니다.', 'tinfo'); return false; }
+    payload.allowDuplicate = true;
+    result = await send();
   }
   if(!result || !result.ok) {
     toast(`메일을 보내지 못했습니다. ${friendlyError_(result?.error, '서버(Apps Script)·Gmail 권한을 확인해 주세요.')}`, 'terr');
@@ -1458,13 +1484,24 @@ async function sendGeneralEmailViaGmail(toEmail, subject, body, logType, targetN
     return false;
   }
   const payload = { toEmail, subject, body, ...templateData, ...(attachments.length ? { attachments } : {}) };
-  let result;
-  try {
-    result = isAppsScriptDashboard_()
-      ? await adminApiRun_({ action:'sendGeneralMail', data:payload })
-      : await gsFetch('sendGeneralMail', '', payload, { allowQueue:false });
-  } catch(error) {
-    result = { ok:false, error:error?.message || 'mail_send_failed' };
+  const send = async () => {
+    try {
+      return isAppsScriptDashboard_()
+        ? await adminApiRun_({ action:'sendGeneralMail', data:payload })
+        : (await gsFetch('sendGeneralMail', '', payload, { allowQueue:false })) ?? { ok:false, error:gsLastError_ || 'mail_send_failed' };
+    } catch(error) {
+      return { ok:false, error:error?.message || 'mail_send_failed' };
+    }
+  };
+  let result = await send();
+  if(result?.error === 'duplicate_recent') {
+    if(!await confirmDuplicateMailResend_(result, toEmail, subject)) {
+      lastMailSendError_ = '같은 메일이 이미 발송되어 다시 보내지 않았습니다.';
+      toast(lastMailSendError_, 'tinfo');
+      return false;
+    }
+    payload.allowDuplicate = true;
+    result = await send();
   }
   if(!result || !result.ok) {
     lastMailSendError_ = result?.error || 'Apps Script/Gmail 권한을 확인하세요.';
