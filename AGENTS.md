@@ -9,6 +9,7 @@
 - 관리자 화면 기능: `src/admin/frontend/js/js_*.html`
 - 관리자 Apps Script: `src/admin/backend/Code.gs`
 - 공개 Apps Script: `src/public/backend/Code.gs`
+- 관리자·공개 공통 Apps Script: `src/shared/backend/shared_00_runtime.gs`
 - 공개 화면: `src/public/pages/**`
 - 면접관 DB Apps Script: `src/integrations/interviewer-directory/Code.gs`
 - 메일 템플릿: `templates/mail/**`
@@ -41,7 +42,7 @@ node scripts/test-deployment-parts.mjs  # 업로드 묶음 일부만 올렸을 �
 
 `npm run check`가 위 검사를 모두 실행하며 GitHub Actions에서도 같은 명령을 씁니다. 서버 함수나 줄 동기화 규칙을 바꾸면 해당 테스트도 함께 고칩니다.
 
-관리자 화면은 `Dashboard.html`에서 `app_css.html`과 기능별 JavaScript 모듈 8개를 순서대로 include합니다. 파일 순서는 `tools/project_paths.js`의 `adminJsFiles`를 단일 기준으로 사용하며, 빌드 결과인 `dist/**`는 직접 수정하지 않습니다.
+관리자 화면은 `Dashboard.html`에서 `app_css.html`과 기능별 JavaScript 모듈 13개를 순서대로 include합니다. 파일 순서는 `tools/project_paths.js`의 `adminJsFiles`를 단일 기준으로 사용하며, 빌드 결과인 `dist/**`는 직접 수정하지 않습니다.
 
 ## 4. 배포 원칙
 

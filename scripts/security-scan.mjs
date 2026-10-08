@@ -141,22 +141,16 @@ const requiredPatterns = [
     message: 'Public batch upsert must read requested rows only, write changed ranges only, and batch change logging.',
   },
   {
-    id: 'admin-change-cursor-is-monotonic',
-    file: 'src/admin/backend/Code.gs',
-    pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,
-    message: 'Admin change cursors must be property-backed and read by cursor value rather than row position.',
+    id: 'shared-change-cursor-is-monotonic',
+    file: 'src/shared/backend/shared_00_runtime.gs',
+    pattern: /reserveChangeCursors_\(sheet, source\.length\)[\s\S]*CHANGE_CURSOR_PROPERTY[\s\S]*Number\(row\[0\]\) > requestedCursor/,
+    message: 'Shared change cursors must be property-backed and read by cursor value rather than row position.',
   },
   {
-    id: 'admin-change-log-does-not-copy-row-values',
-    file: 'src/admin/backend/Code.gs',
+    id: 'shared-change-log-does-not-copy-row-values',
+    file: 'src/shared/backend/shared_00_runtime.gs',
     pattern: /function appendChanges_\([\s\S]{0,900}JSON\.stringify\(compactChangeLogData_\(change\.data\)\)/,
-    message: 'Admin change logs must store field metadata rather than a full row copy.',
-  },
-  {
-    id: 'public-change-log-does-not-copy-row-values',
-    file: 'src/public/backend/Code.gs',
-    pattern: /function appendChanges_\([\s\S]{0,900}JSON\.stringify\(compactChangeLogData_\(change\.data\)\)/,
-    message: 'Public change logs must store field metadata rather than a full row copy.',
+    message: 'Shared change logs must store field metadata rather than a full row copy.',
   },
   {
     id: 'admin-change-log-archive-is-bounded',
@@ -241,12 +235,6 @@ const requiredPatterns = [
     file: 'src/admin/frontend/js/js_99_app.html',
     pattern: /startGsChangePolling_\(\);[\s\S]{0,120}checkAdminDeploymentConfig_\(\);/,
     message: 'Dashboard startup must request the redacted deployment configuration status.',
-  },
-  {
-    id: 'public-change-cursor-is-monotonic',
-    file: 'src/public/backend/Code.gs',
-    pattern: /CHANGE_CURSOR_PROPERTY[\s\S]*reserveChangeCursors_\(sheet, source\.length\)[\s\S]*Number\(row\[0\]\) > requestedCursor/,
-    message: 'Public change cursors must be property-backed and read by cursor value rather than row position.',
   },
   {
     id: 'admin-core-writes-use-revisions',

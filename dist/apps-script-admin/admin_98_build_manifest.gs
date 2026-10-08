@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "ec471eca13f2",
+ "build": "6ece7d13db1e",
  "functions": {
   "addReferenceDays_": [
    "admin_04_reference.gs",
@@ -36,11 +36,11 @@ const BUILD_MANIFEST_ = {
    "793ff3e131f5"
   ],
   "appendChange_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "8ae1c6ce116d"
   ],
   "appendChanges_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "e32165edb779"
   ],
   "applyKoreanJosa_": [
@@ -204,19 +204,19 @@ const BUILD_MANIFEST_ = {
    "4dd90824dd85"
   ],
   "ensureChangeLogSheetUncached_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "c0ac40ba3ee3"
   ],
   "ensureChangeLogSheet_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "ad19438e7346"
   ],
   "ensureHeadersUncached_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "0126ebe19800"
   ],
   "ensureHeaders_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "d1a0e72e6fc0"
   ],
   "ensureSheet_": [
@@ -252,7 +252,7 @@ const BUILD_MANIFEST_ = {
    "1603464f9d79"
   ],
   "findRowIndex_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "33bd25f2000b"
   ],
   "finishMailDedupe_": [
@@ -304,7 +304,7 @@ const BUILD_MANIFEST_ = {
    "39188b5d8503"
   ],
   "getChangeCursor_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "19854301c839"
   ],
   "getChanges_": [
@@ -348,7 +348,7 @@ const BUILD_MANIFEST_ = {
    "a4da204ba9b6"
   ],
   "getMainSpreadsheet_": [
-   "admin_99_admin_api.gs",
+   "shared_00_runtime.gs",
    "5154d96071c5"
   ],
   "getMyReferrals_": [
@@ -376,7 +376,7 @@ const BUILD_MANIFEST_ = {
    "691ef1fd33ef"
   ],
   "getStoredChangeCursor_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "c1fe49790e5f"
   ],
   "handleReferralSecurityAction_": [
@@ -556,7 +556,7 @@ const BUILD_MANIFEST_ = {
    "939b50209d8b"
   ],
   "maxLoggedChangeCursor_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "f6485fb196f5"
   ],
   "migrateLegacyReferenceStageToSecondInterview": [
@@ -628,7 +628,7 @@ const BUILD_MANIFEST_ = {
    "80a901388100"
   ],
   "openSpreadsheetCached_": [
-   "admin_99_admin_api.gs",
+   "shared_00_runtime.gs",
    "f9dd446b660f"
   ],
   "opsDateKey_": [
@@ -692,11 +692,11 @@ const BUILD_MANIFEST_ = {
    "613d67116d6a"
   ],
   "readChangePageAfter_": [
-   "admin_07_sheet_utils.gs",
-   "77cd30741ddb"
+   "shared_00_runtime.gs",
+   "40b46720f977"
   ],
   "readChangesAfter_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "4bd5b5b696be"
   ],
   "readEmployeeDirectoryCache_": [
@@ -716,7 +716,7 @@ const BUILD_MANIFEST_ = {
    "3a2150911021"
   ],
   "readRows_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "c3b9ae6b7b4d"
   ],
   "readSheetRowsByIds_": [
@@ -820,15 +820,15 @@ const BUILD_MANIFEST_ = {
    "a83a79fe5424"
   ],
   "reserveChangeCursors_": [
-   "admin_07_sheet_utils.gs",
-   "d098675dd7c9"
+   "shared_00_runtime.gs",
+   "c2a7c33e8f58"
   ],
   "resolveReferenceMailTemplateKey_": [
    "admin_04_reference.gs",
    "0a467069499a"
   ],
   "revisionState_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "ff522bbe505a"
   ],
   "routeRequest_": [
@@ -836,7 +836,7 @@ const BUILD_MANIFEST_ = {
    "4c535f53d72a"
   ],
   "rowObjectFromValues_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "8def4e6a6f16"
   ],
   "saveAdminSession_": [
@@ -844,7 +844,7 @@ const BUILD_MANIFEST_ = {
    "45e0da32aab5"
   ],
   "schemaRow_": [
-   "admin_07_sheet_utils.gs",
+   "shared_00_runtime.gs",
    "5d1ffa71ea5a"
   ],
   "secureReferralRowBeforeSave_": [

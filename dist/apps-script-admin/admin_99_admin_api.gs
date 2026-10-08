@@ -35,21 +35,3 @@ function adminApi(payload) {
   }
 }
 
-// Apps Script는 요청(실행)마다 전역을 새로 만든다 — 이 캐시는 한 요청 안에서만 유지된다.
-// 한 요청에서 같은 스프레드시트를 openByUrl로 3~4번(본 시트·변경로그·커서) 새로 열고 헤더를
-// 매번 다시 읽던 비용(회당 수백 ms~1초 이상)을 없앤다.
-const EXEC_CACHE_ = { spreadsheets: {}, sheets: {}, headers: new Map() };
-
-function openSpreadsheetCached_(url) {
-  const key = url || '__active__';
-  if (!EXEC_CACHE_.spreadsheets[key]) {
-    EXEC_CACHE_.spreadsheets[key] = url ? SpreadsheetApp.openByUrl(url) : SpreadsheetApp.getActiveSpreadsheet();
-  }
-  return EXEC_CACHE_.spreadsheets[key];
-}
-
-function getMainSpreadsheet_() {
-  return openSpreadsheetCached_(getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY));
-}
-
-

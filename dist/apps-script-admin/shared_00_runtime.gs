@@ -152,6 +152,251 @@ function writeBatchRows_(sheet, columnCount, rowsById, newIds, lastRow) {
   if (additions.length) sheet.getRange(Math.max(2, Number(lastRow) + 1), 1, additions.length, columnCount).setValues(additions);
 }
 
+// Apps Script 요청 한 번 안에서만 유지되는 캐시다. 배포별 시트 라우팅은 각 Code.gs에 남기고,
+// 공통 시트 접근 함수는 이 캐시를 함께 사용한다.
+const EXEC_CACHE_ = { spreadsheets: {}, sheets: {}, headers: new Map() };
+const CHANGE_CURSOR_TAIL_ROWS = 200;
+const CHANGE_READ_CHUNK_ROWS = 500;
+
+function ensureHeaders_(sheet, schema) {
+  if (!schema || !schema.length) throw new Error('missing_schema');
+  const cached = EXEC_CACHE_.headers.get(sheet);
+  if (cached && schema.every(header => cached.includes(header))) return cached.slice();
+  const resolved = ensureHeadersUncached_(sheet, schema);
+  EXEC_CACHE_.headers.set(sheet, resolved.slice());
+  return resolved;
+}
+
+function ensureHeadersUncached_(sheet, schema) {
+  const lastColumn = Math.max(sheet.getLastColumn(), schema.length);
+  let headers = [];
+  if (sheet.getLastRow() >= 1 && lastColumn > 0) {
+    headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(v => String(v || '').trim());
+  }
+  if (!headers.filter(Boolean).length) {
+    sheet.getRange(1, 1, 1, schema.length).setValues([schema]);
+    return schema.slice();
+  }
+  const next = headers.slice();
+  schema.forEach(header => {
+    if (!next.includes(header)) next.push(header);
+  });
+  if (next.length !== headers.length) {
+    sheet.getRange(1, 1, 1, next.length).setValues([next]);
+  }
+  return next;
+}
+
+function readRows_(sheetName) {
+  const sheet = ensureSheet_(sheetName);
+  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  return values.map(row => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      obj[header] = normalizeCell_(row[index]);
+    });
+    return obj;
+  }).filter(row => String(row[primaryKey_(sheetName)] || '').trim());
+}
+
+function schemaRow_(sheetName, row) {
+  const schema = SHEET_SCHEMAS[sheetName];
+  const result = {};
+  schema.forEach(key => {
+    result[key] = row[key] == null ? '' : row[key];
+  });
+  return result;
+}
+
+function revisionState_(sheetName, headers, existingValues, source) {
+  const enabled = REVISIONED_SHEETS.includes(sheetName);
+  if (!enabled) return { enabled: false, conflict: false, expected: 0, current: 0 };
+  const revIndex = headers.indexOf('rev');
+  const current = existingValues && revIndex >= 0 ? Number(existingValues[revIndex]) || 0 : 0;
+  const expected = Number(source && source.rev) || 0;
+  return {
+    enabled: true,
+    conflict: !!existingValues && expected !== current,
+    expected,
+    current
+  };
+}
+
+function rowObjectFromValues_(headers, values) {
+  const result = {};
+  (headers || []).forEach(function(header, index) {
+    result[header] = normalizeCell_((values || [])[index]);
+  });
+  return result;
+}
+
+function findRowIndex_(sheet, key, id, headers) {
+  const keyIndex = headers.indexOf(key);
+  if (keyIndex < 0) throw new Error('missing_key_column');
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  const values = sheet.getRange(2, keyIndex + 1, lastRow - 1, 1).getValues();
+  const target = String(id);
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][0]) === target) return i + 2;
+  }
+  return -1;
+}
+
+function appendChange_(sheetName, action, id, data) {
+  appendChanges_([{ sheetName, action, id, data }]);
+}
+
+function appendChanges_(changes) {
+  const source = Array.isArray(changes) ? changes : [];
+  if (!source.length) return;
+  const sheet = ensureChangeLogSheet_();
+  const firstCursor = reserveChangeCursors_(sheet, source.length);
+  const actorEmail = getActiveUserEmail_();
+  const values = source.map(function(change, index) {
+    return [
+      firstCursor + index,
+      nowIso_(),
+      change.sheetName,
+      change.action,
+      change.id,
+      actorEmail,
+      'ok',
+      JSON.stringify(compactChangeLogData_(change.data))
+    ];
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, values.length, 8).setValues(values);
+}
+
+function ensureChangeLogSheet_() {
+  if (EXEC_CACHE_.changeLogSheet) return EXEC_CACHE_.changeLogSheet;
+  EXEC_CACHE_.changeLogSheet = ensureChangeLogSheetUncached_();
+  return EXEC_CACHE_.changeLogSheet;
+}
+
+function ensureChangeLogSheetUncached_() {
+  const ss = getMainSpreadsheet_();
+  let sheet = ss.getSheetByName(CHANGE_LOG_SHEET);
+  if (!sheet) sheet = ss.insertSheet(CHANGE_LOG_SHEET);
+  if (sheet.getLastRow() < 1) {
+    sheet.appendRow(['cursor','timestamp','sheet','action','id','actorEmail','result','data']);
+  } else {
+    const current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 8)).getValues()[0].map(v => String(v || '').trim());
+    const expected = ['cursor','timestamp','sheet','action','id','actorEmail','result','data'];
+    let changed = false;
+    expected.forEach((header, index) => {
+      if (current[index] !== header) {
+        current[index] = header;
+        changed = true;
+      }
+    });
+    if (changed) sheet.getRange(1, 1, 1, expected.length).setValues([current.slice(0, expected.length)]);
+  }
+  return sheet;
+}
+
+function openSpreadsheetCached_(url) {
+  const key = url || '__active__';
+  if (!EXEC_CACHE_.spreadsheets[key]) {
+    EXEC_CACHE_.spreadsheets[key] = url ? SpreadsheetApp.openByUrl(url) : SpreadsheetApp.getActiveSpreadsheet();
+  }
+  return EXEC_CACHE_.spreadsheets[key];
+}
+
+function getMainSpreadsheet_() {
+  return openSpreadsheetCached_(getScriptProperty_(RECRUITMENT_SPREADSHEET_URL_PROPERTY));
+}
+
+function getChangeCursor_() {
+  const sheet = ensureChangeLogSheet_();
+  return Math.max(getStoredChangeCursor_(sheet), maxLoggedChangeCursor_(sheet));
+}
+
+function reserveChangeCursors_(sheet, count) {
+  const size = Math.max(0, Number(count) || 0);
+  const current = Math.max(getStoredChangeCursor_(sheet), maxLoggedChangeCursor_(sheet));
+  if (!size) return current + 1;
+  PropertiesService.getScriptProperties().setProperty(CHANGE_CURSOR_PROPERTY, String(current + size));
+  return current + 1;
+}
+
+function maxLoggedChangeCursor_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const count = Math.min(lastRow - 1, CHANGE_CURSOR_TAIL_ROWS);
+  return sheet.getRange(lastRow - count + 1, 1, count, 1).getValues().reduce(function(max, row) {
+    const value = Number(row[0]) || 0;
+    return value > max ? value : max;
+  }, 0);
+}
+
+function getStoredChangeCursor_(sheet) {
+  const properties = PropertiesService.getScriptProperties();
+  const stored = Number(properties.getProperty(CHANGE_CURSOR_PROPERTY));
+  if (Number.isFinite(stored) && stored >= 0) return stored;
+  const lastRow = sheet.getLastRow();
+  const existing = lastRow < 2
+    ? 0
+    : Math.max.apply(null, sheet.getRange(2, 1, lastRow - 1, 1).getValues().map(function(row) {
+        return Number(row[0]) || 0;
+      }));
+  properties.setProperty(CHANGE_CURSOR_PROPERTY, String(existing));
+  return existing;
+}
+
+function readChangesAfter_(cursor, limit) {
+  return readChangePageAfter_(cursor, limit).changes;
+}
+
+function readChangePageAfter_(cursor, limit) {
+  const sheet = ensureChangeLogSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { changes: [], latestCursor: 0, hasMore: false };
+  const requestedCursor = Number(cursor) || 0;
+  const pageSize = Math.max(1, Number(limit) || 500);
+  let latestCursor = 0;
+  const matches = [];
+  let end = lastRow - 1;
+  while (end > 0) {
+    const start = Math.max(0, end - CHANGE_READ_CHUNK_ROWS);
+    const chunk = sheet.getRange(start + 2, 1, end - start, 1).getValues();
+    let reachedOlder = false;
+    chunk.forEach(function(row, offset) {
+      const value = Number(row[0]) || 0;
+      if (value > latestCursor) latestCursor = value;
+      if (Number(row[0]) > requestedCursor) matches.push({ index: start + offset, cursor: value });
+      else reachedOlder = true;
+    });
+    if (reachedOlder) break;
+    end = start;
+  }
+  if (!matches.length) return { changes: [], latestCursor: latestCursor, hasMore: false };
+  matches.sort(function(a, b) { return a.cursor - b.cursor || a.index - b.index; });
+  let pageEnd = Math.min(pageSize, matches.length);
+  while (pageEnd < matches.length && matches[pageEnd].cursor === matches[pageEnd - 1].cursor) pageEnd++;
+  const page = matches.slice(0, pageEnd);
+  const firstIndex = Math.min.apply(null, page.map(function(item) { return item.index; }));
+  const lastIndex = Math.max.apply(null, page.map(function(item) { return item.index; }));
+  const values = sheet.getRange(firstIndex + 2, 1, lastIndex - firstIndex + 1, 8).getValues();
+  const changes = page.map(function(item) {
+    const row = values[item.index - firstIndex];
+    return {
+      cursor: Number(row[0]),
+      timestamp: normalizeCell_(row[1]),
+      sheet: String(row[2] || ''),
+      action: String(row[3] || ''),
+      id: String(row[4] || ''),
+      actorEmail: String(row[5] || ''),
+      result: String(row[6] || ''),
+      data: parseJsonObject_(row[7])
+    };
+  });
+  return { changes: changes, latestCursor: Math.max(latestCursor, getStoredChangeCursor_(sheet)), hasMore: matches.length > page.length };
+}
+
 // 지정한 id의 행만 객체로 읽는다. 변경 이력 응답 복원 등 읽기 전용 경로에서 사용한다.
 function readRowsByIds_(sheetName, ids) {
   assertKnownSheet_(sheetName);
