@@ -99,24 +99,19 @@ function compactChangeLogData_(data) {
   return { fields: Object.keys(source).sort() };
 }
 
-// 지정한 id의 행만 읽는다. 키 열은 한 번 스캔하고, 실제 본문은 필요한 연속 구간만 가져온다.
-function readRowsByIds_(sheetName, ids) {
-  assertKnownSheet_(sheetName);
+// 키 열은 한 번만 스캔하고, 요청된 행 본문만 연속 구간 단위로 읽는다.
+function readSheetRowsByIds_(sheet, headers, key, ids) {
   const targets = new Set((ids || []).map(function(id) { return String(id || '').trim(); }).filter(Boolean));
-  if (!targets.size) return {};
-
-  const sheet = ensureSheet_(sheetName);
-  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
-  const keyIndex = headers.indexOf(primaryKey_(sheetName));
+  const keyIndex = headers.indexOf(key);
   const lastRow = sheet.getLastRow();
-  if (keyIndex < 0 || lastRow < 2) return {};
+  if (!targets.size || keyIndex < 0 || lastRow < 2) return { lastRow: lastRow, rows: {} };
 
   const keyValues = sheet.getRange(2, keyIndex + 1, lastRow - 1, 1).getValues();
   const rowNumbers = [];
   keyValues.forEach(function(values, index) {
     if (targets.has(String(values[0] || '').trim())) rowNumbers.push(index + 2);
   });
-  if (!rowNumbers.length) return {};
+  if (!rowNumbers.length) return { lastRow: lastRow, rows: {} };
 
   const ranges = [];
   rowNumbers.forEach(function(rowNumber) {
@@ -127,12 +122,46 @@ function readRowsByIds_(sheetName, ids) {
 
   const result = {};
   ranges.forEach(function(range) {
-    sheet.getRange(range.start, 1, range.count, headers.length).getValues().forEach(function(values) {
-      const row = {};
-      headers.forEach(function(header, index) { row[header] = normalizeCell_(values[index]); });
-      const id = String(row[primaryKey_(sheetName)] || '').trim();
-      if (id) result[id] = row;
+    sheet.getRange(range.start, 1, range.count, headers.length).getValues().forEach(function(values, offset) {
+      const id = String(values[keyIndex] || '').trim();
+      if (id) result[id] = { rowNumber: range.start + offset, values: values };
     });
+  });
+  return { lastRow: lastRow, rows: result };
+}
+
+// 기존 행은 실제로 바뀐 연속 구간만 쓰고, 신규 행은 마지막에 한 묶음으로 추가한다.
+// 배치 일부를 저장할 때 시트 전체를 다시 써서 다른 배포의 동시 변경을 덮는 일을 피한다.
+function writeBatchRows_(sheet, columnCount, rowsById, newIds, lastRow) {
+  const existing = Object.keys(rowsById || {}).map(function(id) { return rowsById[id]; })
+    .filter(function(record) { return Number(record && record.rowNumber) >= 2; })
+    .sort(function(a, b) { return a.rowNumber - b.rowNumber; });
+  const ranges = [];
+  existing.forEach(function(record) {
+    const current = ranges[ranges.length - 1];
+    if (current && current.start + current.values.length === record.rowNumber) current.values.push(record.values);
+    else ranges.push({ start: record.rowNumber, values: [record.values] });
+  });
+  ranges.forEach(function(range) {
+    sheet.getRange(range.start, 1, range.values.length, columnCount).setValues(range.values);
+  });
+
+  const additions = (newIds || []).map(function(id) { return rowsById[id]; })
+    .filter(Boolean)
+    .map(function(record) { return record.values; });
+  if (additions.length) sheet.getRange(Math.max(2, Number(lastRow) + 1), 1, additions.length, columnCount).setValues(additions);
+}
+
+// 지정한 id의 행만 객체로 읽는다. 변경 이력 응답 복원 등 읽기 전용 경로에서 사용한다.
+function readRowsByIds_(sheetName, ids) {
+  assertKnownSheet_(sheetName);
+  const sheet = ensureSheet_(sheetName);
+  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+  const key = primaryKey_(sheetName);
+  const loaded = readSheetRowsByIds_(sheet, headers, key, ids);
+  const result = {};
+  Object.keys(loaded.rows).forEach(function(id) {
+    result[id] = rowObjectFromValues_(headers, loaded.rows[id].values);
   });
   return result;
 }

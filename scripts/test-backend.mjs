@@ -239,6 +239,60 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   check('다음 실행에서 남은 변경 로그 정리', result.compacted === 1 && result.remaining === false && !stored.join('|').includes('민감한 메모'), result);
 }
 
+// ── 배치 저장: 요청된 행과 신규 행만 쓰고 충돌 때는 아무것도 쓰지 않는다 ──
+for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGsSource]]) {
+  const { ctx, run } = loadBackend(gsPath);
+  const headers = Array.from(run('SHEET_SCHEMAS.Candidates.slice()'));
+  const idIndex = headers.indexOf('id');
+  const nameIndex = headers.indexOf('name');
+  const revIndex = headers.indexOf('rev');
+  const updatedAtIndex = headers.indexOf('updatedAt');
+  const makeRow = (id, name, rev) => {
+    const values = Array(headers.length).fill('');
+    values[idIndex] = id;
+    values[nameIndex] = name;
+    values[revIndex] = rev;
+    values[updatedAtIndex] = '2026-10-01T00:00:00.000Z';
+    return values;
+  };
+  const rows = [makeRow('A', '가', 1), makeRow('B', '나', 1), makeRow('C', '다', 1), makeRow('D', '라', 1)];
+  const writes = [];
+  const sheet = {
+    getLastRow: () => rows.length + 1,
+    getRange: (row, col, count, width) => ({
+      getValues: () => Array.from({ length: count }, (_, offset) => {
+        const source = rows[row - 2 + offset] || [];
+        return width === 1 ? [source[col - 1]] : source.slice(col - 1, col - 1 + width);
+      }),
+      setValues: values => {
+        writes.push({ row, col, count, width, ids: values.map(value => value[idIndex]) });
+        values.forEach((value, offset) => { rows[row - 2 + offset] = Array.from(value); });
+      },
+    }),
+  };
+  let logged = 0;
+  Object.assign(ctx, {
+    ensureSheet_: () => sheet,
+    ensureHeaders_: () => headers,
+    appendChanges_: changes => { logged += changes.length; },
+    getChangeCursor_: () => 0,
+  });
+  const response = run(`batchUpsert_('Candidates', [
+    {id:'A',name:'가 수정',rev:1},
+    {id:'C',name:'다 수정',rev:1},
+    {id:'E',name:'마 신규',rev:0}
+  ], true)`);
+  check(`${label}: 배치 저장 성공`, response.status === 'ok' && response.count === 3 && logged === 3, response);
+  check(`${label}: 무관한 기존 행을 다시 쓰지 않음`,
+    writes.every(write => !write.ids.includes('B') && !write.ids.includes('D')) && writes.flatMap(write => write.ids).join(',') === 'A,C,E', writes);
+  check(`${label}: 신규 행은 마지막 행에 추가`, rows.length === 5 && rows[4][idIndex] === 'E' && Number(rows[4][revIndex]) === 1, rows.map(row => row[idIndex]));
+
+  writes.length = 0;
+  logged = 0;
+  const conflict = run(`batchUpsert_('Candidates', [{id:'A',name:'충돌',rev:1}], true)`);
+  check(`${label}: 버전 충돌은 저장 전 전체 거절`, conflict.error === 'revision_conflict' && writes.length === 0 && logged === 0, conflict);
+}
+
 // ── _Changes 커서: 끝부분만 읽어도 전체를 읽은 결과와 같아야 한다 ──
 function referencePage(cursors, requested, limit) {
   const matches = [];

@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "adf509882dde",
+ "build": "ec471eca13f2",
  "functions": {
   "addReferenceDays_": [
    "admin_04_reference.gs",
@@ -69,7 +69,7 @@ const BUILD_MANIFEST_ = {
   ],
   "batchUpsert_": [
    "admin_02_sheet_api.gs",
-   "c4c00a5201fa"
+   "7a44cbcc2afc"
   ],
   "beginMailDedupe_": [
    "admin_01_mail_base.gs",
@@ -709,7 +709,7 @@ const BUILD_MANIFEST_ = {
   ],
   "readRowsByIds_": [
    "shared_00_runtime.gs",
-   "eedd689e1fdf"
+   "caa751fc32d1"
   ],
   "readRowsIfSheetExists_": [
    "admin_06_ai_referral_directory.gs",
@@ -718,6 +718,10 @@ const BUILD_MANIFEST_ = {
   "readRows_": [
    "admin_07_sheet_utils.gs",
    "c3b9ae6b7b4d"
+  ],
+  "readSheetRowsByIds_": [
+   "shared_00_runtime.gs",
+   "ccf20c32f42d"
   ],
   "recordAdminLoginFailure_": [
    "admin_09_auth.gs",
@@ -986,6 +990,10 @@ const BUILD_MANIFEST_ = {
   "weeklyOps": [
    "admin_07_sheet_utils.gs",
    "2f96693d15ef"
+  ],
+  "writeBatchRows_": [
+   "shared_00_runtime.gs",
+   "1605d47bad77"
   ],
   "writeEmployeeDirectoryCache_": [
    "admin_06_ai_referral_directory.gs",

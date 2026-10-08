@@ -3,8 +3,8 @@
   "functions": {
     "batchUpsert_": {
       "reason": "관리자만 rev 시트(입사·처우 포함) 새 rev를 돌려준다(revs). 공개는 사내추천 접수만 쓴다.",
-      "admin": "dc0d4abf936a4d5c",
-      "public": "51272908a5844fd8"
+      "admin": "6c5f63a5bd3f9251",
+      "public": "d9f37c116fc4f04b"
     },
     "doGet": {
       "reason": "배포 역할별 진입점: 관리자는 대시보드 화면, 공개는 화면 없음.",

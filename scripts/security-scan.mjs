@@ -131,14 +131,14 @@ const requiredPatterns = [
   {
     id: 'admin-batch-upsert-uses-indexed-write',
     file: 'src/admin/backend/Code.gs',
-    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,4000}appendChanges_\(changes\)/,
-    message: 'Admin batch upsert must use one indexed sheet read and batched change logging.',
+    pattern: /function batchUpsert_\([\s\S]{0,1200}readSheetRowsByIds_[\s\S]{0,4000}writeBatchRows_[\s\S]{0,300}appendChanges_\(changes\)/,
+    message: 'Admin batch upsert must read requested rows only, write changed ranges only, and batch change logging.',
   },
   {
     id: 'public-batch-upsert-uses-indexed-write',
     file: 'src/public/backend/Code.gs',
-    pattern: /function batchUpsert_\([\s\S]{0,900}rowIndexById[\s\S]{0,4000}appendChanges_\(changes\)/,
-    message: 'Public batch upsert must use one indexed sheet read and batched change logging.',
+    pattern: /function batchUpsert_\([\s\S]{0,1200}readSheetRowsByIds_[\s\S]{0,4000}writeBatchRows_[\s\S]{0,300}appendChanges_\(changes\)/,
+    message: 'Public batch upsert must read requested rows only, write changed ranges only, and batch change logging.',
   },
   {
     id: 'admin-change-cursor-is-monotonic',

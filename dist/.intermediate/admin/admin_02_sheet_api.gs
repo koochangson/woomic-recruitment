@@ -79,16 +79,10 @@ function batchUpsert_(sheetName, rows, isAdmin) {
     const sheet = ensureSheet_(sheetName);
     const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
     const key = primaryKey_(sheetName);
-    const keyIndex = headers.indexOf(key);
-    const lastRow = sheet.getLastRow();
-    const values = lastRow >= 2
-      ? sheet.getRange(2, 1, lastRow - 1, headers.length).getValues()
-      : [];
-    const rowIndexById = {};
-    values.forEach(function(rowValues, index) {
-      const id = String(rowValues[keyIndex] || '').trim();
-      if (id) rowIndexById[id] = index;
-    });
+    const ids = source.map(function(row) { return String((row || {})[key] || '').trim(); }).filter(Boolean);
+    const loaded = readSheetRowsByIds_(sheet, headers, key, ids);
+    const pendingRows = {};
+    const newIds = [];
 
     const changes = [];
     const conflicts = [];
@@ -98,10 +92,8 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       let next = Object.assign({}, row || {});
       const id = String(next[key] || '').trim();
       if (!id) return;
-      const existingIndex = Object.prototype.hasOwnProperty.call(rowIndexById, id)
-        ? rowIndexById[id]
-        : -1;
-      const existingValues = existingIndex >= 0 ? values[existingIndex] : null;
+      const existing = pendingRows[id] || loaded.rows[id] || null;
+      const existingValues = existing ? existing.values : null;
       const revision = revisionState_(sheetName, headers, existingValues, next);
       if (revision.conflict) {
         conflicts.push({
@@ -113,7 +105,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
         return;
       }
       if (sheetName === 'Referrals') {
-        next = secureReferralRowForUpsert_(next, existingIndex >= 0, isAdmin);
+        next = secureReferralRowForUpsert_(next, !!existing, isAdmin);
       }
       if (revision.enabled) {
         next.rev = revision.current + 1;
@@ -126,12 +118,8 @@ function batchUpsert_(sheetName, rows, isAdmin) {
       const rowValues = headers.map(function(header) {
         return normalized[header] == null ? '' : normalized[header];
       });
-      if (existingIndex >= 0) {
-        values[existingIndex] = rowValues;
-      } else {
-        rowIndexById[id] = values.length;
-        values.push(rowValues);
-      }
+      if (!existing) newIds.push(id);
+      pendingRows[id] = { rowNumber: existing ? existing.rowNumber : 0, values: rowValues };
       changes.push({ sheetName, action: 'upsert', id, data: normalized });
       count++;
     });
@@ -145,7 +133,7 @@ function batchUpsert_(sheetName, rows, isAdmin) {
         serverTime: nowIso_()
       };
     } else if (count) {
-      sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+      writeBatchRows_(sheet, headers.length, pendingRows, newIds, loaded.lastRow);
       appendChanges_(changes);
       result = { status: 'ok', count, revs, cursor: getChangeCursor_(), serverTime: nowIso_() };
     } else {
