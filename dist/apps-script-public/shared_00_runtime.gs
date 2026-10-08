@@ -246,6 +246,17 @@ function findRowIndex_(sheet, key, id, headers) {
   return -1;
 }
 
+// 행 번호를 찾은 뒤 실제로 쓰기 전에 다른 프로젝트가 행을 지우면(관리자·공개 프로젝트는 스크립트 잠금이 서로 다르다)
+// 번호가 밀려 엉뚱한 행에 쓸 수 있다. 쓰기 직전에 그 행의 키 값을 다시 확인하고, 다르면 다시 찾는다. 행이 없으면 -1.
+function confirmRowIndex_(sheet, headers, key, value, rowIndex) {
+  const keyIndex = headers.indexOf(key);
+  if (keyIndex >= 0 && rowIndex >= 2 && rowIndex <= sheet.getLastRow()
+      && String(sheet.getRange(rowIndex, keyIndex + 1).getValue()) === String(value)) {
+    return rowIndex;
+  }
+  return findRowIndex_(sheet, key, value, headers);
+}
+
 function appendChange_(sheetName, action, id, data) {
   appendChanges_([{ sheetName, action, id, data }]);
 }

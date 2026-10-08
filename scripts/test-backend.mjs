@@ -132,7 +132,8 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   const { ctx, state, run } = loadBackend(gsPath);
   const candidates = [{ id: 'RC1', token: 'tok', candName: '홍길동', pipelineCandId: 7, positionText: 'P', refereesSubmittedAt: '' }];
   Object.assign(ctx, {
-    ensureSheet_: () => ({ appendRow: () => {}, getRange: () => ({ setValue: () => {} }) }),
+    // 찾은 행(2행)에 같은 토큰이 그대로 있는 시트(쓰기 직전 행 확인 통과)
+    ensureSheet_: () => ({ appendRow: () => {}, getLastRow: () => 2, getRange: () => ({ setValue: () => {}, getValue: () => 'tok' }) }),
     ensureHeaders_: (s, h) => h,
     findRowIndex_: () => 2,
     readRows_: name => (name === 'ReferenceCandidates' ? candidates : []),
@@ -162,7 +163,7 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   const { ctx, state, run } = loadBackend(gsPath);
   const responses = [{ id: 'RR1', token: 'rt', candName: '홍길동', refereeName: 'R1', refereeEmail: 'r1@x.com', verifiedAt: '2026-10-08T00:00:00Z', submittedAt: '' }];
   Object.assign(ctx, {
-    ensureSheet_: () => ({ getRange: () => ({ setValues: () => {}, setValue: () => {} }) }),
+    ensureSheet_: () => ({ getLastRow: () => 2, getRange: () => ({ setValues: () => {}, setValue: () => {}, getValue: () => 'rt' }) }),
     ensureHeaders_: (s, h) => h,
     findRowIndex_: () => 2,
     readRows_: name => (name === 'ReferenceResponses' ? responses : []),
@@ -476,7 +477,7 @@ function loadOps({ notifyEmail = 'people@x.com', retentionMonths = '' } = {}) {
     availabilityOptions: JSON.stringify([{ date: '2026-11-03', periods: ['AM', 'PM'] }]), availabilitySelections: '[]', rev: 3, updatedAt: '2026-10-01T00:00:00.000Z' };
   let stored = null;
   Object.assign(ctx, {
-    ensureSheet_: () => ({ getRange: () => ({ setValues: values => { stored = values[0]; } }) }),
+    ensureSheet_: () => ({ getLastRow: () => 2, getRange: () => ({ setValues: values => { stored = values[0]; }, getValue: () => 'itv-token' }) }),
     ensureHeaders_: (sheet, schema) => schema,
     findRowIndex_: () => 2,
     readRows_: name => (name === 'Interviews' ? [{ ...original }] : []),
@@ -500,6 +501,38 @@ function loadOps({ notifyEmail = 'people@x.com', retentionMonths = '' } = {}) {
   const payload = { ...original, memo: '관리자 메모' };
   const merged = vm.runInContext('mergeGsConflictRow_(' + JSON.stringify(payload) + ',' + JSON.stringify(base) + ',' + JSON.stringify(saved) + ')', front);
   check('관리자 자동 병합: 회신은 유지하고 관리자 수정은 반영', merged.availabilityStatus === 'RESPONDED' && merged.availabilitySelections === saved.availabilitySelections && merged.memo === '관리자 메모' && Number(merged.rev) === 4, merged);
+}
+
+// ── 쓰기 직전 행 확인: 다른 프로젝트가 위쪽 행을 지워 번호가 밀려도 엉뚱한 행에 쓰지 않는다 ──
+{
+  const { run, ctx } = loadBackend(publicGsSource);
+  const sheet = memorySheet([['id', 'token'], ['A', 'ta'], ['B', 'tb'], ['C', 'tc']]);
+  ctx.testSheet = sheet;
+  check('행 확인: 그대로면 같은 번호', run("confirmRowIndex_(testSheet, ['id','token'], 'id', 'C', 4)") === 4);
+  sheet.deleteRows(2, 1);
+  check('행 확인: 위 행이 지워지면 새 번호를 찾음', run("confirmRowIndex_(testSheet, ['id','token'], 'id', 'C', 4)") === 3);
+  sheet.deleteRows(3, 1);
+  check('행 확인: 행이 사라지면 -1', run("confirmRowIndex_(testSheet, ['id','token'], 'id', 'C', 3)") === -1);
+}
+for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGsSource]]) {
+  const { run, ctx } = loadBackend(gsPath);
+  const headers = run('SHEET_SCHEMAS.ReferenceResponses');
+  const rowOf = obj => headers.map(h => obj[h] ?? '');
+  const other = { id: 'RR0', token: 't0', refereeName: '다른 추천인', submittedAt: '' };
+  const target = { id: 'RR1', token: 't1', refereeName: '대상 추천인', verifiedAt: '2026-10-09T00:00:00.000Z', submittedAt: '' };
+  const sheet = memorySheet([headers.slice(), rowOf(other), rowOf(target)]);
+  Object.assign(ctx, {
+    ensureSheet_: () => sheet,
+    ensureHeaders_: (sh, schema) => schema,
+    // 응답 저장 도중(행 번호를 찾은 뒤) 관리자가 위쪽 행(RR0)을 지운 상황
+    readRows_: () => { const rows = [{ ...target }]; if (sheet.rows.length === 3) sheet.deleteRows(2, 1); return rows; },
+    candidateProcessClosed_: () => false,
+    referenceLinkExpired_: () => false,
+    appendChange_: () => {},
+  });
+  const r = run('submitReferenceResponseUnlocked_(' + JSON.stringify({ data: { token: 't1', answers: { q9_word: '성실' } } }) + ')');
+  const stored = sheet.rows.slice(1).map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]])));
+  check(label + ': 행이 밀려도 대상 행에 저장', r.ok === true && stored.length === 1 && stored[0].id === 'RR1' && stored[0].q9_word === '성실' && !!stored[0].submittedAt, { r, stored: stored.map(x => [x.id, x.q9_word]) });
 }
 
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);

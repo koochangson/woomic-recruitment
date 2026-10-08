@@ -88,8 +88,8 @@
     },
     "submitReferenceCandidateRefereesUnlocked_": {
       "reason": "마감일 계산·안내 문구 도우미가 다르다(addReferenceDays_ / 직접 계산, 동작은 같음).",
-      "admin": "31f5bf6f1484aa45",
-      "public": "45ecc9c6c4388cbe"
+      "admin": "7ec89f537a6252c8",
+      "public": "d6b81d8e1500cec6"
     }
   }
 }

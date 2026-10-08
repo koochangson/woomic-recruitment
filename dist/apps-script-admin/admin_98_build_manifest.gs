@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "2e28bc9a74eb",
+ "build": "8a22266cc46d",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_07_sheet_utils.gs",
@@ -166,6 +166,10 @@ const BUILD_MANIFEST_ = {
   "compactStoredChangeLogValues_": [
    "admin_07_sheet_utils.gs",
    "2aed91b82e0a"
+  ],
+  "confirmRowIndex_": [
+   "shared_00_runtime.gs",
+   "0330cb8f3cbb"
   ],
   "constantTimeEqual_": [
    "admin_09_auth.gs",
@@ -925,19 +929,19 @@ const BUILD_MANIFEST_ = {
   ],
   "submitInterviewAvailability_": [
    "admin_04_reference.gs",
-   "a96eff1c8d98"
+   "207791f3bb31"
   ],
   "submitJoinDate_": [
    "admin_04_reference.gs",
-   "024de5766d6d"
+   "508cd3e6f914"
   ],
   "submitPanelAvailability_": [
    "admin_05_general_mail.gs",
-   "6b3c6cf64b27"
+   "3069a42637ef"
   ],
   "submitReferenceCandidateRefereesUnlocked_": [
    "admin_04_reference.gs",
-   "4bccdd892ace"
+   "c1d4df387e3f"
   ],
   "submitReferenceCandidateReferees_": [
    "admin_04_reference.gs",
@@ -945,7 +949,7 @@ const BUILD_MANIFEST_ = {
   ],
   "submitReferenceResponseUnlocked_": [
    "admin_04_reference.gs",
-   "f220a408165f"
+   "273252941e02"
   ],
   "submitReferenceResponse_": [
    "admin_04_reference.gs",
@@ -993,7 +997,7 @@ const BUILD_MANIFEST_ = {
   ],
   "verifyRefereeIdentity_": [
    "admin_04_reference.gs",
-   "617554cb5eb3"
+   "59c73808fe0a"
   ],
   "verifyReferenceCandidateToken_": [
    "admin_04_reference.gs",
@@ -1022,7 +1026,7 @@ const BUILD_MANIFEST_ = {
  },
  "html": {
   "app_css": "72205f5c03e5",
-  "js_00_core": "0b07f22b3de8",
+  "js_00_core": "9c1e4d33888f",
   "js_01_sheets_sync": "c0be4fb8881c",
   "js_03_ui_dashboard": "c17b6fc65501",
   "js_04_referral": "e513dea75eb7",

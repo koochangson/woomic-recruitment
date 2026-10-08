@@ -218,7 +218,9 @@ function submitPanelAvailability_(payload) {
       note,
       updatedAt: nowIso_()
     }));
-    sheet.getRange(rowIndex, 1, 1, headers.length)
+    const writeRow = confirmRowIndex_(sheet, headers, 'token', token, rowIndex);
+    if (writeRow < 0) return json_({ ok: false, error: 'invalid_token' });
+    sheet.getRange(writeRow, 1, 1, headers.length)
       .setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('PanelAvailability', 'upsert', row.id, normalized);
     notifyIfPanelAvailabilityCohortComplete_(normalized);

@@ -955,7 +955,8 @@ function runCoreRegressionTests() {
   notifyLog = oldNotify; activityLog = oldActivity;
   assert(nextFlowStage(1, null) > 1, '다음 채용 단계 해석');
   positions = [{id:11,etype:'정규직',status:'active'}];
-  candidates = [{id:21,posId:11,stage:2,ref:'미시작'}];
+  // 레퍼런스 병행 진행 이후 1차 합격자는 2차면접(3)으로 이동한다(2는 예전 레퍼런스 단계).
+  candidates = [{id:21,posId:11,stage:3,ref:'미시작'}];
   interviews = [{id:31,candId:21,type:'1차',status:'done',candidateNotified:true,panelNotified:true}];
   const roundHistory = positionRoundData(11,1);
   assert(roundHistory.done.length===1 && roundHistory.candidateNotified.length===1 && roundHistory.panelNotified.length===1, '다음 단계 이동 후 면접 이력 유지');
@@ -981,7 +982,8 @@ function runCoreRegressionTests() {
   candidates = [{id:23,ref:'진행중',refD:0,refT:3}];
   refDetails = {23:[{name:'추천인1',email:'ref1@co.com',status:'대기'}]};
   assert(cleanupLegacyPlaceholderRefs()===1 && refDetails[23].length===0, '레퍼런스 테스트 추천인 자동 제거');
-  positions = [{id:12,etype:'정규직',status:'active'}];
+  // 직급군 미지정이면 2차면접·처우협의 이동이 막히므로(직급군 게이트) 레퍼런스 대상인 간부급으로 지정한다.
+  positions = [{id:12,etype:'정규직',status:'active',targetGradeBand:'MANAGER'}];
   // 레퍼런스 게이트는 더 이상 레퍼런스(2)→2차면접(3) 이동을 막지 않는다 — 2차면접(3)→
   // 처우협의(4) 이동 직전에 레퍼런스 완료·생략 여부를 확인한다(병행 진행 허용).
   candidates = [

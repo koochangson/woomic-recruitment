@@ -184,7 +184,9 @@ function submitInterviewAvailability_(payload) {
       updatedAt: nowIso_()
     });
     const normalized = schemaRow_('Interviews', next);
-    sheet.getRange(rowIndex, 1, 1, headers.length)
+    const writeRow = confirmRowIndex_(sheet, headers, 'availabilityToken', token, rowIndex);
+    if (writeRow < 0) return json_({ ok: false, error: 'invalid_token' });
+    sheet.getRange(writeRow, 1, 1, headers.length)
       .setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
     appendChange_('Interviews', 'upsert', row.id, normalized);
     notifyIfInterviewAvailabilityCohortComplete_(normalized);
@@ -308,7 +310,9 @@ function submitJoinDate_(payload) {
       selection: unavailable ? '' : selection, status: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
       note, respondedAt: nowIso_(), updatedAt: nowIso_()
     }));
-    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([headers.map(header => next[header] == null ? '' : next[header])]);
+    const writeRow = confirmRowIndex_(sheet, headers, 'token', token, rowIndex);
+    if (writeRow < 0) return json_({ ok: false, error: 'invalid_token' });
+    sheet.getRange(writeRow, 1, 1, headers.length).setValues([headers.map(header => next[header] == null ? '' : next[header])]);
     appendChange_('JoinDateRequests', 'upsert', row.id, next);
     // 담당자 알림(설정의 '일정 응답 완료 알림 받을 이메일')
     const choice = unavailable ? '제안 날짜 모두 어려움 · 희망: ' + note : '입사 가능일 ' + selection + (note ? ' · 메모: ' + note : '');
@@ -561,9 +565,11 @@ function submitReferenceCandidateRefereesUnlocked_(payload, outbox) {
   const updatedAtCol = candHeaders.indexOf('updatedAt') + 1;
   const submittedAtCol = candHeaders.indexOf('refereesSubmittedAt') + 1;
   const statusCol = candHeaders.indexOf('status') + 1;
-  candSheet.getRange(rowIndex, submittedAtCol).setValue(nowIso_());
-  candSheet.getRange(rowIndex, statusCol).setValue('REFEREES_REGISTERED');
-  candSheet.getRange(rowIndex, updatedAtCol).setValue(nowIso_());
+  const writeRow = confirmRowIndex_(candSheet, candHeaders, 'token', token, rowIndex);
+  if (writeRow < 0) return { error: 'invalid_token' };
+  candSheet.getRange(writeRow, submittedAtCol).setValue(nowIso_());
+  candSheet.getRange(writeRow, statusCol).setValue('REFEREES_REGISTERED');
+  candSheet.getRange(writeRow, updatedAtCol).setValue(nowIso_());
   appendChange_('ReferenceCandidates', 'upsert', candRow.id, { status: 'REFEREES_REGISTERED' });
 
   return { ok: true, count: issuedCount };
@@ -687,7 +693,9 @@ function verifyRefereeIdentity_(payload) {
   clearRefereeVerifyFailures_(token);
 
   const verifiedAtCol = headers.indexOf('verifiedAt') + 1;
-  if (verifiedAtCol > 0) sheet.getRange(rowIndex, verifiedAtCol).setValue(nowIso_());
+  const writeRow = confirmRowIndex_(sheet, headers, 'token', token, rowIndex);
+  if (writeRow < 0) return json_({ ok: false, error: 'invalid_token' });
+  if (verifiedAtCol > 0) sheet.getRange(writeRow, verifiedAtCol).setValue(nowIso_());
 
   return json_({ ok: true, candName: row.candName, refereeName: row.refereeName });
 }
@@ -736,7 +744,9 @@ function submitReferenceResponseUnlocked_(payload) {
   merged.updatedAt = nowIso_();
 
   const values = headers.map(h => merged[h] == null ? '' : merged[h]);
-  sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]);
+  const writeRow = confirmRowIndex_(sheet, headers, 'token', token, rowIndex);
+  if (writeRow < 0) return json_({ error: 'invalid_token' });
+  sheet.getRange(writeRow, 1, 1, headers.length).setValues([values]);
   appendChange_('ReferenceResponses', 'upsert', existing.id, merged);
 
   // 제출 완료 안내는 응답 화면에서 한다(추천인에게 별도 완료 메일은 보내지 않는다).
