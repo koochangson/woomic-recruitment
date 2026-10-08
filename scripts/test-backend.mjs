@@ -649,5 +649,18 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   check(label + ': since가 없으면 전체 조회 그대로', full.data.length === 400);
 }
 
+// ── 공개 서버 오류 응답: 코드만 돌려주고 내부 오류 원문은 숨긴다 ──
+{
+  const { run, ctx } = loadBackend(publicGsSource);
+  const post = body => run('doPost(' + JSON.stringify({ postData: { contents: body } }) + ')');
+  ctx.routeRequest_ = () => { throw new Error('recruitment_data_file_open_failed: Exception: 문서 https://docs.google.com/x 에 접근 권한이 없습니다'); };
+  check('공개 오류: 코드로 던진 오류는 코드만', post('{}').error === 'recruitment_data_file_open_failed');
+  ctx.routeRequest_ = () => { throw new Error('Exception: Service Spreadsheets failed while accessing document with id abc'); };
+  check('공개 오류: 예상치 못한 오류는 server_error', post('{}').error === 'server_error');
+  check('공개 오류: 잘못된 JSON도 원문 대신 server_error', post('{bad json').error === 'server_error');
+  ctx.routeRequest_ = () => { throw new Error('not_available'); };
+  check('공개 오류: 관리자 액션 차단 코드는 그대로', run('doGet({ parameter: { action: "issueJoinDateLink" } })').error === 'not_available');
+}
+
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

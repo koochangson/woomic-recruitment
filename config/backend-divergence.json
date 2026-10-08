@@ -7,9 +7,14 @@
       "public": "d9f37c116fc4f04b"
     },
     "doGet": {
-      "reason": "배포 역할별 진입점: 관리자는 대시보드 화면, 공개는 화면 없음.",
+      "reason": "배포 역할별 진입점: 관리자는 대시보드 화면, 공개는 화면 없음. 공개는 오류 원문 대신 코드만 돌려준다(publicErrorCode_).",
       "admin": "70556397d01a0f43",
-      "public": "ebe4d8b9fd0a6d8a"
+      "public": "247b3578a7b8b622"
+    },
+    "doPost": {
+      "reason": "공개는 누구나 호출하므로 예상치 못한 오류의 원문 대신 코드만 돌려준다(publicErrorCode_). 관리자는 로그인 사용자의 진단을 위해 원문 유지.",
+      "admin": "77062d9c9afc8fdc",
+      "public": "8ee740f4079c8651"
     },
     "ensureSheet_": {
       "reason": "공개는 시트별 스프레드시트 분리(getSpreadsheetForSheet_)를 지원한다.",

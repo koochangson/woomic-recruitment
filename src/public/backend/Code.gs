@@ -102,6 +102,16 @@ const SHEET_SCHEMAS = {
     'updatedAt'],
 };
 
+// 공개 배포는 누구나 호출하므로 예상치 못한 오류의 원문(시트·드라이브 오류 내용 등)을 돌려주지 않는다.
+// 'not_available', 'unknown_sheet'처럼 코드로 던진 오류는 코드만(':' 뒤 상세는 빼고), 그 밖에는 server_error.
+// 상세 내용은 실행 로그에 남긴다.
+function publicErrorCode_(err) {
+  const message = String(err && err.message || err || '');
+  console.error('public request failed: ' + message);
+  const match = /^([a-z][a-z0-9_]*)(?::|$)/.exec(message);
+  return match ? match[1] : 'server_error';
+}
+
 function doGet(e) {
   try {
     const params = e && e.parameter ? e.parameter : {};
@@ -112,7 +122,7 @@ function doGet(e) {
     if (params.id) data.id = params.id;
     return routeRequest_({ action, sheet, data, query: params });
   } catch (err) {
-    return json_({ error: String(err && err.message || err) });
+    return json_({ error: publicErrorCode_(err) });
   }
 }
 
@@ -122,7 +132,7 @@ function doPost(e) {
     const payload = JSON.parse(body || '{}');
     return routeRequest_(payload);
   } catch (err) {
-    return json_({ error: String(err && err.message || err) });
+    return json_({ error: publicErrorCode_(err) });
   }
 }
 
