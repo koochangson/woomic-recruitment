@@ -69,24 +69,3 @@ function finishMailDedupe_(key, sent) {
   else cache.remove(key);
 }
 
-function logMailSend_(to, subject, status, error, eventKey) {
-  try {
-    const sheet = ensureSheet_('MailLog');
-    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.MailLog);
-    const row = {
-      id: 'ML-' + Utilities.getUuid(),
-      eventKey: String(eventKey || ''),
-      to: String(to || ''),
-      subject: String(subject || ''),
-      status: String(status || ''),
-      error: String(error || '').slice(0, 5000),
-      sentAt: nowIso_()
-    };
-    sheet.appendRow(headers.map(function(h) { return row[h] == null ? '' : row[h]; }));
-    return true;
-  } catch (err) {
-    console.warn('logMailSend_ failed: ' + String(err && err.message || err));
-    return false;
-  }
-}
-

@@ -486,9 +486,20 @@ for (const file of walk(root)) {
   }
 }
 
-for (const rule of requiredPatterns) {
+// 관리자·공개 Code.gs 규칙은 그 프로젝트에 실제로 올라가는 코드 전체(Code.gs + 공통 런타임)를 기준으로 본다.
+// 두 프로젝트에 같은 함수는 공통 런타임(shared_00_runtime.gs)에 한 번만 있기 때문이다.
+const projectSharedRuntime = path.join(root, 'src', 'shared', 'backend', 'shared_00_runtime.gs');
+const projectBackends = new Set(['src/admin/backend/Code.gs', 'src/public/backend/Code.gs']);
+function requiredPatternText(rule) {
   const file = path.join(root, rule.file);
-  if (!fs.existsSync(file) || !rule.pattern.test(fs.readFileSync(file, 'utf8'))) {
+  if (!fs.existsSync(file)) return null;
+  const text = fs.readFileSync(file, 'utf8');
+  return projectBackends.has(rule.file) ? text + '\n' + fs.readFileSync(projectSharedRuntime, 'utf8') : text;
+}
+
+for (const rule of requiredPatterns) {
+  const text = requiredPatternText(rule);
+  if (text === null || !rule.pattern.test(text)) {
     findings.push({ rule: rule.id, file: rule.file, line: 1, message: rule.message });
   }
 }

@@ -1,10 +1,10 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "46639f2fcac9",
+ "build": "aa7716184dc3",
  "functions": {
   "acquireOpsRunGuard_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "bc498581160d"
   ],
   "addReferenceDays_": [
@@ -36,7 +36,7 @@ const BUILD_MANIFEST_ = {
    "1cee0f2849b1"
   ],
   "allowReferralCodeSend_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "793ff3e131f5"
   ],
   "appendChange_": [
@@ -80,7 +80,7 @@ const BUILD_MANIFEST_ = {
    "8380b7dbdef4"
   ],
   "buildInterviewAvailabilityLinkUrl_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "ba43ea28e13c"
   ],
   "buildMailAttachments_": [
@@ -88,19 +88,19 @@ const BUILD_MANIFEST_ = {
    "77e7dff2cdcf"
   ],
   "buildPanelAvailabilityLinkUrl_": [
-   "admin_05_general_mail.gs",
+   "shared_00_runtime.gs",
    "7c193a812526"
   ],
   "buildReferenceCandidateLinkUrl_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "9148fcbdd117"
   ],
   "buildReferenceResponseLinkUrl_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "0db2a917a727"
   ],
   "buildUrlWithParams_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "c3b436d6ce06"
   ],
   "bytesToHex_": [
@@ -108,11 +108,11 @@ const BUILD_MANIFEST_ = {
    "66610bdcd652"
   ],
   "candidateProcessClosed_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "13bcd35986ce"
   ],
   "candidateStageClosed_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "77f827763661"
   ],
   "changeArchiveRowKey_": [
@@ -136,11 +136,11 @@ const BUILD_MANIFEST_ = {
    "5dfc48332338"
   ],
   "clearRefereeVerifyFailures_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "456d46e6f564"
   ],
   "clearReferralCodeFailures_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "29a0444408f5"
   ],
   "commonAttachmentBlob_": [
@@ -160,7 +160,7 @@ const BUILD_MANIFEST_ = {
    "ed189eadf5c4"
   ],
   "compactReferralStatus_": [
-   "admin_09_auth.gs",
+   "shared_00_runtime.gs",
    "ee246418f1b7"
   ],
   "compactRewardStatus_": [
@@ -180,11 +180,11 @@ const BUILD_MANIFEST_ = {
    "b82686ceb434"
   ],
   "countOpsResult_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "fe26f60c132f"
   ],
   "dailyOps": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "d699427f5602"
   ],
   "dbSheetStatus_": [
@@ -192,7 +192,7 @@ const BUILD_MANIFEST_ = {
    "4dc8a71d53d4"
   ],
   "dedupeEmployeeDirectoryRows_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "cfd70f386cba"
   ],
   "deleteCandidateChangeRows_": [
@@ -200,7 +200,7 @@ const BUILD_MANIFEST_ = {
    "4ff78b98aacf"
   ],
   "deleteRow_": [
-   "admin_02_sheet_api.gs",
+   "shared_00_runtime.gs",
    "a216e0d5e9f7"
   ],
   "deleteRowsWhere_": [
@@ -240,7 +240,7 @@ const BUILD_MANIFEST_ = {
    "bb2686d92679"
   ],
   "escapeMailHtml_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "461b1c8b4d3b"
   ],
   "extractReferenceCandidateName_": [
@@ -256,15 +256,15 @@ const BUILD_MANIFEST_ = {
    "c3dcd238bbf6"
   ],
   "fetchEmployeeDirectoryRowsFromUrl_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "5753cac87d93"
   ],
   "findActiveEmployeeByEmail_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "13ad6a0eec8a"
   ],
   "findActiveEmployeeByEmpNo_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "1603464f9d79"
   ],
   "findRowIndex_": [
@@ -276,7 +276,7 @@ const BUILD_MANIFEST_ = {
    "c4b774d801e9"
   ],
   "formatOpsDateTime_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "3023201ec52e"
   ],
   "formatReferenceDateTime_": [
@@ -316,7 +316,7 @@ const BUILD_MANIFEST_ = {
    "d5eff3eec528"
   ],
   "getAll_": [
-   "admin_02_sheet_api.gs",
+   "shared_00_runtime.gs",
    "fd5190a88d6f"
   ],
   "getChangeCursor_": [
@@ -324,7 +324,7 @@ const BUILD_MANIFEST_ = {
    "19854301c839"
   ],
   "getChanges_": [
-   "admin_02_sheet_api.gs",
+   "shared_00_runtime.gs",
    "52ec3d66dfb8"
   ],
   "getCommonAttachmentMeta_": [
@@ -368,11 +368,11 @@ const BUILD_MANIFEST_ = {
    "5154d96071c5"
   ],
   "getMyReferrals_": [
-   "admin_03_referral_public.gs",
+   "shared_00_runtime.gs",
    "148e83451133"
   ],
   "getNotifyEmail_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "bfeac64d46a8"
   ],
   "getPanelAvailabilityResponsesBatch_": [
@@ -380,7 +380,7 @@ const BUILD_MANIFEST_ = {
    "25ab20a7a41d"
   ],
   "getPanelAvailabilityResponses_": [
-   "admin_05_general_mail.gs",
+   "shared_00_runtime.gs",
    "3758cf9c1912"
   ],
   "getScriptProperty_": [
@@ -404,7 +404,7 @@ const BUILD_MANIFEST_ = {
    "672b8d599ddd"
   ],
   "hardenUploadedFileSharing_": [
-   "admin_03_referral_public.gs",
+   "shared_00_runtime.gs",
    "014229dd73e7"
   ],
   "hasValidAdminSession_": [
@@ -440,11 +440,11 @@ const BUILD_MANIFEST_ = {
    "8b6e9833d057"
   ],
   "interviewAvailabilityExpired_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "53a27ca45394"
   ],
   "invalidatePriorReferenceCandidateLinks_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "4896b954a15c"
   ],
   "isAdminLoginLocked_": [
@@ -468,15 +468,15 @@ const BUILD_MANIFEST_ = {
    "a3fc7bdc37a9"
   ],
   "isRefereeVerifyLocked_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "1c86718b54a2"
   ],
   "isReferralCodeLocked_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "c9479b1868b8"
   ],
   "isSheetTrue_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "ec64c52ad297"
   ],
   "issueInterviewAvailabilityLink_": [
@@ -484,7 +484,7 @@ const BUILD_MANIFEST_ = {
    "252e6b5498ff"
   ],
   "issueJoinDateLink_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "6d64ee4f4d79"
   ],
   "issuePanelAvailabilityLink_": [
@@ -496,19 +496,19 @@ const BUILD_MANIFEST_ = {
    "9fad1e7230d2"
   ],
   "joinDateProcessClosed_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "4f95edc13b99"
   ],
   "joinDateReplyDeadlinePassed_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "d49716df2078"
   ],
   "joinDateRequestExpired_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "6ddc7db7f38f"
   ],
   "json_": [
-   "admin_09_auth.gs",
+   "shared_00_runtime.gs",
    "f3a153f37a2d"
   ],
   "koreanFinalConsonant_": [
@@ -528,11 +528,11 @@ const BUILD_MANIFEST_ = {
    "5c4014082f67"
   ],
   "logMailSend_": [
-   "admin_01_mail_base.gs",
+   "shared_00_runtime.gs",
    "dd63f6c28347"
   ],
   "lookupEmployeeByEmpNoFromUrl_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "1a2898509ca9"
   ],
   "mailAttachmentTotalBytes_": [
@@ -548,7 +548,7 @@ const BUILD_MANIFEST_ = {
    "6489d67a2b8b"
   ],
   "mailEventAlreadySent_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "e95efc1c759e"
   ],
   "mailHeaderTitleSize_": [
@@ -564,7 +564,7 @@ const BUILD_MANIFEST_ = {
    "1cbb2c4d5783"
   ],
   "maskOpsName_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "939b50209d8b"
   ],
   "maxLoggedChangeCursor_": [
@@ -580,11 +580,11 @@ const BUILD_MANIFEST_ = {
    "0a4d33b5300e"
   ],
   "monthlyRetention": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "895e39e06878"
   ],
   "monthlyRetentionUnguarded_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "8cc9683f6d3e"
   ],
   "nlToBr_": [
@@ -592,7 +592,7 @@ const BUILD_MANIFEST_ = {
    "3ba6b827ef2d"
   ],
   "normalizeActiveEmployee_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "e0fca3bfd3b9"
   ],
   "normalizeCell_": [
@@ -608,15 +608,15 @@ const BUILD_MANIFEST_ = {
    "c56fd7e88e94"
   ],
   "normalizeEmployeeDirectoryRow_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "429959b9bb1e"
   ],
   "normalizeInterviewAvailabilityOptions_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "bed53de0b4c2"
   ],
   "normalizeJoinDateOptions_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "4d053d966e47"
   ],
   "normalizePhone_": [
@@ -624,11 +624,11 @@ const BUILD_MANIFEST_ = {
    "80aeb5349faf"
   ],
   "notifyIfInterviewAvailabilityCohortComplete_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "88feeac020fe"
   ],
   "notifyIfPanelAvailabilityCohortComplete_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "f6c35b17e0f7"
   ],
   "nowIso_": [
@@ -648,43 +648,43 @@ const BUILD_MANIFEST_ = {
    "f9dd446b660f"
   ],
   "opsDateKey_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "661feab2cc6a"
   ],
   "opsDaysBetween_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "40512ae018da"
   ],
   "opsMailQuotaLeft_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "6ab6c15d4cc1"
   ],
   "opsMailWarnings_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "85fdcee32d51"
   ],
   "opsPlainHtml_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "3a5dc7c5fec6"
   ],
   "opsSentEventKeys_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "51f915fd20db"
   ],
   "opsTimeBudgetExceeded_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "01a005a60bfe"
   ],
   "panelAvailabilityExpired_": [
-   "admin_05_general_mail.gs",
+   "shared_00_runtime.gs",
    "0ee2a5eb18a2"
   ],
   "panelAvailabilityId_": [
-   "admin_05_general_mail.gs",
+   "shared_00_runtime.gs",
    "dcd26db92793"
   ],
   "parseJsonArray_": [
-   "admin_05_general_mail.gs",
+   "shared_00_runtime.gs",
    "c6259bf9d5ff"
   ],
   "parseJsonObject_": [
@@ -692,11 +692,11 @@ const BUILD_MANIFEST_ = {
    "55d97c62bfad"
   ],
   "parseOpsDate_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "06203e5fc1ce"
   ],
   "parseRefItems_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "abe3fbff82f7"
   ],
   "pbkdf2Sha256Hex_": [
@@ -708,7 +708,7 @@ const BUILD_MANIFEST_ = {
    "9f1b8a0a7b0e"
   ],
   "positionProcessClosed_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "b3f4dad625b7"
   ],
   "primaryKey_": [
@@ -732,11 +732,11 @@ const BUILD_MANIFEST_ = {
    "4bd5b5b696be"
   ],
   "readEmployeeDirectoryCache_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "bbcb4172d147"
   ],
   "readEmployeeDirectoryRows_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "a3d3e069f179"
   ],
   "readRowByIdIfSheetExists_": [
@@ -764,27 +764,27 @@ const BUILD_MANIFEST_ = {
    "9b5e0e62e145"
   ],
   "recordRefereeVerifyFailure_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "b8f720b1600c"
   ],
   "recordReferralCodeFailure_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "7bcabab91661"
   ],
   "refereeVerifyFailKey_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "de223daad488"
   ],
   "refereeVerifyLockKey_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "af605ac41b4b"
   ],
   "referenceDisplayDeadline_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "d15c6cbea242"
   ],
   "referenceLinkExpired_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "f939301d2df4"
   ],
   "referenceMailHtmlFallback_": [
@@ -804,35 +804,35 @@ const BUILD_MANIFEST_ = {
    "62eb7800e965"
   ],
   "referenceReminderEventKey_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "fd302a45ffa6"
   ],
   "referenceReminderKind_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "39231a32a80c"
   ],
   "referralCodeFailKey_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "4e2d8e39b077"
   ],
   "referralCodeKey_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "f98ddaa545ca"
   ],
   "referralCodeLockKey_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "75ed2ead6baf"
   ],
   "referralCodeSendKey_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "3dbcbf34a62e"
   ],
   "referralTokenKey_": [
-   "admin_08_referral_tokens.gs",
+   "shared_00_runtime.gs",
    "0333c563c6c9"
   ],
   "releaseOpsRunGuard_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "9dc1afef0235"
   ],
   "renderGeneralMailHeader_": [
@@ -848,7 +848,7 @@ const BUILD_MANIFEST_ = {
    "f38292076787"
   ],
   "replaceAll_": [
-   "admin_02_sheet_api.gs",
+   "shared_00_runtime.gs",
    "aa1b945467e6"
   ],
   "replaceMailPlaceholders_": [
@@ -888,7 +888,7 @@ const BUILD_MANIFEST_ = {
    "5d1ffa71ea5a"
   ],
   "secureReferralRowForUpsert_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "ff644a873d56"
   ],
   "sendCohortCompleteNotice_": [
@@ -900,7 +900,7 @@ const BUILD_MANIFEST_ = {
    "65a8ced3b2ab"
   ],
   "sendOpsMailOnce_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "8a003028d5d1"
   ],
   "sendReferenceEmail_": [
@@ -936,19 +936,19 @@ const BUILD_MANIFEST_ = {
    "1f4815ad729c"
   ],
   "stoppedPipelineCandidateIds_": [
-   "admin_07_sheet_utils.gs",
+   "admin_08_referral_tokens.gs",
    "d455d132d317"
   ],
   "submitInterviewAvailability_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "207791f3bb31"
   ],
   "submitJoinDate_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "508cd3e6f914"
   ],
   "submitPanelAvailability_": [
-   "admin_05_general_mail.gs",
+   "shared_00_runtime.gs",
    "3069a42637ef"
   ],
   "submitReferenceCandidateRefereesUnlocked_": [
@@ -956,15 +956,15 @@ const BUILD_MANIFEST_ = {
    "c1d4df387e3f"
   ],
   "submitReferenceCandidateReferees_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "eb21b5ca2fcf"
   ],
   "submitReferenceResponseUnlocked_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "273252941e02"
   ],
   "submitReferenceResponse_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "92e8d14b1b3a"
   ],
   "upgradeAdminPasswordHash_": [
@@ -976,19 +976,19 @@ const BUILD_MANIFEST_ = {
    "e30e3cc4d21a"
   ],
   "uploadReferralFile_": [
-   "admin_03_referral_public.gs",
+   "shared_00_runtime.gs",
    "993de9319da5"
   ],
   "upsertUnlocked_": [
-   "admin_02_sheet_api.gs",
+   "shared_00_runtime.gs",
    "4d5467802dbd"
   ],
   "upsert_": [
-   "admin_02_sheet_api.gs",
+   "shared_00_runtime.gs",
    "b949247ab6d0"
   ],
   "validateReferralToken_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "424b02d105ca"
   ],
   "verifyAdminPassword_": [
@@ -996,31 +996,31 @@ const BUILD_MANIFEST_ = {
    "b25e83abfec9"
   ],
   "verifyInterviewAvailabilityToken_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "540ffcb67988"
   ],
   "verifyJoinDateToken_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "49fa0ec02e27"
   ],
   "verifyPanelAvailabilityToken_": [
-   "admin_05_general_mail.gs",
+   "shared_00_runtime.gs",
    "096bdbfe3786"
   ],
   "verifyRefereeIdentity_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "a7b8590729fb"
   ],
   "verifyReferenceCandidateToken_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "7d9a61bbb37e"
   ],
   "verifyReferenceRefereeToken_": [
-   "admin_04_reference.gs",
+   "shared_00_runtime.gs",
    "daf2b52ba799"
   ],
   "verifyReferralCode_": [
-   "admin_03_referral_public.gs",
+   "shared_00_runtime.gs",
    "c1b136c1a0f8"
   ],
   "weeklyOps": [
@@ -1032,7 +1032,7 @@ const BUILD_MANIFEST_ = {
    "1605d47bad77"
   ],
   "writeEmployeeDirectoryCache_": [
-   "admin_06_ai_referral_directory.gs",
+   "shared_00_runtime.gs",
    "2a9009340a68"
   ]
  },

@@ -233,28 +233,6 @@ function migrateLegacyReferenceStageToSecondInterview() {
   return result;
 }
 
-function compactReferralStatus_(status) {
-  const map = {
-    SUBMITTED: '접수',
-    REVIEWING: '검토중',
-    IN_PROCESS: '전형진행',
-    PASSED: '합격',
-    FAILED: '불합격',
-    HIRED: '입사',
-    REJECTED: '종료',
-    WITHDRAWN: '종료',
-    EXPIRED: '만료',
-    CANCELLED: '종료'
-  };
-  return map[String(status || '').toUpperCase()] || '접수';
-}
-
-function json_(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
 function adminLogin_(payload) {
   const data = payload && payload.data || {};
   const loginId = String(data.loginId || data.empNo || data.username || '').trim().toLowerCase();

@@ -38,7 +38,7 @@ node scripts/check-backend-drift.mjs  # 관리자·공개 Code.gs 같은 이름 
 node scripts/test-deployment-parts.mjs  # 업로드 묶음 일부만 올렸을 때 감지(admin_98_build_manifest.gs)
 ```
 
-관리자·공개 `Code.gs`에 같은 이름으로 있는 함수는 내용이 같아야 합니다. 한쪽을 고치면 다른 쪽도 같이 고칩니다. 의도적으로 다른 함수는 `config/backend-divergence.json`에 이유와 함께 등록되어 있으며, 그 함수를 고친 뒤에는 다른 쪽도 맞춰야 하는지 확인하고 `node scripts/check-backend-drift.mjs --update`로 지문을 갱신합니다.
+관리자·공개 양쪽에 같은 내용이 필요한 함수는 `src/shared/backend/shared_00_runtime.gs`에 한 번만 둡니다(두 `Code.gs`에 사본을 만들지 않습니다). 두 `Code.gs`에 같은 이름으로 있는 함수는 배포마다 달라야 하는 것뿐이며, 그런 함수는 `config/backend-divergence.json`에 이유와 함께 등록합니다. 그 함수를 고친 뒤에는 다른 쪽도 맞춰야 하는지 확인하고 `node scripts/check-backend-drift.mjs --update`로 지문을 갱신합니다.
 
 `npm run check`가 위 검사를 모두 실행하며 GitHub Actions에서도 같은 명령을 씁니다. 서버 함수나 줄 동기화 규칙을 바꾸면 해당 테스트도 함께 고칩니다.
 

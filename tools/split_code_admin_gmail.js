@@ -10,15 +10,17 @@ const source = fs.readFileSync(sourcePath, 'utf8');
 const lineParts = source.match(/[^\r\n]*(?:\r\n|\n|\r|$)/g) || [];
 if (lineParts[lineParts.length - 1] === '') lineParts.pop();
 
+// 파일 이름은 업로드된 Apps Script 프로젝트와 맞추기 위해 유지한다(이름을 바꾸면 수동 업로드 때 예전 파일이 남는다).
+// 관리자·공개 공통 함수를 shared_00_runtime.gs로 옮긴 뒤 admin_08은 운영 자동화(dailyOps 등)를 담는다.
 const sections = [
   ['admin_00_core.gs', /^function sendMailViaGmail_/m],
-  ['admin_01_mail_base.gs', /^function getAll_/m],
+  ['admin_01_mail_base.gs', /^function batchUpsert_/m],
   ['admin_02_sheet_api.gs', /^function handleReferralSecurityAction_/m],
-  ['admin_03_referral_public.gs', /^function buildReferenceCandidateLinkUrl_/m],
+  ['admin_03_referral_public.gs', /^function issueInterviewAvailabilityLink_/m],
   ['admin_04_reference.gs', /^const GENERAL_MAIL_TEMPLATE_FILES/m],
   ['admin_05_general_mail.gs', /^function generateReferenceSummary_/m],
   ['admin_06_ai_referral_directory.gs', /^function ensureSheet_/m],
-  ['admin_07_sheet_utils.gs', /^function referralCodeKey_/m],
+  ['admin_07_sheet_utils.gs', /^function stoppedPipelineCandidateIds_/m],
   ['admin_08_referral_tokens.gs', /^function isAdminRequest_/m],
   ['admin_09_auth.gs', /^function adminApi/m],
   ['admin_99_admin_api.gs', /^$/m],

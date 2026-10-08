@@ -49,31 +49,6 @@ function loadMailFragment_(fileName) {
   return _mailFragmentCache_[fileName];
 }
 
-function panelAvailabilityId_(positionId, round, email) {
-  return [String(positionId || '').trim(), String(round || '').trim(), normalizeEmail_(email)].join(':');
-}
-
-function parseJsonArray_(value) {
-  if (Array.isArray(value)) return value;
-  try {
-    const parsed = JSON.parse(String(value || '[]'));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    return [];
-  }
-}
-
-function buildPanelAvailabilityLinkUrl_(token) {
-  return buildUrlWithParams_(getScriptProperty_('INTERVIEW_AVAILABILITY_PAGE_URL') || INTERVIEW_AVAILABILITY_PAGE_URL, {
-    audience: 'panel',
-    token: token
-  });
-}
-
-function panelAvailabilityExpired_(row) {
-  return !!(row.tokenExpiresAt && new Date(row.tokenExpiresAt).getTime() < Date.now());
-}
-
 function issuePanelAvailabilityLink_(payload) {
   if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
   const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
@@ -124,21 +99,6 @@ function issuePanelAvailabilityLink_(payload) {
   return json_({ ok: true, id, link, tokenExpiresAt: expiresAt, response: normalized });
 }
 
-function getPanelAvailabilityResponses_(payload) {
-  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
-  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
-  const positionId = String(body.positionId || body.query && body.query.positionId || '').trim();
-  const round = String(body.round || body.query && body.query.round || '').trim();
-  if (!positionId || !round) return json_({ error: 'missing_panel_availability_query' });
-  const responses = readRows_('PanelAvailability')
-    .filter(row => String(row.positionId) === positionId && String(row.round) === round)
-    .map(row => Object.assign({}, row, {
-      availabilityOptions: normalizeInterviewAvailabilityOptions_(row.availabilityOptions),
-      selections: parseJsonArray_(row.selections)
-    }));
-  return json_({ ok: true, responses });
-}
-
 // 여러 포지션·차수의 면접관 회신을 한 번에 돌려준다(시작 시 미리 받기용). items: [{ positionId, round }]
 function getPanelAvailabilityResponsesBatch_(payload) {
   if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
@@ -157,77 +117,6 @@ function getPanelAvailabilityResponsesBatch_(payload) {
     }));
   });
   return json_({ ok: true, results: wanted });
-}
-
-function verifyPanelAvailabilityToken_(payload) {
-  const token = String(payload && (payload.token || payload.data && payload.data.token) || '').trim();
-  if (!token) return json_({ ok: false, error: 'token_required' });
-  const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
-  if (!row) return json_({ ok: false, error: 'invalid_token' });
-  if (positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
-  if (panelAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
-  return json_({
-    ok: true,
-    participantRole: 'panel',
-    participantName: row.panelistName || '',
-    positionText: row.positionTitle || '',
-    interviewType: row.round || '',
-    location: row.loc || '',
-    options: normalizeInterviewAvailabilityOptions_(row.availabilityOptions),
-    alreadySubmitted: row.status === 'RESPONDED' || row.status === 'UNAVAILABLE',
-    unavailable: row.status === 'UNAVAILABLE',
-    selections: parseJsonArray_(row.selections),
-    note: row.note || ''
-  });
-}
-
-function submitPanelAvailability_(payload) {
-  const body = payload && payload.data && Object.keys(payload.data).length ? payload.data : (payload || {});
-  const token = String(body.token || '').trim();
-  const unavailable = body.unavailable === true || String(body.unavailable || '').toLowerCase() === 'true';
-  const requested = Array.isArray(body.selections) ? body.selections.map(value => String(value || '').trim()) : [];
-  const note = String(body.note || '').trim().slice(0, 500);
-  if (!token) return json_({ ok: false, error: 'token_required' });
-  if (!unavailable && !requested.length) return json_({ ok: false, error: 'selection_required' });
-  if (unavailable && !note) return json_({ ok: false, error: 'alternative_note_required' });
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const sheet = ensureSheet_('PanelAvailability');
-    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS.PanelAvailability);
-    const rowIndex = findRowIndex_(sheet, 'token', token, headers);
-    if (rowIndex < 0) return json_({ ok: false, error: 'invalid_token' });
-    const row = readRows_('PanelAvailability').find(item => String(item.token || '') === token);
-    if (row && positionProcessClosed_(row.positionId)) return json_({ ok: false, error: 'process_closed' });
-    if (!row) return json_({ ok: false, error: 'invalid_token' });
-    if (panelAvailabilityExpired_(row)) return json_({ ok: false, error: 'token_expired' });
-    if (row.status === 'RESPONDED' || row.status === 'UNAVAILABLE') return json_({ ok: false, error: 'already_submitted' });
-
-    const allowed = {};
-    normalizeInterviewAvailabilityOptions_(row.availabilityOptions).forEach(option => {
-      option.periods.forEach(period => { allowed[option.date + '|' + period] = true; });
-    });
-    const selections = requested.filter((value, index, array) => allowed[value] && array.indexOf(value) === index);
-    if (!unavailable && selections.length !== requested.length) return json_({ ok: false, error: 'invalid_selection' });
-
-    const normalized = schemaRow_('PanelAvailability', Object.assign({}, row, {
-      selections: JSON.stringify(unavailable ? [] : selections),
-      status: unavailable ? 'UNAVAILABLE' : 'RESPONDED',
-      respondedAt: nowIso_(),
-      note,
-      updatedAt: nowIso_()
-    }));
-    const writeRow = confirmRowIndex_(sheet, headers, 'token', token, rowIndex);
-    if (writeRow < 0) return json_({ ok: false, error: 'invalid_token' });
-    sheet.getRange(writeRow, 1, 1, headers.length)
-      .setValues([headers.map(header => normalized[header] == null ? '' : normalized[header])]);
-    appendChange_('PanelAvailability', 'upsert', row.id, normalized);
-    notifyIfPanelAvailabilityCohortComplete_(normalized);
-    return json_({ ok: true, status: normalized.status, respondedAt: normalized.respondedAt });
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 function loadMailAsset_(fileName) {

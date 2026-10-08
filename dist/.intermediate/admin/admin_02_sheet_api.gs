@@ -1,85 +1,3 @@
-function getAll_(sheetName, query) {
-  const since = query && query.since ? String(query.since) : '';
-  if (!since) {
-    return json_({ data: readRows_(sheetName), cursor: getChangeCursor_(), serverTime: nowIso_() });
-  }
-
-  // 화면은 since로 마지막 동기화 시각(ISO)을 보낸다. 변경 이력으로 그 뒤 바뀐 행만 골라 읽는다.
-  // 이력이 since까지 남아 있지 않으면(아카이브 등) 아래 예전 방식(시트 전체 읽기)으로 처리한다.
-  const sinceTime = Date.parse(since);
-  if (Number.isFinite(sinceTime)) {
-    const changed = changedIdsSince_(sheetName, sinceTime);
-    if (changed.complete) {
-      const byId = changed.ids.length ? readRowsByIds_(sheetName, changed.ids) : {};
-      return json_({ data: Object.keys(byId).map(id => byId[id]), cursor: getChangeCursor_(), serverTime: nowIso_() });
-    }
-  }
-  const changedIds = {};
-  const changes = readChangesAfter_(Number(since) || 0, 5000)
-    .filter(change => change.sheet === sheetName);
-  changes.forEach(change => { changedIds[String(change.id)] = true; });
-
-  const key = primaryKey_(sheetName);
-  const rows = readRows_(sheetName);
-  const data = rows.filter(row => changedIds[String(row[key])] || String(row.updatedAt || '') >= since);
-  return json_({ data, cursor: getChangeCursor_(), serverTime: nowIso_() });
-}
-
-// 쓰기 계열 함수(upsert_/batchUpsert_/replaceAll_/deleteRow_)는 모두 같은 스크립트 락을 사용한다.
-// batchUpsert_는 각 행마다 다시 락을 거는 대신, 하나의 락 범위 안에서 upsertUnlocked_를 반복 호출한다
-// (Apps Script의 LockService는 같은 실행 안에서 재진입을 지원하지 않으므로 중첩 획득을 피해야 한다).
-function upsert_(sheetName, row, isAdmin) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    return upsertUnlocked_(sheetName, row, isAdmin);
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function upsertUnlocked_(sheetName, row, isAdmin) {
-  let source = Object.assign({}, row || {});
-
-  const sheet = ensureSheet_(sheetName);
-  const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
-  const key = primaryKey_(sheetName);
-  const id = String(source[key] || '').trim();
-  if (!id) return json_({ error: 'missing_id' });
-
-  const rowIndex = findRowIndex_(sheet, key, id, headers);
-  const existingValues = rowIndex > 0
-    ? sheet.getRange(rowIndex, 1, 1, headers.length).getValues()[0]
-    : null;
-  const revision = revisionState_(sheetName, headers, existingValues, source);
-  if (revision.conflict) {
-    return json_({
-      error: 'revision_conflict',
-      id,
-      expectedRev: revision.expected,
-      currentRev: revision.current,
-      data: rowObjectFromValues_(headers, existingValues)
-    });
-  }
-  if (sheetName === 'Referrals') {
-    source = secureReferralRowForUpsert_(source, rowIndex > 0, isAdmin);
-  }
-
-  if (revision.enabled) {
-    source.rev = revision.current + 1;
-    source.updatedAt = nowIso_();
-  } else {
-    source.updatedAt = source.updatedAt || nowIso_();
-  }
-  const normalized = schemaRow_(sheetName, source);
-  const values = headers.map(header => normalized[header] == null ? '' : normalized[header]);
-  if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([values]);
-  else sheet.appendRow(values);
-
-  appendChange_(sheetName, 'upsert', id, normalized);
-  return json_({ status: 'ok', id, data: normalized, cursor: getChangeCursor_(), serverTime: nowIso_() });
-}
-
 function batchUpsert_(sheetName, rows, isAdmin) {
   const source = Array.isArray(rows) ? rows : [];
   const lock = LockService.getScriptLock();
@@ -153,69 +71,6 @@ function batchUpsert_(sheetName, rows, isAdmin) {
     lock.releaseLock();
   }
   return json_(result);
-}
-
-function replaceAll_(sheetName, rows, isAdmin) {
-  if (!isAdmin) throw new Error('admin_auth_required');
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const source = Array.isArray(rows) ? rows : [];
-    const sheet = ensureSheet_(sheetName);
-    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
-    const lastRow = sheet.getLastRow();
-    const revisioned = REVISIONED_SHEETS.includes(sheetName);
-    const priorRevisions = {};
-    if (revisioned && lastRow > 1) {
-      const keyIndex = headers.indexOf(primaryKey_(sheetName));
-      const revIndex = headers.indexOf('rev');
-      sheet.getRange(2, 1, lastRow - 1, headers.length).getValues().forEach(function(values) {
-        const id = String(values[keyIndex] || '').trim();
-        if (id) priorRevisions[id] = Number(values[revIndex]) || 0;
-      });
-    }
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, Math.max(headers.length, sheet.getLastColumn())).clearContent();
-    }
-    const normalizedRows = source.map(row => {
-      const next = Object.assign({}, row || {});
-      if (revisioned) {
-        const id = String(next[primaryKey_(sheetName)] || '').trim();
-        next.rev = (priorRevisions[id] || 0) + 1;
-        next.updatedAt = nowIso_();
-      } else {
-        next.updatedAt = next.updatedAt || nowIso_();
-      }
-      return schemaRow_(sheetName, next);
-    });
-    if (normalizedRows.length) {
-      const values = normalizedRows.map(row => headers.map(header => row[header] == null ? '' : row[header]));
-      sheet.getRange(2, 1, values.length, headers.length).setValues(values);
-    }
-    appendChange_(sheetName, 'replaceAll', 'all', { count: normalizedRows.length });
-    return json_({ status: 'ok', count: normalizedRows.length, cursor: getChangeCursor_(), serverTime: nowIso_() });
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function deleteRow_(sheetName, id) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const sheet = ensureSheet_(sheetName);
-    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
-    const key = primaryKey_(sheetName);
-    const cleanId = String(id || '').trim();
-    if (!cleanId) return json_({ error: 'missing_id' });
-
-    const rowIndex = findRowIndex_(sheet, key, cleanId, headers);
-    if (rowIndex > 0) sheet.deleteRow(rowIndex);
-    appendChange_(sheetName, 'delete', cleanId, {});
-    return json_({ status: 'deleted', id: cleanId, cursor: getChangeCursor_(), serverTime: nowIso_() });
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 // 조건에 맞는 행을 모두 삭제한다. 뒤에서부터 지워야 앞쪽 삭제로 인한 행 번호 밀림을 피할 수 있다.
@@ -313,23 +168,6 @@ function changeRowContainsCandidatePii_(row, sheetIndex, idIndex, dataIndex, can
   return emailKeys.some(key => {
     if (data[key] == null) return false;
     return String(data[key]).split(/[;,]/).some(value => candidateEmails.has(normalizeEmail_(value)));
-  });
-}
-
-function getChanges_(query) {
-  const cursor = Number(query && query.cursor) || 0;
-  const limit = Math.min(Number(query && query.limit) || 500, 1000);
-  const page = readChangePageAfter_(cursor, limit);
-  const changes = hydrateChangesForClient_(page.changes);
-  const latestCursor = page.latestCursor;
-  const nextCursor = changes.length ? Number(changes[changes.length - 1].cursor) : Math.max(cursor, latestCursor);
-  return json_({
-    changes,
-    cursor: nextCursor,
-    latestCursor,
-    serverTime: nowIso_(),
-    resyncRequired: false,
-    hasMore: page.hasMore
   });
 }
 
