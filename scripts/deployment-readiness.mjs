@@ -8,6 +8,12 @@ const checks = [
     message: 'Public template must allow anonymous access for referral intake.',
   },
   {
+    id: 'public-template-user-deploying',
+    file: 'config/appsscript.public.json',
+    pattern: /"executeAs"\s*:\s*"USER_DEPLOYING"/,
+    message: 'Public template must execute as the deploying user (anonymous visitors cannot run as themselves).',
+  },
+  {
     id: 'admin-template-anonymous-entry',
     file: 'config/appsscript.admin.json',
     pattern: /"access"\s*:\s*"ANYONE_ANONYMOUS"/,

@@ -24,6 +24,15 @@ if (!fs.existsSync(adminDistDir)) fail(`Missing admin build output: ${adminDistD
 const claspConfig = JSON.parse(fs.readFileSync(claspPath, 'utf8'));
 if (!String(claspConfig.scriptId || '').trim()) fail('The connected clasp project has no scriptId.');
 
+// --target으로 공개 프로젝트 폴더를 잘못 넘기면 공개 Code.js를 지우고 관리자 묶음을 올리게 된다.
+// 공개 백엔드 표식(PUBLIC_BLOCKED_ADMIN_ACTIONS)이 있는 Code.js/Code.gs가 있으면 중단한다.
+for (const name of ['Code.js', 'Code.gs']) {
+  const existingPath = path.join(targetDir, name);
+  if (fs.existsSync(existingPath) && fs.readFileSync(existingPath, 'utf8').includes('PUBLIC_BLOCKED_ADMIN_ACTIONS')) {
+    fail(`Refusing admin synchronization: ${existingPath} is the public backend. Check --target (public project folder?).`);
+  }
+}
+
 const uploadListPath = path.join(adminDistDir, 'UPLOAD_FILES.txt');
 if (!fs.existsSync(uploadListPath)) fail(`Missing upload list: ${uploadListPath}`);
 const sourceNames = fs.readFileSync(uploadListPath, 'utf8')

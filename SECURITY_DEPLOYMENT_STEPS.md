@@ -7,10 +7,10 @@
 배포 전 아래 검사를 실행합니다.
 
 ```powershell
-C:\Users\user\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe .\scripts\security-scan.mjs
+npm run check
 ```
 
-검사 실패 시 공개 토큰, 관리자 URL, 브라우저 OpenAI 호출, `adminToken` URL 전송 패턴이 다시 들어온 것입니다. 배포하지 말고 먼저 제거합니다.
+`npm run check`는 보안 검사(`scripts/security-scan.mjs`), 접근성·구문·배포 설정 검사, 관리자·공개 백엔드 어긋남 검사와 서버 테스트를 함께 실행합니다. 보안 검사가 실패하면 공개 토큰, 관리자 URL, 브라우저 OpenAI 호출, `adminToken` URL 전송 패턴이 다시 들어온 것입니다. 배포하지 말고 먼저 제거합니다.
 
 ## 1. 직원 DB Apps Script
 
@@ -26,25 +26,28 @@ Script Properties:
 - `lookupEmployeeByEmpNo`는 `lookupToken`이 있을 때만 성공해야 합니다.
 - `getInterviewers`, `replaceAll`, `addInterviewer`, `updateInterviewer`, `deleteInterviewer`는 `adminToken`이 없으면 실패해야 합니다.
 
-## 2. 공개 추천 접수 Apps Script
+## 2. 공개 Apps Script
 
-공개 접수 전용 Apps Script 프로젝트에는 `dist/apps-script-public/`의 `Code.gs`,
+사내추천 접수, 레퍼런스 체크(지원자 추천인 등록·추천인 응답), 면접 가능 일정 회신, 입사일 회신 페이지가 모두 이 공개 프로젝트를 호출합니다.
+공개 Apps Script 프로젝트에는 `dist/apps-script-public/`의 `Code.gs`,
 `shared_00_runtime.gs`, `appsscript.json`을 함께 반영합니다.
 원본 설정은 `config/appsscript.public.json`에서 관리합니다.
 
 Script Properties:
 
-- `RECRUITMENT_DEPLOYMENT_ROLE`: `public`
+- `RECRUITMENT_DEPLOYMENT_ROLE`: `public`(이 값이어야 관리자 액션이 차단됩니다)
+- `RECRUITMENT_SPREADSHEET_URL`: 관리자 프로젝트와 같은 채용 데이터 시트 URL. 프로젝트가 그 시트에 연결(bound)되어 있지 않으면 필수
 - `REFERRAL_UPLOAD_FOLDER_ID`: 사내추천 이력서를 저장할 비공개 Google Drive 폴더 ID
 - `INTERVIEWER_DB_LOOKUP_TOKEN`: 직원 DB와 같은 단건 조회 토큰
+- 선택값: `REFERENCE_CANDIDATE_PAGE_URL`, `REFERENCE_RESPONSE_PAGE_URL`, `INTERVIEW_AVAILABILITY_PAGE_URL`(메일 속 페이지 주소를 바꿀 때만), `WOOMI_CI_URL`, `KAKAO_CHANNEL_URL`, `KAKAO_QR_URL`(공개 메일의 이미지·채널 주소를 바꿀 때만)
 
 공개 프로젝트에는 아래 값을 넣지 않습니다.
 
 - `RECRUITMENT_ADMIN_TOKEN`
 - `INTERVIEWER_DB_ADMIN_TOKEN`
 
-배포 후 `src/public/pages/referral/index.html`의 `SCRIPT_URL`을 공개 추천 접수 배포 URL로 교체합니다.
-GitHub Pages에 배포되는 `index.html`도 같은 공개 추천 접수 배포 URL을 사용해야 합니다.
+배포 URL이 바뀌면 `src/public/pages/referral/index.html`과 `src/public/pages/reference-check/*.html`의 `SCRIPT_URL`을 새 공개 배포 URL로 교체하고 다시 빌드합니다.
+기존 배포를 편집해 버전만 바꾸면 URL이 유지되므로 교체할 필요가 없습니다.
 
 ## 3. 관리자 Apps Script
 
@@ -55,6 +58,8 @@ GitHub Pages에 배포되는 `index.html`도 같은 공개 추천 접수 배포 
 Script Properties:
 
 - `RECRUITMENT_DEPLOYMENT_ROLE`: `admin`
+- `RECRUITMENT_SPREADSHEET_URL`: 채용 데이터 시트 URL. 비우면 프로젝트에 연결된 시트를 사용하며 대시보드 설정 점검에서 경고합니다
+- `REFERRAL_DATA_SPREADSHEET_URL`: 선택값. 사내추천 데이터를 별도 시트에 둘 때만(없으면 Settings 시트의 값 또는 채용 데이터 시트 사용)
 - `REFERRAL_UPLOAD_FOLDER_ID`: 사내추천 이력서를 저장할 비공개 Google Drive 폴더 ID
 - `RECRUITMENT_ADMIN_TOKEN`: 새 관리자 토큰
 - `RECRUITMENT_LOCAL_ADMIN_USERS`: `사번:해시` 형식의 앱 내부 관리자 계정(`admin:해시` 계정도 유지). 계정은 쉼표 또는 줄바꿈으로 구분. 새 해시는 Apps Script 편집기에서 `makeAdminPasswordHash('비밀번호')`를 실행해 나온 `v2$...` 값을 씁니다(계정마다 솔트가 다른 PBKDF2-HMAC-SHA256). 예전 SHA-256 64자리 해시도 로그인되며, 로그인에 성공하면 그 계정 값이 자동으로 `v2$...`로 바뀝니다
@@ -62,6 +67,7 @@ Script Properties:
 - `OPENAI_API_KEY`: 레퍼런스 AI 요약용 OpenAI API 키
 - `INTERVIEWER_DB_LOOKUP_TOKEN`: 직원 DB와 같은 단건 조회 토큰
 - `INTERVIEWER_DB_ADMIN_TOKEN`: 전체 직원 DB 동기화가 필요한 경우에만 설정
+- 선택값: `REFERENCE_CANDIDATE_PAGE_URL`, `REFERENCE_RESPONSE_PAGE_URL`, `INTERVIEW_AVAILABILITY_PAGE_URL`(메일 속 페이지 주소를 바꿀 때만)
 
 배포 설정:
 
@@ -70,8 +76,9 @@ Script Properties:
 
 Google 로그인 없이 관리자 로그인 화면까지 접근할 수 있지만, 모든 관리자 데이터 API는 앱 내부 로그인 세션이 있어야 실행됩니다. `RECRUITMENT_LOCAL_ADMIN_USERS`와 `RECRUITMENT_ADMIN_TOKEN`이 모두 설정되지 않으면 운영 배포하지 않습니다.
 
-배포 후 `recruitment_dashboard_v4.html`의 관리자용 Google Sheets URL을 관리자 배포 URL로 교체합니다.
-관리자 URL은 공개 저장소에 하드코딩하지 않고 설정 탭 또는 사내 전용 배포 설정으로 주입합니다.
+관리자 대시보드는 관리자 Apps Script의 `doGet()`이 직접 제공하므로 별도 HTML의 URL을 바꿀 필요가 없습니다.
+관리자 URL은 공개 저장소에 하드코딩하지 않습니다.
+업로드 묶음에는 빌드가 만든 `admin_98_build_manifest.gs`가 포함됩니다. 일부 파일만 올리면 대시보드가 "배포 파일 버전이 섞여 있습니다"로 알려 줍니다.
 
 ### 운영 자동화 설정
 

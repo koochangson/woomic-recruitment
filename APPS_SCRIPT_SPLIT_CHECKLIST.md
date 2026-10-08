@@ -48,8 +48,9 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 
 ## 3. 서버 GS
 
-분리 구조를 사용할 때는 아래 `admin_*.gs` 파일을 추가합니다.
+분리 구조를 사용할 때는 아래 서버 파일을 추가합니다. 전체 목록의 기준은 `dist/apps-script-admin/UPLOAD_FILES.txt`입니다.
 
+- `shared_00_runtime.gs`(관리자·공개 공통 런타임)
 - `admin_00_core.gs`
 - `admin_01_mail_base.gs`
 - `admin_02_sheet_api.gs`
@@ -61,6 +62,7 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 - `admin_08_referral_tokens.gs`
 - `admin_09_auth.gs`
 - `admin_99_admin_api.gs`
+- `admin_98_build_manifest.gs`(빌드가 만드는 지문 목록. 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다)
 
 중요: 원본 단일 서버 파일 `src/admin/backend/Code.gs`와 위 `admin_*.gs` 파일을 Apps Script 안에 동시에 두지 않습니다. 동시에 두면 같은 함수와 상수가 중복 정의됩니다.
 
@@ -78,5 +80,5 @@ Apps Script 편집기에 아래 HTML 파일을 추가합니다.
 
 - `src/admin/frontend/Dashboard.html`, `app_css.html`, `js/*.html`은 각각 같은 이름의 업로드 파일과 동일합니다.
 - 기능별 JavaScript 모듈 13개를 include 순서대로 합친 결과가 구문 검사를 통과했습니다.
-- 분리된 `admin_*.gs`를 순서대로 합치면 `src/admin/backend/Code.gs`와 동일합니다.
+- 분리된 `admin_00`~`admin_09`, `admin_99` 파일을 순서대로 합치면 `src/admin/backend/Code.gs`와 동일합니다(`admin_98_build_manifest.gs`는 빌드가 생성).
 - 분리된 JS와 GS 모두 구문 검사를 통과했습니다.

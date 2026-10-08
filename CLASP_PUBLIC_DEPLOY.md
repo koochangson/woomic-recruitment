@@ -20,10 +20,12 @@ Build, validate, synchronize, and upload the public project:
 node tools/deploy_public_clasp.js --target="<path-to-public-clasp-folder>"
 ```
 
-The synchronization step copies only `Code.gs` (as `Code.js`) and
-`appsscript.json` from `dist/apps-script-public` — nothing from the admin
-bundle. It preserves `.clasp.json` and `.git`. Before writing, it rejects the
-known admin script ID and verifies that the public manifest still uses
+The synchronization step copies only `Code.gs` and `shared_00_runtime.gs`
+(as `.js`) and `appsscript.json` from `dist/apps-script-public` — nothing from
+the admin bundle. It preserves `.clasp.json` and `.git`. Before writing, it
+rejects the known admin script ID, refuses a target that already contains
+admin bundle files (`admin_00_core.js`, `admin_99_admin_api.js`,
+`Dashboard.html`), and verifies that the public manifest still uses
 `USER_DEPLOYING` / `ANYONE_ANONYMOUS`.
 
 `clasp push` updates the Apps Script project source. It does not change the

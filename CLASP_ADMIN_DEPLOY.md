@@ -16,7 +16,7 @@ Build, validate, synchronize, and upload the admin project:
 node tools/deploy_admin_clasp.js
 ```
 
-The synchronization step converts generated `.gs` files to clasp `.js` files, copies all HTML templates, and removes obsolete pushable files such as `app_script.html` and `js_02_positions_interviews.html`. It preserves `.clasp.json`, `.git`, and the connected project's existing `appsscript.json` so a routine source upload cannot silently change web-app access or execution permissions.
+The synchronization step converts generated `.gs` files to clasp `.js` files, copies all HTML templates, and removes obsolete pushable files such as `app_script.html` and `js_02_positions_interviews.html`. It preserves `.clasp.json`, `.git`, and the connected project's existing `appsscript.json` so a routine source upload cannot silently change web-app access or execution permissions. The file list comes from `dist/apps-script-admin/UPLOAD_FILES.txt` (including `shared_00_runtime.gs` and the generated `admin_98_build_manifest.gs`). If `--target` points at a folder whose `Code.js`/`Code.gs` is the public backend, the sync stops instead of replacing it.
 
 Only when the manifest policy itself must change, opt in explicitly:
 

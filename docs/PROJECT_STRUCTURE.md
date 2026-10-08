@@ -12,6 +12,8 @@ Apps Script의 `doGet()`은 `Dashboard` 템플릿을 평가합니다. 이 템플
 
 `src/shared/backend/shared_00_runtime.gs` + `src/admin/backend/Code.gs` -> `tools/split_code_admin_gmail.js` -> `dist/.intermediate/admin/*` -> `dist/apps-script-admin/*`
 
+`tools/prepare_apps_script_split_bundle.js`가 업로드 목록(`UPLOAD_FILES.txt`)과 지문 목록(`admin_98_build_manifest.gs`, `tools/build_manifest.js`)을 함께 만듭니다. clasp 반영은 `tools/sync_admin_clasp.js`(관리자)와 `tools/sync_public_clasp.js`(공개)가 하며, 서로 상대 프로젝트 폴더에는 쓰지 않습니다.
+
 ### 공개 서버
 
 `src/shared/backend/shared_00_runtime.gs` + `src/public/backend/Code.gs` -> `tools/prepare_apps_script_public_bundle.js` -> `dist/apps-script-public/*`

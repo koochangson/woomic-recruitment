@@ -40,6 +40,14 @@ if (fs.existsSync(adminClaspPath)) {
   }
 }
 
+// 관리자 미러가 기본 경로가 아니면 위 scriptId 비교가 동작하지 않는다. 대상 폴더에 관리자 묶음
+// 파일(분리 서버 파일·대시보드)이 있으면 관리자 프로젝트로 보고 중단한다.
+const adminMarkers = ['admin_00_core.js', 'admin_00_core.gs', 'admin_99_admin_api.js', 'Dashboard.html'];
+const adminMarkerFound = adminMarkers.find(name => fs.existsSync(path.join(targetDir, name)));
+if (adminMarkerFound) {
+  fail(`Refusing public synchronization: ${adminMarkerFound} in the target looks like the admin project. Check --target.`);
+}
+
 const publicManifestPath = path.join(publicDistDir, 'appsscript.json');
 const publicManifest = JSON.parse(fs.readFileSync(publicManifestPath, 'utf8'));
 if (publicManifest.webapp?.executeAs !== 'USER_DEPLOYING' ||

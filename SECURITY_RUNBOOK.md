@@ -17,7 +17,7 @@
 - Google Sheets 공유 대상 확인
 - Apps Script 배포 권한 확인
 - Drive 업로드 폴더 공유 상태 확인
-- `RECRUITMENT_ADMIN_ALLOWLIST` 퇴사자/전보자 제거
+- `RECRUITMENT_LOCAL_ADMIN_USERS`에서 퇴사자/전보자 계정 제거
 - `INTERVIEWER_DB_ADMIN_TOKEN`, `INTERVIEWER_DB_LOOKUP_TOKEN`, `RECRUITMENT_ADMIN_TOKEN` 회전 필요 여부 검토
 
 분기 1회:
@@ -29,12 +29,12 @@
 
 ## 배포 분리 원칙
 
-공개 접수:
+공개(사내추천·레퍼런스·면접 일정·입사일 페이지):
 
 - `RECRUITMENT_DEPLOYMENT_ROLE=public`
-- 익명 접근 가능
+- 익명 접근 가능, 관리자 액션은 배포 역할로 차단
 - 관리자 토큰 없음
-- `INTERVIEWER_DB_LOOKUP_TOKEN`만 사용
+- 직원 DB는 `INTERVIEWER_DB_LOOKUP_TOKEN`만 사용
 
 관리자:
 
