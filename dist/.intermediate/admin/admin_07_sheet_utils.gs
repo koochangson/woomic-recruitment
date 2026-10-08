@@ -66,10 +66,14 @@ function archiveOldChanges_(retentionDays, maxRows) {
 
     const rows = source.getRange(2, 1, archiveCount, 8).getValues();
     const archive = ensureChangeArchiveSheet_();
-    const lastArchivedCursor = archive.getLastRow() < 2
-      ? 0
-      : Number(archive.getRange(archive.getLastRow(), 1).getValue()) || 0;
-    const newRows = rows.filter(function(row) { return Number(row[0]) > lastArchivedCursor; });
+    // 지난 실행이 아카이브에 쓴 뒤 원본 삭제 전에 끊겼다면 같은 행이 아카이브 끝에 이미 있다.
+    // 커서 번호 크기로 거르면 같은 번호(두 프로젝트 동시 기록)·순서가 뒤바뀐 행이 아카이브 없이 삭제되므로
+    // 아카이브 끝부분의 실제 행(커서·시각·시트·동작·id)과 비교한다.
+    const archivedTail = Math.min(Math.max(archive.getLastRow() - 1, 0), rows.length);
+    const archivedKeys = new Set(archivedTail
+      ? archive.getRange(archive.getLastRow() - archivedTail + 1, 1, archivedTail, 5).getValues().map(changeArchiveRowKey_)
+      : []);
+    const newRows = rows.filter(function(row) { return !archivedKeys.has(changeArchiveRowKey_(row)); });
     if (newRows.length) {
       archive.getRange(archive.getLastRow() + 1, 1, newRows.length, 8).setValues(newRows);
     }
@@ -83,6 +87,10 @@ function archiveOldChanges_(retentionDays, maxRows) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function changeArchiveRowKey_(row) {
+  return [0, 1, 2, 3, 4].map(function(index) { return String(normalizeCell_(row[index])); }).join('|');
 }
 
 // 예전 _Changes에는 행 전체 JSON이 들어 있다. 한 번에 너무 많은 셀을 쓰지 않도록 제한된 수만
@@ -102,13 +110,15 @@ function compactStoredChangeLogValues_(sheetName, maxRows) {
   const limit = Math.max(1, Math.min(Number(maxRows) || CHANGE_COMPACT_BATCH_SIZE, CHANGE_COMPACT_BATCH_SIZE));
   const updates = [];
   let remaining = false;
-  values.forEach(function(row, index) {
-    const parsed = parseJsonObject_(row[0]);
+  for (let index = 0; index < values.length; index++) {
+    const raw = String(values[index][0] || '');
+    if (raw.indexOf('{"fields":') === 0 && raw.indexOf('}') === raw.length - 1) continue; // 이미 정리된 행
+    const parsed = parseJsonObject_(raw);
     const alreadyCompact = Array.isArray(parsed.fields) && Object.keys(parsed).every(function(key) { return key === 'fields'; });
-    if (alreadyCompact) return;
-    if (updates.length >= limit) { remaining = true; return; }
+    if (alreadyCompact) continue;
+    if (updates.length >= limit) { remaining = true; break; }
     updates.push({ row: index + 2, value: JSON.stringify(compactChangeLogData_(parsed)) });
-  });
+  }
 
   // 연속된 행끼리 묶어 API 호출 수를 줄인다.
   const ranges = [];
@@ -140,11 +150,41 @@ function archiveOldChanges() {
   return archiveOldChanges_();
 }
 
+// 매주 실행. 한 번에 CHANGE_ARCHIVE_BATCH_SIZE·CHANGE_COMPACT_BATCH_SIZE씩만 처리하되, 밀린 건이 있으면
+// 실행시간 예산(OPS_TIME_BUDGET_MS) 안에서 배치를 반복한다. 예산을 넘겨 남은 건은 incomplete로 알리고
+// 다음 실행(또는 수동 재실행)에서 이어서 처리한다. 같은 행을 두 번 아카이브하지 않는다(archiveOldChanges_).
 function weeklyOps() {
-  const archiveResult = archiveOldChanges_();
-  const compactResult = compactChangeLogs();
-  console.log('weeklyOps: ' + JSON.stringify({ changeArchive: archiveResult, changeLogCompaction: compactResult }));
-  return { ok: true, changeArchive: archiveResult, changeLogCompaction: compactResult };
+  const guard = acquireOpsRunGuard_('weeklyOps');
+  if (!guard) return { ok: false, error: 'ops_already_running' };
+  try {
+    const archiveResult = archiveOldChanges_();
+    const compactResult = compactChangeLogs();
+    let archiveBatches = 1;
+    let compactBatches = 1;
+    while (archiveResult.archived >= CHANGE_ARCHIVE_BATCH_SIZE && !opsTimeBudgetExceeded_()) {
+      const next = archiveOldChanges_();
+      archiveResult.archived += next.archived;
+      archiveResult.remaining = next.remaining;
+      archiveBatches++;
+      if (!next.archived) break;
+    }
+    while ((compactResult.active.remaining || compactResult.archive.remaining) && !opsTimeBudgetExceeded_()) {
+      const next = compactChangeLogs();
+      ['active', 'archive'].forEach(function(key) {
+        compactResult[key].compacted += next[key].compacted;
+        compactResult[key].remaining = next[key].remaining;
+      });
+      compactBatches++;
+    }
+    archiveResult.batches = archiveBatches;
+    compactResult.batches = compactBatches;
+    const incomplete = archiveResult.archived >= CHANGE_ARCHIVE_BATCH_SIZE * archiveBatches
+      || !!(compactResult.active.remaining || compactResult.archive.remaining);
+    console.log('weeklyOps: ' + JSON.stringify({ changeArchive: archiveResult, changeLogCompaction: compactResult, incomplete: incomplete }));
+    return { ok: true, incomplete: incomplete, changeArchive: archiveResult, changeLogCompaction: compactResult };
+  } finally {
+    releaseOpsRunGuard_(guard);
+  }
 }
 
 // 진행이 끝난 지원자 id 집합 — 불합격, 보류(held), 또는 진행중이 아닌 포지션 소속.
@@ -165,8 +205,8 @@ function stoppedPipelineCandidateIds_() {
 // 트리거 등록은 운영자가 별도로 수행한다. 이 함수는 매일 09:00 실행을 전제로 하며,
 // eventKey가 이미 성공 기록된 메일은 다시 보내지 않는다.
 function dailyOps() {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(1000)) return { ok: false, error: 'ops_already_running' };
+  const guard = acquireOpsRunGuard_('dailyOps');
+  if (!guard) return { ok: false, error: 'ops_already_running' };
   try {
     const today = opsDateKey_(new Date());
     const results = {
@@ -175,6 +215,8 @@ function dailyOps() {
       candidateInterviewReminders: 0,
       internalNotices: 0,
       skipped: 0,
+      deferred: 0,
+      warnings: [],
       failed: []
     };
 
@@ -266,6 +308,7 @@ function dailyOps() {
     });
 
     const notifyEmail = getNotifyEmail_();
+    if (!notifyEmail) results.warnings.push('notify_email_not_configured');
     if (notifyEmail && tomorrowInterviews.length) {
       const eventKey = ['daily', 'panel-preparation', tomorrow].join(':');
       const lines = tomorrowInterviews.map(row => {
@@ -292,19 +335,40 @@ function dailyOps() {
       countOpsResult_(results, send, 'internalNotices', eventKey);
     }
 
+    if (results.warnings.length) console.warn('dailyOps: Settings 시트의 notifyEmail이 비어 있어 내부 알림(면접 준비·보상 만기)을 보내지 않았습니다.');
+    // 실행시간 예산을 넘겨 보내지 못한 메일은 같은 날 다시 실행하면 이어서 보낸다(이미 보낸 메일은 eventKey로 건너뜀).
+    results.incomplete = results.deferred > 0;
     console.log('dailyOps: ' + JSON.stringify(results));
     return Object.assign({ ok: results.failed.length === 0, date: today }, results);
   } finally {
-    lock.releaseLock();
+    releaseOpsRunGuard_(guard);
   }
 }
 
 // 매월 1일 실행을 전제로 한다. 파기는 수행하지 않고 승인 대상만 피플팀에 보낸다.
 function monthlyRetention() {
   const notifyEmail = getNotifyEmail_();
-  if (!notifyEmail) return { ok: false, error: 'notify_email_not_configured' };
+  if (!notifyEmail) {
+    console.warn('monthlyRetention: Settings 시트의 notifyEmail이 비어 있어 실행하지 않았습니다.');
+    return { ok: false, error: 'notify_email_not_configured' };
+  }
+  const guard = acquireOpsRunGuard_('monthlyRetention');
+  if (!guard) return { ok: false, error: 'ops_already_running' };
+  try {
+    return monthlyRetentionUnguarded_(notifyEmail);
+  } finally {
+    releaseOpsRunGuard_(guard);
+  }
+}
+
+function monthlyRetentionUnguarded_(notifyEmail) {
   const today = opsDateKey_(new Date());
-  const retentionMonths = Math.max(1, Number(getFirstSettingValue_(['retentionMonths'])) || 6);
+  const retentionSetting = getFirstSettingValue_(['retentionMonths']);
+  const retentionParsed = Number(retentionSetting);
+  const retentionValid = Number.isFinite(retentionParsed) && retentionParsed >= 1;
+  const retentionMonths = retentionValid ? Math.floor(retentionParsed) : 6;
+  const warnings = retentionSetting && !retentionValid ? ['retention_months_invalid'] : [];
+  if (warnings.length) console.warn('monthlyRetention: Settings 시트의 retentionMonths 값(' + retentionSetting + ')이 올바르지 않아 기본값 6개월을 사용했습니다.');
   const cutoff = new Date(today + 'T00:00:00+09:00');
   cutoff.setMonth(cutoff.getMonth() - retentionMonths);
   const positions = readRowsIfSheetExists_('Positions');
@@ -315,7 +379,7 @@ function monthlyRetention() {
     const time = new Date(retentionDate).getTime();
     return Number.isFinite(time) && time < cutoff.getTime();
   });
-  if (!targets.length) return { ok: true, targets: 0, sent: false };
+  if (!targets.length) return { ok: true, targets: 0, sent: false, retentionMonths: retentionMonths, warnings: warnings };
 
   const eventKey = ['monthly', 'retention-approval', today].join(':');
   const lines = targets.map(candidate => '- ID ' + candidate.id + ' · ' + maskOpsName_(candidate.name) +
@@ -327,23 +391,66 @@ function monthlyRetention() {
   ].join('\n');
   const send = sendOpsMailOnce_(eventKey, notifyEmail,
     '[채용시스템] 개인정보 파기 승인 대상 ' + targets.length + '명', message, opsPlainHtml_(message));
-  return { ok: send.ok || send.skipped, targets: targets.length, sent: !!send.ok, skipped: !!send.skipped, error: send.error || '' };
+  return { ok: send.ok || send.skipped, targets: targets.length, sent: !!send.ok, skipped: !!send.skipped, error: send.error || '', retentionMonths: retentionMonths, warnings: warnings };
 }
 
 function sendOpsMailOnce_(eventKey, to, subject, body, htmlBody) {
   if (mailEventAlreadySent_(eventKey)) return { ok: false, skipped: true };
-  return sendMailViaGmail_(to, subject, body, htmlBody, [], eventKey);
+  // 실행시간 제한(6분)에 강제로 끊기면 '보냈는데 기록 전'인 메일이 생겨 다시 실행할 때 중복될 수 있다.
+  // 예산을 넘기면 더 보내지 않고 미룬다 — 같은 날 다시 실행하면 이어서 보낸다.
+  if (opsTimeBudgetExceeded_()) return { ok: false, deferred: true };
+  const result = sendMailViaGmail_(to, subject, body, htmlBody, [], eventKey);
+  if (result && result.ok) opsSentEventKeys_().add(String(eventKey || ''));
+  return result;
 }
 
+// MailLog 전체는 실행당 한 번만 읽는다(메일마다 다시 읽으면 기록이 쌓일수록 실행시간 제한에 걸린다).
 function mailEventAlreadySent_(eventKey) {
-  return readRowsIfSheetExists_('MailLog').some(row =>
-    String(row.eventKey || '') === String(eventKey || '') && String(row.status || '').toLowerCase() === 'sent'
-  );
+  return opsSentEventKeys_().has(String(eventKey || ''));
+}
+
+function opsSentEventKeys_() {
+  if (!EXEC_CACHE_.opsSentEventKeys) {
+    EXEC_CACHE_.opsSentEventKeys = new Set(readRowsIfSheetExists_('MailLog')
+      .filter(row => row.eventKey && String(row.status || '').toLowerCase() === 'sent')
+      .map(row => String(row.eventKey)));
+  }
+  return EXEC_CACHE_.opsSentEventKeys;
+}
+
+// 운영 작업 중복 실행 방지. 메일을 보내는 몇 분 동안 스크립트 잠금을 잡고 있으면 그 사이 담당자 저장이
+// 잠금 대기로 실패하므로, 잠금은 실행 표시를 확인·기록하는 순간에만 잡는다. 실행시간 제한으로 끊겨
+// 표시가 남아도 OPS_RUN_GUARD_SECONDS가 지나면 다시 실행할 수 있다(Script Properties는 쓰지 않는다).
+const OPS_RUN_GUARD_SECONDS = 7 * 60;
+const OPS_TIME_BUDGET_MS = 4.5 * 60 * 1000;
+
+function acquireOpsRunGuard_(name) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return '';
+  try {
+    const cache = CacheService.getScriptCache();
+    const key = 'ops_running:' + name;
+    if (cache.get(key)) return '';
+    cache.put(key, nowIso_(), OPS_RUN_GUARD_SECONDS);
+    EXEC_CACHE_.opsStartedAt = Date.now();
+    return key;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function releaseOpsRunGuard_(key) {
+  if (key) CacheService.getScriptCache().remove(key);
+}
+
+function opsTimeBudgetExceeded_() {
+  return !!EXEC_CACHE_.opsStartedAt && Date.now() - EXEC_CACHE_.opsStartedAt > OPS_TIME_BUDGET_MS;
 }
 
 function countOpsResult_(results, send, field, eventKey) {
   if (send && send.ok) results[field]++;
   else if (send && send.skipped) results.skipped++;
+  else if (send && send.deferred) results.deferred++;
   else results.failed.push({ eventKey, error: send && send.error || 'mail_send_failed' });
 }
 

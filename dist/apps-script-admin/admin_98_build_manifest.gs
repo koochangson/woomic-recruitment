@@ -1,8 +1,12 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "c0b29887f1e0",
+ "build": "6523935bba36",
  "functions": {
+  "acquireOpsRunGuard_": [
+   "admin_07_sheet_utils.gs",
+   "bc498581160d"
+  ],
   "addReferenceDays_": [
    "admin_04_reference.gs",
    "72892a967bf1"
@@ -57,7 +61,7 @@ const BUILD_MANIFEST_ = {
   ],
   "archiveOldChanges_": [
    "admin_07_sheet_utils.gs",
-   "6826fee0f8cf"
+   "aa54e8674ce8"
   ],
   "assertGeneralMailFields_": [
    "admin_05_general_mail.gs",
@@ -111,6 +115,10 @@ const BUILD_MANIFEST_ = {
    "admin_06_ai_referral_directory.gs",
    "77f827763661"
   ],
+  "changeArchiveRowKey_": [
+   "admin_07_sheet_utils.gs",
+   "a18f555b2f2e"
+  ],
   "changeRowContainsCandidatePii_": [
    "admin_02_sheet_api.gs",
    "c803731d9ab4"
@@ -157,7 +165,7 @@ const BUILD_MANIFEST_ = {
   ],
   "compactStoredChangeLogValues_": [
    "admin_07_sheet_utils.gs",
-   "09a7c9b49a44"
+   "2aed91b82e0a"
   ],
   "constantTimeEqual_": [
    "admin_09_auth.gs",
@@ -165,11 +173,11 @@ const BUILD_MANIFEST_ = {
   ],
   "countOpsResult_": [
    "admin_07_sheet_utils.gs",
-   "e59bd1e537f3"
+   "fe26f60c132f"
   ],
   "dailyOps": [
    "admin_07_sheet_utils.gs",
-   "05ee88bb7324"
+   "98a4171d401a"
   ],
   "dbSheetStatus_": [
    "admin_05_general_mail.gs",
@@ -537,7 +545,7 @@ const BUILD_MANIFEST_ = {
   ],
   "mailEventAlreadySent_": [
    "admin_07_sheet_utils.gs",
-   "986e21dd0b7d"
+   "e95efc1c759e"
   ],
   "mailHeaderTitleSize_": [
    "admin_05_general_mail.gs",
@@ -569,7 +577,11 @@ const BUILD_MANIFEST_ = {
   ],
   "monthlyRetention": [
    "admin_07_sheet_utils.gs",
-   "636f1ea384d9"
+   "895e39e06878"
+  ],
+  "monthlyRetentionUnguarded_": [
+   "admin_07_sheet_utils.gs",
+   "039499ace61f"
   ],
   "nlToBr_": [
    "admin_05_general_mail.gs",
@@ -642,6 +654,14 @@ const BUILD_MANIFEST_ = {
   "opsPlainHtml_": [
    "admin_07_sheet_utils.gs",
    "3a5dc7c5fec6"
+  ],
+  "opsSentEventKeys_": [
+   "admin_07_sheet_utils.gs",
+   "51f915fd20db"
+  ],
+  "opsTimeBudgetExceeded_": [
+   "admin_07_sheet_utils.gs",
+   "01a005a60bfe"
   ],
   "panelAvailabilityExpired_": [
    "admin_05_general_mail.gs",
@@ -795,6 +815,10 @@ const BUILD_MANIFEST_ = {
    "admin_08_referral_tokens.gs",
    "0333c563c6c9"
   ],
+  "releaseOpsRunGuard_": [
+   "admin_07_sheet_utils.gs",
+   "9dc1afef0235"
+  ],
   "renderGeneralMailHeader_": [
    "admin_05_general_mail.gs",
    "b2f958156651"
@@ -865,7 +889,7 @@ const BUILD_MANIFEST_ = {
   ],
   "sendOpsMailOnce_": [
    "admin_07_sheet_utils.gs",
-   "8105fc23ff45"
+   "94ff00b13d29"
   ],
   "sendReferenceEmail_": [
    "admin_04_reference.gs",
@@ -989,7 +1013,7 @@ const BUILD_MANIFEST_ = {
   ],
   "weeklyOps": [
    "admin_07_sheet_utils.gs",
-   "2f96693d15ef"
+   "f6ac52aed155"
   ],
   "writeBatchRows_": [
    "shared_00_runtime.gs",

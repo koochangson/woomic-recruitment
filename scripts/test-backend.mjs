@@ -350,5 +350,122 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   check(`${label}: 최근 변경 조회는 끝부분만 읽음`, cellsRead < 1000, cellsRead);
 }
 
+// ── 운영 자동화(dailyOps·weeklyOps·monthlyRetention) 실행 안전성 ─────────────
+// 메모리 시트: getLastRow·getLastColumn·getRange(행,열,개수,폭).getValues/setValues·deleteRows만 흉내 낸다.
+function memorySheet(rows) {
+  const sheet = {
+    rows,
+    getLastRow: () => sheet.rows.length,
+    getLastColumn: () => Math.max(0, ...sheet.rows.map(r => r.length)),
+    getRange: (row, col, n = 1, width = 1) => ({
+      getValues: () => { const out = []; for (let i = 0; i < n; i++) { const r = sheet.rows[row - 1 + i] || []; out.push(Array.from({ length: width }, (_, c) => (r[col - 1 + c] ?? ''))); } return out; },
+      getValue: () => (sheet.rows[row - 1] || [])[col - 1] ?? '',
+      setValues: values => { values.forEach((v, i) => { const r = sheet.rows[row - 1 + i] || (sheet.rows[row - 1 + i] = []); v.forEach((cell, c) => { r[col - 1 + c] = cell; }); }); },
+    }),
+    deleteRows: (start, count) => { sheet.rows.splice(start - 1, count); },
+  };
+  return sheet;
+}
+const kstDate = offsetDays => formatDateMock(new Date(Date.now() + offsetDays * 86400000), 'Asia/Seoul', 'yyyy-MM-dd');
+
+function loadOps({ notifyEmail = 'people@x.com', retentionMonths = '' } = {}) {
+  const env = loadBackend(adminGsSource);
+  const { ctx } = env;
+  const mailLog = [];
+  const reads = { MailLog: 0 };
+  const tables = {
+    Settings: [{ id: 'notifyEmail', value: notifyEmail }, { id: 'retentionMonths', value: retentionMonths }],
+    Candidates: [
+      { id: '1', name: '홍길동', email: 'cand@x.com', stage: '3', posId: '', held: '' },
+      { id: '2', name: '김철수', email: 'old@x.com', stage: '6', posId: '', held: '', rejectedAt: '2025-01-10' },
+    ],
+    Positions: [],
+    Interviews: [{ id: '10', candId: '1', candName: '홍길동', type: '1차', status: 'confirmed', result: '', candidateNotified: 'Y', date: kstDate(1) + ' 10:00', loc: '본사', panel: '팀장' }],
+    ReferenceCandidates: [],
+    ReferenceResponses: [{ id: 'RR1', pipelineCandId: '1', candName: '홍길동', refereeName: 'R1', refereeEmail: 'r1@x.com', submittedAt: '',
+      deadlineAt: new Date(Date.now() - 86400000).toISOString(), tokenExpiresAt: new Date(Date.now() + 20 * 86400000).toISOString(), link: 'https://example.invalid/r' }],
+    Rewards: [],
+  };
+  Object.assign(ctx, {
+    readRowsIfSheetExists_: name => { if (name === 'MailLog') { reads.MailLog++; return mailLog.slice(); } return tables[name] || []; },
+    logMailSend_: (to, subject, status, error, eventKey) => { mailLog.push({ to, subject, status, eventKey: eventKey || '' }); },
+    referenceMailHtml_: m => '<p>' + m + '</p>',
+  });
+  // 새 실행(다음 트리거 실행)을 흉내 낸다: 실행 단위 캐시를 비운다.
+  const newExecution = () => env.run('EXEC_CACHE_.opsSentEventKeys = null; EXEC_CACHE_.opsStartedAt = 0;');
+  return { ...env, mailLog, reads, tables, newExecution };
+}
+
+{
+  const ops = loadOps();
+  let r = ops.run('dailyOps()');
+  check('dailyOps: 면접 전날·추천인 기한 초과·내부 준비 알림 발송', r.ok === true && r.candidateInterviewReminders === 1 && r.referenceResponseReminders === 1 && r.internalNotices === 1 && ops.state.mails === 3, r);
+  check('dailyOps: 메일 발송 중 스크립트 잠금을 잡지 않음', ops.state.mailsDuringLock === 0);
+  check('dailyOps: MailLog는 실행당 한 번만 읽음', ops.reads.MailLog === 1, ops.reads);
+  check('dailyOps: 끝나면 실행 표시 해제', !Object.keys(ops.state.cache).some(k => k.startsWith('ops_running:')));
+  ops.newExecution();
+  r = ops.run('dailyOps()');
+  check('dailyOps: 같은 날 다시 실행해도 중복 발송 없음', ops.state.mails === 3 && r.skipped === 3, r);
+  ops.state.cache['ops_running:dailyOps'] = 'x';
+  ops.newExecution();
+  check('dailyOps: 이미 실행 중이면 건너뜀', ops.run('dailyOps()').error === 'ops_already_running');
+}
+{
+  const ops = loadOps();
+  // 실행시간 예산을 이미 넘긴 상태 → 남은 발송은 미루고 incomplete로 알림
+  const realNow = ops.ctx.Date;
+  ops.run('acquireOpsRunGuard_ = (function(orig) { return function(name) { const key = orig(name); EXEC_CACHE_.opsStartedAt = Date.now() - OPS_TIME_BUDGET_MS - 1000; return key; }; })(acquireOpsRunGuard_);');
+  const r = ops.run('dailyOps()');
+  check('dailyOps: 실행시간 예산을 넘기면 발송을 미루고 incomplete', ops.state.mails === 0 && r.deferred === 3 && r.incomplete === true, r);
+  void realNow;
+}
+{
+  const ops = loadOps({ notifyEmail: '' });
+  const r = ops.run('dailyOps()');
+  check('dailyOps: notifyEmail이 없으면 경고하고 내부 알림만 건너뜀', r.warnings.includes('notify_email_not_configured') && r.internalNotices === 0 && r.candidateInterviewReminders === 1, r);
+  check('monthlyRetention: notifyEmail이 없으면 중단', ops.run('monthlyRetention()').error === 'notify_email_not_configured');
+}
+{
+  const ops = loadOps({ retentionMonths: 'abc' });
+  const r = ops.run('monthlyRetention()');
+  check('monthlyRetention: 잘못된 보존기간은 기본 6개월 + 경고', r.retentionMonths === 6 && r.warnings.includes('retention_months_invalid') && r.targets === 1 && r.sent === true, r);
+  ops.newExecution();
+  const again = ops.run('monthlyRetention()');
+  check('monthlyRetention: 같은 날 다시 실행해도 중복 발송 없음', again.skipped === true && ops.state.mails === 1, again);
+}
+{
+  const ops = loadOps({ retentionMonths: '12' });
+  const r = ops.run('monthlyRetention()');
+  check('monthlyRetention: Settings의 보존기간 사용', r.retentionMonths === 12 && r.warnings.length === 0, r);
+}
+
+// weeklyOps: 밀린 아카이브를 여러 배치로 처리하고, 끊겼던 실행의 행을 두 번 아카이브하지 않는다.
+{
+  const ops = loadOps();
+  const header = ['cursor', 'timestamp', 'sheet', 'action', 'id', 'actorEmail', 'result', 'data'];
+  const old = new Date(Date.now() - 200 * 86400000).toISOString();
+  const recent = new Date().toISOString();
+  const activeRows = [header];
+  for (let i = 1; i <= 2500; i++) activeRows.push([i, old, 'Candidates', 'upsert', 'c' + i, '', 'ok', i <= 1200 ? '{"name":"홍길동","email":"a@x.com"}' : '{"fields":["name"]}']);
+  activeRows.push([2500, old, 'Interviews', 'upsert', 'dup-cursor', '', 'ok', '{"fields":["date"]}']); // 같은 커서 번호(두 프로젝트 동시 기록)
+  for (let i = 2501; i <= 2510; i++) activeRows.push([i, recent, 'Candidates', 'upsert', 'c' + i, '', 'ok', '{"fields":["name"]}']);
+  const active = memorySheet(activeRows);
+  // 지난 실행이 처음 3행을 아카이브에 쓴 뒤 원본 삭제 전에 끊긴 상태
+  const archive = memorySheet([header, ...activeRows.slice(1, 4).map(r => r.slice())]);
+  Object.assign(ops.ctx, {
+    ensureChangeLogSheet_: () => active,
+    ensureChangeArchiveSheet_: () => archive,
+    getMainSpreadsheet_: () => ({ getSheetByName: name => (name === '_Changes' ? active : name === '_Changes_Archive' ? archive : null) }),
+  });
+  const r = ops.run('weeklyOps()');
+  const archivedIds = archive.rows.slice(1).map(row => row[4]);
+  check('weeklyOps: 1,000건 넘게 밀린 아카이브를 배치 반복으로 처리', r.ok && r.changeArchive.archived === 2501 && r.changeArchive.batches >= 3 && active.rows.length === 11, { archived: r.changeArchive, left: active.rows.length });
+  check('weeklyOps: 같은 행을 두 번 아카이브하지 않음', archivedIds.length === 2501 && new Set(archivedIds).size === 2501, archivedIds.length);
+  check('weeklyOps: 같은 커서 번호 행도 아카이브에 보존', archivedIds.includes('dup-cursor'));
+  const fullJsonLeft = [...active.rows.slice(1), ...archive.rows.slice(1)].filter(row => !String(row[7]).startsWith('{"fields":')).length;
+  check('weeklyOps: 예전 전체 JSON을 배치 반복으로 모두 정리', fullJsonLeft === 0 && r.incomplete === false, { fullJsonLeft, compaction: r.changeLogCompaction });
+  check('weeklyOps: 끝나면 실행 표시 해제', !Object.keys(ops.state.cache).some(k => k.startsWith('ops_running:')));
+}
+
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

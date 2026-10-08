@@ -161,7 +161,7 @@ const requiredPatterns = [
   {
     id: 'admin-weekly-ops-archives-change-log',
     file: 'src/admin/backend/Code.gs',
-    pattern: /function weeklyOps\(\)\s*\{\s*const archiveResult = archiveOldChanges_\(\);\s*const compactResult = compactChangeLogs\(\);[\s\S]{0,400}changeArchive: archiveResult/,
+    pattern: /function weeklyOps\(\)\s*\{[\s\S]{0,300}const archiveResult = archiveOldChanges_\(\);\s*const compactResult = compactChangeLogs\(\);[\s\S]{0,2500}changeArchive: archiveResult/,
     message: 'Weekly operations must archive old changes and compact legacy change-log values.',
   },
   {
@@ -197,7 +197,7 @@ const requiredPatterns = [
   {
     id: 'admin-daily-ops-is-idempotent',
     file: 'src/admin/backend/Code.gs',
-    pattern: /function dailyOps\(\)[\s\S]{0,9000}function sendOpsMailOnce_\([\s\S]{0,500}mailEventAlreadySent_\(eventKey\)/,
+    pattern: /function dailyOps\(\)[\s\S]{0,14000}function sendOpsMailOnce_\([\s\S]{0,500}mailEventAlreadySent_\(eventKey\)[\s\S]{0,1200}function opsSentEventKeys_\(\)[\s\S]{0,400}readRowsIfSheetExists_\('MailLog'\)[\s\S]{0,200}'sent'/,
     message: 'Daily operations must use MailLog event keys to avoid duplicate sends.',
   },
   {
