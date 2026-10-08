@@ -1120,11 +1120,6 @@ function linkCandFromUnlinked(candId) {
   showUnlinkedList();
 }
 
-function dismissPendingMail() {
-  const bar = document.getElementById('mail-pending-bar');
-  if(bar) bar.classList.remove('show');
-}
-
 function confirmMailPendingAt(idx) {
   const m = lastMailPendingItems[idx];
   if(!m) return;
@@ -1133,7 +1128,7 @@ function confirmMailPendingAt(idx) {
 }
 
 function confirmPendingMail() {
-  if(!pendingMailMeta) { dismissPendingMail(); return; }
+  if(!pendingMailMeta) return;
   const m = pendingMailMeta;
   if(m.type === 'int') {
     const i = interviews.find(x => Number(x.id) === Number(m.id));
@@ -1157,7 +1152,6 @@ function confirmPendingMail() {
     }
   }
   pendingMailMeta = null;
-  dismissPendingMail();
   saveState();
 }
 

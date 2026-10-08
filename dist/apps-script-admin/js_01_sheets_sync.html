@@ -541,7 +541,7 @@ async function gsFetch(action, sheet, data={}, options={}) {
     if(value !== '' && value != null) url.searchParams.set(key, value);
   });
   const hasData = Object.keys(data).length > 0;
-  const mustPost = isWrite || action === 'generateReferenceSummary' || action === 'issueReferenceCandidateLink' || action === 'issueInterviewAvailabilityLink' || action === 'setInterviewAvailabilityDeliveryStatus' || action === 'issuePanelAvailabilityLink' || action === 'issueJoinDateLink' || action === 'sendReferenceEmail' || action === 'sendMail' || action === 'sendGeneralMail' || action === 'uploadCommonAttachment' || action === 'purgeCandidatePii';
+  const mustPost = isWrite || action === 'generateReferenceSummary' || action === 'issueReferenceCandidateLink' || action === 'issueInterviewAvailabilityLink' || action === 'setInterviewAvailabilityDeliveryStatus' || action === 'issuePanelAvailabilityLink' || action === 'issueJoinDateLink' || action === 'sendReferenceEmail' || action === 'sendGeneralMail' || action === 'uploadCommonAttachment' || action === 'purgeCandidatePii';
   try {
     if(mustPost && hasData && GS_CONFIG.usePostWrites) {
       const postRes = await fetch(url.toString(), {

@@ -69,13 +69,6 @@ function finishMailDedupe_(key, sent) {
   else cache.remove(key);
 }
 
-function handleSendMail_(payload) {
-  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
-  const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
-  const result = sendMailViaGmail_(body.toEmail || body.to || body.email, body.subject, body.body || body.message, body.htmlBody);
-  return json_(result);
-}
-
 function logMailSend_(to, subject, status, error, eventKey) {
   try {
     const sheet = ensureSheet_('MailLog');

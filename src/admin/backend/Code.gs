@@ -149,7 +149,6 @@ function routeRequest_(payload) {
   if (!isAdmin && !isPublicReferralSubmit) throw new Error('admin_auth_required');
 
   if (action === 'generateReferenceSummary') return generateReferenceSummary_(data);
-  if (action === 'sendMail' && isAdminRequest_(payload)) return handleSendMail_(payload);
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
   if (action === 'listDbSheets') return listDbSheets_();
   if (action === 'archiveDbSheet') return archiveDbSheet_(data);
@@ -269,13 +268,6 @@ function finishMailDedupe_(key, sent) {
   const cache = CacheService.getScriptCache();
   if (sent) cache.put(key, JSON.stringify({ state: 'sent', at: nowIso_() }), MAIL_DEDUPE_WINDOW_SECONDS);
   else cache.remove(key);
-}
-
-function handleSendMail_(payload) {
-  if (!isAdminRequest_(payload)) return json_({ error: 'admin_auth_required' });
-  const body = (payload && payload.data && Object.keys(payload.data).length) ? payload.data : (payload || {});
-  const result = sendMailViaGmail_(body.toEmail || body.to || body.email, body.subject, body.body || body.message, body.htmlBody);
-  return json_(result);
 }
 
 function logMailSend_(to, subject, status, error, eventKey) {

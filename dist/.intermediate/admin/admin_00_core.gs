@@ -149,7 +149,6 @@ function routeRequest_(payload) {
   if (!isAdmin && !isPublicReferralSubmit) throw new Error('admin_auth_required');
 
   if (action === 'generateReferenceSummary') return generateReferenceSummary_(data);
-  if (action === 'sendMail' && isAdminRequest_(payload)) return handleSendMail_(payload);
   if (action === 'sendGeneralMail' && isAdminRequest_(payload)) return handleSendGeneralMail_(payload);
   if (action === 'listDbSheets') return listDbSheets_();
   if (action === 'archiveDbSheet') return archiveDbSheet_(data);

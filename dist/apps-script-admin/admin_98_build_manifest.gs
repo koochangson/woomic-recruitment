@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "9642c412405d",
+ "build": "74f7ffc36580",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_07_sheet_utils.gs",
@@ -402,10 +402,6 @@ const BUILD_MANIFEST_ = {
   "handleSendGeneralMail_": [
    "admin_05_general_mail.gs",
    "672b8d599ddd"
-  ],
-  "handleSendMail_": [
-   "admin_01_mail_base.gs",
-   "47581211b931"
   ],
   "hardenUploadedFileSharing_": [
    "admin_03_referral_public.gs",
@@ -877,7 +873,7 @@ const BUILD_MANIFEST_ = {
   ],
   "routeRequest_": [
    "admin_00_core.gs",
-   "4c535f53d72a"
+   "869f28de015e"
   ],
   "rowObjectFromValues_": [
    "shared_00_runtime.gs",
@@ -1041,9 +1037,9 @@ const BUILD_MANIFEST_ = {
   ]
  },
  "html": {
-  "app_css": "72205f5c03e5",
-  "js_00_core": "48aceaabec15",
-  "js_01_sheets_sync": "c0be4fb8881c",
+  "app_css": "86f5b0b46b9e",
+  "js_00_core": "a499dcb6cb6a",
+  "js_01_sheets_sync": "03d78c9ad073",
   "js_03_ui_dashboard": "c17b6fc65501",
   "js_04_referral": "e513dea75eb7",
   "js_05_candidates_reference": "0ed18a1f07fe",
@@ -1054,7 +1050,7 @@ const BUILD_MANIFEST_ = {
   "js_30_interviews": "166de280d6d8",
   "js_31_interview_schedule": "9194113d679d",
   "js_32_interview_mail": "c45ce1c205df",
-  "js_99_app": "bda128d6f9ed",
+  "js_99_app": "21796798a446",
   "mail_01_reference_candidate_request": "adff1215c3c7",
   "mail_02_reference_candidate_reminder": "bd7c2a027748",
   "mail_03_reference_referee_request": "38ca48b4d3e4",
