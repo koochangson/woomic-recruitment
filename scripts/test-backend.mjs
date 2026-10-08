@@ -597,5 +597,57 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   check(label + ': 시트가 없으면 만들지 않고 false', run('candidateProcessClosed_(1)') === false);
 }
 
+// ── 변경분 조회(getAll since=시각): 변경 이력으로 바뀐 행만 읽고, 결과는 예전 방식과 같다 ──
+for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGsSource]]) {
+  const { run, ctx } = loadBackend(gsPath);
+  const headers = run('SHEET_SCHEMAS.Candidates');
+  const base = Date.parse('2026-10-01T00:00:00.000Z');
+  const iso = minutes => new Date(base + minutes * 60000).toISOString();
+  const candidates = [];
+  const changeRows = [['cursor', 'timestamp', 'sheet', 'action', 'id', 'actorEmail', 'result', 'data']];
+  let cursor = 0;
+  for (let i = 1; i <= 400; i++) {
+    const minute = i * 7;
+    candidates.push(headers.map(h => (h === 'id' ? i : h === 'name' ? '지원자' + i : h === 'updatedAt' ? iso(minute) : '')));
+    changeRows.push([++cursor, iso(minute), 'Candidates', 'upsert', String(i), '', 'ok', '{"fields":["name"]}']);
+    if (i % 5 === 0) changeRows.push([++cursor, iso(minute + 1), 'Interviews', 'upsert', 'itv' + i, '', 'ok', '{}']); // 다른 시트 기록 섞기
+  }
+  let cells = 0;
+  const counted = sheet => ({ ...sheet, getRange: (...args) => { const r = sheet.getRange(...args); return { ...r, getValues: () => { const v = r.getValues(); cells += v.length * (v[0] ? v[0].length : 0); return v; } }; } });
+  const dataSheet = counted(memorySheet([headers.slice(), ...candidates]));
+  let changeLog = counted(memorySheet(changeRows));
+  Object.assign(ctx, {
+    ensureSheet_: name => (name === 'Candidates' ? dataSheet : null),
+    ensureHeaders_: (sheet, schema) => schema,
+    ensureChangeLogSheet_: () => changeLog,
+    getStoredChangeCursor_: () => 0,
+  });
+  const since = iso(2500);
+  const expected = candidates.map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]]))).filter(r => r.updatedAt >= since).map(r => String(r.id)).sort();
+  cells = 0;
+  const fast = run('getAll_("Candidates", { since: ' + JSON.stringify(since) + ' })');
+  const fastCells = cells;
+  const got = fast.data.map(r => String(r.id)).sort();
+  // since 이후 바뀐 행은 빠짐없이 포함하고, 그 밖에는 시각 오차 여유분(10분) 안에 바뀐 행만 더 올 수 있다.
+  const slackIds = candidates.map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]]))).filter(r => r.updatedAt >= iso(2500 - 10)).map(r => String(r.id));
+  check(label + ': 변경분 조회가 since 이후 바뀐 행을 모두 포함', expected.every(id => got.includes(id)) && got.every(id => slackIds.includes(id)), { got: got.length, expected: expected.length, slack: slackIds.length });
+  cells = 0;
+  run('readRows_("Candidates")');
+  check(label + ': 변경분 조회가 시트 전체 읽기보다 적게 읽음', fastCells < cells, { fastCells, fullRead: cells });
+  // 이력이 아카이브돼 since까지 남아 있지 않으면 예전 방식(전체 읽기)으로 같은 결과
+  changeLog = counted(memorySheet([changeRows[0], ...changeRows.slice(-50)]));
+  const fallback = run('getAll_("Candidates", { since: ' + JSON.stringify(since) + ' })');
+  const fallbackIds = fallback.data.map(r => String(r.id));
+  check(label + ': 이력이 모자라면 전체 읽기 방식으로 since 이후 행 모두 포함', expected.every(id => fallbackIds.includes(id)));
+  // 시트 통째 교체(replaceAll)가 기간 안에 있으면 바뀐 행을 알 수 없으므로 전체 읽기 방식으로 처리
+  changeLog = counted(memorySheet([...changeRows, [++cursor, iso(2600), 'Candidates', 'replaceAll', 'all', '', 'ok', '{}']]));
+  cells = 0;
+  const replaced = run('getAll_("Candidates", { since: ' + JSON.stringify(since) + ' })');
+  const replacedIds = replaced.data.map(r => String(r.id));
+  check(label + ': 통째 교체가 있으면 전체 읽기로 처리', cells >= 400 * headers.length && expected.every(id => replacedIds.includes(id)), { cells });
+  const full = run('getAll_("Candidates", {})');
+  check(label + ': since가 없으면 전체 조회 그대로', full.data.length === 400);
+}
+
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "01989aa92946",
+ "build": "9642c412405d",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_07_sheet_utils.gs",
@@ -122,6 +122,10 @@ const BUILD_MANIFEST_ = {
   "changeRowContainsCandidatePii_": [
    "admin_02_sheet_api.gs",
    "c803731d9ab4"
+  ],
+  "changedIdsSince_": [
+   "shared_00_runtime.gs",
+   "cf9252fcd92a"
   ],
   "checkDeploymentParts_": [
    "admin_09_auth.gs",
@@ -313,7 +317,7 @@ const BUILD_MANIFEST_ = {
   ],
   "getAll_": [
    "admin_02_sheet_api.gs",
-   "39188b5d8503"
+   "fd5190a88d6f"
   ],
   "getChangeCursor_": [
    "shared_00_runtime.gs",
@@ -1009,7 +1013,7 @@ const BUILD_MANIFEST_ = {
   ],
   "verifyRefereeIdentity_": [
    "admin_04_reference.gs",
-   "59c73808fe0a"
+   "a7b8590729fb"
   ],
   "verifyReferenceCandidateToken_": [
    "admin_04_reference.gs",

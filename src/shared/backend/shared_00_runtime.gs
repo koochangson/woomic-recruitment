@@ -422,6 +422,39 @@ function readRowsByIds_(sheetName, ids) {
   return result;
 }
 
+// 변경분 조회(getAll의 since=시각)용: 변경 이력 끝에서부터 거꾸로 읽어 since 이후 바뀐 그 시트의 id를 모은다.
+// 두 프로젝트가 번갈아 기록해 시각 순서가 조금 어긋날 수 있으므로 since보다 CHANGE_TIME_SLACK_MS 더 이른
+// 기록을 만나야 '빠짐없이 모았다(complete)'고 본다. 그 전에 이력 맨 앞에 닿으면(오래된 이력이 아카이브됨)
+// complete=false — 호출하는 쪽은 예전처럼 시트 전체를 읽는다.
+const CHANGE_TIME_SLACK_MS = 10 * 60 * 1000;
+function changedIdsSince_(sheetName, sinceTime) {
+  const sheet = ensureChangeLogSheet_();
+  const lastRow = sheet.getLastRow();
+  const ids = {};
+  if (lastRow < 2) return { ids: [], complete: false };
+  let end = lastRow - 1;
+  while (end > 0) {
+    const start = Math.max(0, end - CHANGE_READ_CHUNK_ROWS);
+    const rows = sheet.getRange(start + 2, 1, end - start, 5).getValues();
+    let reachedOlder = false;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const time = new Date(normalizeCell_(rows[i][1])).getTime();
+      if (!Number.isFinite(time)) continue;
+      if (time < sinceTime - CHANGE_TIME_SLACK_MS) { reachedOlder = true; continue; }
+      if (String(rows[i][2]) !== sheetName) continue;
+      // 시트 통째 교체(replaceAll)는 행별 기록이 없으므로 바뀐 행을 알 수 없다 — 전체 읽기로 처리하게 한다.
+      if (String(rows[i][3]) === 'replaceAll') return { ids: [], complete: false };
+      if (String(rows[i][3]) === 'upsert') {
+        const id = String(rows[i][4] || '').trim();
+        if (id) ids[id] = true;
+      }
+    }
+    if (reachedOlder) return { ids: Object.keys(ids), complete: true };
+    end = start;
+  }
+  return { ids: Object.keys(ids), complete: false };
+}
+
 // id로 한 행만 읽는다(키 열만 훑고 그 행만 가져온다). 시트가 없으면 만들지 않고 null.
 // 행 하나를 보려고 시트 전체를 읽던 상태 확인(지원자·포지션 종료 여부 등)에 쓴다.
 function readRowByIdIfSheetExists_(sheetName, id) {

@@ -1,16 +1,26 @@
 function getAll_(sheetName, query) {
-  const rows = readRows_(sheetName);
   const since = query && query.since ? String(query.since) : '';
   if (!since) {
-    return json_({ data: rows, cursor: getChangeCursor_(), serverTime: nowIso_() });
+    return json_({ data: readRows_(sheetName), cursor: getChangeCursor_(), serverTime: nowIso_() });
   }
 
+  // 화면은 since로 마지막 동기화 시각(ISO)을 보낸다. 변경 이력으로 그 뒤 바뀐 행만 골라 읽는다.
+  // 이력이 since까지 남아 있지 않으면(아카이브 등) 아래 예전 방식(시트 전체 읽기)으로 처리한다.
+  const sinceTime = Date.parse(since);
+  if (Number.isFinite(sinceTime)) {
+    const changed = changedIdsSince_(sheetName, sinceTime);
+    if (changed.complete) {
+      const byId = changed.ids.length ? readRowsByIds_(sheetName, changed.ids) : {};
+      return json_({ data: Object.keys(byId).map(id => byId[id]), cursor: getChangeCursor_(), serverTime: nowIso_() });
+    }
+  }
   const changedIds = {};
   const changes = readChangesAfter_(Number(since) || 0, 5000)
     .filter(change => change.sheet === sheetName);
   changes.forEach(change => { changedIds[String(change.id)] = true; });
 
   const key = primaryKey_(sheetName);
+  const rows = readRows_(sheetName);
   const data = rows.filter(row => changedIds[String(row[key])] || String(row.updatedAt || '') >= since);
   return json_({ data, cursor: getChangeCursor_(), serverTime: nowIso_() });
 }

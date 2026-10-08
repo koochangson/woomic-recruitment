@@ -696,6 +696,7 @@ function verifyRefereeIdentity_(payload) {
   const writeRow = confirmRowIndex_(sheet, headers, 'token', token, rowIndex);
   if (writeRow < 0) return json_({ ok: false, error: 'invalid_token' });
   if (verifiedAtCol > 0) sheet.getRange(writeRow, verifiedAtCol).setValue(nowIso_());
+  appendChange_('ReferenceResponses', 'upsert', row.id, { verifiedAt: true });
 
   return json_({ ok: true, candName: row.candName, refereeName: row.refereeName });
 }
