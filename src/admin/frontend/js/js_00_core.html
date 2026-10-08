@@ -793,7 +793,7 @@ function nextId(){
 
 // ── P0/P1/P2 공통 헬퍼 ───────────────────────────────────────
 function logActivity(action, detail, entityType, entityId) {
-  activityLog.unshift({ action, detail: detail||'', entityType: entityType||'', entityId: entityId||'', time: now(), date: today() });
+  activityLog.unshift({ id: newLogEntryId_(), action, detail: detail||'', entityType: entityType||'', entityId: entityId||'', time: now(), date: today(), at: new Date().toISOString() });
   if(activityLog.length > 300) activityLog = activityLog.slice(0, 300);
   saveState();
 }

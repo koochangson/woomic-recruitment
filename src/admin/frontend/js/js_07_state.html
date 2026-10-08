@@ -12,21 +12,16 @@ function loadState() {
   return null;
 }
 
+// 알림·활동 기록은 NotifyLog·ActivityLog 시트로 옮겨 줄 단위로 저장한다(아래 줄 동기화). 남은 보조 데이터는 추천인 응답 사본뿐이다.
 function getAuxStateSnapshot() {
   return {
     updatedAt: auxUpdatedAt || new Date().toISOString(),
-    notifyLog: notifyLog.slice(0,200),
     refDetails,
-    activityLog: activityLog.slice(0,300),
   };
 }
 
 function getAuxFingerprint() {
-  return JSON.stringify({
-    notifyLog: notifyLog.slice(0,200),
-    refDetails,
-    activityLog: activityLog.slice(0,300),
-  });
+  return JSON.stringify({ refDetails });
 }
 
 function chunkText(text, size=1400) {
@@ -73,11 +68,12 @@ async function loadAuxStateFromGS() {
     // 입사 등록·처우 기록은 이제 각자 시트에서 받는다. 예전 덩어리에 남은 값은 시트를 아직 못 맞춘 경우(첫 이관)에만 쓴다.
     if(!rowSyncReady_ && Array.isArray(remote.onboardings) && remote.onboardings.length && !onboardings.length) onboardings = remote.onboardings;
     if(!rowSyncReady_ && Array.isArray(remote.offers) && remote.offers.length && !offers.length) offers = remote.offers;
-    notifyLog = remote.notifyLog || notifyLog;
+    // 알림·활동 기록도 이제 각자 시트에서 받는다. 예전 덩어리 값은 첫 이관 때만 쓴다.
+    if(!rowSyncReady_ && Array.isArray(remote.notifyLog) && remote.notifyLog.length && !notifyLog.length) notifyLog = remote.notifyLog;
     refDetails = remote.refDetails || refDetails;
     // 레퍼런스 결과 정리도 이제 RefReports 시트에서 받는다. 예전 덩어리 값은 첫 이관 때만 쓴다.
     if(!rowSyncReady_ && remote.refReports && Object.keys(remote.refReports).length && !Object.keys(refReports).length) refReports = remote.refReports;
-    activityLog = remote.activityLog || activityLog;
+    if(!rowSyncReady_ && Array.isArray(remote.activityLog) && remote.activityLog.length && !activityLog.length) activityLog = remote.activityLog;
     auxUpdatedAt = remote.updatedAt || meta.updatedAt || '';
     saveState();
     return true;
@@ -162,7 +158,42 @@ const ROW_SYNC_SHEETS_ = {
       return out;
     },
   },
+  // 알림·활동 기록: 최신순 배열. 추가만 하며, 최대 개수(200/300)와 보존기간을 넘긴 기록은 지우면 시트에서도 지워진다.
+  NotifyLog: logRowSyncDef_(() => notifyLog, v => { notifyLog = v; }, 200),
+  ActivityLog: logRowSyncDef_(() => activityLog, v => { activityLog = v; }, 300),
 };
+
+// 알림·활동 기록 줄 동기화 정의. id가 없는 예전 기록은 내용으로 id를 만든다(두 PC가 같은 예전 기록을 올려도 한 줄).
+function logRowSyncDef_(get, setList, cap) {
+  return {
+    list:() => get().map(entry => { if(entry && !entry.id) entry.id = legacyLogEntryId_(entry); return entry; }).filter(Boolean),
+    set:v => { setList(sortLogEntries_(v).slice(0, cap)); },
+    key:r => String(r.id ?? ''),
+    toRow:r => ({ ...r }),
+    fromRow:row => ({ ...row }),
+  };
+}
+function newLogEntryId_() { return 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function legacyLogEntryId_(entry) {
+  const text = JSON.stringify([entry.date, entry.time, entry.ch, entry.type, entry.target, entry.to, entry.action, entry.detail, entry.entityType, entry.entityId]);
+  let hash = 5381;
+  for(let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
+  return 'H' + hash.toString(36) + text.length.toString(36);
+}
+// 정렬 시각: 새 기록은 at(ISO), 예전 기록은 date + time('오후 02:30' 같은 한국어 시각).
+function logEntrySortTime_(entry) {
+  const at = Date.parse(entry?.at || '');
+  if(Number.isFinite(at)) return at;
+  const m = String(entry?.time || '').match(/(오전|오후)?s*(d{1,2}):(d{2})/);
+  let hour = m ? Number(m[2]) : 0;
+  if(m && m[1] === '오후' && hour < 12) hour += 12;
+  if(m && m[1] === '오전' && hour === 12) hour = 0;
+  const day = Date.parse(String(entry?.date || '') + 'T00:00:00');
+  return (Number.isFinite(day) ? day : 0) + hour * 3600000 + (m ? Number(m[3]) : 0) * 60000;
+}
+function sortLogEntries_(list) {
+  return (list || []).slice().sort((a, b) => logEntrySortTime_(b) - logEntrySortTime_(a));
+}
 function rowBool_(v) { return v === true || String(v).toLowerCase() === 'true'; }
 let rowSyncReady_ = false;      // 서버 기록을 한 번 불러와 맞춘 뒤에만 올린다(오래된 값을 올리지 않게)
 let rowSyncTimer_ = null;

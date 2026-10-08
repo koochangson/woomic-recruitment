@@ -80,6 +80,7 @@ node scripts/test-deployment-parts.mjs  # 업로드 묶음 일부만 올렸을 �
 
 - 지원자·면접·포지션(`Candidates`·`Interviews`·`Positions`)은 행마다 `rev`로 버전을 관리합니다. 시트에서 행을 읽는 모든 경로(전체 로드, 변경 감지, 단건 로드)는 반드시 `rev`를 포함한 공용 변환(`normalizeGsCandidate`·`normalizeGsInterview`·`normalizeGsPosition`)을 씁니다. 전용 변환을 새로 만들지 않습니다.
 - 입사 등록·처우 기록(`Onboardings`·`Offers`)도 행마다 `rev`가 있습니다. 이 둘은 `js_07_state`의 줄 동기화(`flushRowSync_`)가 저장하며, 충돌 시 마지막으로 서버와 맞춘 내용(snapshot)을 base로 같은 규칙으로 병합합니다(`mergeRowSyncRecord_`). `batchUpsert` 응답의 `revs`로 새 rev를 받습니다.
+- 레퍼런스 결과 정리(`RefReports`)와 알림·활동 기록(`NotifyLog`·`ActivityLog`)도 같은 줄 동기화로 저장합니다. 알림·활동 기록은 추가만 하는 최신순 목록이며 최대 200/300개를 넘거나 보존기간이 지나 화면에서 빠진 기록은 시트에서도 지워집니다. 설정 시트의 보조 데이터 덩어리(auxState)에는 추천인 응답 사본(`refDetails`)만 남습니다.
 - 기기마다 마지막으로 받은 서버본(base)을 `woomic_gs_base_v1`에 기억합니다. 서버 행을 받는 새 경로를 추가하면 `rememberGsBaseRows_`를 호출합니다.
 - 저장 시 버전 충돌이 나면 `gsUpsert`가 자동 병합 후 재저장합니다: base 대비 이 기기가 바꾼 필드는 이 기기 값, 나머지는 서버 최신값. 같은 필드를 양쪽이 바꾼 경우 나중 저장이 반영됩니다. 화면별로 충돌 처리 코드를 따로 두지 않습니다.
 - base가 없는 기기(배포 직후 첫 접속)는 첫 동기화를 전체 로드로 진행해 base를 채웁니다.

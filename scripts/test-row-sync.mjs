@@ -18,13 +18,13 @@ const rowSyncStart = stateJs.indexOf('const ROW_SYNC_SNAPSHOT_KEY_');
 const rowSyncEnd = stateJs.indexOf('\n}\n', stateJs.indexOf('function replaceRowSyncRecord_(')) + 3;
 if (rowSyncStart < 0 || rowSyncEnd < 3) throw new Error('row sync block not found');
 const rowSyncCode = stateJs.slice(rowSyncStart, rowSyncEnd).replace(/^(let|const) /gm, 'var ');
-const schemaCode = 'var GS_SCHEMA = {' + ['Onboardings', 'Offers', 'RefReports'].map(name => {
+const schemaCode = 'var GS_SCHEMA = {' + ['Onboardings', 'Offers', 'RefReports', 'NotifyLog', 'ActivityLog'].map(name => {
   const m = syncJs.match(new RegExp('  ' + name + ': \\[[^\\]]*\\]'));
   if (!m) throw new Error('schema not found: ' + name);
   return m[0];
 }).join(',\n') + '};';
 
-const server = { Onboardings: {}, Offers: {}, RefReports: {} };
+const server = { Onboardings: {}, Offers: {}, RefReports: {}, NotifyLog: {}, ActivityLog: {} };
 const feed = [];
 function serverBatchUpsert(sheet, rows) {
   const conflicts = [];
@@ -55,6 +55,8 @@ function makePc() {
     onboardings: [],
     offers: [],
     refReports: {},
+    notifyLog: [],
+    activityLog: [],
     conflictNotices: 0,
     hasGsBridge_: () => true,
     localYmd_: d => d.toISOString().slice(0, 10),
@@ -163,6 +165,39 @@ mark = feed.length;
 delete A.refReports[10];
 await A.flushRowSync_();
 check('지운 결과 정리는 서버에서도 삭제', !server.RefReports['10']);
+
+// 알림·활동 기록(NotifyLog·ActivityLog): 추가만 하는 최신순 목록
+{
+  const legacy = [
+    { ch: 'Gmail', type: '면접안내', target: '홍길동', to: 'a@x.com', time: '오후 02:30', date: '2026-10-08' },
+    { ch: 'Gmail', type: '불합격', target: '김철수', to: 'b@x.com', time: '오전 09:05', date: '2026-10-08' },
+  ];
+  // 두 PC가 같은 예전 기록(설정 시트 덩어리에서 받은 것)을 가진 채 처음 줄 동기화
+  const C = makePc();
+  const D = makePc();
+  C.notifyLog.push(...legacy.map(e => ({ ...e })));
+  D.notifyLog.push(...legacy.map(e => ({ ...e })));
+  await C.loadRowSyncSheets_(); await C.flushRowSync_();
+  await D.loadRowSyncSheets_(); await D.flushRowSync_();
+  check('예전 기록을 두 PC가 올려도 중복 없음', Object.keys(server.NotifyLog).length === 2, Object.keys(server.NotifyLog));
+  check('예전 기록 정렬: 오후 2:30이 오전 9:05보다 먼저', C.notifyLog[0].time === '오후 02:30' && D.notifyLog[0].time === '오후 02:30');
+  // 두 PC가 동시에 새 기록 추가 → 둘 다 남는다(예전 덩어리 방식은 나중 저장이 덮어씀)
+  mark = feed.length;
+  C.notifyLog.unshift({ id: C.newLogEntryId_(), ch: 'Gmail', type: 'C안내', target: 'c', to: 'c@x.com', time: '오후 03:00', date: '2026-10-09', at: '2026-10-09T06:00:00.000Z' });
+  D.notifyLog.unshift({ id: D.newLogEntryId_(), ch: 'Gmail', type: 'D안내', target: 'd', to: 'd@x.com', time: '오후 03:01', date: '2026-10-09', at: '2026-10-09T06:01:00.000Z' });
+  await C.flushRowSync_(); await D.flushRowSync_();
+  deliver(C, mark); deliver(D, mark);
+  check('두 PC의 새 기록이 모두 남음', Object.keys(server.NotifyLog).length === 4 && C.notifyLog.length === 4 && D.notifyLog.length === 4, { server: Object.keys(server.NotifyLog).length, C: C.notifyLog.length, D: D.notifyLog.length });
+  check('최신 기록이 맨 앞', C.notifyLog[0].type === 'D안내' && D.notifyLog[0].type === 'D안내', [C.notifyLog[0].type, D.notifyLog[0].type]);
+  // 최대 개수(활동 기록 300) 초과분은 지워지고 시트에서도 삭제
+  for (let i = 0; i < 305; i++) C.activityLog.unshift({ id: 'A' + i, action: '테스트', detail: String(i), time: '오전 10:00', date: '2026-10-09', at: new Date(Date.parse('2026-10-09T01:00:00Z') + i * 1000).toISOString() });
+  C.ROW_SYNC_SHEETS_.ActivityLog.set(C.ROW_SYNC_SHEETS_.ActivityLog.list());
+  await C.flushRowSync_();
+  check('활동 기록은 최대 300개만 유지', C.activityLog.length === 300 && C.activityLog[0].id === 'A304', { len: C.activityLog.length, first: C.activityLog[0]?.id });
+  C.activityLog = C.activityLog.slice(0, 290);
+  await C.flushRowSync_();
+  check('지운 기록은 시트에서도 삭제', Object.keys(server.ActivityLog).length === 290, Object.keys(server.ActivityLog).length);
+}
 
 console.log(`Row sync tests: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

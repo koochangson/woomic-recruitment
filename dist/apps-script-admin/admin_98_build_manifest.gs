@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "74f7ffc36580",
+ "build": "46639f2fcac9",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_07_sheet_utils.gs",
@@ -1038,13 +1038,13 @@ const BUILD_MANIFEST_ = {
  },
  "html": {
   "app_css": "86f5b0b46b9e",
-  "js_00_core": "a499dcb6cb6a",
-  "js_01_sheets_sync": "03d78c9ad073",
-  "js_03_ui_dashboard": "c17b6fc65501",
+  "js_00_core": "e1907df630fe",
+  "js_01_sheets_sync": "6302b0c12c41",
+  "js_03_ui_dashboard": "43649c85f3e2",
   "js_04_referral": "e513dea75eb7",
   "js_05_candidates_reference": "0ed18a1f07fe",
   "js_06_onboarding_settings": "bcecfdff171a",
-  "js_07_state": "e6c0410d7393",
+  "js_07_state": "c447f492dc54",
   "js_20_positions": "046f6dd79f1f",
   "js_21_position_process": "36c35638a338",
   "js_30_interviews": "166de280d6d8",

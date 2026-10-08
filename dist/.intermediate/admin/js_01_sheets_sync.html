@@ -56,6 +56,8 @@ const GS_SCHEMA = {
   Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','rev','updatedAt'],
   Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','rev','updatedAt'],
   RefReports: ['id','candId','candName','pos','overall','expertise','character','leadership','reason','aiApplied','aiAppliedAt','aiAppliedBy','updatedBy','savedAt','rev','updatedAt'],
+  NotifyLog: ['id','ch','type','target','to','time','date','at','updatedAt'],
+  ActivityLog: ['id','action','detail','entityType','entityId','time','date','at','updatedAt'],
 };
 const GS_RETRY_KEY = 'woomic_gs_retry_v1';
 const GS_TOMBSTONE_KEY = 'woomic_gs_tombstones_v1';
@@ -1269,7 +1271,7 @@ function applyGsChanges(changes) {
   (changes || []).forEach(change => {
     const sheet = change.sheet;
     if(sheet === 'PanelAvailability') { if(applyPanelAvailabilityChange_(change)) applied++; return; }
-    if(sheet === 'Onboardings' || sheet === 'Offers' || sheet === 'RefReports') { if(typeof applyRowSyncChange_ === 'function' && applyRowSyncChange_(sheet, change)) { applied++; rowSyncTouched = true; } return; }
+    if(sheet === 'Onboardings' || sheet === 'Offers' || sheet === 'RefReports' || sheet === 'NotifyLog' || sheet === 'ActivityLog') { if(typeof applyRowSyncChange_ === 'function' && applyRowSyncChange_(sheet, change)) { applied++; rowSyncTouched = true; } return; }
     if(sheet === 'JoinDateRequests') { if(typeof applyJoinDateRequestChange_ === 'function' && applyJoinDateRequestChange_(change)) applied++; return; }
     if(!['Candidates','Interviews','Positions','Referrals','Rewards','RefRules','Employees','ReferenceCandidates','ReferenceResponses'].includes(sheet)) return;
     const rawId = change.id ?? change.data?.id;

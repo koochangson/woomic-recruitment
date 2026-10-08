@@ -754,7 +754,7 @@ function formatDate(val) {
 function today() { return localYmd_(); }
 
 function logNotify(ch, type, target, to) {
-  notifyLog.unshift({ ch, type, target, to, time:now(), date:today() });
+  notifyLog.unshift({ id:newLogEntryId_(), ch, type, target, to, time:now(), date:today(), at:new Date().toISOString() });
   const nb = document.getElementById('nb-notify');
   nb.style.display = ''; nb.textContent = notifyLog.length;
   updateSidebarUrgency();

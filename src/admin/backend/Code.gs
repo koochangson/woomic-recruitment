@@ -41,7 +41,7 @@ const CHANGE_COMPACT_BATCH_SIZE = 1000;
 const CHANGE_CURSOR_PROPERTY = 'RECRUITMENT_CHANGE_CURSOR_V1';
 const REVISIONED_SHEETS = ['Candidates', 'Interviews', 'Positions', 'Onboardings', 'Offers', 'RefReports'];
 // 처음 만들 때 모든 칸을 텍스트 형식으로 두는 시트(날짜·시각·연락처를 그대로 보관)
-const TEXT_FORMAT_SHEETS = ['Onboardings', 'Offers', 'RefReports'];
+const TEXT_FORMAT_SHEETS = ['Onboardings', 'Offers', 'RefReports', 'NotifyLog', 'ActivityLog'];
 const REFERRAL_EMPLOYEE_DIRECTORY_SHEETS = ['Interviewers', 'Employees'];
 const REFERRAL_EMPLOYEE_DIRECTORY_URL_SETTING_KEYS = ['referralEmployeeDirectoryUrl', 'interviewerUrl'];
 const REFERRAL_DATA_SHEETS = ['Referrals', 'Rewards', 'RefRules'];
@@ -101,7 +101,10 @@ const SHEET_SCHEMAS = {
   Onboardings: ['id','candId','candName','pos','etype','dept','deptLead','joinDate','rank','cl','loc','joinTime','reportLocation','notes','nameEn','phone','preDeadline','notified','notifiedAt','deptNotified','deptNotifiedAt','rev','updatedAt'],
   Offers: ['id','candId','candName','org','etypeText','rank','cl','salary','salaryNote','allowances','allowanceItems','allowanceExtra','benefits','probation','healthDeadline','healthStatus','healthResultAt','acceptance','acceptanceAt','sentAt','rev','updatedAt'],
   // 레퍼런스 결과 정리(지원자별 1줄, id = 지원자 id). 예전에는 설정 시트의 보조 데이터 덩어리(auxState)에 있었다.
-  RefReports: ['id','candId','candName','pos','overall','expertise','character','leadership','reason','aiApplied','aiAppliedAt','aiAppliedBy','updatedBy','savedAt','rev','updatedAt']
+  RefReports: ['id','candId','candName','pos','overall','expertise','character','leadership','reason','aiApplied','aiAppliedAt','aiAppliedBy','updatedBy','savedAt','rev','updatedAt'],
+  // 알림·활동 기록(추가만 하는 기록, id = 화면이 만든 고유값). 예전에는 설정 시트의 보조 데이터 덩어리에 있었다.
+  NotifyLog: ['id','ch','type','target','to','time','date','at','updatedAt'],
+  ActivityLog: ['id','action','detail','entityType','entityId','time','date','at','updatedAt']
 };
 
 function doGet(e) {
