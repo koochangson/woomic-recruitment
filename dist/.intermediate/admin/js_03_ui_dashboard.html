@@ -181,9 +181,10 @@ let viewRefreshTimer_ = null;
 let viewRefreshRendering_ = false;
 let viewRefreshWaitingBlur_ = false;
 function scheduleViewRefresh_() {
-  if(viewRefreshRendering_) return;
-  clearTimeout(viewRefreshTimer_);
-  viewRefreshTimer_ = setTimeout(runViewRefresh_, 80);
+  if(viewRefreshRendering_ || viewRefreshTimer_ !== null) return;
+  // 같은 처리 안에서 saveState()가 여러 번 불려도 다음 이벤트 루프에서 한 번만 그린다.
+  // 기존 80ms 재예약 방식은 연속 저장 때마다 표시를 늦추고 이미 한 수동 렌더까지 다시 실행했다.
+  viewRefreshTimer_ = setTimeout(runViewRefresh_, 0);
 }
 function viewRefreshEditingElement_() {
   const active = document.activeElement;
@@ -204,8 +205,14 @@ function runViewRefresh_() {
   }
   viewRefreshRendering_ = true;
   try {
-    if(typeof renderGsPolledChanges_ === 'function') renderGsPolledChanges_();
     const current = document.querySelector('.sect.on')?.id || '';
+    if(typeof updateMetrics === 'function') updateMetrics();
+    if(typeof renderDashboard === 'function') renderDashboard();
+    if(current === 'sect-recruit-status' && typeof renderRecruitStatus === 'function') renderRecruitStatus();
+    if(current === 'sect-tracker' && typeof renderTracker === 'function') renderTracker();
+    if(current === 'sect-position' && typeof renderPositions === 'function') renderPositions();
+    if(current === 'sect-interview' && typeof renderIntTable === 'function') renderIntTable();
+    if(current === 'sect-referral' && typeof renderReferralSection === 'function') renderReferralSection();
     if(current === 'sect-reference' && typeof renderReference === 'function') {
       renderReference();
       if(typeof autoGrowRefReportTextareas_ === 'function') autoGrowRefReportTextareas_();
@@ -214,6 +221,14 @@ function runViewRefresh_() {
     if(current === 'sect-notifylog') {
       if(typeof renderNotifyLog === 'function') renderNotifyLog();
       if(typeof renderActivityLog === 'function') renderActivityLog();
+      if(typeof renderPeriodReport === 'function') renderPeriodReport();
+    }
+    if(current === 'sect-settings') {
+      if(typeof renderTeamMaster === 'function') renderTeamMaster();
+      if(typeof renderNotifyTeamChips_ === 'function') renderNotifyTeamChips_();
+    }
+    if(current === 'sect-posdetail' && typeof currentPosDetailId !== 'undefined' && currentPosDetailId != null && typeof refreshOpenPositionDetail === 'function') {
+      refreshOpenPositionDetail(currentPosDetailId);
     }
   } catch(error) {
     console.warn('[view refresh] 화면 갱신 실패', error);

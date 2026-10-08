@@ -162,11 +162,9 @@ function linkCandToPos(candId, posId) {
   saveState();
   if(GS_CONFIG.scriptUrl) {
     syncCandToGS(c).then(() => {
-      renderPositions();
       openPosDetail(Number(posId));
     });
   } else {
-    renderPositions();
     openPosDetail(Number(posId));
   }
 }
@@ -232,7 +230,6 @@ async function closePosition(posId) {
   logActivity(pos.status === 'partial' ? '부분충원 완료' : '충원완료', `${pos.title} ${passed}/${hc}명`, 'position', posId);
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
-  renderPositions(); renderDashboard();
   toast(`'${pos.title}' ${pos.status === 'partial' ? '부분충원' : '충원완료'} 처리`, 'tok');
   // 보류만 하면 진행 중이던 지원자는 결과를 통보받지 못한다 — 마감 안내(불합격) 발송을 선택하게 한다.
   if(heldIds.length) await offerClosingRejection_(pos, heldIds, pos.status === 'partial' ? '부분충원' : '충원완료');
@@ -304,7 +301,6 @@ async function stopPosition(posId) {
   logActivity('채용 중단', `${pos.title}${pos.closeReason ? ' · ' + pos.closeReason : ''}`, 'position', posId);
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
-  renderPositions(); renderDashboard();
   toast(`'${pos.title}' 채용 중단 처리`, 'tok');
   if(heldIds.length) await offerClosingRejection_(pos, heldIds, '채용 중단');
 }
@@ -331,7 +327,6 @@ async function reopenPosition(posId) {
   }
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(pos);
-  renderPositions(); renderDashboard();
   toast(`'${esc(pos.title)}' 진행중으로 복원`, 'tok');
 }
 
@@ -450,11 +445,6 @@ function savePosition() {
   closeModal('modal-position');
   saveState();
   if(GS_CONFIG.scriptUrl && typeof syncPosToGS === 'function') syncPosToGS(posData);
-  renderPositions();
-  renderDashboard(); // 대시보드 칸반(미배정 스트립 포함) 즉시 반영
-  if(currentPosDetailId && Number(currentPosDetailId) === Number(posData.id) && document.getElementById('sect-posdetail')?.classList.contains('on')) {
-    renderPosDetailSection(posData.id);
-  }
 }
 
 async function deletePosition(posId) {
@@ -477,7 +467,6 @@ async function deletePosition(posId) {
   positions = positions.filter(p => p.id !== posId);
   saveState();
   if(GS_CONFIG.scriptUrl && typeof deletePosFromGS === 'function') await deletePosFromGS(posId);
-  renderPositions(); renderDashboard();
   toast(`${esc(pos.title)} 삭제 완료`, 'tok');
 }
 

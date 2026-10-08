@@ -761,8 +761,7 @@ async function proceedToPanelCheck() {
 
 // 면접관 일정 요청·확인을 저장한 뒤 뒤쪽 화면(처리 필요 업무, 포지션 상세, 칸반)도 바로 갱신한다.
 function rerenderAfterPanelAvailabilitySave_(posId) {
-  renderDashboard(); renderTracker(); renderPositions();
-  refreshOpenPositionDetail(posId);
+  if(typeof scheduleViewRefresh_ === 'function') scheduleViewRefresh_();
 }
 
 async function confirmPanelAvailabilityAndContinue() {
@@ -1141,8 +1140,6 @@ function closeCollectSend() {
   const posId = collectSendQueue ? collectSendQueue.posId : null;
   collectSendQueue = null;
   closeModal('modal-collect-send');
-  renderDashboard(); renderTracker(); renderPositions();
-  if(typeof renderIntTable === 'function') renderIntTable();
   if(posId != null) openPosDetail(Number(posId));
 }
 

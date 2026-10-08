@@ -499,8 +499,6 @@ function saveReferralStatus(id) {
       if(btn) btn.className = `btn btn-sm ${v===referralView?'btn-primary':'btn-ghost'}`;
     });
   }
-  renderReferralSection();
-  updateMetrics();
 }
 function createCandidateFromReferral(id) {
   const ref = referrals.find(r=>String(r.id)===String(id));
@@ -532,7 +530,6 @@ function createCandidateFromReferral(id) {
   if(ref.status==='SUBMITTED'||ref.status==='REVIEWING') ref.status = 'IN_PROCESS';
   saveState();
   if(GS_CONFIG.scriptUrl) settleSync([() => syncCandToGS(cand), () => syncReferralToGS(ref)], '사내추천 후보 생성');
-  renderReferralSection(); renderTracker(); renderDashboard();
   toast(`${esc(cand.name)} 후보를 생성하고 추천 건과 연결했습니다.`,'tok');
 }
 function syncReferralFromCandidate(cand, options={}) {
@@ -775,7 +772,6 @@ async function saveReferralEmployee() {
   employees = mergeEmployeeRecords(employees.filter(e=>normalizeReferralEmail(e.email)!==row.email), [row]);
   saveState();
   const synced = GS_CONFIG.scriptUrl ? await syncEmployeeToGS(row) : null;
-  renderReferralSection();
   const viaFrame = synced?.status === 'sent-via-frame';
   toast(GS_CONFIG.scriptUrl ? (synced ? (viaFrame ? '인증 DB 저장 요청을 Google Sheets로 전송했습니다. 잠시 후 인증 DB 동기화로 확인해 주세요.' : '인증 DB를 저장하고 Google Sheets에 반영했습니다.') : '인증 DB는 로컬 저장됐지만 Google Sheets 반영에 실패했습니다.') : '인증 DB를 로컬에 저장했습니다.', synced || !GS_CONFIG.scriptUrl ? 'tok' : 'tw');
 }

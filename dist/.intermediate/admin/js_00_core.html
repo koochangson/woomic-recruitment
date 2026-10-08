@@ -1114,7 +1114,6 @@ function linkCandFromUnlinked(candId) {
   linkCandToPos(candId, posId);
   logActivity('포지션 연결', `미연결 합격자 연결`, 'candidate', candId);
   showUnlinkedList();
-  renderDashboard(); renderTracker();
 }
 
 function openMailtoWithConfirm(meta, toEmail, subject, body, sequential) {
@@ -1167,7 +1166,6 @@ function confirmPendingMail() {
   pendingMailMeta = null;
   dismissPendingMail();
   saveState();
-  renderDashboard(); renderTracker(); renderIntTable();
 }
 
 function getMailPendingItems() {
@@ -1291,7 +1289,6 @@ async function executeNohireWizard() {
   closeModal('modal-nohire-wizard');
   if(Number(currentPosDetailId) === Number(posId)) nav('position');
   pendingNohirePosId = null;
-  renderPositions(); renderDashboard();
   if(document.getElementById('sect-posdetail')?.classList.contains('on')) nav('position');
   if(rejected.length) {
     // 실패 건은 '불합격 안내 재발송 필요'로 남아 처리 필요 목록에서 재발송할 수 있다.
@@ -1353,7 +1350,6 @@ function executeBulkAdd() {
   logActivity('일괄 등록', `${pos.title} ${ok}명`, 'position', posId);
   saveState();
   closeModal('modal-bulk-add');
-  renderDashboard(); renderTracker(); renderPositions();
   toast(`일괄 등록 ${ok}명 완료${skip?` (${skip}건 건너뜀)`:''}`, 'tok');
 }
 
@@ -1497,7 +1493,7 @@ async function purgeExpiredPii() {
   offers = offers.filter(o => !ids.has(Number(o.candId)));
   ids.forEach(id => { delete refDetails[id]; delete refReports[id]; });
   logActivity('개인정보 파기', `보존기한 경과 지원자 ${ids.size}명`, 'privacy', 'retention');
-  saveState(); renderExpiredPii(); renderDashboard(); renderTracker(); renderPositions(); renderReference(); renderOnboarding();
+  saveState(); renderExpiredPii();
   toast(`지원자 ${ids.size}명의 개인정보를 파기했습니다.`,'tok');
 }
 function lockPrivacyScreen() {

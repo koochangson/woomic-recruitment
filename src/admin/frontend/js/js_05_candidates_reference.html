@@ -424,10 +424,7 @@ async function confirmStageChangeInner_() {
   }
   closeModal('modal-confirm-stage');
   pendingStageChange = null;
-  renderTracker(); renderDashboard(); renderPositions(); renderReferralSection();
-  refreshOpenPositionDetail(c.posId);
   if(stageMailSent) toast(`${esc(c.name)} → ${STAGES[newStage]} · 안내 메일을 발송했습니다.`, 'tok');
-  saveState();
   // 포지션 상세에서 진입한 경우 복귀
   if(returnToPosId != null) {
     const pid = returnToPosId;
@@ -515,10 +512,6 @@ async function saveIntResult() {
   }
   editingInterviewResultId = null;
   closeModal('modal-interview-result');
-  renderIntTable();
-  renderDashboard();
-  renderTracker();
-  renderPositions();
 }
 
 async function addCandidate() {
@@ -905,7 +898,7 @@ async function quickNotify(id, ch) {
     });
     return;
   }
-  saveState(); renderTracker(); renderDashboard();
+  saveState();
   closeModal('modal-detail');
 }
 
@@ -1025,7 +1018,7 @@ async function sendIntNotify(ch) {
     itv.candidateNotified = true; itv.candNotified = true; cand.notified = true;
     return;
   }
-  saveState(); renderIntTable(); renderDashboard();
+  saveState();
 }
 
 function renderIntTable() {
@@ -1076,9 +1069,9 @@ async function sendIntById(id, ch) {
     i.candidateNotified = true; i.candNotified = true; if(c) c.notified = true;
     return;
   }
-  saveState(); renderIntTable(); renderDashboard();
+  saveState();
 }
-function delInt(id) { if(GS_CONFIG.scriptUrl) deleteIntFromGS(id); interviews=interviews.filter(i=>i.id!==id); saveState(); renderIntTable(); updateMetrics(); }
+function delInt(id) { if(GS_CONFIG.scriptUrl) deleteIntFromGS(id); interviews=interviews.filter(i=>i.id!==id); saveState(); }
 
 // ══════════════════════════════════════════════════════════════
 // 레퍼런스 체크
@@ -1543,7 +1536,7 @@ function markRefResponse(candId,ri){
   refDetails[candId][ri].status='응답';
   c.refD=refDetails[candId].filter(r=>r.status==='응답').length;
   if(c.refD>=c.refT)c.ref='완료';
-  saveState();renderReference();selectRefCand(candId);updateMetrics();
+  saveState();selectRefCand(candId);
 }
 function markOneResponse(id){
   const c=candidates.find(x=>x.id===id);if(!c||c.ref!=='진행중')return;
@@ -1553,7 +1546,7 @@ function markOneResponse(id){
   const target=refDetails[id].find(r=>r.status==='등록') || refDetails[id].find(r=>r.status==='대기');
   if(target){target.status='응답';c.refD++;}
   if(c.refD>=c.refT)c.ref='완료';
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);if(selectedRefCandId===id)selectRefCand(id);
 }
 async function startRef(id, resend=false){
   const c=candidates.find(x=>x.id===id);if(!c)return false;
@@ -1584,7 +1577,7 @@ async function startRef(id, resend=false){
     c.refD=0;
     ensureRefDetails(c);
   }
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);
   toast(`${esc(c.name)}님 레퍼런스 ${resend?'재요청':'안내'} 메일 발송 완료`,'tok');
   return true;
 }
@@ -1615,7 +1608,7 @@ async function startAllEligible(){
     referenceSendingIds.delete(c.id);
     if(sent) idx++;
   }
-  saveState();renderReference();updateMetrics();
+  saveState();
   toast(`${idx}명 레퍼런스 안내 처리 완료`,'tok');
 }
 // 레퍼런스 리마인드 메일 본문 (템플릿 기반)
@@ -1659,18 +1652,18 @@ function completeRef(id){
   if(!refs.length){toast('아직 등록된 추천인이 없어 완료 처리할 수 없습니다. 생략이 필요하면 지원자 상세에서 생략 사유를 입력해 주세요.','terr');return;}
   c.ref='완료';c.refD=c.refT;
   refs.forEach(r=>r.status='응답');
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();updateMetrics();if(selectedRefCandId===id)selectRefCand(id);
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);if(selectedRefCandId===id)selectRefCand(id);
 }
 // 2차 면접관 안내 후 레퍼런스가 완료된 경우 보고서를 별도 전달한 이력을 남긴다.
 function markReferenceReportSent(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   c.refReportSentAt=new Date().toISOString();
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);
 }
 function unmarkReferenceReportSent(id){
   const c=candidates.find(x=>x.id===id);if(!c)return;
   c.refReportSentAt='';
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderReference();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);
 }
 function parseAIRefSections(rawText) {
   const result = { overall:'', expertise:'', character:'', leadership:'', reason:'' };

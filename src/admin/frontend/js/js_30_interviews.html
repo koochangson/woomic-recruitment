@@ -87,8 +87,6 @@ async function applyInterviewConfirm() {
     if(result.failed) return;
   }
   closeModal('modal-confirm-int');
-  if(typeof renderIntTable === 'function') renderIntTable();
-  renderTracker(); updateMetrics(); renderPositions();
   toast(`${itv.candName} ${itv.type} 면접 일정 확정 (${fmtItv(itv.date)}) · 안내 메일은 "면접 안내"에서 발송해 주세요.`, 'tok');
   // 포지션 상세에서 진입한 경우 다시 열기
   if(returnToPosId != null) {
@@ -111,7 +109,6 @@ async function markInterviewDone(intId) {
   itv.status = 'done';
   if(GS_CONFIG.scriptUrl) syncIntToGS(itv);
   saveState();
-  if(typeof renderIntTable === 'function') renderIntTable();
   closeModal('modal-detail');
 }
 

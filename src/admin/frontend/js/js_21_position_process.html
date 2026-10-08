@@ -688,7 +688,6 @@ async function completePositionInterviews(positionId, stageIdx) {
   targets.forEach(i=>{ i.status='done'; });
   saveState();
   if(GS_CONFIG.scriptUrl) await settleSync(targets.map(i=>()=>syncIntToGS(i)), `${round} 면접 완료 동기화`);
-  refreshOpenPositionDetail(positionId); renderDashboard();
 }
 
 async function requestPositionReferences(positionId) {
@@ -1042,7 +1041,6 @@ async function confirmStageDecisions(posId, stageIdx, options={}) {
     const mail = await sendRejectionNotices_(failers);
     rejectMailNote = mail.failed ? ` · 불합격 안내 ${mail.sent}건 발송, ${mail.failed}건 재발송 필요` : ` · 불합격 안내 ${mail.sent}건 발송`;
   }
-  renderPositions(); renderDashboard();
   // 다음 작업 창으로 바로 이어지는 경우에는 결과 알림을 띄우지 않는다(창이 다음 할 일을 보여 줌).
   // 단, 불합격 안내 메일 발송 실패는 다음 창에 나오지 않으므로 경고로 알린다.
   const warnRejectMailFailure_ = () => { if(rejectMailNote.includes('재발송')) toast(`불합격 안내 메일 일부를 보내지 못했습니다${rejectMailNote}. 처리 필요 업무에서 다시 보내 주세요.`, 'tw'); };
@@ -1262,7 +1260,6 @@ async function batchStageChange(posId, fromStage, toStage) {
     ...completedInterviews.map(i => () => syncIntToGS(i)),
     ...removedInterviewIds.map(id => () => deleteIntFromGS(id)),
   ], movingBackward ? '단계 일괄 되돌리기 동기화' : '단계 일괄 이동 동기화');
-  renderDashboard(); renderTracker(); renderPositions();
   toast(`${targets.length}명 ${STAGES[toStage]} 단계로 일괄 이동 완료`, 'tok');
 }
 

@@ -11,7 +11,7 @@
     "accessibility:check": "node scripts/accessibility-check.mjs",
     "syntax:check": "node scripts/syntax-check.mjs",
     "deployment:ready": "node scripts/deployment-readiness.mjs",
-    "test": "node scripts/test-backend.mjs && node scripts/test-row-sync.mjs && node scripts/test-deployment-parts.mjs",
+    "test": "node scripts/test-backend.mjs && node scripts/test-row-sync.mjs && node scripts/test-deployment-parts.mjs && node scripts/test-view-refresh.mjs",
     "backend:drift": "node scripts/check-backend-drift.mjs",
     "clasp:sync-admin": "node tools/sync_admin_clasp.js",
     "clasp:push-admin": "node tools/deploy_admin_clasp.js",

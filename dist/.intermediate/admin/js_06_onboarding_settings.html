@@ -499,7 +499,7 @@ function addOnboarding(){
     } else {
       toast(`${c.name}님 입사 정보를 수정했습니다.`, 'tok');
     }
-    saveState(); if(GS_CONFIG.scriptUrl) syncCandToGS(c); renderOnboarding(); updateMetrics(); renderDashboard();
+    saveState(); if(GS_CONFIG.scriptUrl) syncCandToGS(c);
     return;
   }
   onboardings.push({
@@ -520,7 +520,7 @@ function addOnboarding(){
   if(c.stage<5)c.stage=5;
   c.joinDate = jd;
   syncReferralFromCandidate(c, {joinDate:jd});
-  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);renderOnboarding();updateMetrics();updateObSendButton_();
+  saveState();if(GS_CONFIG.scriptUrl)syncCandToGS(c);updateObSendButton_();
   renderOnboardingPositionFinalists(c.posId,c.id);
 }
 
@@ -862,7 +862,7 @@ async function sendObNotify(ch){
   ob.notified=true;
   ob.notifiedAt=new Date().toISOString();
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c.email);
-  saveState();renderOnboarding();renderDashboard();updateObSendButton_();
+  saveState();updateObSendButton_();
   toast(`${ob.candName}님에게 입사 안내 메일 발송 완료`,'tok');
 }
 
@@ -959,7 +959,7 @@ async function sendObById(id,ch){
   ob.notified=true;
   ob.notifiedAt=new Date().toISOString();
   logNotify(ch==='teams'?'Teams':'Gmail','입사안내-지원자',ob.candName,c?.email||'');
-  saveState();renderOnboarding();renderDashboard();updateObSendButton_();
+  saveState();updateObSendButton_();
   toast(`${ob.candName}님에게 입사 안내 메일 발송 완료`,'tok');
 }
 

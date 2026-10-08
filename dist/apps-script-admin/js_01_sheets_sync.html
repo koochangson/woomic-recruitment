@@ -1429,6 +1429,10 @@ async function syncReferralCoreFromGS(options={}) {
 }
 
 function renderGsPolledChanges_() {
+  if(typeof scheduleViewRefresh_ === 'function') {
+    scheduleViewRefresh_();
+    return;
+  }
   renderDashboard();
   renderRecruitStatus();
   renderTracker();
