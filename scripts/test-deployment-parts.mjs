@@ -29,12 +29,22 @@ function loadBundle({ replaceGs = {}, replaceHtml = {}, skip = [] } = {}) {
       Charset: { UTF_8: 'utf8' },
     },
     CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; } }) },
-    HtmlService: { createHtmlOutputFromFile: name => {
-      const file = path.join(adminDistDir, name + '.html');
-      if (!fs.existsSync(file)) throw new Error('not found');
-      const content = replaceHtml[name] ?? fs.readFileSync(file, 'utf8');
-      return { getContent: () => content };
-    } },
+    HtmlService: {
+      createTemplateFromFile: name => {
+        const file = path.join(adminDistDir, name + '.html');
+        if (!fs.existsSync(file)) throw new Error('not found');
+        const content = replaceHtml[name] ?? fs.readFileSync(file, 'utf8');
+        return { getRawContent: () => content };
+      },
+      // Apps Script의 HtmlOutput은 원문을 정규화할 수 있다. 배포 지문 검사는 이 값을
+      // 사용하지 않아야 하므로 테스트에서는 의도적으로 다른 내용을 돌려준다.
+      createHtmlOutputFromFile: name => {
+        const file = path.join(adminDistDir, name + '.html');
+        if (!fs.existsSync(file)) throw new Error('not found');
+        const content = replaceHtml[name] ?? fs.readFileSync(file, 'utf8');
+        return { getContent: () => '<!-- normalized -->' + content };
+      },
+    },
   };
   vm.createContext(ctx);
   // Apps Script처럼 .gs 파일을 업로드 목록 순서대로 한 전역 공간에 올린다.

@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "f8689adc8b1d",
+ "build": "65a799300cc5",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_08_referral_tokens.gs",
@@ -129,7 +129,7 @@ const BUILD_MANIFEST_ = {
   ],
   "checkDeploymentParts_": [
    "admin_09_auth.gs",
-   "f3793c157639"
+   "4fd4f76d06c3"
   ],
   "clearAdminLoginFailures_": [
    "admin_09_auth.gs",

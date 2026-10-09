@@ -2501,7 +2501,9 @@ function checkDeploymentParts_() {
   const htmlNames = Object.keys(manifest.html || {});
   htmlNames.forEach(function(name) {
     let content = null;
-    try { content = HtmlService.createHtmlOutputFromFile(name).getContent(); } catch (err) {}
+    // HtmlOutput.getContent()는 Apps Script가 정규화한 HTML을 반환하므로 원본 빌드 지문과
+    // 다를 수 있다. 배포된 파일 원문을 반환하는 HtmlTemplate API로 비교한다.
+    try { content = HtmlService.createTemplateFromFile(name).getRawContent(); } catch (err) {}
     if (content == null || fingerprint(content) !== manifest.html[name]) htmlFiles.push(name + '.html');
   });
   const gsUnreliable = fnTotal > 0 && fnMismatch === fnTotal;
