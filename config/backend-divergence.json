@@ -68,7 +68,7 @@
     },
     "routeRequest_": {
       "reason": "배포 역할별 라우팅(공개는 관리자 액션 차단).",
-      "admin": "869f28de015e68ed",
+      "admin": "f7684b813ec893a0",
       "public": "e0666424d71e7bfa"
     },
     "sendCohortCompleteNotice_": {

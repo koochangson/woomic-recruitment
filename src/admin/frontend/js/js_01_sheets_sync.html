@@ -514,7 +514,7 @@ async function checkAdminDeploymentConfig_() {
 }
 
 async function gsFetch(action, sheet, data={}, options={}) {
-  const isWrite = action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow';
+  const isWrite = action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow' || action === 'deleteRows';
   gsLastError_ = '';
   if(isAppsScriptDashboard_()) {
     try {
@@ -577,7 +577,7 @@ async function gsFetch(action, sheet, data={}, options={}) {
 
 function gsSendViaHiddenFrame(action, sheet, data={}) {
   if(!GS_CONFIG.scriptUrl) return Promise.resolve(false);
-  if(action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow') return Promise.resolve(false);
+  if(action === 'upsert' || action === 'batchUpsert' || action === 'replaceAll' || action === 'deleteRow' || action === 'deleteRows') return Promise.resolve(false);
   return new Promise(resolve => {
     try {
       const url = new URL(gsBaseUrlForSheet_(sheet));

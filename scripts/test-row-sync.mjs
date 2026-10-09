@@ -24,6 +24,8 @@ const schemaCode = 'var GS_SCHEMA = {' + ['Onboardings', 'Offers', 'RefReports',
   return m[0];
 }).join(',\n') + '};';
 
+const requests = { deleteRow: 0, deleteRows: 0 };
+let serverKnowsDeleteRows = true;
 const server = { Onboardings: {}, Offers: {}, RefReports: {}, NotifyLog: {}, ActivityLog: {} };
 const feed = [];
 function serverBatchUpsert(sheet, rows) {
@@ -66,9 +68,17 @@ function makePc() {
     gsGetAllResult: async sheet => ({ data: Object.values(server[sheet]).map(row => ({ ...row })) }),
     gsFetch: async (action, sheet, data) => {
       if (action === 'batchUpsert') return serverBatchUpsert(sheet, data);
+      if (action === 'deleteRows') {
+        if (!serverKnowsDeleteRows) { ctx.gsLastError_ = 'unknown_action'; return null; }
+        requests.deleteRows++;
+        data.ids.forEach(id => { delete server[sheet][id]; feed.push({ sheet, action: 'delete', id }); });
+        return { status: 'deleted', ids: data.ids };
+      }
+      requests.deleteRow++;
       delete server[sheet][data.id];
       return { status: 'deleted' };
     },
+    gsLastError_: '',
   };
   ctx.showRevisionConflict_ = () => { ctx.conflictNotices++; };
   vm.createContext(ctx);
@@ -194,9 +204,18 @@ check('지운 결과 정리는 서버에서도 삭제', !server.RefReports['10']
   C.ROW_SYNC_SHEETS_.ActivityLog.set(C.ROW_SYNC_SHEETS_.ActivityLog.list());
   await C.flushRowSync_();
   check('활동 기록은 최대 300개만 유지', C.activityLog.length === 300 && C.activityLog[0].id === 'A304', { len: C.activityLog.length, first: C.activityLog[0]?.id });
+  const before = { ...requests };
   C.activityLog = C.activityLog.slice(0, 290);
   await C.flushRowSync_();
   check('지운 기록은 시트에서도 삭제', Object.keys(server.ActivityLog).length === 290, Object.keys(server.ActivityLog).length);
+  check('지운 기록 10건을 한 번의 요청으로 삭제', requests.deleteRows - before.deleteRows === 1 && requests.deleteRow === before.deleteRow, requests);
+  // 예전 서버(deleteRows 없음)면 한 건씩 지운다
+  serverKnowsDeleteRows = false;
+  const beforeOld = { ...requests };
+  C.activityLog = C.activityLog.slice(0, 287);
+  await C.flushRowSync_();
+  check('예전 서버면 한 건씩 삭제로 대신함', Object.keys(server.ActivityLog).length === 287 && requests.deleteRow - beforeOld.deleteRow === 3, { left: Object.keys(server.ActivityLog).length, requests });
+  serverKnowsDeleteRows = true;
 }
 
 console.log(`Row sync tests: ${pass} passed, ${fail} failed`);

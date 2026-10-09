@@ -176,8 +176,51 @@ function routeRequest_(payload) {
   if (action === 'batchUpsert') return batchUpsert_(sheetName, data, isAdmin);
   if (action === 'replaceAll') return replaceAll_(sheetName, data, isAdmin);
   if (action === 'deleteRow') return deleteRow_(sheetName, data.id);
+  if (action === 'deleteRows') return deleteRows_(sheetName, data.ids);
 
   return json_({ error: 'unknown_action' });
+}
+
+// 여러 행을 한 번에 지운다(줄 동기화에서 최대 개수·보존기간으로 빠진 알림·활동 기록 정리 등).
+// 키 열을 한 번만 읽고 아래쪽 행부터 연속 구간 단위로 지워 번호가 밀리지 않게 한다. 이미 없는 id는 건너뛰고
+// 요청한 id는 모두 삭제로 기록한다(다른 PC가 먼저 지운 경우에도 성공).
+const DELETE_ROWS_MAX_IDS = 500;
+function deleteRows_(sheetName, ids) {
+  const targets = Array.from(new Set((Array.isArray(ids) ? ids : [])
+    .map(id => String(id == null ? '' : id).trim())
+    .filter(Boolean)));
+  if (!targets.length) return json_({ error: 'missing_id' });
+  if (targets.length > DELETE_ROWS_MAX_IDS) return json_({ error: 'too_many_ids' });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = ensureSheet_(sheetName);
+    const headers = ensureHeaders_(sheet, SHEET_SCHEMAS[sheetName]);
+    const keyIndex = headers.indexOf(primaryKey_(sheetName));
+    if (keyIndex < 0) return json_({ error: 'missing_key_column' });
+    const lastRow = sheet.getLastRow();
+    const wanted = new Set(targets);
+    const rowNumbers = [];
+    if (lastRow >= 2) {
+      sheet.getRange(2, keyIndex + 1, lastRow - 1, 1).getValues().forEach(function(values, index) {
+        if (wanted.has(String(values[0] == null ? '' : values[0]).trim())) rowNumbers.push(index + 2);
+      });
+    }
+    rowNumbers.sort(function(a, b) { return b - a; });
+    let removed = 0;
+    for (let i = 0; i < rowNumbers.length;) {
+      // 아래쪽부터 이어진 행 묶음(예: 40,39,38)을 한 번에 지운다
+      let count = 1;
+      while (i + count < rowNumbers.length && rowNumbers[i + count] === rowNumbers[i] - count) count++;
+      sheet.deleteRows(rowNumbers[i] - count + 1, count);
+      removed += count;
+      i += count;
+    }
+    appendChanges_(targets.map(function(id) { return { sheetName: sheetName, action: 'delete', id: id, data: {} }; }));
+    return json_({ status: 'deleted', ids: targets, removed: removed, cursor: getChangeCursor_(), serverTime: nowIso_() });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 const MAIL_ATTACHMENT_MAX_TOTAL_BYTES = 15 * 1024 * 1024;

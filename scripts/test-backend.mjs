@@ -662,5 +662,27 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   check('공개 오류: 관리자 액션 차단 코드는 그대로', run('doGet({ parameter: { action: "issueJoinDateLink" } })').error === 'not_available');
 }
 
+// ── 여러 행 한 번에 삭제(deleteRows): 떨어진 행·없는 id·개수 제한 ──
+{
+  const { run, ctx } = loadBackend(adminGsSource);
+  const headers = run('SHEET_SCHEMAS.ActivityLog');
+  const rows = [headers.slice()];
+  for (let i = 1; i <= 12; i++) rows.push(headers.map(h => (h === 'id' ? 'A' + i : h === 'action' ? '작업' + i : '')));
+  const sheet = memorySheet(rows);
+  const changes = [];
+  Object.assign(ctx, {
+    ensureSheet_: () => sheet,
+    ensureHeaders_: (sh, schema) => schema,
+    appendChanges_: list => { changes.push(...list); },
+    getChangeCursor_: () => 1,
+  });
+  const r = run('deleteRows_("ActivityLog", ["A2","A3","A4","A9","A12","없는id"])');
+  const left = sheet.rows.slice(1).map(row => row[headers.indexOf('id')]);
+  check('deleteRows: 떨어진 행들을 정확히 삭제', r.status === 'deleted' && r.removed === 5 && JSON.stringify(left) === JSON.stringify(['A1','A5','A6','A7','A8','A10','A11']), { r, left });
+  check('deleteRows: 요청한 id를 모두 삭제로 기록(없던 id 포함)', changes.length === 6 && changes.every(c => c.action === 'delete'), changes.length);
+  check('deleteRows: 빈 요청은 오류', run('deleteRows_("ActivityLog", [])').error === 'missing_id');
+  check('deleteRows: 한 번에 너무 많으면 오류', run('deleteRows_("ActivityLog", Array.from({ length: 501 }, (_, i) => "X" + i))').error === 'too_many_ids');
+}
+
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

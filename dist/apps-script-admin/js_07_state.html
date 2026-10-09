@@ -302,10 +302,21 @@ async function flushRowSync_() {
           snap[key] = rowSyncFingerprint_(sheet, rec);
         });
       }
-      for(const key of removed) {
-        const result = await gsFetch('deleteRow', sheet, { id:key }, { allowQueue:false });
-        if(result == null || result?.error) { scheduleRowSync_(15000); continue; }
-        delete snap[key];
+      // 사라진 기록은 한 번에 지운다(알림·활동 기록은 최대 개수를 넘으면 기록할 때마다 오래된 것이 빠진다).
+      // 서버가 아직 deleteRows를 모르면(예전 배포) 한 건씩 지운다.
+      if(removed.length) {
+        const batch = await gsFetch('deleteRows', sheet, { ids:removed }, { allowQueue:false });
+        if(batch && !batch.error) {
+          removed.forEach(key => { delete snap[key]; });
+        } else if(gsLastError_ === 'unknown_action' || batch?.error === 'unknown_action') {
+          for(const key of removed) {
+            const result = await gsFetch('deleteRow', sheet, { id:key }, { allowQueue:false });
+            if(result == null || result?.error) { scheduleRowSync_(15000); continue; }
+            delete snap[key];
+          }
+        } else {
+          scheduleRowSync_(15000);
+        }
       }
     }
     persistRowSyncSnapshot_();
