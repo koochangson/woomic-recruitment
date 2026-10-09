@@ -1095,8 +1095,8 @@ function showUnlinkedList() {
     body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--green);font-size:13px">미연결 합격자가 없습니다.</div>';
   } else {
     body.innerHTML = list.map(c => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="flex:1">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1 1 200px;min-width:0">
           <div style="font-weight:700">${esc(c.name)}</div>
           <div style="font-size:11px;color:var(--t3)">${esc(c.pos)} · ${esc(c.email)} · ${STAGES[c.stage]}</div>
         </div>
@@ -1105,9 +1105,83 @@ function showUnlinkedList() {
           ${positions.filter(p=>posStatus(p)==='active').map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join('')}
         </select>
         <button class="btn btn-xs btn-primary" data-action="call" data-call="linkCandFromUnlinked(${c.id})">연결</button>
+        <button class="btn btn-xs" data-action="call" data-call="openUnlinkedHire(${c.id})">연결 없이 입사 처리</button>
       </div>`).join('');
   }
   openModal('modal-unlinked');
+}
+
+// 포지션 채용 절차 없이 합격한 지원자(예: 사내추천 직접 합격)를 포지션에 연결하지 않고 입사로 마무리한다.
+// 연결된 사내추천 건이 있으면 사내추천 화면의 입사 처리와 같은 규칙(유효기간·선접수)으로 입사일·CL을 저장하고
+// 3M/6M 포상금 일정을 만든다.
+function unlinkedHireReferral_(c) {
+  return referrals.find(r => !r.deletedAt && r.candId != null && Number(r.candId) === Number(c.id)) || null;
+}
+function openUnlinkedHire(candId) {
+  const c = candidates.find(x => Number(x.id) === Number(candId));
+  if(!c) { toast('지원자를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return; }
+  const ref = unlinkedHireReferral_(c);
+  const modal = document.getElementById('modal-unlinked-hire');
+  if(!modal) return;
+  modal.dataset.candId = String(c.id);
+  document.getElementById('ulh-target').textContent = `${c.name} · ${c.pos || '직무 미입력'}`;
+  const dateEl = document.getElementById('ulh-date');
+  dateEl.value = String(c.joinDate || '').slice(0, 10) || today();
+  const clWrap = document.getElementById('ulh-cl-wrap');
+  const clEl = document.getElementById('ulh-cl');
+  clEl.value = ref?.hireCL || '';
+  clWrap.style.display = ref ? '' : 'none';
+  document.getElementById('ulh-referral').textContent = ref
+    ? `사내추천(${ref.refName || ref.refEmail || ref.id}) 건도 함께 '입사'로 바꾸고 3M/6M 포상금 일정을 만듭니다.`
+    : '연결된 사내추천 건이 없어 지원자만 입사로 처리합니다.';
+  openModal('modal-unlinked-hire');
+}
+function confirmUnlinkedHire() {
+  const modal = document.getElementById('modal-unlinked-hire');
+  const c = candidates.find(x => Number(x.id) === Number(modal?.dataset.candId));
+  if(!c) { toast('지원자를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.', 'terr'); return; }
+  const hireDate = document.getElementById('ulh-date')?.value || '';
+  if(!hireDate) { fieldError_('ulh-date', '입사일을 입력해 주세요.'); return; }
+  const ref = unlinkedHireReferral_(c);
+  const hireCL = document.getElementById('ulh-cl')?.value || '';
+  if(ref && !hireCL) { fieldError_('ulh-cl', '사내추천 포상금 일정을 만들려면 입사 CL을 선택해 주세요.'); return; }
+
+  // 지원자: 입사(7)로 마무리. 남은 미확정 면접은 정리한다.
+  c.stage = 7;
+  c.joinDate = hireDate;
+  if(!c.finalAt) c.finalAt = today();
+  c.lastStageChangedAt = new Date().toISOString();
+  c.mailPending = false;
+  c.mailPendingLabel = '';
+  c.held = false;
+  interviews = interviews.filter(i => !(Number(i.candId) === Number(c.id) && (i.status || 'pending') === 'pending'));
+  logActivity('입사 처리', `${c.name} · 포지션 연결 없이 입사(${hireDate})`, 'candidate', c.id);
+
+  // 사내추천: 사내추천 화면의 입사 처리와 같은 규칙
+  let referralNote = '';
+  if(ref) {
+    const first = firstReferralForCandidate(ref);
+    if(ref.validUntil && formatDate(hireDate) > formatDate(ref.validUntil)) {
+      referralNote = '추천 유효기간이 지나 사내추천 건은 포상금 대상으로 처리하지 않았습니다. 사내추천 화면에서 확인해 주세요.';
+    } else if(first && first.id !== ref.id) {
+      referralNote = `먼저 접수된 추천 건(${first.id})이 있어 이 추천 건은 입사·포상 처리하지 않았습니다. 사내추천 화면에서 확인해 주세요.`;
+    } else {
+      const actor = currentReferralActor();
+      Object.assign(ref, { status:'HIRED', hireDate, hireCL, reviewedBy:actor, reviewedAt:new Date().toISOString(), updatedBy:actor, updatedAt:new Date().toISOString() });
+      ensureRewardsForReferral(ref);
+      referralNote = '사내추천 건도 입사로 바꾸고 포상금 일정을 만들었습니다.';
+    }
+  }
+  saveState();
+  if(GS_CONFIG.scriptUrl) {
+    const jobs = [() => syncCandToGS(c)];
+    if(ref && ref.status === 'HIRED') jobs.push(() => syncReferralToGS(ref));
+    settleSync(jobs, '연결 없이 입사 처리');
+  }
+  closeModal('modal-unlinked-hire');
+  showUnlinkedList();
+  if(referralNote && referralNote.includes('확인해 주세요')) toast(`${c.name}님을 입사로 처리했습니다. ${referralNote}`, 'tw');
+  else toast(`${c.name}님을 입사로 처리했습니다.${referralNote ? ' ' + referralNote : ''}`, 'tok');
 }
 
 function linkCandFromUnlinked(candId) {

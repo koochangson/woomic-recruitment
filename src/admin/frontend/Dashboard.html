@@ -1428,6 +1428,27 @@
   </div>
 </div>
 
+<!-- ── 미연결 합격자: 연결 없이 입사 처리 ───────────────────── -->
+<div class="overlay" id="modal-unlinked-hire">
+  <div class="modal" style="width:440px">
+    <div class="modal-hd">
+      <div class="modal-title">연결 없이 입사 처리</div>
+      <button class="mclose" aria-label="닫기" data-action="close-modal" data-id="modal-unlinked-hire"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="ulh-target" style="font-weight:700;margin-bottom:6px"></div>
+      <div class="field-hint" style="margin-bottom:12px">포지션 채용 절차(면접·처우·검진) 없이 입사로 마무리합니다. 미연결 합격자 목록과 처리 필요 업무에서 빠집니다.</div>
+      <div class="fg"><label for="ulh-date">입사일 *</label><input id="ulh-date" type="date"></div>
+      <div class="fg" id="ulh-cl-wrap"><label for="ulh-cl">입사 CL *</label><select id="ulh-cl"><option value="">선택</option><option>CL1</option><option>CL2</option><option>CL3</option><option>CL4</option><option>CL5</option></select></div>
+      <div id="ulh-referral" class="field-hint" style="margin-top:4px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" data-action="close-modal" data-id="modal-unlinked-hire">취소</button>
+      <button class="btn btn-primary" data-action="call" data-call="confirmUnlinkedHire()">입사 처리</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 불합격 사유 입력 모달 ──────────────────────────────── -->
 <div class="overlay" id="modal-reject-reason">
   <div class="modal" style="width:440px">
