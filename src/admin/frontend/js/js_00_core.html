@@ -1154,6 +1154,9 @@ function confirmUnlinkedHire() {
   c.mailPending = false;
   c.mailPendingLabel = '';
   c.held = false;
+  const removedInterviewIds = interviews
+    .filter(i => Number(i.candId) === Number(c.id) && (i.status || 'pending') === 'pending')
+    .map(i => i.id);
   interviews = interviews.filter(i => !(Number(i.candId) === Number(c.id) && (i.status || 'pending') === 'pending'));
   logActivity('입사 처리', `${c.name} · 포지션 연결 없이 입사(${hireDate})`, 'candidate', c.id);
 
@@ -1175,6 +1178,7 @@ function confirmUnlinkedHire() {
   saveState();
   if(GS_CONFIG.scriptUrl) {
     const jobs = [() => syncCandToGS(c)];
+    removedInterviewIds.forEach(id => jobs.push(() => deleteIntFromGS(id)));
     if(ref && ref.status === 'HIRED') jobs.push(() => syncReferralToGS(ref));
     settleSync(jobs, '연결 없이 입사 처리');
   }
