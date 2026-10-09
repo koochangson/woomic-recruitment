@@ -36,7 +36,10 @@ node scripts/test-backend.mjs     # 서버 함수 동작(로그인 해시·메�
 node scripts/test-row-sync.mjs    # 입사·처우 기록 두 PC 동시 수정 병합
 node scripts/check-backend-drift.mjs  # 관리자·공개 Code.gs 같은 이름 함수 어긋남
 node scripts/test-deployment-parts.mjs  # 업로드 묶음 일부만 올렸을 때 감지(admin_98_build_manifest.gs)
+node scripts/check-change-log-writes.mjs  # 데이터 시트 쓰기는 변경 이력(appendChange_)을 남기는지
 ```
+
+데이터 시트에 쓰는 서버 함수는 반드시 `appendChange_`/`appendChanges_`로 변경 이력을 남깁니다. 다른 PC의 변경 감지와 새로고침 변경분 조회(getAll since)가 변경 이력만 보고 바뀐 행을 고르므로, 빠지면 그 변경이 다른 PC에 반영되지 않습니다. 내부 시트(MailLog 등)만 `scripts/check-change-log-writes.mjs`의 예외 목록에 이유와 함께 둡니다.
 
 관리자·공개 양쪽에 같은 내용이 필요한 함수는 `src/shared/backend/shared_00_runtime.gs`에 한 번만 둡니다(두 `Code.gs`에 사본을 만들지 않습니다). 두 `Code.gs`에 같은 이름으로 있는 함수는 배포마다 달라야 하는 것뿐이며, 그런 함수는 `config/backend-divergence.json`에 이유와 함께 등록합니다. 그 함수를 고친 뒤에는 다른 쪽도 맞춰야 하는지 확인하고 `node scripts/check-backend-drift.mjs --update`로 지문을 갱신합니다.
 
