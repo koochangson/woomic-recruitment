@@ -702,5 +702,29 @@ for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGs
   check('deleteRows: 한 번에 너무 많으면 오류', run('deleteRows_("ActivityLog", Array.from({ length: 501 }, (_, i) => "X" + i))').error === 'too_many_ids');
 }
 
+// ── 추천인 등록 중 지원자 레퍼런스 행이 지워지면 추천인 행을 남기지 않는다 ──
+for (const [label, gsPath] of [['관리자', adminGsSource], ['공개', publicGsSource]]) {
+  const { run, ctx, state } = loadBackend(gsPath);
+  const candHeaders = run('SHEET_SCHEMAS.ReferenceCandidates');
+  const candRow = { id: 'RC9', token: 'tok9', candName: '홍길동', pipelineCandId: '', refereesSubmittedAt: '' };
+  const candSheet = memorySheet([candHeaders.slice(), candHeaders.map(h => candRow[h] ?? '')]);
+  const appended = [];
+  const responseSheet = { appendRow: row => appended.push(row) };
+  Object.assign(ctx, {
+    ensureSheet_: name => (name === 'ReferenceCandidates' ? candSheet : responseSheet),
+    ensureHeaders_: (sheet, schema) => schema,
+    // 행 번호를 찾은 뒤(지원자 정보 읽는 시점에) 관리자가 그 행을 지운 상황
+    readRows_: () => { const rows = [{ ...candRow }]; candSheet.deleteRows(2, 1); return rows; },
+    candidateProcessClosed_: () => false,
+    referenceLinkExpired_: () => false,
+    appendChange_: () => {},
+    logMailSend_: () => {},
+    buildReferenceResponseLinkUrl_: t => 'https://example.invalid/' + t,
+  });
+  const referees = [1, 2, 3].map(i => ({ name: 'R' + i, email: 'r' + i + '@x.com', phone: '010-0000-000' + i, relation: '동료', company: 'C' }));
+  const r = run('submitReferenceCandidateReferees_(' + JSON.stringify({ data: { token: 'tok9', referees } }) + ')');
+  check(label + ': 지원자 행이 사라지면 추천인 행·메일 없이 중단', r.error === 'invalid_token' && appended.length === 0 && state.mails === 0, { r, appended: appended.length, mails: state.mails });
+}
+
 console.log(`Backend tests: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

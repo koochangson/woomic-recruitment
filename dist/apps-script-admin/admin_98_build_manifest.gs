@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "aa93adcfd2c7",
+ "build": "f8689adc8b1d",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_08_referral_tokens.gs",
@@ -961,7 +961,7 @@ const BUILD_MANIFEST_ = {
   ],
   "submitReferenceCandidateRefereesUnlocked_": [
    "admin_04_reference.gs",
-   "c1d4df387e3f"
+   "3f05c67d0533"
   ],
   "submitReferenceCandidateReferees_": [
    "shared_00_runtime.gs",

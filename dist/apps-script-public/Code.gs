@@ -542,6 +542,9 @@ function submitReferenceCandidateRefereesUnlocked_(payload, outbox) {
     return { error: 'duplicate_referee_email' };
   }
 
+  // 추천인 행을 추가하기 직전에 지원자 레퍼런스 행이 그대로 있는지 다시 확인한다(그 사이 삭제됐으면
+  // 추천인 행만 남지 않도록 아무것도 쓰지 않는다). 마지막 상태 기록 직전에도 한 번 더 확인한다.
+  if (confirmRowIndex_(candSheet, candHeaders, 'token', token, rowIndex) < 0) return { error: 'invalid_token' };
   const responseSheet = ensureSheet_('ReferenceResponses');
   const responseHeaders = ensureHeaders_(responseSheet, SHEET_SCHEMAS.ReferenceResponses);
   let issuedCount = 0;
