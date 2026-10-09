@@ -347,7 +347,7 @@ function commonAttachmentBlob_(kind) {
     if (bytes.length !== Number(meta.size)) return null;
     return Utilities.newBlob(bytes, 'application/pdf', meta.name || 'attachment.pdf');
   } catch (err) {
-    console.warn('commonAttachmentBlob_ failed (' + kind + '): ' + String(err && err.message || err));
+    console.warn('commonAttachmentBlob_ failed (' + kind + '): ' + logErrorText_(err));
     return null;
   }
 }
@@ -626,7 +626,7 @@ function handleSendGeneralMail_(payload) {
   } catch (err) {
     finishMailDedupe_(dedupe.key, false);
     const errorText = String(err && err.message || err);
-    console.warn('handleSendGeneralMail_ failed: ' + errorText);
+    console.warn('handleSendGeneralMail_ failed: ' + logErrorText_(errorText));
     return json_({ error: errorText || 'mail_send_failed' });
   }
 }

@@ -466,7 +466,7 @@ function upgradeAdminPasswordHash_(loginId, password) {
     });
     if (replaced) props.setProperty(LOCAL_ADMIN_USERS_PROPERTY, entries.join('\n'));
   } catch (err) {
-    console.warn('upgradeAdminPasswordHash_ failed: ' + String(err && err.message || err));
+    console.warn('upgradeAdminPasswordHash_ failed: ' + logErrorText_(err));
   } finally {
     lock.releaseLock();
   }

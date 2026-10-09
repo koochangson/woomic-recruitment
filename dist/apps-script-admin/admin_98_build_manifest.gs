@@ -1,7 +1,7 @@
 // 자동 생성 파일(tools/build_manifest.js) — 직접 고치지 않습니다.
 // 업로드한 파일들이 같은 빌드인지 서버가 확인하는 데 씁니다(checkDeploymentParts_).
 const BUILD_MANIFEST_ = {
- "build": "61c180159105",
+ "build": "aa93adcfd2c7",
  "functions": {
   "acquireOpsRunGuard_": [
    "admin_08_referral_tokens.gs",
@@ -145,7 +145,7 @@ const BUILD_MANIFEST_ = {
   ],
   "commonAttachmentBlob_": [
    "admin_05_general_mail.gs",
-   "6861db3368de"
+   "03d1d85f2bb3"
   ],
   "commonAttachmentSheet_": [
    "admin_05_general_mail.gs",
@@ -261,7 +261,7 @@ const BUILD_MANIFEST_ = {
   ],
   "fetchEmployeeDirectoryRowsFromUrl_": [
    "shared_00_runtime.gs",
-   "5753cac87d93"
+   "1ff390e52f11"
   ],
   "findActiveEmployeeByEmail_": [
    "shared_00_runtime.gs",
@@ -405,11 +405,11 @@ const BUILD_MANIFEST_ = {
   ],
   "handleSendGeneralMail_": [
    "admin_05_general_mail.gs",
-   "672b8d599ddd"
+   "bbaf6959777d"
   ],
   "hardenUploadedFileSharing_": [
    "shared_00_runtime.gs",
-   "014229dd73e7"
+   "fec4c30f7bf9"
   ],
   "hasValidAdminSession_": [
    "admin_09_auth.gs",
@@ -531,13 +531,17 @@ const BUILD_MANIFEST_ = {
    "admin_05_general_mail.gs",
    "5c4014082f67"
   ],
+  "logErrorText_": [
+   "shared_00_runtime.gs",
+   "4c5e4180d699"
+  ],
   "logMailSend_": [
    "shared_00_runtime.gs",
-   "dd63f6c28347"
+   "42d5ae7dde51"
   ],
   "lookupEmployeeByEmpNoFromUrl_": [
    "shared_00_runtime.gs",
-   "1a2898509ca9"
+   "cbbe307316b6"
   ],
   "mailAttachmentTotalBytes_": [
    "admin_00_core.gs",
@@ -797,7 +801,7 @@ const BUILD_MANIFEST_ = {
   ],
   "referenceMailHtml_": [
    "admin_04_reference.gs",
-   "1e3b3d5d93ec"
+   "28d7ac610b16"
   ],
   "referenceNameWithoutHonorific_": [
    "admin_04_reference.gs",
@@ -861,7 +865,7 @@ const BUILD_MANIFEST_ = {
   ],
   "resendReferenceRefereeLink_": [
    "admin_04_reference.gs",
-   "a83a79fe5424"
+   "5d7f4f43c76b"
   ],
   "reserveChangeCursors_": [
    "shared_00_runtime.gs",
@@ -897,7 +901,7 @@ const BUILD_MANIFEST_ = {
   ],
   "sendCohortCompleteNotice_": [
    "admin_04_reference.gs",
-   "676e646d6445"
+   "5b630d8508bb"
   ],
   "sendMailViaGmail_": [
    "admin_01_mail_base.gs",
@@ -905,19 +909,19 @@ const BUILD_MANIFEST_ = {
   ],
   "sendOpsMailOnce_": [
    "admin_08_referral_tokens.gs",
-   "8a003028d5d1"
+   "f451089ebce2"
   ],
   "sendReferenceEmail_": [
    "admin_04_reference.gs",
-   "a7b5d0636dd2"
+   "17891973dc37"
   ],
   "sendReferenceRefereeRequestMail_": [
    "admin_04_reference.gs",
-   "9dded2c8edb2"
+   "6b9cd5cf6093"
   ],
   "sendReferralVerificationCode_": [
    "admin_03_referral_public.gs",
-   "a0abd77ec507"
+   "d669eb189bb0"
   ],
   "setInterviewAvailabilityDeliveryStatus_": [
    "admin_04_reference.gs",
@@ -973,7 +977,7 @@ const BUILD_MANIFEST_ = {
   ],
   "upgradeAdminPasswordHash_": [
    "admin_09_auth.gs",
-   "c99ce5ddc36c"
+   "2a4a95d5ee19"
   ],
   "uploadCommonAttachment_": [
    "admin_05_general_mail.gs",
@@ -1037,7 +1041,7 @@ const BUILD_MANIFEST_ = {
   ],
   "writeEmployeeDirectoryCache_": [
    "shared_00_runtime.gs",
-   "2a9009340a68"
+   "f3a8f208d78b"
   ]
  },
  "html": {

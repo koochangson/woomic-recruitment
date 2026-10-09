@@ -61,7 +61,7 @@ function sendReferralVerificationCode_(payload) {
     const result = sendMailViaGmail_(employee.email, '[우미건설] 사내추천 인증번호', message);
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
   } catch (err) {
-    console.warn('sendReferralVerificationCode_ failed: ' + String(err && err.message || err));
+    console.warn('sendReferralVerificationCode_ failed: ' + logErrorText_(err));
     return json_({ error: 'mail_send_failed' });
   }
 

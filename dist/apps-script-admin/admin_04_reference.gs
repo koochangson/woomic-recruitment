@@ -92,7 +92,7 @@ function sendCohortCompleteNotice_(subject, message) {
   try {
     sendMailViaGmail_(to, subject, message, '');
   } catch (err) {
-    console.warn('sendCohortCompleteNotice_ failed: ' + (err && err.message || err));
+    console.warn('sendCohortCompleteNotice_ failed: ' + logErrorText_(err));
   }
 }
 
@@ -261,7 +261,7 @@ function sendReferenceRefereeRequestMail_(job) {
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
     return true;
   } catch (err) {
-    console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
+    console.warn('submitReferenceCandidateReferees_ mail failed: ' + logErrorText_(err));
     return false;
   }
 }
@@ -311,7 +311,7 @@ function resendReferenceRefereeLink_(payload) {
     );
     if (!result.ok) throw new Error(result.error || 'mail_send_failed');
   } catch (err) {
-    console.warn('resendReferenceRefereeLink_ mail failed: ' + String(err && err.message || err));
+    console.warn('resendReferenceRefereeLink_ mail failed: ' + logErrorText_(err));
     return json_({ error: 'mail_send_failed' });
   }
   return json_({ ok: true });
@@ -335,7 +335,7 @@ function sendReferenceEmail_(payload) {
     finishMailDedupe_(dedupe.key, true);
   } catch (err) {
     finishMailDedupe_(dedupe.key, false);
-    console.warn('sendReferenceEmail_ failed: ' + String(err && err.message || err));
+    console.warn('sendReferenceEmail_ failed: ' + logErrorText_(err));
     return json_({ error: 'mail_send_failed' });
   }
   return json_({ ok: true, to: to });
@@ -470,7 +470,7 @@ function referenceMailHtml_(message, context) {
     const templateHtml = HtmlService.createHtmlOutputFromFile(fileName).getContent();
     return renderReferenceMailTemplate_(templateHtml, raw, data);
   } catch (err) {
-    console.warn('referenceMailHtml_ template failed: ' + String(err && err.message || err));
+    console.warn('referenceMailHtml_ template failed: ' + logErrorText_(err));
     return referenceMailHtmlFallback_(raw, data);
   }
 }

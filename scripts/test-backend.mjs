@@ -460,6 +460,24 @@ function loadOps({ notifyEmail = 'people@x.com', retentionMonths = '' } = {}) {
   check('dailyOps: 보냈지만 MailLog 기록 실패면 경고', ops.state.mails === 3 && r.warnings.includes('mail_log_failed'), r.warnings);
 }
 
+// 받는 사람 수 기준 한도: notifyEmail에 두 명이면 내부 알림 1건에 한도 2를 쓴다
+{
+  const ops = loadOps({ notifyEmail: 'people1@x.com, people2@x.com' });
+  ops.ctx.MailApp.getRemainingDailyQuota = () => 3;
+  const r = ops.run('dailyOps()');
+  check('dailyOps: 받는 사람 수만큼 한도가 없으면 그 메일은 미룸', ops.state.mails === 2 && r.internalNotices === 0 && r.deferred === 1 && r.warnings.includes('mail_quota_exhausted'), r);
+}
+// 실행 로그 개인정보 가림
+{
+  const { run } = loadBackend(publicGsSource);
+  const masked = run('logErrorText_(new Error("Invalid email: hong.gildong@example.com, 010-1234-5678"))');
+  check('로그: 이메일·휴대폰 번호 가림', !masked.includes('hong.gildong@') && masked.includes('h***@example.com') && masked.includes('010-****-5678'), masked);
+  const json = run('logErrorText_(new Error(' + JSON.stringify('Unexpected token \'h\', "홍길동 010-9999-8888 추천" is not valid JSON') + '))');
+  check('로그: JSON 오류의 입력 일부 생략', !json.includes('홍길동') && json.includes('<입력 생략>'), json);
+  check('로그: 300자로 줄임', run('logErrorText_("x".repeat(1000))').length <= 301);
+  check('로그: 코드형 오류는 그대로', run('logErrorText_(new Error("not_available"))') === 'not_available');
+}
+
 // weeklyOps: 밀린 아카이브를 여러 배치로 처리하고, 끊겼던 실행의 행을 두 번 아카이브하지 않는다.
 {
   const ops = loadOps();

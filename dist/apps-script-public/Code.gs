@@ -107,7 +107,7 @@ const SHEET_SCHEMAS = {
 // 상세 내용은 실행 로그에 남긴다.
 function publicErrorCode_(err) {
   const message = String(err && err.message || err || '');
-  console.error('public request failed: ' + message);
+  console.error('public request failed: ' + logErrorText_(message));
   const match = /^([a-z][a-z0-9_]*)(?::|$)/.exec(message);
   return match ? match[1] : 'server_error';
 }
@@ -316,7 +316,7 @@ function sendReferralVerificationCode_(payload) {
       ].join('\n')
     });
   } catch (err) {
-    console.warn('sendReferralVerificationCode_ failed: ' + String(err && err.message || err));
+    console.warn('sendReferralVerificationCode_ failed: ' + logErrorText_(err));
     return json_({ error: 'mail_send_failed' });
   }
 
@@ -391,7 +391,7 @@ function sendCohortCompleteNotice_(subject, message) {
   try {
     sendLoggedMail_({ to: to, subject: subject, body: message, name: '피플팀' });
   } catch (err) {
-    console.warn('sendCohortCompleteNotice_ failed: ' + (err && err.message || err));
+    console.warn('sendCohortCompleteNotice_ failed: ' + logErrorText_(err));
   }
 }
 
@@ -502,7 +502,7 @@ function issueReferenceCandidateLink_(payload) {
       htmlBody: referenceMailHtml_(message)
     });
   } catch (err) {
-    console.warn('issueReferenceCandidateLink_ mail failed: ' + String(err && err.message || err));
+    console.warn('issueReferenceCandidateLink_ mail failed: ' + logErrorText_(err));
     return json_({ error: 'mail_send_failed' });
   }
 
@@ -622,7 +622,7 @@ function sendReferenceRefereeRequestMail_(job) {
     });
     return true;
   } catch (err) {
-    console.warn('submitReferenceCandidateReferees_ mail failed: ' + String(err && err.message || err));
+    console.warn('submitReferenceCandidateReferees_ mail failed: ' + logErrorText_(err));
     return false;
   }
 }

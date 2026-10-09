@@ -54,7 +54,7 @@
     "issueReferenceCandidateLink_": {
       "reason": "공개 배포에서는 차단. 관리자 쪽만 실제로 쓴다.",
       "admin": "9fad1e7230d2407e",
-      "public": "fe52c7495f2f5c99"
+      "public": "1216fc46ff435769"
     },
     "readRowsIfSheetExists_": {
       "reason": "공개는 시트별 스프레드시트 분리를 지원한다.",
@@ -63,7 +63,7 @@
     },
     "referenceMailHtml_": {
       "reason": "관리자는 메일 양식 파일(mail_0x_*.html), 공개는 내장 HTML을 쓴다.",
-      "admin": "1e3b3d5d93ec6fdb",
+      "admin": "28d7ac610b166129",
       "public": "d340005b2324aad5"
     },
     "routeRequest_": {
@@ -73,18 +73,18 @@
     },
     "sendCohortCompleteNotice_": {
       "reason": "메일 발송 함수가 다르다(관리자 sendMailViaGmail_, 공개 sendLoggedMail_).",
-      "admin": "676e646d644546b0",
-      "public": "cf37618e274fed06"
+      "admin": "5b630d8508bbd635",
+      "public": "ff2e2ea8ca5507d5"
     },
     "sendReferenceRefereeRequestMail_": {
       "reason": "메일 발송 함수·양식이 다르다(관리자 sendMailViaGmail_+양식 파일, 공개 sendLoggedMail_+내장 HTML).",
-      "admin": "9dded2c8edb23123",
-      "public": "3becb3af7e4082ef"
+      "admin": "6b9cd5cf60938fdc",
+      "public": "6a9ba08ed9aab468"
     },
     "sendReferralVerificationCode_": {
       "reason": "메일 발송 함수가 다르다(관리자 sendMailViaGmail_, 공개 sendLoggedMail_).",
-      "admin": "1a77e186e1447b48",
-      "public": "453746876052bd41"
+      "admin": "7e1fc529af17e0cd",
+      "public": "234e4f2db8eccab8"
     },
     "setInterviewAvailabilityDeliveryStatus_": {
       "reason": "공개 배포에서는 차단. 관리자 쪽만 실제로 쓴다.",

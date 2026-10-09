@@ -215,16 +215,18 @@ function sendOpsMailOnce_(eventKey, to, subject, body, htmlBody) {
   // 실행시간 제한(6분)에 강제로 끊기면 '보냈는데 기록 전'인 메일이 생겨 다시 실행할 때 중복될 수 있다.
   // 예산을 넘기면 더 보내지 않고 미룬다 — 같은 날 다시 실행하면 이어서 보낸다.
   if (opsTimeBudgetExceeded_()) return { ok: false, deferred: true };
-  // 일일 발송 한도가 남지 않았으면 보내지 않고 미룬다(한도 초과 오류를 메일마다 쌓지 않는다).
+  // 일일 발송 한도가 받는 사람 수만큼 남지 않았으면 보내지 않고 미룬다(한도 초과 오류를 메일마다 쌓지 않는다).
+  // 한도는 메일 건수가 아니라 받는 사람 수로 줄어든다(notifyEmail에 주소가 여러 개일 수 있다).
+  const recipients = Math.max(1, String(to || '').split(/[;,]/).filter(addr => addr.trim()).length);
   const quota = opsMailQuotaLeft_();
-  if (quota !== null && quota <= 0) {
+  if (quota !== null && quota < recipients) {
     EXEC_CACHE_.opsMailQuotaExhausted = true;
     return { ok: false, deferred: true };
   }
   const result = sendMailViaGmail_(to, subject, body, htmlBody, [], eventKey);
   if (result && result.ok) {
     opsSentEventKeys_().add(String(eventKey || ''));
-    if (quota !== null) EXEC_CACHE_.opsMailQuota = quota - 1;
+    if (quota !== null) EXEC_CACHE_.opsMailQuota = quota - recipients;
     // 보냈지만 MailLog에 못 남기면 다음 실행에서 같은 메일을 다시 보낼 수 있다 — 결과에 경고로 남긴다.
     if (result.logged === false) EXEC_CACHE_.opsMailLogFailed = true;
   }

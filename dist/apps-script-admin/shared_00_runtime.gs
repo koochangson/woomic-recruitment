@@ -84,6 +84,16 @@ function getScriptProperty_(key) {
   return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
 }
 
+// 실행 로그용 오류 문구: 이메일·휴대폰 번호를 가리고, JSON 파싱 오류에 딸려 오는 입력 일부를 빼고, 길이를 줄인다.
+// (실행 로그는 프로젝트 편집자에게 보이므로 지원자·추천인 개인정보가 그대로 남지 않게 한다.)
+function logErrorText_(err) {
+  let text = String(err && err.message || err || '');
+  text = text.replace(/"(?:[^"\\]|\\.)*" is not valid JSON/g, '<입력 생략> is not valid JSON');
+  text = text.replace(/([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, '$1***@$2');
+  text = text.replace(/\b(01[016789])[-\s.]?\d{3,4}[-\s.]?(\d{4})\b/g, '$1-****-$2');
+  return text.length > 300 ? text.slice(0, 300) + '…' : text;
+}
+
 function getActiveUserEmail_() {
   try {
     return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
@@ -529,7 +539,7 @@ function logMailSend_(to, subject, status, error, eventKey) {
     sheet.appendRow(headers.map(function(h) { return row[h] == null ? '' : row[h]; }));
     return true;
   } catch (err) {
-    console.warn('logMailSend_ failed: ' + String(err && err.message || err));
+    console.warn('logMailSend_ failed: ' + logErrorText_(err));
     return false;
   }
 }
@@ -779,7 +789,7 @@ function hardenUploadedFileSharing_(file) {
   try {
     file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
   } catch (err) {
-    console.warn('hardenUploadedFileSharing_ failed: ' + String(err && err.message || err));
+    console.warn('hardenUploadedFileSharing_ failed: ' + logErrorText_(err));
   }
 }
 
@@ -1543,7 +1553,7 @@ function lookupEmployeeByEmpNoFromUrl_(empNo) {
     if (!payload.success || !payload.employee) return null;
     return normalizeActiveEmployee_(normalizeEmployeeDirectoryRow_(payload.employee));
   } catch (err) {
-    console.warn('lookupEmployeeByEmpNoFromUrl_ failed: ' + String(err && err.message || err));
+    console.warn('lookupEmployeeByEmpNoFromUrl_ failed: ' + logErrorText_(err));
     return null;
   }
 }
@@ -1594,7 +1604,7 @@ function fetchEmployeeDirectoryRowsFromUrl_() {
     writeEmployeeDirectoryCache_(cache, rows);
     return rows;
   } catch (err) {
-    console.warn('fetchEmployeeDirectoryRowsFromUrl_ failed: ' + String(err && err.message || err));
+    console.warn('fetchEmployeeDirectoryRowsFromUrl_ failed: ' + logErrorText_(err));
   }
   return [];
 }
@@ -1613,7 +1623,7 @@ function writeEmployeeDirectoryCache_(cache, rows) {
     }
     cache.put(EMPLOYEE_DIRECTORY_CACHE_KEY_PREFIX + 'count', String(chunkCount), EMPLOYEE_DIRECTORY_CACHE_TTL_SECONDS);
   } catch (err) {
-    console.warn('writeEmployeeDirectoryCache_ failed: ' + String(err && err.message || err));
+    console.warn('writeEmployeeDirectoryCache_ failed: ' + logErrorText_(err));
   }
 }
 
